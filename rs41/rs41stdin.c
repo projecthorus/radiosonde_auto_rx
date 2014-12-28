@@ -38,6 +38,7 @@ gpx_t gpx;
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
+    option_inv = 0,      // invertiert Signal
     wavloaded = 0;
 
 
@@ -87,7 +88,7 @@ int findstr(char *buff, char *str, int pos) {
 int read_wav_header(FILE *fp) {
     char txt[5] = "\0\0\0\0";
     char buff[4];
-    int byte, p;
+    int byte, p=0;
     // long pos_fmt, pos_dat;
     char fmt_[5] = "fmt ";
     char data[5] = "data";
@@ -204,8 +205,10 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     l = (float)n / samples_per_bit;  // abw = n % samples_per_bit;
 
     *len = (int)(l+0.5);
-    *bit = (1-par_alt)/2;  // unten 1, oben -1
-                           // inverse: *bit = (1+par_alt)/2;
+
+    if (!option_inv) *bit = (1-par_alt)/2;  // unten 1, oben -1
+    else             *bit = (1+par_alt)/2;  // inverse:
+
     /* Y-offset ? */
 
     return 0;
@@ -515,6 +518,9 @@ int main(int argc, char *argv[]) {
         }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
+        }
+        else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
+            option_inv = 1;
         }
         else {
             fp = fopen(*argv, "rb");
