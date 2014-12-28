@@ -82,7 +82,7 @@ int findstr(char *buff, char *str, long pos) {
     return i;
 }
 
-int read_wav_header(FILE *fp, int *sr, int *bs, int *ch) {
+int read_wav_header(FILE *fp) {
     char txt[5] = "\0\0\0\0";
     char buff[4];
     int byte, num, i;
@@ -111,7 +111,7 @@ int read_wav_header(FILE *fp, int *sr, int *bs, int *ch) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
         num |= (byte << (8*i));
     }
-    *ch = num;
+    channels = num;
 
     // if (fseek(fp, pos_fmt+12L, SEEK_SET)) return -1;  // 24L
     num = 0;
@@ -119,7 +119,7 @@ int read_wav_header(FILE *fp, int *sr, int *bs, int *ch) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
         num |= (byte << (8*i));
     }
-    *sr = num;
+    sample_rate = num;
 
     if (fseek(fp, pos_fmt+22, SEEK_SET)) return -1;  // 34L
     num = 0;
@@ -127,7 +127,7 @@ int read_wav_header(FILE *fp, int *sr, int *bs, int *ch) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
         num |= (byte << (8*i));
     }
-    *bs = num;
+    bits_sample = num;
 
     // pos_dat = 36L
     for ( ; ; ) {
@@ -522,7 +522,7 @@ int main(int argc, char *argv[]) {
         ++argv;
     }
     if (!wavloaded) {
-        fprintf(stderr, "%s [options] <rs41_audio.wav>\n", argv[0]);
+        fprintf(stderr, "rs41sg [options] <rs41_audio.wav>\n");
         fprintf(stderr, "  options:\n");
         fprintf(stderr, "       -v, --verbose\n");
         fprintf(stderr, "       -r, --raw\n");
@@ -530,7 +530,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    i = read_wav_header(fp, &sample_rate, &bits_sample, &channels);
+    i = read_wav_header(fp);
     if (i) {
         fclose(fp);
         return -1;
