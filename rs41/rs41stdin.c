@@ -16,11 +16,17 @@
  *     ./rs41stdin -v audio.wav 2>&1 >/dev/null | grep 0x00
  *     ./rs41stdin < audio.wav
  *     sox -t oss /dev/dsp -t wav - 2>/dev/null | ./rs41stdin
+ *     sox -t oss /dev/dsp -t wav - lowpass 3000 2>/dev/null | ./rs41stdin
  */
 
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
+#ifdef CYGWIN
+  #include <fcntl.h>  // cygwin: _setmode()
+  #include <io.h>
+#endif
 
 typedef unsigned char ui8_t;
 
@@ -239,7 +245,7 @@ int compare() {
 
     while (i < HEADLEN) {
         if (j < 0) j = HEADLEN-1;
-        if (buf[j] != header[HEADLEN+HEADOFS-1-i]) break;
+        if (buf[j] != header[HEADOFS+HEADLEN-1-i]) break;
         j--;
         i++;
     }
@@ -278,9 +284,20 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 }
 /* ------------------------------------------------------------------------------------ */
 
+/*
+SubHeader, 2byte
+0x039: 7928  FrameNumber+SondeID
+0x050: 0732  CalFrames 0x00..0x32
+0x093: 7C1E  GPS Week + TOW
+0x112: 7B15  ECEF (X,Y,Z) Coordinates
+*/
+
 #define pos_FrameNb   0x03B  // 2 byte
 #define pos_SondeID   0x03D  // 8 byte
 #define pos_CalData   0x052  // 1 byte, counter 0x00..0x32
+#define pos_Calfreq   0x055  // 2 byte, calfr 0x00
+#define pos_Calburst  0x05E  // 1 byte, calfr 0x02
+// ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
 #define pos_GPSweek   0x095  // 2 byte
 #define pos_GPSTOW    0x097  // 4 byte
 #define pos_GPSecefX  0x114  // 4 byte
@@ -336,6 +353,7 @@ int get_GPSweek() {
     }
 
     gpsweek = gpsweek_bytes[0] + (gpsweek_bytes[1] << 8);
+    if (gpsweek < 0) { gpx.week = -1; return -1; }
     gpx.week = gpsweek;
 
     return 0;
@@ -373,24 +391,29 @@ int get_GPStime() {
     return 0;
 }
 
-void ecef2elli(double X[], double *lat, double *lon, double *h) {
-    double a = 6378137.0,
-           b = 6356752.31424518,
-           e, ee;
-    double phi, lam, R, p, t;
 
-    e  = sqrt( (a*a - b*b) / (a*a) );
-    ee = sqrt( (a*a - b*b) / (b*b) );
+#define EARTH_a  6378137.0
+#define EARTH_b  6356752.31424518
+#define EARTH_a2_b2  (EARTH_a*EARTH_a - EARTH_b*EARTH_b)
+
+double a = EARTH_a,
+       b = EARTH_b,
+       a_b = EARTH_a2_b2,
+       e2  = EARTH_a2_b2 / (EARTH_a*EARTH_a),
+       ee2 = EARTH_a2_b2 / (EARTH_b*EARTH_b);
+
+void ecef2elli(double X[], double *lat, double *lon, double *h) {
+    double phi, lam, R, p, t;
 
     lam = atan2( X[1] , X[0] );
 
     p = sqrt( X[0]*X[0] + X[1]*X[1] );
     t = atan2( X[2]*a , p*b );
     
-    phi = atan2( X[2] + ee*ee * b * sin(t)*sin(t)*sin(t) ,
-                 p - e*e * a * cos(t)*cos(t)*cos(t) );
+    phi = atan2( X[2] + ee2 * b * sin(t)*sin(t)*sin(t) ,
+                 p - e2 * a * cos(t)*cos(t)*cos(t) );
 
-    R = a / sqrt( 1 - e*e*sin(phi)*sin(phi) );
+    R = a / sqrt( 1 - e2*sin(phi)*sin(phi) );
     *h = p / cos(phi) - R;
     
     *lat = phi*180/M_PI;
@@ -398,17 +421,50 @@ void ecef2elli(double X[], double *lat, double *lon, double *h) {
 }
 
 
+#define pos_Hkoord 0x112
+#define HEAD_koord 0xB9FF
+
+unsigned shiftLeft(int pos) {
+    unsigned tmp;
+    tmp = (frame[pos+1]<<8) + frame[pos];
+    tmp = (tmp >> 1) & 0xFF;
+    return tmp;
+}
+int shiftRight(int pos) {
+    unsigned tmp;
+    tmp = (frame[pos]<<8) + frame[pos-1];
+    tmp = (tmp >> 7) & 0xFF;
+    return tmp;
+}
+
 int get_GPSkoord() {
     int i, k;
     unsigned byte;
     ui8_t XYZ_bytes[4];
     int XYZ; // 32bit
     double X[3], lat, lon, h;
+    int shift = 0;
+
+    byte = (frame[pos_Hkoord]<<8) + frame[pos_Hkoord+1];
+    /* fprintf(stdout, "0x%04X ", byte );  // ^ 0xC2EA == 0x7B15 ? */
+    if (byte != HEAD_koord) {
+        byte = (shiftLeft(pos_Hkoord)<<8) + shiftLeft(pos_Hkoord+1);
+        if (byte == HEAD_koord) shift = 1;
+        else {
+            byte = (shiftRight(pos_Hkoord)<<8) + shiftRight(pos_Hkoord+1);
+            if (byte == HEAD_koord) shift = -1;
+        }
+        if (!shift) return 0x100;
+        //printf("shift:%2d ", shift);
+    }
 
     for (k = 0; k < 3; k++) {
 
         for (i = 0; i < 4; i++) {
-            byte = xorbyte(pos_GPSecefX + 4*k + i);
+            if      (shift > 0) byte = shiftLeft(pos_GPSecefX + 4*k + i);
+            else if (shift < 0) byte = shiftRight(pos_GPSecefX + 4*k + i);
+            else                byte = frame[pos_GPSecefX + 4*k + i];
+            byte = byte ^ mask[(pos_GPSecefX + 4*k + i) % MASK_LEN];
             XYZ_bytes[i] = byte;
         }
 
@@ -421,6 +477,7 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.h = h;
+    if ((h < -1000) || (h > 80000)) return -1;
 
     return 0;
 }
@@ -428,7 +485,9 @@ int get_GPSkoord() {
 int get_Cal() {
     int i;
     unsigned byte;
-    ui8_t calfr;
+    ui8_t calfr = 0;
+    ui8_t burst = 0;
+    int freq = 0, f0 = 0, f1 = 0;
 
     byte = xorbyte(pos_CalData);
     calfr = byte;
@@ -438,6 +497,23 @@ int get_Cal() {
         byte = xorbyte(pos_CalData+1+i);
         fprintf(stderr, " %02x", byte);
     }
+
+    if (option_verbose == 2) {
+        if (calfr == 0x02) {
+            byte = xorbyte(pos_Calburst);
+            burst = byte;
+            fprintf(stderr, ": BK %02X ", burst);
+        }
+        if (calfr == 0x00) {
+            byte = xorbyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
+            f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
+            byte = xorbyte(pos_Calfreq+1);
+            f1 = 40 * byte;
+            freq = 400000 + f1+f0; // kHz;
+            fprintf(stderr, ": fq %d ", freq);
+        }
+    }
+
     fprintf(stderr, "\n");
 
     return 0;
@@ -459,7 +535,7 @@ int print_position() {
         if (!err) {
             Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d] ", gpx.frnr);
-            if (option_verbose) fprintf(stdout, "(%s) ", gpx.id);
+            fprintf(stdout, "(%s) ", gpx.id);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
@@ -503,6 +579,11 @@ int main(int argc, char *argv[]) {
         byte, i;
     int bit, len;
 
+#ifdef CYGWIN
+    _setmode(fileno(stdin), _O_BINARY);  // _fileno(stdin)
+    setbuf(stdout, NULL);
+#endif
+
     fpname = argv[0];
     ++argv;
     while ((*argv) && (!wavloaded)) {
@@ -516,6 +597,7 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
+        else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 2; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
