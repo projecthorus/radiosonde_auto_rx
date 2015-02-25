@@ -492,10 +492,10 @@ int get_Cal() {
     byte = xorbyte(pos_CalData);
     calfr = byte;
 
-    fprintf(stderr, "  0x%02x:", calfr);
+    fprintf(stderr, " 0x%02x: ", calfr);
     for (i = 0; i < 16; i++) {
         byte = xorbyte(pos_CalData+1+i);
-        fprintf(stderr, " %02x", byte);
+        fprintf(stderr, "%02x ", byte);
     }
 
     if (option_verbose == 2) {
@@ -513,8 +513,6 @@ int get_Cal() {
             fprintf(stderr, ": fq %d ", freq);
         }
     }
-
-    fprintf(stderr, "\n");
 
     return 0;
 }
@@ -544,10 +542,13 @@ int print_position() {
             fprintf(stdout, " lat: %.5f ", gpx.lat);
             fprintf(stdout, " lon: %.5f ", gpx.lon);
             fprintf(stdout, " h: %.2f ", gpx.h);
+            fprintf(stdout, "\n");  // fflush(stdout);
 
-            if (option_verbose) get_Cal();
-
-            fprintf(stdout, "\n");
+            if (option_verbose) { 
+                fprintf(stderr, "[%5d] ", gpx.frnr);
+                get_Cal();
+                fprintf(stderr, "\n");
+            }
         }
 
     return err;
