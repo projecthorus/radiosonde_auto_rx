@@ -628,12 +628,14 @@ int main(int argc, char *argv[]) {
     while (!read_bits_fsk(fp, &bit, &len)) {
 
         if (len == 0) { // reset_frame();
-            if (byte_count > FRAME_LEN-20) print_frame(byte_count);
-            bit_count = 0;
-            byte_count = FRAMESTART;
-            header_found = 0;
-            inc_bufpos();
-            buf[bufpos] = 'x';
+            if (byte_count > FRAME_LEN-20) {
+                print_frame(byte_count);
+                bit_count = 0;
+                byte_count = FRAMESTART;
+                header_found = 0;
+            }
+            //inc_bufpos();
+            //buf[bufpos] = 'x';
             continue;   // ...
         }
 
