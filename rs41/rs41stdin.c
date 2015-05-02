@@ -45,6 +45,7 @@ gpx_t gpx;
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
+    option_res = 0,      // genauere Bitmessung
     wavloaded = 0;
 
 
@@ -190,20 +191,27 @@ int par=1, par_alt=1;
 unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
-    int n, sample;
-    float l;
+    int n, sample, y0;
+    float l, x1;
+    static float x0;
 
     n = 0;
     do{
+        y0 = sample;
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         sample_count++;
         par_alt = par;
-        par =  (sample >= 0) ? 1 : -1;
+        par =  (sample > 0) ? 1 : -1;
         n++;
     } while (par*par_alt > 0);
 
-    l = (float)n / samples_per_bit;
+    if (!option_res) l = (float)n / samples_per_bit;
+    else {                                 // genauere Bitlaengen-Messung
+        x1 = sample/(float)(sample-y0);    // hilft bei niedriger sample rate
+        l = (n+x0-x1) / samples_per_bit;   // meist mehr frames (nicht immer)
+        x0 = x1;
+    }
 
     *len = (int)(l+0.5);
 
@@ -653,6 +661,7 @@ int main(int argc, char *argv[]) {
             option_verbose = 1;
         }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 2; }
+        else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
