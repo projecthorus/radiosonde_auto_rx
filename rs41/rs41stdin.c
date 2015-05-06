@@ -1,6 +1,6 @@
 
 /*
- * radiosonde RS41-SG
+ * radiosondes RS41-SG(P)
  * author: zilog80
  * usage:
  *     gcc rs41stdin.c -lm -o rs41stdin
@@ -301,6 +301,8 @@ SubHeader, 2byte
 #define pos_Calfreq   0x055  // 2 byte, calfr 0x00
 #define pos_Calburst  0x05E  // 1 byte, calfr 0x02
 // ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
+#define pos_CalRSTyp  0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
+        // weitere chars in calfr 0x22/0x23; weitere ID
 #define pos_GPSweek   0x095  // 2 byte
 #define pos_GPSTOW    0x097  // 4 byte
 #define pos_GPSecefX  0x114  // 4 byte
@@ -551,6 +553,7 @@ int get_Cal() {
     ui8_t calfr = 0;
     ui8_t burst = 0;
     int freq = 0, f0 = 0, f1 = 0;
+    char sondetyp[9];
 
     byte = xorbyte(pos_CalData);
     calfr = byte;
@@ -574,6 +577,15 @@ int get_Cal() {
             f1 = 40 * byte;
             freq = 400000 + f1+f0; // kHz;
             fprintf(stderr, ": fq %d ", freq);
+        }
+        if (calfr == 0x21) {  // eventuell noch zwei bytes in 0x22
+            for (i = 0; i < 9; i++); sondetyp[i] = 0;
+            for (i = 0; i < 8; i++) {
+                byte = xorbyte(pos_CalRSTyp + i);
+                if ((byte >= 0x20) && (byte < 0x80)) sondetyp[i] = byte;
+                else if (byte == 0x00) sondetyp[i] = '\0';
+            }
+            fprintf(stderr, ": %s ", sondetyp);
         }
     }
 
