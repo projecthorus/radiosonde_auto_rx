@@ -1,6 +1,6 @@
 
 /*
- * radiosonde iMet-1
+ * radiosonde iMet-1-AB (Trimble GPS)
  * author: zilog80
  * usage:
  *     gcc imet.c -o imet
