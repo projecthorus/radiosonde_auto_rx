@@ -143,14 +143,13 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 }
 
 
-int par=1, par_alt=1;
+int par=-1, par_alt=-1;
 unsigned long sample_count = 0;
 
 int read_afsk_bits(FILE *fp, int *len) {
     int n, sample;
     float l;
     int start;
-    //int sample_in = sample_count;
 
     start = 0;
     n = 0;
@@ -177,7 +176,42 @@ int read_afsk_bits(FILE *fp, int *len) {
     } while (par*par_alt > 0);
 
     l = (float)n / (samples_per_bit/2.0);
+    *len = (int)(l+0.5); // round(l)
 
+    return 0;
+}
+
+int read_afsk_bits1(FILE *fp, int *len) {
+    int n; static int sample;
+    float l;
+
+    while (sample >= 0) {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        if (option_inv) sample = -sample;
+        sample_count++;     
+    }
+    n = 0;
+    while (sample < 0) {
+        n++;
+        par_alt = par;
+        par =  (sample >= 0) ? 1 : -1;
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        if (option_inv) sample = -sample;
+        sample_count++;     
+    }
+    while (sample >= 0) {
+        n++;
+        par_alt = par;
+        par =  (sample >= 0) ? 1 : -1;
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        if (option_inv) sample = -sample;
+        sample_count++;     
+    }
+
+    l = (float)n / (samples_per_bit/2.0);
     *len = (int)(l+0.5); // round(l)
 
     return 0;
@@ -386,10 +420,12 @@ int bitl1 = 0,
             fprintf(stderr, "       -r, --raw\n");
             return 0;
         }
+/*
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 2; }
+*/
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
