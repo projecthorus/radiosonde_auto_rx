@@ -3,6 +3,8 @@
  * radiosonde iMet-1-RSB
  * Bell202 8N1
  * open packet format
+ * -> Appendix: Binary Radiosonde Packet Definition
+ *    ECC_Ozonesonde.pdf, O3_manual.pdf
  */
 
 #include <stdio.h>
