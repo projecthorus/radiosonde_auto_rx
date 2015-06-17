@@ -11,11 +11,11 @@ bytes getrennt durch 4 bit 1110
 
 Datenpaket besteht aus 8 byte:
 header  2 byte  00FF
-pck-id  1 byte  N
+pck_id  1 byte  N
 data    4 byte  val (big endian)
-chksum  2 byte  (byte1: Summe der bytes von fr_id+val & 0xFF)
+chksum  2 byte  (byte1: Summe der bytes von pck_id+val & 0xFF)
 
-Telemetrie pck-ids N:
+Telemetrie pck_id N:
 0x14: date: 0x00027173 =   160115 -> 2015-01-16
 0x15: time: 0x0001E73F =   124735 -> 12:47:35
 0x16: lat : 0x02D39C9B = 47422619 -> 47+422619/600000=47.704365°
