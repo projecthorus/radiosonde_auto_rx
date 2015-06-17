@@ -1,0 +1,53 @@
+DFM-06:
+
+Quellcode gibt es schon hier:
+http://www.uni-kl.de/AFG/dfm-06.htm
+
+
+GPS Chip:
+Navman/Telit
+
+Modulation: FSK
+raw: 2500 bit/s.
+Manchester codiert -> 1250 baud
+
+Frame: 280 bit, davon 16 bit Header 0x45CF, dann
+       3 Bloecke (CFG,DAT1,DAT2) mit (56,104,104) bits
+Interleaved: 7x8, 13x8, 13x8
+erweiterter systematischer [8,4]-Hamming-Code, erste 4 bit sind Daten
+Big Endian
+
+
+CFG-Block beginnt mit nibble
+0,1,2, 0,1,3, 0,1,4, 0,1,5, 0,1,6,
+0,1,2, ...
+
+DFM-06 (341110) Seriennummer xxxxxx:
+CFG-Block 6xxxxxx (Kanal 6)
+(fehlt bei aelteren DFMs)
+
+
+DAT-Block 48bit + 4bit-PCK_ID 0x0..0x8 (letztes nibble):
+PCK_ID  bitpos
+
+0x0     24..31   Counter: 8 bit
+
+0x1     32..48   GPS-msec : 16bit  (sec*1e3)
+
+0x2      0..31   GPS-lat  : 32bit, Faktor 1e7
+        32..48   hor-V m/s: 16bit, Faktor 1e2
+
+0x3      0..31   GPS-lon  : 32bit, Faktor 1e7
+        32..48   direction: 16bit, Faktor 1e2
+
+0x4      0..31   GPS-alt m: 32bit, Faktor 1e2
+        32..48   ver-V m/s: 16bit, Faktor 1e2
+
+0x8      0..11   Jahr : 12bit
+        12..15   Monat:  4bit
+        16..20   Tag  :  5bit
+        21..25   Std  :  5bit
+        26..31   Min  :  6bit
+
+0xF      0..47   000000000000
+
