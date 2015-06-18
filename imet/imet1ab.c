@@ -498,10 +498,10 @@ int bitl1 = 0,
                     byteval = bits2byte(bitbuf);
                     if (byteval == 0x10  &&  frame[bytepos-1] == 0x10) frame[bytepos-1] = 0x10;
                     else {                                          // woher die doppelte 0x10?
-                        frame[bytepos] = byteval & 0xFF;
-                        bytepos++;
-                    }
-                }
+                        frame[bytepos] = byteval & 0xFF;            // koennte vom TSIP-Protokoll kommen:
+                        bytepos++;                                  // <DLE><id><data_bytes><DLE><ETX>,
+                    }                                               // wobei <DLE>=0x10, <ETX>=0x03.
+                }                                                   // wenn 0x10 in data, dann doppelt.
                 
             }
             bitpos = 0;
