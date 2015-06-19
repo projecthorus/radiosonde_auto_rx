@@ -2,6 +2,8 @@ RS41-SG
 RS41-SGP (mit Preambel)
 
 
+Modulation: GFSK, 4800 baud
+
 Pro Sekunde 1 Frame
 4800 bit/s, jedoch nur ca 534ms pro sek.
 little endian, 8bit->1byte
@@ -73,8 +75,7 @@ GPS Chip: u-blox
 
 
 
-
-Data whitening:
+Data whitening/scrambling:
 Block shiften und gegen sich selbst XOR-en.
 
 Wenn man die richtige Blocklaenge gefunden hat, erhaelt man  enc_i ^ enc_j = dec_i ^ dec_j.
@@ -105,6 +106,7 @@ FrameNr , SondeId : 0x16b0 , 4b31393330323933  (K1930293)
 
 [ 5808] (K1930293) Mo 2014-07-07 12:36:12 (W 1800)  lat: 46.04934  lon: 16.13034  h: 32347.21 
 
-
+Der XOR-Text mit den Nullen ist dann die scrambling-Maske:
+Maske[0xFB..0x104]=0xAEBF7B4CC196833E51B1=Mask[0x3B..0x44]
 
 
