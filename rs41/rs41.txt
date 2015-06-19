@@ -1,0 +1,110 @@
+RS41-SG
+RS41-SGP (mit Preambel)
+
+
+Pro Sekunde 1 Frame
+4800 bit/s, jedoch nur ca 534ms pro sek.
+little endian, 8bit->1byte
+FrameLen (Header+Daten): 320 byte -> 2560/4800=0.5333
+
+64 byte xor-Maske (data whitening/scrambling)
+
+
+0x00..0x07, 8byte: Header
+10 B6 CA 11 22 96 12 F8
+
+0x3B..0x3C, 2byte: Frame Nummer
+0x3D..0x44, 8byte: Sonde ID
+Mask[0x3B..0x44]=0xAEBF7B4CC196833E51B1
+
+0x52, 1byte: Zaehler 0x00..0x32 (51 Frames)
+0x53..0x62, 16byte: Calibration/Config/Info
+Mask[0x52..0x62]=0xC2EA795D6DA15469470CDCE85CF1F77682
+
+GPS-Week/-TOW
+0x95..0x96, 2byte: Full GPS week (seit So 6.1.1980)
+0x97..0x9A, 4byte: TOW in Millisekunden seit Sonntag 00 UTC (+ 16 Schaltsekunden)
+Mask[0x95..0x9A]=0x5D6DA1546947
+
+Position: ECEF-Koordinaten
+0x114..0x117, 4byte: X-Koord.
+0x118..0x11B, 4byte: Y-Koord.
+0x11C..0x11F, 4byte: Z-Koord.
+Mask[0x114..0x11F]=0x795D6DA15469470CDCE85CF1
+
+GPS Chip: u-blox
+
+
+0x52, 0x53..0x62 16byte:
+
+     frame 0x00: e8 08 80 0c 03 00 00 0e 00 00 00 00 00 4b 34 37 : freq 400500 kHz (Payerne)
+                 a1 f1 00 19 03 00 00 0e 00 00 00 00 00 4b 34 36 : freq 401000 kHz (Payerne)
+                 b0 78 00 32 03 00 00 0e 00 00 00 00 00 4b 31 38 : freq 402000 kHz (Zagreb)
+                 63 92 00 4b 03 00 00 0e 00 00 00 00 00 4b 33 37 : freq 403000 kHz (Zagreb)
+                 ae 18 00 64 03 00 00 0f 00 00 00 00 00 4c 31 31 : freq 404000 kHz
+                 d5 80 80 66 03 00 00 0e 00 00 00 00 00 4b 34 36 : freq 404100 kHz
+                 dc e3 80 75 03 00 00 0e 00 00 00 00 00 4a 34 30 : freq 404700 kHz (Budapest)
+                 c3 b0 00 0f 03 00 00 0e 00 00 00 00 00 4b 32 34 : freq 400600 kHz (Poprad)
+                 41 ab 00 91 03 00 00 0f 00 00 00 00 00 4c 31 30 : freq 405800 kHz (Lindenberg)
+                          ^^0x56: k1
+                       ^^0x55: k0     freq = 400000 + (k0/2^8 + k1) * 2^2 * 10
+                               0x80 = 00000001 -> 1/2^1
+                               0x40 = 00000010 -> 1/2^2
+                               0xB0 = 00000011 -> 3/4
+                               Bsp.: k0,k1: 0x80 0x75 -> (117+1/2)*40 = 4700 -> 404700
+
+     frame 0x02: 06 0a 87 32 00 00 00 ff ff 00 00 00/01 00 ..
+                                                  ^^0x5E: burst kill?
+                                      0x5A/5B: kill timmer?
+
+     Ende-0x00/Anfang-0x01: Sonde-Id
+           0x00: 3e 09 00 32 03 00 00 0e 00 00 00 00 00 4b 31 39 : fq 402000 
+           0x01: 33 30 32 39 33 25 4e 00 00 2c 01 12 05 b4 3c a4 
+            ->   4b 31 39 33 30 32 39 33 : K1930293
+           0x00: f7 d7 00 32 03 00 00 0e 00 00 00 00 00 4b 31 39 : fq 402000 
+           0x01: 33 30 32 36 30 25 4e 00 00 2c 01 12 05 b4 3c a4 
+            ->   4b 31 39 33 30 32 36 30 : K1930260
+           0x00: 41 ab 00 91 03 00 00 0f 00 00 00 00 00 4c 31 30 : fq 405800 
+           0x01: 34 30 30 31 30 f2 4e 00 00 58 02 12 05 b4 3c a4 
+            ->   4c 31 30 34 30 30 31 30 : L1040010
+
+     frame 0x21: ff ff ff c6 ff ff ff c6 52 53 34 31 2d 53 47 00 : RS41-SG 
+                 ee 19 79 44 9a 39 79 44 52 53 34 31 2d 53 47 50 : RS41-SGP
+
+
+
+
+Data whitening:
+Block shiften und gegen sich selbst XOR-en.
+
+Wenn man die richtige Blocklaenge gefunden hat, erhaelt man  enc_i ^ enc_j = dec_i ^ dec_j.
+Wenn in einem Klartext dec_j viele Nullen stehen, erhaelt man im anderen Block den Klartext.
+Somit erhaelt man auch die XOR-Maske fuer diesen Teil.
+
+5x64 byte:
+10B6CA11229612F804A1EAAC92622978C044887A4ACE6BA0A35822FC5F447F349D9BA3603B69B89197656C6875B40A2624E5AE26788CCDFC7717131EA9307DF8
+A5B30C688252089833055902F944C6262652EE0F476CF4BBEB7B9DD6E25ED8993611D7626BE38846D57E1965F74ADD635DB1BC5410AD393D708208AC957D4E9A
+65813E51B14908983205590EF944C62621E7179667556AC1FAB340130BF5A9E8017C0C71D39B55206864E7655AEF2E9ED043B4358BD7AD58595A3A51E27522CE
+A36BC0BFBBF10BAC17FA790EF9442483DEFD0EB867CA545E45B0511F758E5CCC7C518E3DF3665C76A77A092FF5388691C65E60B60B5A9C34786E3BAEBF7B4CC1
+96833E51B14908983205590EF944C6266D2FB9FF2F84E9B8F032260B90B403EAC7756786F09BAA2E82894215E4102E61D0BCB4B606AAF423786E3BAEBF7BA006
+
+block1 ^ block4:
+>>> hex(0x10B6CA11229612F804A1EAAC92622978C044887A4ACE6BA0A35822FC5F447F349D9BA3603B69B89197656C6875B40A2624E5AE26788CCDFC7717131EA9307DF8
+       ^0xA36BC0BFBBF10BAC17FA790EF9442483DEFD0EB867CA545E45B0511F758E5CCC7C518E3DF3665C76A77A092FF5388691C65E60B60B5A9C34786E3BAEBF7B4CC1)
+'0xb3dd0aae99671954135b93a26b260dfb1eb986c22d043ffee6e873e32aca23f8e1ca2d5dc80fe4e7301f6547808c8cb7e2bbce9073d651c80f7928b0164b3139L'
+                                                                                                                         ^^^^^^^^^^
+block2 ^ block5:
+>>> hex(0xA5B30C688252089833055902F944C6262652EE0F476CF4BBEB7B9DD6E25ED8993611D7626BE38846D57E1965F74ADD635DB1BC5410AD393D708208AC957D4E9A
+       ^0x96833E51B14908983205590EF944C6266D2FB9FF2F84E9B8F032260B90B403EAC7756786F09BAA2E82894215E4102E61D0BCB4B606AAF423786E3BAEBF7BA006)
+'0x33303239331b00000100000c000000004b7d57f068e81d031b49bbdd72eadb73f164b0e49b78226857f75b70135af3028d0d08e21607cd1e08ec33022a06ee9cL'
+   ^^^^^^^^^^
+
+Wenn im Klartext des einen Blocks viele Nullen stehen, erhaelt man durch XOR-en den Klartext des anderen:
+...b0164b3139 3330323933...
+FrameNr , SondeId : 0x16b0 , 4b31393330323933  (K1930293)
+
+[ 5808] (K1930293) Mo 2014-07-07 12:36:12 (W 1800)  lat: 46.04934  lon: 16.13034  h: 32347.21 
+
+
+
+
