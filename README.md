@@ -1,6 +1,9 @@
 RS
 ==
   
+Wetterballon-Radiosonden  
+400-406 MHz  
+
 http://www.fingers-welt.de/phpBB/viewtopic.php?f=14&t=43&start=525#p50955  
 http://www.fingers-welt.de/phpBB/viewtopic.php?f=14&t=43&start=550#p64707  
 http://www.fingers-welt.de/phpBB/viewtopic.php?f=14&t=43&start=700#p75202  
