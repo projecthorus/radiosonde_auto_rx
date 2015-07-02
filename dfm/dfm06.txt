@@ -32,7 +32,7 @@ PCK_ID  bitpos
 
 0x0     24..31   Counter: 8 bit
 
-0x1     32..47   GPS-msec : 16bit  (sec*1e3)
+0x1     32..47   UTC-msec : 16bit  (sec*1e3),  GPS = UTC + 16s
 
 0x2      0..31   GPS-lat  : 32bit, Faktor 1e7
         32..47   hor-V m/s: 16bit, Faktor 1e2
