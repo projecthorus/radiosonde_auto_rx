@@ -25,7 +25,7 @@ Mask[0x52..0x62]=0xC2EA795D6DA15469470CDCE85CF1F77682
 
 GPS-Week/-TOW
 0x95..0x96, 2byte: Full GPS week (seit So 6.1.1980)
-0x97..0x9A, 4byte: TOW in Millisekunden seit Sonntag 00 UTC (+ 16 Schaltsekunden)
+0x97..0x9A, 4byte: TOW in Millisekunden seit Sonntag 00 UTC (+ 16 Schaltsekunden) (+17s ab 1.7.2015)
 Mask[0x95..0x9A]=0x5D6DA1546947
 
 Position: ECEF-Koordinaten
@@ -34,7 +34,8 @@ Position: ECEF-Koordinaten
 0x11C..0x11F, 4byte: Z-Koord.
 Mask[0x114..0x11F]=0x795D6DA15469470CDCE85CF1
 
-GPS Chip: u-blox
+Zur Umrechnung ecef2elli() kommt noch eine Differenz Geoid-Ellipsoid hinzu.
+GPS Chip: u-blox UBX-G6010-ST
 
 
 0x52, 0x53..0x62 16byte:
