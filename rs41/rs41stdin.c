@@ -579,10 +579,10 @@ int get_Cal() {
             fprintf(stderr, ": fq %d ", freq);
         }
         if (calfr == 0x21) {  // eventuell noch zwei bytes in 0x22
-            for (i = 0; i < 9; i++); sondetyp[i] = 0;
+            for (i = 0; i < 9; i++) sondetyp[i] = 0;
             for (i = 0; i < 8; i++) {
                 byte = xorbyte(pos_CalRSTyp + i);
-                if ((byte >= 0x20) && (byte < 0x80)) sondetyp[i] = byte;
+                if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
                 else if (byte == 0x00) sondetyp[i] = '\0';
             }
             fprintf(stderr, ": %s ", sondetyp);
