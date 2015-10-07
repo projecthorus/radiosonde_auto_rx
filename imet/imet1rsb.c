@@ -328,7 +328,10 @@ int main(int argc, char **argv) {
             if (len < SYNC) {
             for (i = 0; i < len/2; i++) {
                 //printf("%d", bit);
-                bitframe[bitpos] = bit;
+                if (bitpos < BAUD+10) {
+                    bitframe[bitpos] = bit;
+                }
+                else { /* */ }
                 bitpos++;
             }
             //printf(" %.1f=%d ", bitslen, len);
