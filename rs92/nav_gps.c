@@ -679,7 +679,7 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
     else if ( tmp2 < 60000 ) {   // interessant wenn tmp1<tmp2<60k oder tmp2<tmp1<60k,
         x0 = (x1+x2+x3+x4)/4.0;  // d.h. beide Werte nahe Erdoberflaeche;
         y0 = (y1+y2+y3+y4)/4.0;  // ungefaehre Position kann aus den Positionen
-        z0 = (z1+z2+z3+z4)/4.0;  // der empfangen Sats abgeleitet werden
+        z0 = (z1+z2+z3+z4)/4.0;  // der empfangenen Sats abgeleitet werden
         ecef2elli( x0, y0, z0, &latS, &lonS, &altS );
     
         ecef2elli( s1.x, s1.y, s1.z, &lat1, &lon1, &alt1 );
