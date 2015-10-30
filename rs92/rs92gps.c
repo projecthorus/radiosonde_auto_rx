@@ -46,7 +46,7 @@ int rollover = 0,
 int almanac = 0,
     ephem = 0;
 
-
+/* --- RS92-SGP: 8N1 manchester --- */
 #define BITS (2*(1+8+1))  // 20
 #define HEADOFS 40 //  HEADOFS+HEADLEN = 120  (bis 0x10)
 #define HEADLEN 80 // (HEADOFS+HEADLEN) mod BITS = 0
@@ -67,6 +67,7 @@ int bufpos = -1;
 
 #define FRAME_LEN 240
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
+/* --- RS92-SGP ------------------- */
 
 
 #define MASK_LEN 64
@@ -230,7 +231,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 
 /* ------------------------------------------------------------------------------------ */
 
-
+// RS92-SGP: 8N1 manchester
 char manch(char *mbits) {
    if      ((mbits[0] == 1) && (mbits[1] == 0)) return 0;
    else if ((mbits[0] == 0) && (mbits[1] == 1)) return 1;
