@@ -615,77 +615,74 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
     A[1][2] = 2.0*z13;
     A[2][2] = 2.0*z14;
 
-  tmp1 = A[1][1]*A[2][2] - A[2][1]*A[1][2];
-  tmp2 = A[1][0]*A[2][2] - A[2][0]*A[1][2];
-  tmp3 = A[1][0]*A[2][1] - A[2][0]*A[1][1];
+    tmp1 = A[1][1]*A[2][2] - A[2][1]*A[1][2];
+    tmp2 = A[1][0]*A[2][2] - A[2][0]*A[1][2];
+    tmp3 = A[1][0]*A[2][1] - A[2][0]*A[1][1];
 
-  detA = A[0][0]*tmp1 - A[0][1]*tmp2 + A[0][2]*tmp3;
+    detA = A[0][0]*tmp1 - A[0][1]*tmp2 + A[0][2]*tmp3;
 
-  D[0][0] =  tmp1;
-  D[1][0] = -tmp2;
-  D[2][0] =  tmp3;
+    D[0][0] =  tmp1;
+    D[1][0] = -tmp2;
+    D[2][0] =  tmp3;
 
-  D[0][1] = -A[0][1]*A[2][2] + A[2][1]*A[0][2];
-  D[1][1] =  A[0][0]*A[2][2] - A[2][0]*A[0][2];
-  D[2][1] = -A[0][0]*A[2][1] + A[2][0]*A[0][1];
+    D[0][1] = -A[0][1]*A[2][2] + A[2][1]*A[0][2];
+    D[1][1] =  A[0][0]*A[2][2] - A[2][0]*A[0][2];
+    D[2][1] = -A[0][0]*A[2][1] + A[2][0]*A[0][1];
 
-  D[0][2] =  A[0][1]*A[1][2] - A[1][1]*A[0][2];
-  D[1][2] = -A[0][0]*A[1][2] + A[1][0]*A[0][2];
-  D[2][2] =  A[0][0]*A[1][1] - A[1][0]*A[0][1];
+    D[0][2] =  A[0][1]*A[1][2] - A[1][1]*A[0][2];
+    D[1][2] = -A[0][0]*A[1][2] + A[1][0]*A[0][2];
+    D[2][2] =  A[0][0]*A[1][1] - A[1][0]*A[0][1];
 
-  c1 = (D[0][0]*p21 + D[0][1]*p31 + D[0][2]*p41) * 2.0 / detA;
-  c2 = (D[1][0]*p21 + D[1][1]*p31 + D[1][2]*p41) * 2.0 / detA;
-  c3 = (D[2][0]*p21 + D[2][1]*p31 + D[2][2]*p41) * 2.0 / detA;
+    c1 = (D[0][0]*p21 + D[0][1]*p31 + D[0][2]*p41) * 2.0 / detA;
+    c2 = (D[1][0]*p21 + D[1][1]*p31 + D[1][2]*p41) * 2.0 / detA;
+    c3 = (D[2][0]*p21 + D[2][1]*p31 + D[2][2]*p41) * 2.0 / detA;
 
-  f1 = (D[0][0]*k1 + D[0][1]*k2 + D[0][2]*k3) / detA;
-  f2 = (D[1][0]*k1 + D[1][1]*k2 + D[1][2]*k3) / detA;
-  f3 = (D[2][0]*k1 + D[2][1]*k2 + D[2][2]*k3) / detA;
+    f1 = (D[0][0]*k1 + D[0][1]*k2 + D[0][2]*k3) / detA;
+    f2 = (D[1][0]*k1 + D[1][1]*k2 + D[1][2]*k3) / detA;
+    f3 = (D[2][0]*k1 + D[2][1]*k2 + D[2][2]*k3) / detA;
 
-  m1 = c1*c1 + c2*c2 + c3*c3 - 1.0;
-  m2 = -2.0*( c1*f1 + c2*f2 + c3*f3 );
-  m3 = f1*f1 + f2*f2 + f3*f3;
+    m1 = c1*c1 + c2*c2 + c3*c3 - 1.0;
+    m2 = -2.0*( c1*f1 + c2*f2 + c3*f3 );
+    m3 = f1*f1 + f2*f2 + f3*f3;
 
-  tmp1 = m2*m2 - 4.0*m1*m3;
-  if ( tmp1 < 0 ) { // not good, there is no solution
-      return 0;     //FALSE
-  }
+    tmp1 = m2*m2 - 4.0*m1*m3;
+    if ( tmp1 < 0 ) { // not good, there is no solution
+        return 0;     //FALSE
+    }
 
-  d1 = ( -m2 - sqrt( tmp1 ) ) * 0.5 / m1; // +-Reihenfolge vertauscht
-  d2 = ( -m2 + sqrt( tmp1 ) ) * 0.5 / m1;
+    d1 = ( -m2 - sqrt( tmp1 ) ) * 0.5 / m1; // +-Reihenfolge vertauscht
+    d2 = ( -m2 + sqrt( tmp1 ) ) * 0.5 / m1;
 
-  // two solutions
-  s1.x = c1*d1 - f1 + x1;
-  s1.y = c2*d1 - f2 + y1;
-  s1.z = c3*d1 - f3 + z1;
+    // two solutions
+    s1.x = c1*d1 - f1 + x1;
+    s1.y = c2*d1 - f2 + y1;
+    s1.z = c3*d1 - f3 + z1;
 
-  s2.x = c1*d2 - f1 + x1;
-  s2.y = c2*d2 - f2 + y1;
-  s2.z = c3*d2 - f3 + z1;
+    s2.x = c1*d2 - f1 + x1;
+    s2.y = c2*d2 - f2 + y1;
+    s2.z = c3*d2 - f3 + z1;
 
-  ecef2elli( s1.x, s1.y, s1.z, &lat1, &lon1, &alt1 );
-
-  *latitude  = lat1;
-  *longitude = lon1;
-  *height    = alt1;
-
-  tmp1 = sqrt( s1.x*s1.x + s1.y*s1.y + s1.z*s1.z );
-  tmp2 = sqrt( s2.x*s2.x + s2.y*s2.y + s2.z*s2.z );
+    tmp1 = sqrt( s1.x*s1.x + s1.y*s1.y + s1.z*s1.z );
+    tmp2 = sqrt( s2.x*s2.x + s2.y*s2.y + s2.z*s2.z );
 
     // choose the correct solution based
     // on whichever solution is closest to 
     // the Earth's surface
     tmp1 = fabs( tmp1 - 6371000.0 );
     tmp2 = fabs( tmp2 - 6371000.0 );
-    // geht manchmal schief
-    // wenn beide Werte nahe Erdoberflaeche
-    // ungefaehre Position kann aus den Positionen der empfangen Sats abgeleitet werden
-    if ( tmp2 < tmp1 /*alt2 < alt1  &&  alt2 > -1500*/  &&  tmp1 < 60000 )
-    {
-        x0 = (x1+x2+x3+x4)/4.0;
-        y0 = (y1+y2+y3+y4)/4.0;
-        z0 = (z1+z2+z3+z4)/4.0;
+
+    // nur (tmp2 < tmp1) geht manchmal schief
+    if ( tmp2 < tmp1  &&  tmp1 >= 60000 ) {  // swap solutions
+        stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2; 
+        dtmp = d1; d1 = d2; d2 = dtmp;  // d1 = d2;
+    }
+    else if ( tmp2 < 60000 ) {   // interessant wenn tmp1<tmp2<60k oder tmp2<tmp1<60k,
+        x0 = (x1+x2+x3+x4)/4.0;  // d.h. beide Werte nahe Erdoberflaeche;
+        y0 = (y1+y2+y3+y4)/4.0;  // ungefaehre Position kann aus den Positionen
+        z0 = (z1+z2+z3+z4)/4.0;  // der empfangen Sats abgeleitet werden
         ecef2elli( x0, y0, z0, &latS, &lonS, &altS );
     
+        ecef2elli( s1.x, s1.y, s1.z, &lat1, &lon1, &alt1 );
         ecef2elli( s2.x, s2.y, s2.z, &lat2, &lon2, &alt2 );
 
         d2_1 = sqrt( (latS-lat1)*(latS-lat1) + (lonS-lon1)*(lonS-lon1) );
@@ -694,11 +691,14 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
         if ( d2_2 < d2_1 ) {
             stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2; 
             dtmp = d1; d1 = d2; d2 = dtmp;  // d1 = d2;
-            *latitude  = lat2;
-            *longitude = lon2;
-            *height    = alt2;
         }
     }
+
+    ecef2elli( s1.x, s1.y, s1.z, &lat1, &lon1, &alt1 );
+
+    *latitude  = lat1;
+    *longitude = lon1;
+    *height    = alt1;
 
     *rx_clock_bias = d1;
 
