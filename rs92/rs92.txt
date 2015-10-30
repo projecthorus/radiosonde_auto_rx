@@ -1,0 +1,91 @@
+
+RS92-SGP
+
+Modulation: GFSK
+raw: 4800 bit/s
+SGP: 1 frame/s
+raw-frame: 4800 bit
+
+RS92-SGP: manchester -> 2400 bit
+8N1, startbit, 8 bit, stopbit (-> 10bit/byte)
+
+Frame: 240 byte, little endian
+error correction: (CRC,) Reed-Solomon
+
+
+0x00:
+Header (SGP): 2A 2A 2A 2A 2A 10
+dann: 65 10 [FrameNb] [SondeID]
+
+
+0x06:
+65 10
+0x08:
+FrameNb(2byte), 20 20
+0x0C:
+SondeID(8byte), 00 61 00
+0x17:
+Cal_Nb(1byte)
+Wenn Cal_Nb=00, dann
+?? ?? 12 02 FF FF 01 00
+      | freq: 0x0212 = 530 -> (400000 + freq*10) kHz
+Frequenzen:
+D7 00 -> 402.15 MHz (Zadar)
+E0 00 -> 402.24 MHz (Udine)
+E6 00 -> 402.30 MHz (Udine/Muenchen/Meiningen)
+0E 01 -> 402.70 MHz (Idar-Oberstein/Kuemmersbruck)
+22 01 -> 402.90 MHz (Hohenspeissenberg)
+5E 01 -> 403.50 MHz (Uccle)
+7C 01 -> 403.80 MHz (Praha)
+86 01 -> 403.90 MHz (De Bilt)
+90 01 -> 404.00 MHz (Udine)
+9A 01 -> 404.10 MHz (Norderney)
+AE 01 -> 404.30 MHz (Schleswig2)
+C2 01 -> 404.50 MHz (Meppen 6,12 Uhr)
+FE 01 -> 405.10 MHz (Meppen 9 Uhr/Lindenberg)
+12 02 -> 405.30 MHz (Essen)
+3A 02 -> 405.70 MHz (Bergen)
+
+
+0x46:
+67 3D
+0x48:
+GPS TOW (gps time of week)
+
+0x4E:
+PRN
+12*5 bit = 60 bit, auf 8 byte verteilt:
+little endian
+00000111 1122222x
+33333444 4455555x
+66666777 7788888x
+99999AAA AABBBBBx
+
+0x56..0x61: 12 byte STATUS
+
+0x62: 12*8 byte GPS DATA
+4 byte pseudochips, 3 byte doppler, 1 byte
+pseudochip-counter 32bit-fract, Faktor 2^(-10)=1/1024
+df = c/(chips/sec) / 2^10 = 299792.458/1023.0/1024.0 = 0.286183844 // c=299792458m/s, 1023000chips/s
+pseudorange[m] = - df[m/chips] * pseudochips[chips]
+delta(pseudochips) = ca 25800 +/- d, 
++ sat kommt naeher
+- sat entfernt sich
+d.h. chip-counter zaehlt, wieviele chips im Intervall schon empfangen wurden;
+wenn sat sich entfernt, weniger chips.
+nach ca 14 min reset
+
+Bei GPS-Loesung ist DOP-Wert der Konstellation wichtig fuer die Genauigkeit.
+Bei almanac-Daten 500-1000m Fehler moeglich, rinex-ephemeris deutlich genauer.
+
+
+0xC8:
+8 byte aux-data (z.B. O3)
+
+
+
+weitere Infos:
+http://www.vaisala.com/Vaisala%20Documents/Brochures%20and%20Datasheets/RS92SGP-Datasheet-B210358EN-F-LOW.pdf
+http://www.vaisala.com/Vaisala%20Documents/Vaisala%20News%20Articles/VN164/VN164_State-of-the-Art_Radiosonde_Telemetry.pdf
+http://brmlab.cz/project/weathersonde/
+
