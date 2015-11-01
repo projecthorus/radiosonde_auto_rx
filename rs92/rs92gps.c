@@ -38,7 +38,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_inv = 0,      // invertiert Signal
     wavloaded = 0,
     option_vergps = 0;
-int dop_limit = 10;
+double dop_limit = 10.0;
 
 int rollover = 0,
     err_gps = 0;
@@ -579,12 +579,10 @@ typedef struct {
     ui32_t time;
     int ca;
 } RANGE_t;
-RANGE_t range[33], range0[33];
+RANGE_t range[33];
 
 int prn[12];
 
-double delta_c[33], delta_d[33];
-unsigned int number;
 
 // pseudo.range = -df*pseudo.chips , df = lightspeed/(chips/sec)/2^10
 const double df = 299792.458/1023.0/1024.0; //0.286183844 // c=299792458m/s, 1023000chips/s
@@ -637,7 +635,6 @@ int get_pseudorange() {
         {
             prn[k++] = prns[j];
         }
-        range0[prns[j]] = range[prns[j]];
 
     }
 
@@ -842,7 +839,7 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "--dop") == 0) ) {
             ++argv;
             if (*argv) {
-                dop_limit = atoi(*argv);
+                dop_limit = atof(*argv);
                 if (dop_limit <= 0  || dop_limit >= 100)  dop_limit = 10;
             }
             else return -1;
