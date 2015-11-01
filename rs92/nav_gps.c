@@ -71,7 +71,7 @@ typedef struct {
     ui16_t prn;
     ui16_t week;
     ui32_t toa;
-    char   epoch[15];
+    char   epoch[20];
     double toe;
     double toc;
     double e;
@@ -108,6 +108,7 @@ typedef struct {
     double X;
     double Y;
     double Z;    
+    int ephhr;
 } SAT_t;
 
 
@@ -166,8 +167,9 @@ int read_SEMalmanac(FILE *fp, EPHEM_t *alm) {
 int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
     int l, i;
     char buf[64], str[20];
-    char buf_header[81];
+    char buf_header[82];
        //buf_data[80];  // 3 + 4*19 = 79
+    char *pbuf;
     unsigned ui;
     double dbl;
     int c;
@@ -175,16 +177,17 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
     int hr = 0;
 
     do {
-        l = fread(buf_header, 81, 1, fp);  // besser fgets()? was wenn \r\n? fopen in textmode
-        buf_header[80] = '\0';  // \n durch \0 ueberschreiben
-    } while ( l == 1  &&  !strstr(buf_header, "END OF HEADER") );
-    if (l != 1) return -1;
+        //l = fread(buf_header, 81, 1, fp); // Zeilen in Header sind nicht immer mit Leerzeichen aufgefuellt
+        pbuf = fgets(buf_header, 82, fp);   // max 82-1 Zeichen + '\0'
+        buf_header[82] = '\0';  // doppelt haelt besser
+        //l = strlen(buf_header);
+    } while ( pbuf  &&  !strstr(buf_header, "END OF HEADER") );
 
     //l = fread(buf_data, 80, 1, fp);
     //buf_data[79] = '\0';
 
 
-    while (hr < 24) {
+    while (hr < 24) {  // brdc/hour-rinex sollte nur Daten von einem Tag enthalten
 
         //memset(&ephem, 0, sizeof(ephem));
 
@@ -192,11 +195,10 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
         ephem.prn = ui;
 
 
-        for (i = 0; i < 14; i++) ephem.epoch[i] = '0';
-        ephem.epoch[14] = '\0';
+        for (i = 0; i < 16; i++) ephem.epoch[i] = '0';
+        ephem.epoch[16] = '\0';
 
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  buf[19] = 0;
-        strncpy(ephem.epoch  , "20", 2);
 
         for (i = 0; i < 6; i++) {
             c = buf[3*i  ]; if (c == ' ') c = '0'; str[2*i  ] = c;
@@ -206,7 +208,9 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
         str[13] = buf[18];
         str[14] = '\0';
 
-        strncpy(ephem.epoch, str, 15);
+        strncpy(ephem.epoch  , "20", 2);  // vorausgesetzt 21.Jhd; Datum steht auch im Header
+        strncpy(ephem.epoch+2, str, 15);
+        ephem.epoch[16] = '\0';
 
         strncpy(str, buf+9, 2); str[2] = '\0';
         hr  = atoi(str);
@@ -236,7 +240,7 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cic = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.Omega0 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cis = dbl;
-        if ((c=fgetc(fp)) == EOF) break; //if (c != 0x0a) printf("%c", c);
+        if ((c=fgetc(fp)) == EOF) break;
 
         l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.i0 = dbl;
@@ -261,14 +265,18 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
 
         l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.ttom = dbl;
+        pbuf = fgets(buf_header, 82, fp);
+     /* // die letzten beiden Felder (spare) sind manchmal leer (statt 0.00); manchmal fehlt sogar das drittletzte Feld
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.fit = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.spare1 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.spare2 = dbl;
-        if ((c=fgetc(fp)) == EOF) break;
+        if ((c=fgetc(fp)) == EOF) break;  */
+
 
         ephem.week = 1; // ephem.gpsweek
         eph[ephem.prn][hr] = ephem;
 
+        if (pbuf == NULL) break;
     }
 
     return 0;
