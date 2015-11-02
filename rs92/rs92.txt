@@ -51,6 +51,7 @@ FE 01 -> 405.10 MHz (Meppen 9 Uhr/Lindenberg)
 67 3D
 0x48:
 GPS TOW (gps time of week)
+(Receiver: Common Transmission Time vs Common Reception Time)
 
 0x4E:
 PRN
@@ -82,6 +83,22 @@ Bei almanac-Daten 500-1000m Fehler moeglich, rinex-ephemeris deutlich genauer.
 0xC8:
 8 byte aux-data (z.B. O3)
 
+
+
+
+Bahndaten
+SEM Almanac:
+https://celestrak.com/GPS/almanac/SEM/
+Rinex Ephemeris:
+http://cddis.gsfc.nasa.gov/Data_and_Derived_Products/GNSS/broadcast_ephemeris_data.html
+ftp://cddis.gsfc.nasa.gov/gnss/data/daily/YYYY/DDD/YYn/brdcDDD0.YYn.Z (updated)
+ftp://cddis.gsfc.nasa.gov/gnss/data/daily/YYYY/brdc/brdcDDD0.YYn.Z (final)
+
+GPS calendar:
+http://adn.agi.com/GNSSWeb/
+
+Geoid:
+http://geographiclib.sourceforge.net/cgi-bin/GeoidEval
 
 
 weitere Infos:

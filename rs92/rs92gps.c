@@ -1,6 +1,21 @@
 
 /*
  *  radiosonde RS92
+ *
+ *
+ *  broadcast ephemeris:
+ *  http://cddis.gsfc.nasa.gov/Data_and_Derived_Products/GNSS/broadcast_ephemeris_data.html
+ *  ftp://cddis.gsfc.nasa.gov/gnss/data/daily/YYYY/DDD/YYn/brdcDDD0.YYn.Z (updated)
+ *  ftp://cddis.gsfc.nasa.gov/gnss/data/daily/YYYY/brdc/brdcDDD0.YYn.Z (final)
+ *
+ *  SEM almanac:
+ *  https://celestrak.com/GPS/almanac/SEM/
+ *
+ *  GPS calendar:
+ *  http://adn.agi.com/GNSSWeb/
+ *
+ *  GPS-Hoehe ueber Ellipsoid, Geoid-Hoehe:
+ *  http://geographiclib.sourceforge.net/cgi-bin/GeoidEval
  */
 
 
@@ -437,13 +452,6 @@ int get_Cal() {
         }   
     }
 
-/*
-    if (calfr == 0x02) {
-        byte = xorbyte(pos_Calburst);
-        burst = byte;
-        fprintf(stderr, ": BK %02X ", burst);
-    }
-*/
     if (calfr == 0x00) {
         for (i = 0; i < 2; i++) {
             byte = xorbyte(pos_Calfreq + i);
@@ -502,7 +510,6 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
     int j;
     int week;
     double cl_corr;
-
 
     for (j = 1; j < 33; j++) {
         if (alm[j].prn > 0) {  // prn==j
