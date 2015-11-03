@@ -109,6 +109,7 @@ typedef struct {
     double Y;
     double Z;    
     int ephhr;
+    double PR;
 } SAT_t;
 
 
@@ -725,7 +726,7 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
 /* ---------------------------------------------------------------------------------------------------- */
 
 
-int matrix_invert(double mat[4][4], double inv[4][4])
+int trace_invert(double mat[4][4], double inv[4][4])  // trace-invert
 /* selected elements from 4x4 matrox inversion */
 {
     // Find all NECESSARY 2x2 subdeterminants
@@ -801,7 +802,7 @@ int matrix_invert(double mat[4][4], double inv[4][4])
 }
 
 
-int calculate_DOP(SAT_t sat0, SAT_t sat1, SAT_t sat2, SAT_t sat3, double pos_ecef[3], double DOP[4][4]) {
+int calc_DOP(SAT_t sat0, SAT_t sat1, SAT_t sat2, SAT_t sat3, double pos_ecef[3], double DOP[4][4]) {
     int i, j, k;
     double norm[4], satpos[4][3];
     double SATS[4][4], AtA[4][4];
@@ -839,6 +840,292 @@ int calculate_DOP(SAT_t sat0, SAT_t sat1, SAT_t sat2, SAT_t sat3, double pos_ece
         }
     }
 
-    return matrix_invert(AtA, DOP);
+    return trace_invert(AtA, DOP);
+}
+
+/* ---------------------------------------------------------------------------------------------------- */
+
+int rotE(SAT_t sat, double *x, double *y, double *z) {
+    // Erdrotation ECEF-ECI,  0.070s*299792458m/s=20985472m, 0.072s*299792458m/s=21585057m
+    double range = sat.PR/LIGHTSPEED;
+    if (range < 19e6  ||  range > 30e6) range = 21e6;
+    rotZ(sat.X, sat.Y, sat.Z, EARTH_ROTATION_RATE*(range/LIGHTSPEED), x, y, z);
+    return 0;
+}
+
+
+double lorentz(double a[4], double b[4]) {
+    return a[0]*b[0] + a[1]*b[1] +a[2]*b[2] - a[3]*b[3];
+}
+
+int matrix_invert(double mat[4][4], double inv[4][4])
+/* selected elements from 4x4 matrox inversion */
+{
+    // Find all NECESSARY 2x2 subdeterminants
+    double Det2_12_01 = mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0];
+    double Det2_12_02 = mat[1][0] * mat[2][2] - mat[1][2] * mat[2][0];
+    double Det2_12_03 = mat[1][0] * mat[2][3] - mat[1][3] * mat[2][0];
+    double Det2_12_12 = mat[1][1] * mat[2][2] - mat[1][2] * mat[2][1];
+    double Det2_12_13 = mat[1][1] * mat[2][3] - mat[1][3] * mat[2][1];
+    double Det2_12_23 = mat[1][2] * mat[2][3] - mat[1][3] * mat[2][2];
+    double Det2_13_01 = mat[1][0] * mat[3][1] - mat[1][1] * mat[3][0];
+    double Det2_13_02 = mat[1][0] * mat[3][2] - mat[1][2] * mat[3][0];
+    double Det2_13_03 = mat[1][0] * mat[3][3] - mat[1][3] * mat[3][0];
+    double Det2_13_12 = mat[1][1] * mat[3][2] - mat[1][2] * mat[3][1];
+    double Det2_13_13 = mat[1][1] * mat[3][3] - mat[1][3] * mat[3][1];
+    double Det2_13_23 = mat[1][2] * mat[3][3] - mat[1][3] * mat[3][2];
+    double Det2_23_01 = mat[2][0] * mat[3][1] - mat[2][1] * mat[3][0];
+    double Det2_23_02 = mat[2][0] * mat[3][2] - mat[2][2] * mat[3][0];
+    double Det2_23_03 = mat[2][0] * mat[3][3] - mat[2][3] * mat[3][0];
+    double Det2_23_12 = mat[2][1] * mat[3][2] - mat[2][2] * mat[3][1];
+    double Det2_23_13 = mat[2][1] * mat[3][3] - mat[2][3] * mat[3][1];
+    double Det2_23_23 = mat[2][2] * mat[3][3] - mat[2][3] * mat[3][2];
+
+    // Find all NECESSARY 3x3 subdeterminants
+    double Det3_012_012 = mat[0][0] * Det2_12_12 - mat[0][1] * Det2_12_02 + mat[0][2] * Det2_12_01;
+    double Det3_012_013 = mat[0][0] * Det2_12_13 - mat[0][1] * Det2_12_03 + mat[0][3] * Det2_12_01;
+    double Det3_012_023 = mat[0][0] * Det2_12_23 - mat[0][2] * Det2_12_03 + mat[0][3] * Det2_12_02;
+    double Det3_012_123 = mat[0][1] * Det2_12_23 - mat[0][2] * Det2_12_13 + mat[0][3] * Det2_12_12;
+    double Det3_013_012 = mat[0][0] * Det2_13_12 - mat[0][1] * Det2_13_02 + mat[0][2] * Det2_13_01;
+    double Det3_013_013 = mat[0][0] * Det2_13_13 - mat[0][1] * Det2_13_03 + mat[0][3] * Det2_13_01;
+    double Det3_013_023 = mat[0][0] * Det2_13_23 - mat[0][2] * Det2_13_03 + mat[0][3] * Det2_13_02;
+    double Det3_013_123 = mat[0][1] * Det2_13_23 - mat[0][2] * Det2_13_13 + mat[0][3] * Det2_13_12;
+    double Det3_023_012 = mat[0][0] * Det2_23_12 - mat[0][1] * Det2_23_02 + mat[0][2] * Det2_23_01;
+    double Det3_023_013 = mat[0][0] * Det2_23_13 - mat[0][1] * Det2_23_03 + mat[0][3] * Det2_23_01;
+    double Det3_023_023 = mat[0][0] * Det2_23_23 - mat[0][2] * Det2_23_03 + mat[0][3] * Det2_23_02;
+    double Det3_023_123 = mat[0][1] * Det2_23_23 - mat[0][2] * Det2_23_13 + mat[0][3] * Det2_23_12;
+    double Det3_123_012 = mat[1][0] * Det2_23_12 - mat[1][1] * Det2_23_02 + mat[1][2] * Det2_23_01;
+    double Det3_123_013 = mat[1][0] * Det2_23_13 - mat[1][1] * Det2_23_03 + mat[1][3] * Det2_23_01;
+    double Det3_123_023 = mat[1][0] * Det2_23_23 - mat[1][2] * Det2_23_03 + mat[1][3] * Det2_23_02;
+    double Det3_123_123 = mat[1][1] * Det2_23_23 - mat[1][2] * Det2_23_13 + mat[1][3] * Det2_23_12;
+
+    // Find the 4x4 determinant
+    static double det;
+    det = mat[0][0] * Det3_123_123
+	    - mat[0][1] * Det3_123_023
+	    + mat[0][2] * Det3_123_013 
+	    - mat[0][3] * Det3_123_012;
+
+    // Very small determinants probably reflect floating-point fuzz near zero
+    if (fabs(det) < 0.0001)
+	return -1;
+
+    inv[0][0] =  Det3_123_123 / det;
+    inv[0][1] = -Det3_023_123 / det;
+    inv[0][2] =  Det3_013_123 / det;
+    inv[0][3] = -Det3_012_123 / det;
+
+    inv[1][0] = -Det3_123_023 / det;
+    inv[1][1] =  Det3_023_023 / det;
+    inv[1][2] = -Det3_013_023 / det;
+    inv[1][3] =  Det3_012_023 / det;
+
+    inv[2][0] =  Det3_123_013 / det;
+    inv[2][1] = -Det3_023_013 / det;
+    inv[2][2] =  Det3_013_013 / det;
+    inv[2][3] = -Det3_012_013 / det;
+
+    inv[3][0] = -Det3_123_012 / det;
+    inv[3][1] =  Det3_023_012 / det;
+    inv[3][2] = -Det3_013_012 / det;
+    inv[3][3] =  Det3_012_012 / det;
+
+    return 0;
+}
+
+int NAV_bancroft1(int N, SAT_t sats[], double *X, double *Y, double *Z, double *cc) {
+
+    int i, j, k;
+    double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
+    double a[N], Be[4], Ba[4];
+
+    double q0, q1, q2, p, q, sq, x1, x2;
+    double Lsg1[4], Lsg2[4];
+
+    double tmp1, tmp2;
+
+
+    for (i = 0; i < N; i++) {
+        rotZ(sats[i].X, sats[i].Y, sats[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, B[i], B[i]+1, B[i]+2);
+        B[i][3] = sats[i].pseudorange + sats[i].clock_corr;
+    }
+
+    if (N < 4 || N > 12) return -1;
+
+    if (N == 4) {
+        matrix_invert(B, BBB);
+    }
+    else {
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                BtB[i][j] = 0.0;
+                for (k = 0; k < N; k++) {
+                    BtB[i][j] += B[k][i]*B[k][j];
+                }
+            }
+        }
+        matrix_invert(BtB, BBinv);
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < N; j++) {
+                BBB[i][j] = 0.0;
+                for (k = 0; k < 4; k++) {
+                    BBB[i][j] += BBinv[i][k]*B[j][k];
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < 4; i++) {
+        Be[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Be[i] += BBB[i][k]*1.0;
+        }
+    }
+
+    for (i = 0; i < N; i++) {
+        a[i] = 0.5 * lorentz(B[i], B[i]);
+    }
+
+    for (i = 0; i < 4; i++) {
+        Ba[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Ba[i] += BBB[i][k]*a[k];
+        }
+    }
+
+    q2 = lorentz(Be, Be);
+    q1 = lorentz(Ba, Be)-1;
+    q0 = lorentz(Ba, Ba);
+
+    if (q2 == 0) return -2;
+
+    p = q1/q2;
+    q = q0/q2;
+
+    sq = p*p - q;
+    if (sq < 0) return -2;
+
+    x1 = -p + sqrt(sq);
+    x2 = -p - sqrt(sq);
+
+    for (i = 0; i < 4; i++) {
+        Lsg1[i] = x1*Be[i]+Ba[i];
+        Lsg2[i] = x2*Be[i]+Ba[i];
+    }
+    Lsg1[3] = -Lsg1[3];
+    Lsg2[3] = -Lsg2[3];
+
+
+    tmp1 = sqrt( Lsg1[0]*Lsg1[0] + Lsg1[1]*Lsg1[1] + Lsg1[2]*Lsg1[2] );
+    tmp2 = sqrt( Lsg2[0]*Lsg2[0] + Lsg2[1]*Lsg2[1] + Lsg2[2]*Lsg2[2] );
+
+    tmp1 = fabs( tmp1 - 6371000.0 );
+    tmp2 = fabs( tmp2 - 6371000.0 );
+
+    if (tmp1 < tmp2) {
+        *X = Lsg1[0]; *Y = Lsg1[1]; *Z = Lsg1[2]; *cc = Lsg1[3];
+    } else {
+        *X = Lsg2[0]; *Y = Lsg2[1]; *Z = Lsg2[2]; *cc = Lsg2[3];
+    }
+
+    return 0;
+}
+
+int NAV_bancroft2(int N, SAT_t sats[], double *X, double *Y, double *Z, double *cc) {
+
+    int i, j, k;
+    double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
+    double a[N], Be[4], Ba[4];
+
+    double q0, q1, q2, p, q, sq, x1, x2;
+    double Lsg1[4], Lsg2[4];
+
+    double tmp1, tmp2;
+
+
+    for (i = 0; i < N; i++) {
+        rotE(sats[i], B[i], B[i]+1, B[i]+2);
+        B[i][3] = sats[i].PR;
+    }
+
+    if (N < 4 || N > 12) return -1;
+
+    if (N == 4) {
+        matrix_invert(B, BBB);
+    }
+    else {
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                BtB[i][j] = 0.0;
+                for (k = 0; k < N; k++) {
+                    BtB[i][j] += B[k][i]*B[k][j];
+                }
+            }
+        }
+        matrix_invert(BtB, BBinv);
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < N; j++) {
+                BBB[i][j] = 0.0;
+                for (k = 0; k < 4; k++) {
+                    BBB[i][j] += BBinv[i][k]*B[j][k];
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < 4; i++) {
+        Be[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Be[i] += BBB[i][k]*1.0;
+        }
+    }
+
+    for (i = 0; i < N; i++) {
+        a[i] = 0.5 * lorentz(B[i], B[i]);
+    }
+
+    for (i = 0; i < 4; i++) {
+        Ba[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Ba[i] += BBB[i][k]*a[k];
+        }
+    }
+
+    q2 = lorentz(Be, Be);
+    q1 = lorentz(Ba, Be)-1;
+    q0 = lorentz(Ba, Ba);
+
+    if (q2 == 0) return -2;
+
+    p = q1/q2;
+    q = q0/q2;
+
+    sq = p*p - q;
+    if (sq < 0) return -2;
+
+    x1 = -p + sqrt(sq);
+    x2 = -p - sqrt(sq);
+
+    for (i = 0; i < 4; i++) {
+        Lsg1[i] = x1*Be[i]+Ba[i];
+        Lsg2[i] = x2*Be[i]+Ba[i];
+    }
+    Lsg1[3] = -Lsg1[3];
+    Lsg2[3] = -Lsg2[3];
+
+
+    tmp1 = sqrt( Lsg1[0]*Lsg1[0] + Lsg1[1]*Lsg1[1] + Lsg1[2]*Lsg1[2] );
+    tmp2 = sqrt( Lsg2[0]*Lsg2[0] + Lsg2[1]*Lsg2[1] + Lsg2[2]*Lsg2[2] );
+
+    tmp1 = fabs( tmp1 - 6371000.0 );
+    tmp2 = fabs( tmp2 - 6371000.0 );
+
+    if (tmp1 < tmp2) {
+        *X = Lsg1[0]; *Y = Lsg1[1]; *Z = Lsg1[2]; *cc = Lsg1[3];
+    } else {
+        *X = Lsg2[0]; *Y = Lsg2[1]; *Z = Lsg2[2]; *cc = Lsg2[3];
+    }
+
+    return 0;
 }
 

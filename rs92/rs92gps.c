@@ -602,6 +602,7 @@ int get_pseudorange() {
     int i, j, k;
     ui8_t bytes[4];
     ui16_t byte16;
+    double  pr0, prj;
 
     for (i = 0; i < 4; i++) {
         gpstime_bytes[i] = xorbyte(pos_GPSTOW + i);
@@ -650,6 +651,15 @@ int get_pseudorange() {
         sat[prns[j]].pseudorange = /*0x01400000*/ - range[prns[j]].chips * df;
     }
 
+
+    pr0 = (double)0x01400000;
+    for (j = 0; j < k; j++) {
+        prj = sat[prn[j]].pseudorange + sat[prn[j]].clock_corr;
+        if (prj < pr0) pr0 = prj;
+    }
+    for (j = 0; j < k; j++) sat[prn[j]].PR = sat[prn[j]].pseudorange + sat[prn[j]].clock_corr - pr0 + 20e6;
+
+
     return k;
 }
 
@@ -663,6 +673,8 @@ int get_GPSkoord(int k) {
     int i0, i1, i2, i3, j;
     int nav_ret = 0;
     int num = 0;
+    double xB, yB, zB, ccB;
+    SAT_t Sat_B[12];
 
     if (option_vergps == 2) {
         printf("  sats: ");
@@ -682,7 +694,7 @@ int get_GPSkoord(int k) {
 
         if (nav_ret != 0) { // not FALSE
             num += 1;
-            if (calculate_DOP(sat[prn[i0]], sat[prn[i1]], sat[prn[i2]], sat[prn[i3]], pos_ecef, DOP) == 0) {
+            if (calc_DOP(sat[prn[i0]], sat[prn[i1]], sat[prn[i2]], sat[prn[i3]], pos_ecef, DOP) == 0) {
                 gdop = sqrt(DOP[0][0]+DOP[1][1]+DOP[2][2]+DOP[3][3]);
                 //printf(" DOP : %.1f ", gdop);
                 if (option_vergps == 2) {
@@ -715,6 +727,18 @@ int get_GPSkoord(int k) {
         }
 
     }}}}
+
+
+    if (option_vergps == 2) {
+            for (j = 0; j < k; j++) Sat_B[j] = sat[prn[j]];
+            NAV_bancroft1(k, Sat_B, &xB, &yB, &zB, &ccB);
+            ecef2elli(xB, yB, zB, &lat, &lon, &alt);
+            printf("bancroft1[%d] lat: %.6f , lon: %.6f , alt: %8.2f \n", k, lat, lon, alt);
+            NAV_bancroft2(k, Sat_B, &xB, &yB, &zB, &ccB);
+            ecef2elli(xB, yB, zB, &lat, &lon, &alt);
+            printf("bancroft2[%d] lat: %.6f , lon: %.6f , alt: %8.2f \n", k, lat, lon, alt);
+    }
+
 
     return num;
 }
