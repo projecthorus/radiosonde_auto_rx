@@ -607,7 +607,7 @@ int get_pseudorange() {
     for (i = 0; i < 4; i++) {
         gpstime_bytes[i] = xorbyte(pos_GPSTOW + i);
     }
-    memcpy(&gpstime, gpstime_bytes, 4);
+    memcpy(&gpstime, gpstime_bytes, 4);  // GPS-TOW in ms
 
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 2; j++) {
@@ -616,8 +616,7 @@ int get_pseudorange() {
         memcpy(&byte16, bytes, 2);
         prnbits_le(byte16, prn_le+15*i);
     }
-
-    prn12(prn_le, prns);
+    prn12(prn_le, prns);  // PRN-Nummern
 
 
     if (almanac) calc_satpos_alm(alm, gpstime/1000.0, sat);
@@ -628,6 +627,7 @@ int get_pseudorange() {
 
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+i]; }
         memcpy(&byteval, pseudobytes, 4);
+        if ( prns[j] == 0  &&  byteval != 0x7FFFFFFF )  prns[j] = 32;
         range[prns[j]].chips = byteval;
 
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+4+i]; }
@@ -641,7 +641,9 @@ int get_pseudorange() {
             && (range[prns[j]].chips != 0x55555555  /* &&  range[prns[j]].ca != 0x555555 */ )
            )
         {
-            prn[k++] = prns[j];
+            prn[k] = prns[j];
+            for (i = 0; i < k; i++) { if (prn[i] == prn[k]) break; }
+            k++;
         }
 
     }
@@ -663,9 +665,9 @@ int get_pseudorange() {
     return k;
 }
 
-double DOP[4][4];
+double DOP[4];
 
-int get_GPSkoord(int k) {
+int get_GPSkoord(int N) {
     double lat, lon, alt, rx_cl_bias;
     double pos_ecef[3];
     double gdop, gdop0 = 1000.0;
@@ -673,38 +675,38 @@ int get_GPSkoord(int k) {
     int i0, i1, i2, i3, j;
     int nav_ret = 0;
     int num = 0;
-    double xB, yB, zB, ccB;
-    SAT_t Sat_B[12];
+    SAT_t Sat_A[4];
+    SAT_t Sat_B[12]; // N <= 12
 
     if (option_vergps == 2) {
         printf("  sats: ");
-        for (j = 0; j < k; j++) fprintf(stdout, "%2d ", prn[j]);
+        for (j = 0; j < N; j++) fprintf(stdout, "%2d ", prn[j]);
         printf("\n");
     }
 
     gpx.lat = gpx.lon = gpx.h = 0;
 
-    for (i0=0;i0<k;i0++) { for (i1=i0+1;i1<k;i1++) { for (i2=i1+1;i2<k;i2++) { for (i3=i2+1;i3<k;i3++) {
+    for (i0=0;i0<N;i0++) { for (i1=i0+1;i1<N;i1++) { for (i2=i1+1;i2<N;i2++) { for (i3=i2+1;i3<N;i3++) {
 
-        nav_ret = NAV_ClosedFormPositionSolution_FromPseudorange(
-                    sat[prn[i0]], sat[prn[i1]], sat[prn[i2]], sat[prn[i3]],
-                    &lat, &lon, &alt, &rx_cl_bias,
-                    pos_ecef
-                  );
+        Sat_A[0] = sat[prn[i0]];
+        Sat_A[1] = sat[prn[i1]];
+        Sat_A[2] = sat[prn[i2]];
+        Sat_A[3] = sat[prn[i3]];
+        nav_ret = NAV_ClosedFormSolution_FromPseudorange( Sat_A, &lat, &lon, &alt, &rx_cl_bias, pos_ecef );
 
-        if (nav_ret != 0) { // not FALSE
+        if (nav_ret == 0) {
             num += 1;
-            if (calc_DOP(sat[prn[i0]], sat[prn[i1]], sat[prn[i2]], sat[prn[i3]], pos_ecef, DOP) == 0) {
-                gdop = sqrt(DOP[0][0]+DOP[1][1]+DOP[2][2]+DOP[3][3]);
+            if (calc_DOPn(4, Sat_A, pos_ecef, DOP) == 0) {
+                gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
                 //printf(" DOP : %.1f ", gdop);
                 if (option_vergps == 2) {
-                    //gdop = sqrt(DOP[0][0]+DOP[1][1]+DOP[2][2]+DOP[3][3]);
-                    hdop = sqrt(DOP[0][0]+DOP[1][1]);
-                    vdop = sqrt(DOP[2][2]);
-                    pdop = sqrt(DOP[0][0]+DOP[1][1]+DOP[2][2]);
+                    //gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
+                    hdop = sqrt(DOP[0]+DOP[1]);
+                    vdop = sqrt(DOP[2]);
+                    pdop = sqrt(DOP[0]+DOP[1]+DOP[2]);
                     if (gdop < dop_limit) {
                         printf("       ");
-                        printf("lat: %.5f , lon: %.5f , alt: %7.1f ", lat, lon, alt);
+                        printf("lat: %.5f , lon: %.5f , alt: %.1f ", lat, lon, alt);
                         printf("  sats: ");
                         printf("%02d %02d %02d %02d  ", prn[i0], prn[i1], prn[i2], prn[i3]);
                         printf(" GDOP : %.1f  ", gdop);
@@ -730,13 +732,26 @@ int get_GPSkoord(int k) {
 
 
     if (option_vergps == 2) {
-            for (j = 0; j < k; j++) Sat_B[j] = sat[prn[j]];
-            NAV_bancroft1(k, Sat_B, &xB, &yB, &zB, &ccB);
-            ecef2elli(xB, yB, zB, &lat, &lon, &alt);
-            printf("bancroft1[%d] lat: %.6f , lon: %.6f , alt: %8.2f \n", k, lat, lon, alt);
-            NAV_bancroft2(k, Sat_B, &xB, &yB, &zB, &ccB);
-            ecef2elli(xB, yB, zB, &lat, &lon, &alt);
-            printf("bancroft2[%d] lat: %.6f , lon: %.6f , alt: %8.2f \n", k, lat, lon, alt);
+
+            for (j = 0; j < N; j++) Sat_B[j] = sat[prn[j]];
+
+            NAV_bancroft1(N, Sat_B, pos_ecef, &rx_cl_bias);
+            ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+            printf("bancroft1[%d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
+            printf("\n");
+
+            NAV_bancroft2(N, Sat_B, pos_ecef, &rx_cl_bias);
+            ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+            printf("bancroft2[%d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
+            if (calc_DOPn(N, Sat_B, pos_ecef, DOP) == 0) {
+                gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
+                printf(" GDOP[");
+                for (j = 0; j < N; j++) {
+                    printf("%d", prn[j]);
+                    if (j < N-1) printf(","); else printf("] %.1f ", gdop);
+                }
+            }
+            printf("\n");
     }
 
 
@@ -779,8 +794,8 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if ((almanac || ephem) && (k >= 4)) {
             if (get_GPSkoord(k) > 0) {
                 fprintf(stdout, " ");
-                if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  h: %7.1f ", gpx.lat, gpx.lon, gpx.h);
-                else         fprintf(stdout, " lat: %.5f  lon: %.5f  h: %7.1f ", gpx.lat, gpx.lon, gpx.h);
+                if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+                else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                 if (option_vergps) {
                     fprintf(stdout, " sats: ");
                     for (j = 0; j < 4; j++) fprintf(stdout, "%02d ", gpx.sats[j]);

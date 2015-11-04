@@ -528,19 +528,19 @@ void GPS_SatellitePosition_Ephem(
 /* ---------------------------------------------------------------------------------------------------- */
 
 
-int NAV_ClosedFormPositionSolution_FromPseudorange(
-  SAT_t sat1, SAT_t sat2, SAT_t sat3, SAT_t sat4,
-  double* latitude,       // ellipsoid latitude  [rad]
-  double* longitude,      // ellipsoid longitude [rad]
-  double* height,         // ellipsoid height    [m]
-  double* rx_clock_bias,  // receiver clock bias [m]
-  double pos_ecef[3] )    // ECEF coordinates    [m]
+int NAV_ClosedFormSolution_FromPseudorange(
+  SAT_t sats[4],          // input:  satellite position and pseudorange
+  double* latitude,       // output: ellipsoid latitude  [rad]
+  double* longitude,      //         ellipsoid longitude [rad]
+  double* height,         //         ellipsoid height    [m]
+  double* rx_clock_bias,  //         receiver clock bias [m]
+  double pos_ecef[3] )    //         ECEF coordinates    [m]
 {
 
-    double p1 = sat1.pseudorange + sat1.clock_corr;  // pseudorange measurement + clock correction [m]
-    double p2 = sat2.pseudorange + sat2.clock_corr;
-    double p3 = sat3.pseudorange + sat3.clock_corr;
-    double p4 = sat4.pseudorange + sat4.clock_corr;
+    double p1 = sats[0].pseudorange + sats[0].clock_corr;  // pseudorange measurement + clock correction [m]
+    double p2 = sats[1].pseudorange + sats[1].clock_corr;
+    double p3 = sats[2].pseudorange + sats[2].clock_corr;
+    double p4 = sats[3].pseudorange + sats[3].clock_corr;
 
     double x1, y1, z1;  // Sat1 ECEF
     double x2, y2, z2;  // Sat2 ECEF
@@ -548,10 +548,10 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
     double x4, y4, z4;  // Sat4 ECEF
 
     // Erdrotation ECEF-ECI,  0.070s*299792458m/s=20985472m, 0.072s*299792458m/s=21585057m
-    rotZ(sat1.X, sat1.Y, sat1.Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x1, &y1, &z1);
-    rotZ(sat2.X, sat2.Y, sat2.Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x2, &y2, &z2);
-    rotZ(sat3.X, sat3.Y, sat3.Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x3, &y3, &z3);
-    rotZ(sat4.X, sat4.Y, sat4.Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x4, &y4, &z4);
+    rotZ(sats[0].X, sats[0].Y, sats[0].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x1, &y1, &z1);
+    rotZ(sats[1].X, sats[1].Y, sats[1].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x2, &y2, &z2);
+    rotZ(sats[2].X, sats[2].Y, sats[2].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x3, &y3, &z3);
+    rotZ(sats[3].X, sats[3].Y, sats[3].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x4, &y4, &z4);
 
 
     double x12, x13, x14; // 'xij' = 'xi' - 'xj' [m]
@@ -656,7 +656,7 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
 
     tmp1 = m2*m2 - 4.0*m1*m3;
     if ( tmp1 < 0 ) { // not good, there is no solution
-        return 0;     //FALSE
+        return -1;    //FALSE
     }
 
     d1 = ( -m2 - sqrt( tmp1 ) ) * 0.5 / m1; // +-Reihenfolge vertauscht
@@ -716,18 +716,18 @@ int NAV_ClosedFormPositionSolution_FromPseudorange(
     pos_ecef[2] = s1.z;
 
     if( *height < -1500.0 || *height > 50000.0 ) {
-        return 0; //FALSE
+        return -2;
     }
   
-    return 1; //TRUE
+    return 0;
 }
 
 
 /* ---------------------------------------------------------------------------------------------------- */
 
 
-int trace_invert(double mat[4][4], double inv[4][4])  // trace-invert
-/* selected elements from 4x4 matrox inversion */
+int trace_invert(double mat[4][4], double trinv[4])  // trace-invert
+/* selected elements from 4x4 matrix inversion */
 {
     // Find all NECESSARY 2x2 subdeterminants
     double Det2_12_01 = mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0];
@@ -778,52 +778,48 @@ int trace_invert(double mat[4][4], double inv[4][4])  // trace-invert
     if (fabs(det) < 0.0001)
 	return -1;
 
-    inv[0][0] = Det3_123_123 / det;
+    //inv[0][0] = Det3_123_123 / det;
     //inv[0][1] = -Det3_023_123 / det;
     //inv[0][2] =  Det3_013_123 / det;
     //inv[0][3] = -Det3_012_123 / det;
 
     //inv[1][0] = -Det3_123_023 / det;
-    inv[1][1] = Det3_023_023 / det;
+    //inv[1][1] = Det3_023_023 / det;
     //inv[1][2] = -Det3_013_023 / det;
     //inv[1][3] =  Det3_012_023 / det;
 
     //inv[2][0] =  Det3_123_013 / det;
     //inv[2][1] = -Det3_023_013 / det;
-    inv[2][2] = Det3_013_013 / det;
+    //inv[2][2] = Det3_013_013 / det;
     //inv[2][3] = -Det3_012_013 / det;
 
     //inv[3][0] = -Det3_123_012 / det;
     //inv[3][1] =  Det3_023_012 / det;
     //inv[3][2] = -Det3_013_012 / det;
-    inv[3][3] = Det3_012_012 / det;
+    //inv[3][3] = Det3_012_012 / det;
+
+    trinv[0] = Det3_123_123 / det;
+
+    trinv[1] = Det3_023_023 / det;
+    trinv[2] = Det3_013_013 / det;
+    trinv[3] = Det3_012_012 / det;
 
     return 0;
 }
 
-
-int calc_DOP(SAT_t sat0, SAT_t sat1, SAT_t sat2, SAT_t sat3, double pos_ecef[3], double DOP[4][4]) {
+int calc_DOPn(int n, SAT_t satss[], double pos_ecef[3], double DOP[4]) {
     int i, j, k;
-    double norm[4], satpos[4][3];
-    double SATS[4][4], AtA[4][4];
+    double norm[n], satpos[n][3];
+    double SATS[n][4], AtA[4][4];
 
-    satpos[0][0] = sat0.X-pos_ecef[0];
-    satpos[0][1] = sat0.Y-pos_ecef[1];
-    satpos[0][2] = sat0.Z-pos_ecef[2];
+    for (i = 0; i < n; i++) {
+        satpos[i][0] = satss[i].X-pos_ecef[0];
+        satpos[i][1] = satss[i].Y-pos_ecef[1];
+        satpos[i][2] = satss[i].Z-pos_ecef[2];
+    }
 
-    satpos[1][0] = sat1.X-pos_ecef[0];
-    satpos[1][1] = sat1.Y-pos_ecef[1];
-    satpos[1][2] = sat1.Z-pos_ecef[2];
 
-    satpos[2][0] = sat2.X-pos_ecef[0];
-    satpos[2][1] = sat2.Y-pos_ecef[1];
-    satpos[2][2] = sat2.Z-pos_ecef[2];
-
-    satpos[3][0] = sat3.X-pos_ecef[0];
-    satpos[3][1] = sat3.Y-pos_ecef[1];
-    satpos[3][2] = sat3.Z-pos_ecef[2];
-
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < n; i++) {
         norm[i] = sqrt( satpos[i][0]*satpos[i][0] + satpos[i][1]*satpos[i][1] + satpos[i][2]*satpos[i][2] );
         for (j = 0; j < 3; j++) {
             SATS[i][j] = satpos[i][j] / norm[i];
@@ -834,7 +830,7 @@ int calc_DOP(SAT_t sat0, SAT_t sat1, SAT_t sat2, SAT_t sat3, double pos_ecef[3],
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
             AtA[i][j] = 0.0;
-            for (k = 0; k < 4; k++) {
+            for (k = 0; k < n; k++) {
                 AtA[i][j] += SATS[k][i]*SATS[k][j];
             }
         }
@@ -859,9 +855,8 @@ double lorentz(double a[4], double b[4]) {
 }
 
 int matrix_invert(double mat[4][4], double inv[4][4])
-/* selected elements from 4x4 matrox inversion */
 {
-    // Find all NECESSARY 2x2 subdeterminants
+    // 2x2 subdeterminants
     double Det2_12_01 = mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0];
     double Det2_12_02 = mat[1][0] * mat[2][2] - mat[1][2] * mat[2][0];
     double Det2_12_03 = mat[1][0] * mat[2][3] - mat[1][3] * mat[2][0];
@@ -881,7 +876,7 @@ int matrix_invert(double mat[4][4], double inv[4][4])
     double Det2_23_13 = mat[2][1] * mat[3][3] - mat[2][3] * mat[3][1];
     double Det2_23_23 = mat[2][2] * mat[3][3] - mat[2][3] * mat[3][2];
 
-    // Find all NECESSARY 3x3 subdeterminants
+    // 3x3 subdeterminants
     double Det3_012_012 = mat[0][0] * Det2_12_12 - mat[0][1] * Det2_12_02 + mat[0][2] * Det2_12_01;
     double Det3_012_013 = mat[0][0] * Det2_12_13 - mat[0][1] * Det2_12_03 + mat[0][3] * Det2_12_01;
     double Det3_012_023 = mat[0][0] * Det2_12_23 - mat[0][2] * Det2_12_03 + mat[0][3] * Det2_12_02;
@@ -899,7 +894,7 @@ int matrix_invert(double mat[4][4], double inv[4][4])
     double Det3_123_023 = mat[1][0] * Det2_23_23 - mat[1][2] * Det2_23_03 + mat[1][3] * Det2_23_02;
     double Det3_123_123 = mat[1][1] * Det2_23_23 - mat[1][2] * Det2_23_13 + mat[1][3] * Det2_23_12;
 
-    // Find the 4x4 determinant
+    // 4x4 determinant
     static double det;
     det = mat[0][0] * Det3_123_123
 	    - mat[0][1] * Det3_123_023
@@ -933,7 +928,7 @@ int matrix_invert(double mat[4][4], double inv[4][4])
     return 0;
 }
 
-int NAV_bancroft1(int N, SAT_t sats[], double *X, double *Y, double *Z, double *cc) {
+int NAV_bancroft1(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
 
     int i, j, k;
     double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
@@ -943,15 +938,16 @@ int NAV_bancroft1(int N, SAT_t sats[], double *X, double *Y, double *Z, double *
     double Lsg1[4], Lsg2[4];
 
     double tmp1, tmp2;
+    double X, Y, Z;
 
+
+    if (N < 4 || N > 12) return -1;
 
     for (i = 0; i < N; i++) {
         rotZ(sats[i].X, sats[i].Y, sats[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, B[i], B[i]+1, B[i]+2);
         B[i][3] = sats[i].pseudorange + sats[i].clock_corr;
     }
 
-    if (N < 4 || N > 12) return -1;
-
     if (N == 4) {
         matrix_invert(B, BBB);
     }
@@ -1023,15 +1019,18 @@ int NAV_bancroft1(int N, SAT_t sats[], double *X, double *Y, double *Z, double *
     tmp2 = fabs( tmp2 - 6371000.0 );
 
     if (tmp1 < tmp2) {
-        *X = Lsg1[0]; *Y = Lsg1[1]; *Z = Lsg1[2]; *cc = Lsg1[3];
+        X = Lsg1[0]; Y = Lsg1[1]; Z = Lsg1[2]; *cc = Lsg1[3];
     } else {
-        *X = Lsg2[0]; *Y = Lsg2[1]; *Z = Lsg2[2]; *cc = Lsg2[3];
+        X = Lsg2[0]; Y = Lsg2[1]; Z = Lsg2[2]; *cc = Lsg2[3];
     }
+    pos_ecef[0] = X;
+    pos_ecef[1] = Y;
+    pos_ecef[2] = Z;
 
     return 0;
 }
 
-int NAV_bancroft2(int N, SAT_t sats[], double *X, double *Y, double *Z, double *cc) {
+int NAV_bancroft2(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
 
     int i, j, k;
     double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
@@ -1041,14 +1040,15 @@ int NAV_bancroft2(int N, SAT_t sats[], double *X, double *Y, double *Z, double *
     double Lsg1[4], Lsg2[4];
 
     double tmp1, tmp2;
+    double X, Y, Z;
 
+
+    if (N < 4 || N > 12) return -1;
 
     for (i = 0; i < N; i++) {
         rotE(sats[i], B[i], B[i]+1, B[i]+2);
         B[i][3] = sats[i].PR;
     }
-
-    if (N < 4 || N > 12) return -1;
 
     if (N == 4) {
         matrix_invert(B, BBB);
@@ -1121,11 +1121,118 @@ int NAV_bancroft2(int N, SAT_t sats[], double *X, double *Y, double *Z, double *
     tmp2 = fabs( tmp2 - 6371000.0 );
 
     if (tmp1 < tmp2) {
-        *X = Lsg1[0]; *Y = Lsg1[1]; *Z = Lsg1[2]; *cc = Lsg1[3];
+        X = Lsg1[0]; Y = Lsg1[1]; Z = Lsg1[2]; *cc = Lsg1[3];
     } else {
-        *X = Lsg2[0]; *Y = Lsg2[1]; *Z = Lsg2[2]; *cc = Lsg2[3];
+        X = Lsg2[0]; Y = Lsg2[1]; Z = Lsg2[2]; *cc = Lsg2[3];
     }
+    pos_ecef[0] = X;
+    pos_ecef[1] = Y;
+    pos_ecef[2] = Z;
 
     return 0;
 }
+
+/* ---------------------------------------------------------------------------------------------------- */
+
+int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
+
+    int i, j, k;
+    double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
+    double a[N], Be[4], Ba[4];
+
+    double q0, q1, q2, p, q, sq, x1, x2;
+    double Lsg1[4], Lsg2[4];
+
+    double tmp1, tmp2;
+    double X, Y, Z;
+
+
+    if (N < 4 || N > 12) return -1;
+
+    for (i = 0; i < N; i++) {  // Test: nicht hier rotieren, sondern spaeter Lsg rotieren...
+        rotZ(sats[i].X, sats[i].Y, sats[i].Z, 0.0, B[i], B[i]+1, B[i]+2);
+        B[i][3] = sats[i].PR;
+    }
+
+    if (N == 4) {
+        matrix_invert(B, BBB);
+    }
+    else {
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                BtB[i][j] = 0.0;
+                for (k = 0; k < N; k++) {
+                    BtB[i][j] += B[k][i]*B[k][j];
+                }
+            }
+        }
+        matrix_invert(BtB, BBinv);
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < N; j++) {
+                BBB[i][j] = 0.0;
+                for (k = 0; k < 4; k++) {
+                    BBB[i][j] += BBinv[i][k]*B[j][k];
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < 4; i++) {
+        Be[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Be[i] += BBB[i][k]*1.0;
+        }
+    }
+
+    for (i = 0; i < N; i++) {
+        a[i] = 0.5 * lorentz(B[i], B[i]);
+    }
+
+    for (i = 0; i < 4; i++) {
+        Ba[i] = 0.0;
+        for (k = 0; k < N; k++) {
+            Ba[i] += BBB[i][k]*a[k];
+        }
+    }
+
+    q2 = lorentz(Be, Be);
+    q1 = lorentz(Ba, Be)-1;
+    q0 = lorentz(Ba, Ba);
+
+    if (q2 == 0) return -2;
+
+    p = q1/q2;
+    q = q0/q2;
+
+    sq = p*p - q;
+    if (sq < 0) return -2;
+
+    x1 = -p + sqrt(sq);
+    x2 = -p - sqrt(sq);
+
+    for (i = 0; i < 4; i++) {
+        Lsg1[i] = x1*Be[i]+Ba[i];
+        Lsg2[i] = x2*Be[i]+Ba[i];
+    }
+    Lsg1[3] = -Lsg1[3];
+    Lsg2[3] = -Lsg2[3];
+
+
+    tmp1 = sqrt( Lsg1[0]*Lsg1[0] + Lsg1[1]*Lsg1[1] + Lsg1[2]*Lsg1[2] );
+    tmp2 = sqrt( Lsg2[0]*Lsg2[0] + Lsg2[1]*Lsg2[1] + Lsg2[2]*Lsg2[2] );
+
+    tmp1 = fabs( tmp1 - 6371000.0 );
+    tmp2 = fabs( tmp2 - 6371000.0 );
+
+    if (tmp1 < tmp2) {
+        X = Lsg1[0]; Y = Lsg1[1]; Z = Lsg1[2]; *cc = Lsg1[3];
+    } else {
+        X = Lsg2[0]; Y = Lsg2[1]; Z = Lsg2[2]; *cc = Lsg2[3];
+    }
+
+    rotZ(X, Y, Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, pos_ecef, pos_ecef+1, pos_ecef+2);
+
+    return 0;
+}
+
 
