@@ -110,6 +110,7 @@ typedef struct {
     double Z;    
     int ephhr;
     double PR;
+    double ephtime;
 } SAT_t;
 
 
@@ -281,6 +282,145 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
     }
 
     return 0;
+}
+
+EPHEM_t *read_RNXpephs(FILE *fp) {
+    int l, i, n;
+    char buffer[82];
+    char buf[64], str[20];
+    char *pbuf;
+    unsigned ui;
+    double dbl;
+    int c;
+    EPHEM_t ephem = {}, *te = NULL;
+    int count = 0;
+    long fpos;
+
+    do {  // header-Zeilen: 80 Zeichen
+        pbuf = fgets(buffer, 82, fp);   // max 82-1 Zeichen + '\0'
+        buffer[82] = '\0';  // doppelt haelt besser
+    } while ( pbuf  &&  !strstr(buffer, "END OF HEADER") );
+
+    if (pbuf == NULL) return NULL;
+    fpos = ftell(fp);
+
+    count = 0;
+    while (count >= 0) {  // data-Zeilen: 79 Zeichen
+        pbuf = fgets(buffer, 82, fp); if (pbuf == 0) break;
+        strncpy(str, buffer, 3);
+        str[3] = '\0';
+        sscanf(str, "%d", &ui);
+        if (ui < 33) count++;
+        for (i = 0; i < 7; i++) {
+            pbuf = fgets(buffer, 82, fp); if (pbuf == 0) break;
+        }       
+    }
+    //printf("Ephemerides: %d\n", count);
+
+    fseek(fp, fpos, SEEK_SET);
+
+    te = calloc( count+1, sizeof(ephem) ); // calloc( 1, sizeof(ephem) );
+    if (te == NULL) return NULL;
+
+    n = 0;
+
+    while (count > 0) {  // brdc/hour-rinex sollte nur Daten von einem Tag enthalten
+
+        //memset(&ephem, 0, sizeof(ephem));
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;  sscanf(buf, "%d", &ui);   
+        ephem.prn = ui;
+
+        for (i = 0; i < 16; i++) ephem.epoch[i] = '0';
+        ephem.epoch[16] = '\0';
+
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  buf[19] = 0;
+
+        for (i = 0; i < 6; i++) {
+            c = buf[3*i  ]; if (c == ' ') c = '0'; str[2*i  ] = c;
+            c = buf[3*i+1]; if (c == ' ') c = '0'; str[2*i+1] = c;
+        }
+        str[12] = buf[17];
+        str[13] = buf[18];
+        str[14] = '\0';
+
+        strncpy(ephem.epoch  , "20", 2);  // vorausgesetzt 21.Jhd; Datum steht auch im Header
+        strncpy(ephem.epoch+2, str, 15);
+        ephem.epoch[16] = '\0';
+
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.af0 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.af1 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.af2 = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iode = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crs = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.delta_n = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.M0 = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cuc = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.e = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cus = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.sqrta = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.toe = dbl;
+                                                                                                                                    ephem.toc = ephem.toe;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cic = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.Omega0 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cis = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.i0 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crc = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.w = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.OmegaDot = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.idot = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.codeL2 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.gpsweek = (int)dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.sva = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.svh = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.tgd = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
+        if ((c=fgetc(fp)) == EOF) break;
+
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.ttom = dbl;
+        pbuf = fgets(buffer, 82, fp);
+     /* // die letzten beiden Felder (spare) sind manchmal leer (statt 0.00); manchmal fehlt sogar das drittletzte Feld
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.fit = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.spare1 = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.spare2 = dbl;
+        if ((c=fgetc(fp)) == EOF) break;  */
+
+        ephem.week = 1; // ephem.gpsweek
+
+        te[n] = ephem;
+        n += 1;
+
+          //tmp = realloc( te, (count+1) * sizeof(ephem) );
+          //if (tmp == NULL) break;
+          //te = tmp;
+
+        if (pbuf == NULL) break;
+    }
+
+    te[n].prn = 0;
+
+
+    return te;
 }
 
 

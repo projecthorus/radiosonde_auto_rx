@@ -477,7 +477,9 @@ int get_Cal() {
 #include "nav_gps.c"
 
 EPHEM_t alm[33];
-EPHEM_t eph[33][24];
+//EPHEM_t eph[33][24];
+EPHEM_t *ephs = NULL;
+
 SAT_t sat[33];
 
 
@@ -579,6 +581,54 @@ int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
     return 0;
 }
 
+int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
+    double X, Y, Z;
+    int j;
+    int week;
+    double cl_corr;
+    double tdiff, td;
+    int count, count0;
+
+    for (j = 1; j < 33; j++) {
+
+        count = count0 = 0;
+
+        // Woche hat 604800 sec
+        tdiff = 604800;
+
+        while (eph[count].prn > 0) {
+
+            if (eph[count].prn == j) {
+
+                if      (t - eph[count].toe >  604800/2) rollover = +1;
+                else if (t - eph[count].toe < -604800/2) rollover = -1;
+                else rollover = 0;
+                td = fabs( t - eph[count].toe - rollover*604800);
+
+                if ( td < tdiff ) {
+                    tdiff = td;
+                    week = eph[count].week - rollover;
+                    count0 = count;
+                }
+            }
+            count += 1;
+        }
+
+        GPS_SatellitePosition_Ephem(
+            week, t, eph[count0],
+            &cl_corr, &X, &Y, &Z
+        );
+
+        satp[j].X = X;
+        satp[j].Y = Y;
+        satp[j].Z = Z;
+        satp[j].clock_corr = cl_corr;
+        satp[j].ephtime = eph[count0].toe;
+
+    }
+
+    return 0;
+}
 
 
 typedef struct {
@@ -620,30 +670,45 @@ int get_pseudorange() {
 
 
     if (almanac) calc_satpos_alm(alm, gpstime/1000.0, sat);
-    if (ephem)   calc_satpos_rnx(eph, gpstime/1000.0, sat);
+    //if (ephem)   calc_satpos_rnx(eph, gpstime/1000.0, sat);
+    if (ephem)   calc_satpos_rnx2(ephs, gpstime/1000.0, sat);
 
     k = 0;
     for (j = 0; j < 12; j++) {
 
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+i]; }
         memcpy(&byteval, pseudobytes, 4);
-        if ( prns[j] == 0  &&  byteval != 0x7FFFFFFF )  prns[j] = 32;
-        range[prns[j]].chips = byteval;
 
+        if ( byteval == 0x7FFFFFFF  ||  byteval == 0x55555555 ) {
+             range[prns[j]].chips = 0;
+             continue;
+        }
+/*
+        if ( byteval >  0x10000000  &&  byteval <  0xF0000000 ) {
+             range[prns[j]].chips = 0;
+             continue;
+        }
+*/
+        if ( prns[j] == 0 )  prns[j] = 32;
+        range[prns[j]].chips = byteval;
+        range[prns[j]].time = gpstime;
+/*
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+4+i]; }
         memcpy(&byteval, pseudobytes, 4);
         range[prns[j]].ca = byteval & 0xFFFFFF;
         //range[prns[j]].dop = (byteval >> 24) & 0xFF;
-
-        range[prns[j]].time = gpstime;
-
-        if (   (range[prns[j]].chips != 0x7FFFFFFF  &&  dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000) 
-            && (range[prns[j]].chips != 0x55555555  /* &&  range[prns[j]].ca != 0x555555 */ )
-           )
+        if (range[prns[j]].ca == 0x555555) {
+            range[prns[j]].ca = 0;
+            continue;
+        }
+*/
+        if ( dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000 )
         {
-            prn[k] = prns[j];
-            for (i = 0; i < k; i++) { if (prn[i] == prn[k]) break; }
-            k++;
+            for (i = 0; i < k; i++) { if (prn[i] == prns[j]) break; }
+            if (i == k) {
+                prn[k] = prns[j];
+                k++;
+            }
         }
 
     }
@@ -660,7 +725,8 @@ int get_pseudorange() {
         if (prj < pr0) pr0 = prj;
     }
     for (j = 0; j < k; j++) sat[prn[j]].PR = sat[prn[j]].pseudorange + sat[prn[j]].clock_corr - pr0 + 20e6;
-
+    // es kann PRNs geben, die zeitweise stark abweichende PR liefern;
+    // eventuell Standardabweichung ermitteln und fehlerhafte Sats weglassen
 
     return k;
 }
@@ -912,8 +978,14 @@ int main(int argc, char *argv[]) {
         fclose(fp_alm);
     }
     if (fp_eph) {
-        i = read_RNXephemeris(fp_eph, eph);
-        if (i == 0) {
+        /* i = read_RNXephemeris(fp_eph, eph);
+           if (i == 0) {
+               ephem = 1;
+               almanac = 0;
+           }
+           fclose(fp_eph); */
+        ephs = read_RNXpephs(fp_eph);
+        if (ephs) {
             ephem = 1;
             almanac = 0;
         }
@@ -974,7 +1046,9 @@ int main(int argc, char *argv[]) {
         }
 
     }
+
     fclose(fp);
+    free(ephs);
 
     return 0;
 }
