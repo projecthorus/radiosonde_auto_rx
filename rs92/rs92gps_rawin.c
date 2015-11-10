@@ -85,7 +85,7 @@ int bufpos = -1;
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
 /* --- RS92-SGP ------------------- */
 
-char buffer_rawin[2*FRAME_LEN+4];
+char buffer_rawin[2*FRAME_LEN+4]; //## char buffer_rawin[3*FRAME_LEN+8];
 
 
 #define MASK_LEN 64
@@ -1057,13 +1057,13 @@ int main(int argc, char *argv[]) {
    {
         while (1 > 0) {
 
-            pbuf = fgets(buffer_rawin, 2*FRAME_LEN+2, fp);
+            pbuf = fgets(buffer_rawin, 2*FRAME_LEN+2, fp); //## pbuf = fgets(buffer_rawin, 3*FRAME_LEN+4, fp);
             if (pbuf == NULL) break;
-            buffer_rawin[2*FRAME_LEN+1] = '\0';
-            len = strlen(buffer_rawin) / 2;
+            buffer_rawin[2*FRAME_LEN+1] = '\0'; //## buffer_rawin[3*FRAME_LEN+1] = '\0';
+            len = strlen(buffer_rawin) / 2; //## len = strlen(buffer_rawin) / 3;
             if (len > pos_SondeID+8) {
-                for (i = 0; i < len; i++) {
-                    sscanf(buffer_rawin+2*i, "%2x", frame+i); //%2x  SCNx8=%hhx(inttypes.h)
+                for (i = 0; i < len; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                    sscanf(buffer_rawin+2*i, "%2x", frame+i); //## sscanf(buffer_rawin+3*i, "%3x", frame+5+i);
                 }
                 if (len < FRAME_LEN-20) err_gps = 1;
                 print_frame(len);
