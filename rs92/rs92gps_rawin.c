@@ -18,6 +18,10 @@
  *  http://geographiclib.sourceforge.net/cgi-bin/GeoidEval
  */
 
+/*
+    ./rs92gps_rawin -r 2015_11_01.wav > raw.out
+    ./rs92gps_rawin --dop 5 -gg -e brdc3050.15n --rawin raw.out
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
