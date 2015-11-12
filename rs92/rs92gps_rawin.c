@@ -1067,12 +1067,14 @@ int main(int argc, char *argv[]) {
             len = strlen(buffer_rawin) / 2; //## len = strlen(buffer_rawin) / 3;
             if (len > pos_SondeID+8) {
                 for (i = 0; i < len; i++) { //%2x  SCNx8=%hhx(inttypes.h)
-                    sscanf(buffer_rawin+2*i, "%2x", frame+i); //## sscanf(buffer_rawin+3*i, "%2x", frame+5+i);
+                    sscanf(buffer_rawin+2*i, "%2hhx", frame+i); //## sscanf(buffer_rawin+3*i, "%2hhx", frame+5+i);
+                    // wenn ohne %hhx: sscanf(buffer_rawin+2*i, "%2x", &byte); frame[i] = (ui8_t)byte;
+                    //            //## sscanf(buffer_rawin+3*i, "%2x", &byte); frame[5+i] = (ui8_t)byte;
                 }
                 if (len < FRAME_LEN-20) err_gps = 1;
                 print_frame(len);
                 err_gps = 0;
-                }
+            }
         }
     }
 
