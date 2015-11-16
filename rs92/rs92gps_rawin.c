@@ -741,7 +741,7 @@ int get_GPSkoord(int N) {
 
     if (option_vergps == 8) {
         printf("  sats: ");
-        for (j = 0; j < N; j++) fprintf(stdout, "%2d ", prn[j]);
+        for (j = 0; j < N; j++) fprintf(stdout, "%02d ", prn[j]);
         printf("\n");
     }
 
@@ -873,7 +873,6 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                 if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                 else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                 if (option_vergps) {
-                    //fprintf(stdout, " sats: ");
                     if (option_vergps != 2) {
                         fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
                                        gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
