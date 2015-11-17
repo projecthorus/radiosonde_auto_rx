@@ -60,47 +60,47 @@ int findstr(char *buff, char *str, int pos) {
 }
 
 int read_wav_header(FILE *fp) {
-    char txt[5] = "\0\0\0\0";
-    char buff[4];
+    char txt[4+1] = "\0\0\0\0";
+    unsigned char dat[4];
     int byte, p=0;
-    char fmt_[5] = "fmt ";
-    char data[5] = "data";
 
     if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "RIFF", 4)) return -1;
-
+    if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "WAVE", 4)) return -1;
-
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, fmt_, p) == 4) break;
+        if (findstr(txt, "fmt ", p) == 4) break;
     }
-    
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    channels = buff[0] + (buff[1] << 8);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    memcpy(&sample_rate, buff, 4);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    byte = buff[0] + (buff[1] << 8);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    bits_sample = buff[0] + (buff[1] << 8);
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
 
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    channels = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    memcpy(&sample_rate, dat, 4); //sample_rate = dat[0]|(dat[1]<<8)|(dat[2]<<16)|(dat[3]<<24);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    //byte = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    bits_sample = dat[0] + (dat[1] << 8);
+
+    // pos_dat = 36L + info
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, data, p) == 4) break;
+        if (findstr(txt, "data", p) == 4) break;
     }
-    if (fread(buff, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 4, fp) < 4) return -1;
 
 
     fprintf(stderr, "sample_rate: %d\n", sample_rate);
@@ -320,12 +320,14 @@ int get_RecordNo() {
 int get_SondeID() {
     int i;
     unsigned byte;
-    ui8_t sondeid_bytes[8];
-    int IDlen = 5; // < 9
+    ui8_t sondeid_bytes[8]; // 5 bis 6 ascii + '\0'
+    int IDlen = 6+1; // < 9
 
     for (i = 0; i < IDlen; i++) {
         byte = frame[pos_SondeID1 + i];
-        if ((byte < 0x20) || (byte > 0x7E)) return -1;
+        if (byte == 0) IDlen = i+1;
+        else
+        if (byte < 0x20 || byte > 0x7E) return -1;
         sondeid_bytes[i] = byte;
     }
 
