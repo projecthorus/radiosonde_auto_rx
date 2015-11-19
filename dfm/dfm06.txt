@@ -1,7 +1,7 @@
 DFM-06:
 
 Quellcode gibt es schon hier:
-http://www.uni-kl.de/AFG/dfm-06.htm
+https://www.amateurfunk.uni-kl.de/projekte-aktivitaeten/decoder-wettersonden/
 
 
 GPS Chip:
