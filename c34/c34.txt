@@ -1,7 +1,7 @@
 
 Modulation AFSK 2400 baud
-3000 Hz : bit 0
-4800 Hz : bit 1
+3000 Hz : bit 1
+4800 Hz : bit 0
 
 
 bits : little endian -> byte
