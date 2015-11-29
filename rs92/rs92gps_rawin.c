@@ -1083,7 +1083,7 @@ int main(int argc, char *argv[]) {
             buffer_rawin[2*FRAME_LEN+1] = '\0'; //## buffer_rawin[3*FRAME_LEN+1] = '\0';
             len = strlen(buffer_rawin) / 2; //## len = strlen(buffer_rawin) / 3;
             if (len > pos_SondeID+8) {
-                for (i = 0; i < len; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                for (i = 0; i < len/*##-5*/; i++) { //%2x  SCNx8=%hhx(inttypes.h)
                     sscanf(buffer_rawin+2*i, "%2hhx", frame+i); //## sscanf(buffer_rawin+3*i, "%2hhx", frame+5+i);
                     // wenn ohne %hhx: sscanf(buffer_rawin+2*i, "%2x", &byte); frame[i] = (ui8_t)byte;
                     //            //## sscanf(buffer_rawin+3*i, "%2x", &byte); frame[5+i] = (ui8_t)byte;
