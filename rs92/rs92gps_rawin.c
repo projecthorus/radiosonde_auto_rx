@@ -57,7 +57,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_inv = 0,      // invertiert Signal
     fileloaded = 0,
     option_vergps = 0,
-    option_rawin = 0;
+    rawin = 0;
 double dop_limit = 10.0;
 
 int rollover = 0,
@@ -89,8 +89,8 @@ int bufpos = -1;
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
 /* --- RS92-SGP ------------------- */
 
-char buffer_rawin[2*FRAME_LEN+4]; //## char buffer_rawin[3*FRAME_LEN+8];
-
+char buffer_rawin[3*FRAME_LEN+8]; //## rawin1: buffer_rawin[2*FRAME_LEN+4]; 
+int frameofs = 0;
 
 #define MASK_LEN 64
 ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98, 
@@ -944,10 +944,10 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -a, --almanac  <almanacSEM>\n");
             fprintf(stderr, "       -e, --ephem    <ephemperisRinex>\n");
-            fprintf(stderr, "       -g1      (verbose GPS:   4 sats)\n");
-            fprintf(stderr, "       -g2      (verbose GPS: all sats)\n");
-            fprintf(stderr, "       -gg      (vverbose GPS)\n");
-            fprintf(stderr, "       --rawin  (raw_data file)\n");
+            fprintf(stderr, "       -g1         (verbose GPS:   4 sats)\n");
+            fprintf(stderr, "       -g2         (verbose GPS: all sats)\n");
+            fprintf(stderr, "       -gg         (vverbose GPS)\n");
+            fprintf(stderr, "       --rawin1,2  (raw_data file)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -983,10 +983,11 @@ int main(int argc, char *argv[]) {
         else if (strcmp(*argv, "-g1") == 0) { option_vergps = 1; }  //  verbose1 GPS
         else if (strcmp(*argv, "-g2") == 0) { option_vergps = 2; }  //  verbose2 GPS (bancroft)
         else if (strcmp(*argv, "-gg") == 0) { option_vergps = 8; }  // vverbose GPS
-        else if (strcmp(*argv, "--rawin") == 0) { option_rawin = 1; }  // raw_txt input
+        else if (strcmp(*argv, "--rawin1") == 0) { rawin = 2; }     // raw_txt input1
+        else if (strcmp(*argv, "--rawin2") == 0) { rawin = 3; }     // raw_txt input2 (SM)
         else {
-            if (!option_rawin) fp = fopen(*argv, "rb");
-            else               fp = fopen(*argv, "r");
+            if (!rawin) fp = fopen(*argv, "rb");
+            else        fp = fopen(*argv, "r");
             if (fp == NULL) {
                 fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
                 return -1;
@@ -1020,7 +1021,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if (!option_rawin) {
+    if (!rawin) {
 
         i = read_wav_header(fp);
         if (i) {
@@ -1074,19 +1075,20 @@ int main(int argc, char *argv[]) {
         }
 
     }
-   else //if (option_rawin)
+   else //if (rawin)
    {
+        if (rawin == 3) frameofs = 5;
+
         while (1 > 0) {
 
-            pbuf = fgets(buffer_rawin, 2*FRAME_LEN+2, fp); //## pbuf = fgets(buffer_rawin, 3*FRAME_LEN+4, fp);
+            pbuf = fgets(buffer_rawin, rawin*FRAME_LEN+4, fp);
             if (pbuf == NULL) break;
-            buffer_rawin[2*FRAME_LEN+1] = '\0'; //## buffer_rawin[3*FRAME_LEN+1] = '\0';
-            len = strlen(buffer_rawin) / 2; //## len = strlen(buffer_rawin) / 3;
+            buffer_rawin[rawin*FRAME_LEN+1] = '\0';
+            len = strlen(buffer_rawin) / rawin;
             if (len > pos_SondeID+8) {
-                for (i = 0; i < len/*##-5*/; i++) { //%2x  SCNx8=%hhx(inttypes.h)
-                    sscanf(buffer_rawin+2*i, "%2hhx", frame+i); //## sscanf(buffer_rawin+3*i, "%2hhx", frame+5+i);
-                    // wenn ohne %hhx: sscanf(buffer_rawin+2*i, "%2x", &byte); frame[i] = (ui8_t)byte;
-                    //            //## sscanf(buffer_rawin+3*i, "%2x", &byte); frame[5+i] = (ui8_t)byte;
+                for (i = 0; i < len-frameofs; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                    sscanf(buffer_rawin+rawin*i, "%2hhx", frame+frameofs+i);
+                    // wenn ohne %hhx: sscanf(buffer_rawin+rawin*i, "%2x", &byte); frame[frameofs+i] = (ui8_t)byte;
                 }
                 if (len < FRAME_LEN-20) err_gps = 1;
                 print_frame(len);
