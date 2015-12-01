@@ -179,7 +179,8 @@ int par=1, par_alt=1;
 unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
-    int n, sample=0, y0;
+    static int sample;
+    int n, y0;
     float l, x1;
     static float x0;
 
@@ -203,8 +204,8 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 
     *len = (int)(l+0.5);
 
-    if (!option_inv) *bit = (1-par_alt)/2;  // unten 1, oben -1
-    else             *bit = (1+par_alt)/2;  // inverse
+    if (!option_inv) *bit = (1+par_alt)/2;  // oben 1, unten -1
+    else             *bit = (1-par_alt)/2;  // sdr#<rev14?, invers: unten 1, oben -1
 
     /* Y-offset ? */
 
@@ -655,6 +656,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose\n");
             fprintf(stderr, "       -r, --raw\n");
+            fprintf(stderr, "       -i, --invert\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {

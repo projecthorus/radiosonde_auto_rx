@@ -231,8 +231,8 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 
     *len = (int)(l+0.5);
 
-    if (!option_inv) *bit = (1-par_alt)/2;  // unten 1, oben -1
-    else             *bit = (1+par_alt)/2;  // inverse:
+    if (!option_inv) *bit = (1+par_alt)/2;  // oben 1, unten -1
+    else             *bit = (1-par_alt)/2;  // sdr#<rev14?, invers: unten 1, oben -1
 
     /* Y-offset ? */
 
@@ -942,6 +942,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose\n");
             fprintf(stderr, "       -r, --raw\n");
+            fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       -a, --almanac  <almanacSEM>\n");
             fprintf(stderr, "       -e, --ephem    <ephemperisRinex>\n");
             fprintf(stderr, "       -g1         (verbose GPS:   4 sats)\n");

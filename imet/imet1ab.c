@@ -143,7 +143,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 }
 
 
-int par=-1, par_alt=-1;
+int par=1, par_alt=1;
 unsigned long sample_count = 0;
 
 int read_afsk_bits(FILE *fp, int *len) {
@@ -153,19 +153,19 @@ int read_afsk_bits(FILE *fp, int *len) {
 
     start = 0;
     n = 0;
-    do{
+    do{ // High
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
         sample_count++;
-        if (sample > 0 && !start) continue;
+        if (sample < 0 && !start) continue;
         start = 1;
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;
         n++;
     } while (par*par_alt > 0);
 
-    do{
+    do{ // Low
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
@@ -420,6 +420,7 @@ int bitl1 = 0,
             fprintf(stderr, "%s [options] audio.wav\n", fpname);
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -r, --raw\n");
+            fprintf(stderr, "       -i, --invert\n");
             return 0;
         }
 /*
