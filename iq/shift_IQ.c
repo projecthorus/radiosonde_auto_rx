@@ -155,8 +155,8 @@ int main(int argc, char *argv[]) {
             if (read_csample(fp, &z) == EOF) break;
 
             if (swap) { // swap IQ
-                w = cimag(z) + I*creal(z);  // = cexp(-I*PI/2) * conj(z);
-
+                w = cimag(z) + I*creal(z);  // = cexp(I*PI/2) * conj(z) = I * conj(z);
+                // W(f) = Z(-f); fuer Spiegelung reicht: w = conj(z)
             }
             else { // translate
                 t = (double)sample / sample_rate;
