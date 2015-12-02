@@ -1,6 +1,7 @@
 
 /*
- *  ./shift <IQ.wav> [freq] [> IQ_translated.wav]
+ *  ./shift IQ.wav [freq] [> IQ_translated.wav]  ## translate
+ *  ./shift IQ.wav - [> IQ_swap.wav]             ## swap IQ
  */
 
 /*
@@ -130,6 +131,7 @@ int main(int argc, char *argv[]) {
     int sample = 0;
     double t, f = 0;
     double complex  z, w;
+    int swap = 0;
 
     if (argv[1]) {
         
@@ -137,17 +139,29 @@ int main(int argc, char *argv[]) {
         if (fp == NULL) return -1;
 
         fout = stdout; //fopen("tmp_out.wav", "wb");
-        read_IQwavheader(fp, &sample_rate, &bits_sample, fout);
+        if (read_IQwavheader(fp, &sample_rate, &bits_sample, fout) != 0) {
+            fprintf(stderr, "error: wav header\n");
+            return -1;
+        }
 
-        if (argv[2]) f = (double)atoi(argv[2]);  // f0
+        if (argv[2]) {
+            if (strcmp(argv[2], "-") == 0) swap = 1;
+            else f = (double)atoi(argv[2]);  // f0
+        }
 
         sample = 0;
         for ( ; ; ) {
 
             if (read_csample(fp, &z) == EOF) break;
 
-            t = (double)sample / sample_rate;
-            w = cexp(t*2*PI*f*I) * z;
+            if (swap) { // swap IQ
+                w = cimag(z) + I*creal(z);  // = cexp(-I*PI/2) * conj(z);
+
+            }
+            else { // translate
+                t = (double)sample / sample_rate;
+                w = cexp(t*2*PI*f*I) * z;
+            }
 
             write_csample(fout, w);
             sample++;
