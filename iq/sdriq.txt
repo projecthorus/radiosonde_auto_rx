@@ -1,0 +1,48 @@
+
+IQ-wav
+2 channels: Re, Im
+16-bit-signed oder 8-bit-unsigned (centerpoint 128)
+
+sdr#   :  8bit unsigned, 16bit signed
+rtl_sdr:  8bit unsigned (wie aus rtlsdr-stick)
+rtl_fm : 16bit signed
+
+
+sdr# < rev14:
+rtlsdrIQ = sdr#-QI: swap IQ
+In sdr# swapIQ fuer rtl_sdr-IQ einschalten.
+(entsprechend hat auch audio umgekehrte Polaritaet)
+
+
+rtl_sdr: 8 bit
+./rtl_sdr.exe -M -raw -f 403.5M -s 1.4M rtlsdr_1400k.raw
+sox -r 1400000 -e unsigned -b 8 -c 2 rtlsdr_1400k.raw rtlsdr_1400k.wav
+
+rtl_fm: 16 bit
+./rtl_fm.exe -M raw -f 403.5M -s 100000 rtlfm_100k.raw
+sox -r 100000 -e signed -b 16 -c 2 rtlfm_100k.raw rtlfm_100k.wav
+oder:
+./rtl_fm.exe -M raw -f 403.5M -s 100000 -E wav rtlfm2_100k.wav
+
+Wird raw-Datei durch sox mit anderer sample_rate in wav umgewandelt,
+als die raw-Datei erstellt wurde, wird Signal entsprechend gedehnt oder
+gestaucht.
+
+
+Baseband verkleinern -> resample w/ sox:
+sox sdrIQ_250k.wav -r 100k sdrIQ_100k.wav
+
+
+sdr# DC-Frequenz im Dateinamen (sonst 0 Hz):
+z.B.
+SDRSharp_20150303_122423Z_403000kHz_IQ.wav
+wird in sdr# um die Frequenz 403000 kHz angezeigt.
+
+
+Translation, d.h. Verschieben um f0:
+w(t) = z(t)*exp(t * i*2pi*f0) <-> W(f) = Z(f-f0)
+
+swap I<->Q, d.h. Spiegelung im freq-Raum:
+w = Im(z) + I*Re(z) = exp(i*pi/2) * conj(z) = i*conj(z)
+Spiegelung: w = conj(z)
+
