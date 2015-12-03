@@ -8,7 +8,7 @@ rtl_sdr:  8bit unsigned (wie aus rtlsdr-stick)
 rtl_fm : 16bit signed
 
 
-sdr# < rev14:
+sdr# < rev1381:
 rtlsdrIQ = sdr#-QI: swap IQ
 In sdr# swapIQ fuer rtl_sdr-IQ einschalten.
 (entsprechend hat auch audio umgekehrte Polaritaet)
