@@ -5,7 +5,7 @@
  */
 
 /*
-    sdrsharpIQ.wav = conj(rtlsdrIQ.wav)  ->  rtlsdrIQ.wav: swapIQ
+    sdr#<rev1381: sdrsharpIQ.wav = conj(rtlsdrIQ.wav)  ->  rtlsdrIQ.wav: swapIQ
 */
 /*
     time domain                       frequency domain

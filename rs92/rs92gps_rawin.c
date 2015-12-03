@@ -232,7 +232,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     *len = (int)(l+0.5);
 
     if (!option_inv) *bit = (1+par_alt)/2;  // oben 1, unten -1
-    else             *bit = (1-par_alt)/2;  // sdr#<rev14?, invers: unten 1, oben -1
+    else             *bit = (1-par_alt)/2;  // sdr#<rev1381?, invers: unten 1, oben -1
 
     /* Y-offset ? */
 
