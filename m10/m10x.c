@@ -77,59 +77,47 @@ int findstr(char *buf, char *str, int pos) {
 }
 
 int read_wav_header(FILE *fp) {
-    char txt[5] = "\0\0\0\0";
-    char buff[4];
+    char txt[4+1] = "\0\0\0\0";
+    unsigned char dat[4];
     int byte, p=0;
-    // long pos_fmt, pos_dat;
-    char fmt_[5] = "fmt ";
-    char data[5] = "data";
 
-    //if (fseek(fp, 0L, SEEK_SET)) return -1;
     if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "RIFF", 4)) return -1;
-
+    if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "WAVE", 4)) return -1;
-
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, fmt_, p) == 4) break;
+        if (findstr(txt, "fmt ", p) == 4) break;
     }
-    
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    //memcpy(&byte, buff, 4); fprintf(stderr, "fmt_length : %04x\n", byte);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    //byte = buff[0] + (buff[1] << 8); fprintf(stderr, "fmt_tag    : %04x\n", byte & 0xFFFF);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    channels = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "channels   : %d\n", channels & 0xFFFF);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    memcpy(&sample_rate, buff, 4);
-    //fprintf(stderr, "samplerate : %d\n", sample_rate);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    //memcpy(&byte, buff, 4); fprintf(stderr, "bytes/sec  : %d\n", byte);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    byte = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "block_align: %04x\n", byte & 0xFFFF);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    bits_sample = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "bits/sample: %d\n", bits_sample & 0xFFFF);
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    channels = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    memcpy(&sample_rate, dat, 4); //sample_rate = dat[0]|(dat[1]<<8)|(dat[2]<<16)|(dat[3]<<24);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    //byte = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    bits_sample = dat[0] + (dat[1] << 8);
 
     // pos_dat = 36L + info
-    //if (fread(txt, 1, 4, fp) < 4) return -1;
-    //fprintf(stderr, "data: %s\n", txt);
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, data, p) == 4) break;
+        if (findstr(txt, "data", p) == 4) break;
     }
-    if (fread(buff, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 4, fp) < 4) return -1;
 
 
     fprintf(stderr, "sample_rate: %d\n", sample_rate);
@@ -185,10 +173,10 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
         y0 = sample;
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
-        if (option_inv) sample = -sample;
+        if (option_inv) sample = -sample; // 8bit: -sample-1
         sample_count++;
         par_alt = par;
-        par =  (sample >= 0) ? 1 : -1;  // 8bit: 0..127,128..255 (-128..-1,0..127)
+        par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
     } while (par*par_alt > 0);
 

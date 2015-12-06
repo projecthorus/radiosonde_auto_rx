@@ -202,7 +202,7 @@ int read_sample(FILE *fp) {  // int = i32_t
 int sign(int sample) {
     int sgn = 0;
     if (bits_sample == 8) {                         // unsigned char:
-        if (sample & 0x80) sgn = 1; else sgn = -1;  // 00..7F - , 80..FF: +
+        if (sample & 0x80) sgn = 1; else sgn = -1;  // 00..7F: - , 80..FF: +
     }
     else if (bits_sample == 16) {
         if (sample & 0x8000) sgn = -1; else sgn = 1;
