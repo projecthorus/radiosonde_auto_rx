@@ -208,22 +208,16 @@ dduudduudduudduu duduudduuduudduu  ddududuudduduudd uduuddududududud uudduduuddu
  0 0 0 0 0 0 0 0  1 1 - - - 0 0 0   0 1 1 0 0 1 0 0  1 0 0 1 1 1 1 1  0 0 1 0 0 0 0 0
 */
 
-#define BYTELEN 8
- 
-char bits[BYTELEN+1];
-int bitpos = 0;
-
-unsigned char header_bytes[] = { 0x00, 0x00}; //{0x64, 0x9F, 0x20 }; // ggf. an header[] anpassen
-#define HEADLEN 32
-#define HEADOFS 0
+#define BITS 8
+#define HEADLEN 32  // HEADLEN+HEADOFS=32 <= strlen(header)
+#define HEADOFS  0
                  // Sync-Header                     // Sonde-Header
 char header[] = "11001100110011001010011001001100"; //"011001001001111100100000"; // M10: 64 9F 20 , M2K2: 64 8F 20
                                                     //"011101101001111100100000"; // M??: 76 9F 20
                                                     //"011001000100100100001001"; // M10-dop: 64 49 09
-int header_found = 0;
 
-#define FRAME_LEN       102
-#define BITFRAME_LEN    (FRAME_LEN*BYTELEN)
+#define FRAME_LEN        102
+#define BITFRAME_LEN    (FRAME_LEN*BITS)
 #define RAWBITFRAME_LEN (BITFRAME_LEN*2)
 
 char buf[HEADLEN];
@@ -247,6 +241,7 @@ char cb_inv(char c) {
 }
 
 // Gefahr bei Manchester-Codierung: inverser Header wird leicht fehl-erkannt
+// da manchester1 und manchester2 nur um 1 bit verschoben
 int compare2() {
     int i, j;
 
@@ -285,7 +280,7 @@ int bits2bytes(char *bitstr, int *bytes) {
 
         byteval = 0;
         d = 1;
-        for (i = 0; i < BYTELEN; i++) { 
+        for (i = 0; i < BITS; i++) { 
             //bit=*(bitstr+bitpos+i); /* little endian */
             bit=*(bitstr+bitpos+7-i);  /* big endian */
             // bit == 'x' ?
@@ -293,7 +288,7 @@ int bits2bytes(char *bitstr, int *bytes) {
             else /*if ((bit == '0') || (bit == 'x'))*/  byteval += 0;
             d <<= 1;
         }
-        bitpos += BYTELEN;
+        bitpos += BITS;
         bytes[bytepos++] = byteval;
         
     }
@@ -570,6 +565,7 @@ int main(int argc, char **argv) {
     char *fpname;
     int i, bit, len;
     int pos;
+    int header_found = 0;
 
 
 #ifdef WIN
@@ -622,13 +618,12 @@ int main(int argc, char **argv) {
     }
 
 
-    bufpos = 0;
     pos = FRAMESTART;
 
     while (!read_bits_fsk(fp, &bit, &len)) {
 
         if (len == 0) { // reset_frame();
-            if (pos > (pos_GPSweek+2)*2*BYTELEN) {
+            if (pos > (pos_GPSweek+2)*2*BITS) {
                 for (i = pos; i < RAWBITFRAME_LEN; i++) frame_rawbits[i] = 0x30 + 0;
                 print_frame(pos);//byte_count
                 header_found = 0;

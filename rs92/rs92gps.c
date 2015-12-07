@@ -246,7 +246,9 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 
 /* ------------------------------------------------------------------------------------ */
 
-// RS92-SGP: 8N1 manchester
+// manchester1 1->10,0->01: 1.bit
+// manchester2 0->10,1->01: 2.bit
+// RS92-SGP: 8N1 manchester2
 char manch(char *mbits) {
    if      ((mbits[0] == 1) && (mbits[1] == 0)) return 0;
    else if ((mbits[0] == 0) && (mbits[1] == 1)) return 1;
