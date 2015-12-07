@@ -35,7 +35,6 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_inv = 0,      // invertiert Signal
     option_auto = 0,
     wavloaded = 0;
-int inv = 1;
 
 int start = 0;
 
@@ -148,7 +147,6 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     do{
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
-        if (option_inv) sample = -sample; // 8bit: -sample-1
         sample_count++;
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
@@ -159,8 +157,8 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 
     *len = (int)(l+0.5);
 
-    if (inv > 0) *bit = (1+par_alt)/2;  // oben 1, unten -1
-    else         *bit = (1-par_alt)/2;  // sdr#<rev1381?, invers: unten 1, oben -1
+    if (!option_inv) *bit = (1+par_alt)/2;  // oben 1, unten -1
+    else             *bit = (1-par_alt)/2;  // sdr#<rev1381?, invers: unten 1, oben -1
 // *bit = (1+inv*par_alt)/2; // ausser inv=0
 
     /* Y-offset ? */
@@ -417,7 +415,7 @@ void print_gpx() {
            }
       }
       else {
-          if (option_auto && option_verbose) printf("[%c] ", inv>0?'+':'-');
+          if (option_auto && option_verbose) printf("[%c] ", option_inv?'-':'+');
           printf("[%3d] ", gpx.frnr);
           printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
           printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
@@ -523,7 +521,7 @@ int main(int argc, char **argv) {
             option_raw = 2;
         }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
-            option_inv = 1;
+            option_inv = 0x1;
         }
         else if ( (strcmp(*argv, "--auto") == 0) ) {
             option_auto = 1;
@@ -576,9 +574,7 @@ int main(int argc, char **argv) {
 
             if (!header_found) {
                 header_found = compare2();
-                if (header_found != 0) {
-                  inv = header_found;
-                }
+                if (header_found < 0) option_inv ^= 0x1;
             }
             else {
                 frame_rawbits[pos] = 0x30 + bit;  // Ascii
