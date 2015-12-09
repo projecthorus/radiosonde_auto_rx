@@ -395,10 +395,12 @@ void print_frame(int len) {
         err1 |= get_RecordNo();
         err2 |= get_SondeID();
         err3 |= get_GPS();
-        if (!err1) fprintf(stdout, "[%5d] ", gpx.frnr);
-        if (err2!=0x3) fprintf(stdout, "(%s)  ", err2&0x1?gpx.id2:gpx.id1);
-        if (!err3) print_gps(stdout);
-        if (!err1 || !err3 || err2!=0x3) fprintf(stdout, "\n");
+        if ( !err3 || err2!=0x3 ) {
+            fprintf(stdout, "[%5d] ", gpx.frnr);
+            if (err2!=0x3) fprintf(stdout, "(%s)  ", err2&0x1?gpx.id2:gpx.id1);
+            if (!err3) print_gps(stdout);
+            fprintf(stdout, "\n");
+        }
     }
 }
 
