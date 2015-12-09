@@ -23,7 +23,7 @@ typedef unsigned char ui8_t;
 
 typedef struct {
     int frnr;
-    char id[9];
+    char id1[9]; char id2[9];
     int week; int gpssec;
     //int jahr; int monat; int tag;
     int wday;
@@ -322,20 +322,32 @@ int get_SondeID() {
     unsigned byte;
     ui8_t sondeid_bytes[8]; // 5 bis 6 ascii + '\0'
     int IDlen = 6+1; // < 9
+    int err = 0;
 
     for (i = 0; i < IDlen; i++) {
         byte = frame[pos_SondeID1 + i];
         if (byte == 0) IDlen = i+1;
         else
-        if (byte < 0x20 || byte > 0x7E) return -1;
+        if (byte < 0x20 || byte > 0x7E) err |= 0x1;
         sondeid_bytes[i] = byte;
     }
-
     for (i = 0; i < IDlen; i++) {
-        gpx.id[i] = sondeid_bytes[i];
+        gpx.id1[i] = sondeid_bytes[i];
     }
 
-    return 0;
+    IDlen = 6+1;
+    for (i = 0; i < IDlen; i++) {
+        byte = frame[pos_SondeID2 + i];
+        if (byte == 0) IDlen = i+1;
+        else
+        if (byte < 0x20 || byte > 0x7E) err |= 0x2;
+        sondeid_bytes[i] = byte;
+    }
+    for (i = 0; i < IDlen; i++) {
+        gpx.id2[i] = sondeid_bytes[i];
+    }
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -366,7 +378,7 @@ int bits2byte(char *bits) {
 
 void print_frame(int len) {
     int i;
-    int err = 0;
+    int err1, err2, err3;
 
     if (option_raw) {
         for (i = 0; i < len; i++) {
@@ -379,16 +391,14 @@ void print_frame(int len) {
         fprintf(stdout, "\n");
     }
     else {
-        err = 0;
-        err |= get_RecordNo();
-        err |= get_SondeID();
-        err |= get_GPS();
-        if (!err) {
-            fprintf(stdout, "[%5d] ", gpx.frnr);
-            fprintf(stdout, "(%s)  ", gpx.id);
-            print_gps(stdout);
-            fprintf(stdout, "\n");
-        }
+        err1 = err2 = err3 = 0;
+        err1 |= get_RecordNo();
+        err2 |= get_SondeID();
+        err3 |= get_GPS();
+        if (!err1) fprintf(stdout, "[%5d] ", gpx.frnr);
+        if (err2!=0x3) fprintf(stdout, "(%s)  ", err2&0x1?gpx.id2:gpx.id1);
+        if (!err3) print_gps(stdout);
+        if (!err1 || !err3 || err2!=0x3) fprintf(stdout, "\n");
     }
 }
 
