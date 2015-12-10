@@ -110,8 +110,6 @@ int read_wav_header(FILE *fp) {
     return 0;
 }
 
-int par=1, par_alt=1;
-unsigned long sample_count = 0;
 
 #define EOF_INT  0x1000000
 
@@ -137,6 +135,9 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 
     return ret;
 }
+
+int par=1, par_alt=1;
+unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
     static int sample;
@@ -232,21 +233,21 @@ int compare2() {
 // manchester2 0->10,1->01: 2.bit
 void manchester1(char* frame_rawbits, char *frame_bits) {
     int i, c, out, buf;
-    char byte, bits[2];
+    char bit, bits[2];
     c = 0;
 
     for (i = 0; i < BITFRAME_LEN; i++) {  // -16
         bits[0] = frame_rawbits[2*i];
         bits[1] = frame_rawbits[2*i+1];
 
-        if ((bits[0] == '0') && (bits[1] == '1')) { byte = '0'; out = 1; }
+        if ((bits[0] == '0') && (bits[1] == '1')) { bit = '0'; out = 1; }
         else
-        if ((bits[0] == '1') && (bits[1] == '0')) { byte = '1'; out = 1; }
+        if ((bits[0] == '1') && (bits[1] == '0')) { bit = '1'; out = 1; }
         else { // 
             if (buf == 0) { c = !c; out = 0; buf = 1; }
-            else { byte = 'x'; out = 1; buf = 0; }
+            else { bit = 'x'; out = 1; buf = 0; }
         }
-        if (out) frame_bits[i] = byte;
+        if (out) frame_bits[i] = bit;
 
     }
 }
