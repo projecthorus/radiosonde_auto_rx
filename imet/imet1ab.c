@@ -3,14 +3,15 @@
  * radiosonde iMet-1-AB (Trimble GPS)
  * author: zilog80
  * usage:
- *     gcc imet.c -o imet
- *     ./imet [options] audio.wav
+ *     gcc imet1ab.c -lm -o imet1ab
+ *     ./imet1ab [options] audio.wav
  *       options:
  *               -r, --raw
  *               -i, --invert
  */
 
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 
 #ifdef CYGWIN
@@ -29,6 +30,8 @@ typedef struct {
     int wday;
     int std; int min; int sek;
     double lat; double lon; double h;
+    double vH; double vD; double vV;
+    double vx; double vy; double vD2;
 } gpx_t;
 
 gpx_t gpx;
@@ -234,6 +237,11 @@ Ende:
 #define pos_GPSlat  0x8E  // 4 byte
 #define pos_GPSlon  0x92  // 4 byte
 #define pos_GPSalt  0x96  // 4 byte
+//Velocity East-North-Up (ENU)
+#define pos_GPSvO  0x84  // 2 byte
+#define pos_GPSvN  0x86  // 2 byte
+#define pos_GPSvV  0x88  // 2 byte
+
 
 #define FRAMELEN 204
 ui8_t frame[FRAMELEN+6];
@@ -280,7 +288,7 @@ int gpsAlt(int alt) {
     return 0;
 }
 
-int get_GPS() {
+int get_GPSpos() {
     int i, tow, lat, lon, alt;
     int err = 0;
 
@@ -298,6 +306,53 @@ int get_GPS() {
     err |= gpsAlt(alt);
 
     return err;
+}
+
+int get_GPSvel() {
+    int i;
+    unsigned byte;
+    ui8_t gpsVel_bytes[2];
+    short vel16;
+    double vx, vy, dir, alpha;
+
+    for (i = 0; i < 2; i++) {
+        byte = frame[pos_GPSvO + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
+    vx = vel16 / 2e2; // ost
+
+    for (i = 0; i < 2; i++) {
+        byte = frame[pos_GPSvN + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
+    vy= vel16 / 2e2; // nord
+
+    gpx.vx = vx;
+    gpx.vy = vy;
+    gpx.vH = sqrt(vx*vx+vy*vy);
+///*
+    alpha = atan2(vy, vx)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
+    dir = 90-alpha;                  // z=x+iy= -> i*conj(z)=y+ix=re(i(pi/2-t)), Achsen und Drehsinn vertauscht
+    if (dir < 0) dir += 360;         // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
+    gpx.vD2 = dir;
+//*/
+    dir = atan2(vx, vy) * 180 / M_PI;
+    if (dir < 0) dir += 360;
+    gpx.vD = dir;
+
+    for (i = 0; i < 2; i++) {
+        byte = frame[pos_GPSvV + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
+    gpx.vV = vel16 / 2e2;
+
+    return 0;
 }
 
 int get_RecordNo() {
@@ -378,7 +433,7 @@ int bits2byte(char *bits) {
 
 void print_frame(int len) {
     int i;
-    int err1, err2, err3;
+    int err1, err2, err3, err;
 
     if (option_raw) {
         for (i = 0; i < len; i++) {
@@ -394,11 +449,18 @@ void print_frame(int len) {
         err1 = err2 = err3 = 0;
         err1 |= get_RecordNo();
         err2 |= get_SondeID();
-        err3 |= get_GPS();
+        err3 |= get_GPSpos();
         if ( !err3 || err2!=0x3 ) {
             fprintf(stdout, "[%5d] ", gpx.frnr);
             if (err2!=0x3) fprintf(stdout, "(%s)  ", err2&0x1?gpx.id2:gpx.id1);
             if (!err3) print_gps(stdout);
+            if (option_verbose) {
+                err = get_GPSvel();
+                if (!err) {
+                    if (option_verbose == 2) fprintf(stdout, "  (%.1f , %.1f : %.1f°) ", gpx.vx, gpx.vy, gpx.vD2);
+                    fprintf(stdout, "  vH: %.1f  D: %.1f°  vV: %.1f ", gpx.vH, gpx.vD, gpx.vV);
+                }
+            }
             fprintf(stdout, "\n");
         }
     }
@@ -435,12 +497,10 @@ int bitl1 = 0,
             fprintf(stderr, "       -i, --invert\n");
             return 0;
         }
-/*
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 2; }
-*/
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
