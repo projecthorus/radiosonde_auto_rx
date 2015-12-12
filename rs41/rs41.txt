@@ -33,6 +33,7 @@ Position: ECEF-Koordinaten
 0x118..0x11B, 4byte: Y-Koord.
 0x11C..0x11F, 4byte: Z-Koord.
 Mask[0x114..0x11F]=0x795D6DA15469470CDCE85CF1
+0x120..0x125, 6byte: ECEF-Velocities/cm (3x signed 16bit-int)
 
 Zur Umrechnung ecef2elli() kommt noch eine Differenz Geoid-Ellipsoid hinzu.
 GPS Chip: u-blox UBX-G6010-ST
