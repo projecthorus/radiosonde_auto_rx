@@ -1,7 +1,7 @@
 
 /* big endian forest
  *
- * gcc -o m10x m10x.c
+ * gcc -o m10x m10x.c -lm
  *
  */
 
@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <math.h>
+#include <math.h>
 #ifdef WIN
   #include <fcntl.h>  // cygwin: _setmode()
   #include <io.h>
@@ -24,6 +24,8 @@ typedef struct {
     int wday;
     int std; int min; int sek;
     double lat; double lon; double h;
+    double vH; double vD; double vV;
+    double vx; double vy; double vD2;
 } datum_t;
 
 datum_t datum;
@@ -326,6 +328,11 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define pos_GPSlon     0x12  // 4 byte
 #define pos_GPSheight  0x16  // 4 byte
 #define pos_GPSweek    0x20  // 2 byte
+//Velocity East-North-Up (ENU)
+#define pos_GPSvO  0x04  // 2 byte
+#define pos_GPSvN  0x06  // 2 byte
+#define pos_GPSvV  0x08  // 2 byte
+
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
@@ -478,6 +485,53 @@ int get_GPSheight() {
     return 0;
 }
 
+int get_GPSvel() {
+    int i;
+    unsigned byte;
+    ui8_t gpsVel_bytes[2];
+    short vel16;
+    double vx, vy, dir, alpha;
+
+    for (i = 0; i < 2; i++) {
+        byte = frame_bytes[pos_GPSvO + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vx = vel16 / 2e2; // ost
+
+    for (i = 0; i < 2; i++) {
+        byte = frame_bytes[pos_GPSvN + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vy= vel16 / 2e2; // nord
+
+    datum.vx = vx;
+    datum.vy = vy;
+    datum.vH = sqrt(vx*vx+vy*vy);
+///*
+    alpha = atan2(vy, vx)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
+    dir = 90-alpha;                  // z=x+iy= -> i*conj(z)=y+ix=re(i(pi/2-t)), Achsen und Drehsinn vertauscht
+    if (dir < 0) dir += 360;         // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
+    datum.vD2 = dir;
+//*/
+    dir = atan2(vx, vy) * 180 / M_PI;
+    if (dir < 0) dir += 360;
+    datum.vD = dir;
+
+    for (i = 0; i < 2; i++) {
+        byte = frame_bytes[pos_GPSvV + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    datum.vV = vel16 / 2e2;
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
 int print_pos() {
@@ -503,7 +557,7 @@ int print_pos() {
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
             printf(" h: "col_GPSheight"%.2f"col_TXT" ", datum.h);
-            printf(ANSI_COLOR_RESET"\n");
+            printf(ANSI_COLOR_RESET"");
         }
         else {
             printf(" (W %d) ", datum.week);
@@ -513,8 +567,17 @@ int print_pos() {
             printf(" lat: %.6f ", datum.lat);
             printf(" lon: %.6f ", datum.lon);
             printf(" h: %.2f ", datum.h);
-            printf("\n");
         }
+
+        if (option_verbose) {
+            err |= get_GPSvel();
+            if (!err) {
+                if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
+                printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+            }
+        }
+
+        printf("\n");
 
     }
 
@@ -587,6 +650,7 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
+        else if ( (strcmp(*argv, "-vv") == 0) ) option_verbose = 2;
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
