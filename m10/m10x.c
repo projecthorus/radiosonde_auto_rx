@@ -616,6 +616,15 @@ void print_frame(int pos) {
         }
 
     }
+    else if (frame_bytes[1] == 0x49) {
+        if (option_verbose) {
+            for (i = 0; i < FRAME_LEN; i++) {
+                byte = frame_bytes[i];
+                fprintf(stdout, "%02x", byte);
+            }
+            fprintf(stdout, "\n");
+        }
+    }
     else print_pos();
 
 }
