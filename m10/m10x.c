@@ -350,6 +350,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define col_GPSlat     "\x1b[38;5;34m"  // 4 byte
 #define col_GPSlon     "\x1b[38;5;70m"  // 4 byte
 #define col_GPSheight  "\x1b[38;5;82m"  // 4 byte
+#define col_GPSvel     "\x1b[38;5;36m"  // 6 byte
 #define col_TXT        "\x1b[38;5;244m"
 #define col_FRTXT      "\x1b[38;5;244m"
 
@@ -557,6 +558,13 @@ int print_pos() {
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
             printf(" h: "col_GPSheight"%.2f"col_TXT" ", datum.h);
+            if (option_verbose) {
+                err |= get_GPSvel();
+                if (!err) {
+                    if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
+                    printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
+                }
+            }
             printf(ANSI_COLOR_RESET"");
         }
         else {
@@ -567,16 +575,14 @@ int print_pos() {
             printf(" lat: %.6f ", datum.lat);
             printf(" lon: %.6f ", datum.lon);
             printf(" h: %.2f ", datum.h);
-        }
-
-        if (option_verbose) {
-            err |= get_GPSvel();
-            if (!err) {
-                if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
-                printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+            if (option_verbose) {
+                err |= get_GPSvel();
+                if (!err) {
+                    if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
+                    printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+                }
             }
         }
-
         printf("\n");
 
     }
@@ -593,7 +599,7 @@ void print_frame(int pos) {
 
     if (option_raw) {
 
-        if (option_color) {
+        if (option_color  &&  frame_bytes[1] != 0x49) {
             fprintf(stdout, col_FRTXT);
             for (i = 0; i < FRAME_LEN; i++) {
                 byte = frame_bytes[i];
@@ -602,6 +608,7 @@ void print_frame(int pos) {
                 if ((i >= pos_GPSlon)    && (i < pos_GPSlon+4))    fprintf(stdout, col_GPSlon);
                 if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
                 if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
+                if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
             }
@@ -617,7 +624,7 @@ void print_frame(int pos) {
 
     }
     else if (frame_bytes[1] == 0x49) {
-        if (option_verbose) {
+        if (option_verbose == 2) {
             for (i = 0; i < FRAME_LEN; i++) {
                 byte = frame_bytes[i];
                 fprintf(stdout, "%02x", byte);
