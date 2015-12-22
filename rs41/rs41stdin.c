@@ -38,6 +38,8 @@ typedef struct {
     int wday;
     int std; int min; int sek;
     double lat; double lon; double h;
+    double vN; double vE; double vU;
+    double vH; double vD; double vD2;
 } gpx_t;
 
 gpx_t gpx;
@@ -297,6 +299,7 @@ SubHeader, 2byte
 #define pos_GPSecefX  0x114  // 4 byte
 #define pos_GPSecefY  0x118  // 4 byte
 #define pos_GPSecefZ  0x11C  // 4 byte
+#define pos_GPSecefV  0x120  // 3*2 byte
 
 
 #define pos_Hframe 0x039
@@ -497,7 +500,11 @@ int get_GPSkoord() {
     ui8_t XYZ_bytes[4];
     int XYZ; // 32bit
     double X[3], lat, lon, h;
+    ui8_t gpsVel_bytes[2];
+    short vel16; // 16bit
+    double V[3], phi, lam, alpha, dir;
     int shift = 0;
+
 
     byte = (frame[pos_Hkoord]<<8) + frame[pos_Hkoord+1];
     /* fprintf(stdout, "0x%04X ", byte );  // ^ 0xC2EA == 0x7B15 ? */
@@ -521,17 +528,49 @@ int get_GPSkoord() {
             byte = byte ^ mask[(pos_GPSecefX + 4*k + i) % MASK_LEN];
             XYZ_bytes[i] = byte;
         }
-
         memcpy(&XYZ, XYZ_bytes, 4);
         X[k] = XYZ / 100.0;
 
+        for (i = 0; i < 2; i++) {
+            if      (shift > 0) byte = shiftLeft(pos_GPSecefV + 2*k + i);
+            else if (shift < 0) byte = shiftRight(pos_GPSecefV + 2*k + i);
+            else                byte = frame[pos_GPSecefV + 2*k + i];
+            byte = byte ^ mask[(pos_GPSecefV + 2*k + i) % MASK_LEN];
+            gpsVel_bytes[i] = byte;
+        }
+        vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
+        V[k] = vel16 / 100.0;
+
     }
 
+
+    // ECEF-Position
     ecef2elli(X, &lat, &lon, &h);
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.h = h;
     if ((h < -1000) || (h > 80000)) return -1;
+
+
+    // ECEF-Velocities
+    // ECEF-Vel -> NorthEastUp
+    phi = lat*M_PI/180.0;
+    lam = lon*M_PI/180.0;
+    gpx.vN = -V[0]*sin(phi)*cos(lam) - V[1]*sin(phi)*sin(lam) + V[2]*cos(phi);
+    gpx.vE = -V[0]*sin(lam) + V[1]*cos(lam);
+    gpx.vU =  V[0]*cos(phi)*cos(lam) + V[1]*cos(phi)*sin(lam) + V[2]*sin(phi);
+
+    // NEU -> HorDirVer
+    gpx.vH = sqrt(gpx.vN*gpx.vN+gpx.vE*gpx.vE);
+///*
+    alpha = atan2(gpx.vN, gpx.vE)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
+    dir = 90-alpha;                          // z=x+iy= -> i*conj(z)=y+ix=re(i(pi/2-t)), Achsen und Drehsinn vertauscht
+    if (dir < 0) dir += 360;                 // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
+    gpx.vD2 = dir;
+//*/
+    dir = atan2(gpx.vE, gpx.vN) * 180 / M_PI;
+    if (dir < 0) dir += 360;
+    gpx.vD = dir;
 
     return 0;
 }
@@ -547,35 +586,39 @@ int get_Cal() {
     byte = xorbyte(pos_CalData);
     calfr = byte;
 
-    fprintf(stderr, " 0x%02x: ", calfr);
-    for (i = 0; i < 16; i++) {
-        byte = xorbyte(pos_CalData+1+i);
-        fprintf(stderr, "%02x ", byte);
+    if (option_verbose == 2) {
+        fprintf(stdout, "\n");  // fflush(stdout);
+        fprintf(stdout, "[%5d] ", gpx.frnr);
+        fprintf(stdout, " 0x%02x: ", calfr);
+        for (i = 0; i < 16; i++) {
+            byte = xorbyte(pos_CalData+1+i);
+            fprintf(stdout, "%02x ", byte);
+        }
     }
 
-    if (option_verbose == 2) {
-        if (calfr == 0x02) {
-            byte = xorbyte(pos_Calburst);
-            burst = byte;
-            fprintf(stderr, ": BK %02X ", burst);
+    if (calfr == 0x02  &&  option_verbose == 2) {
+        byte = xorbyte(pos_Calburst);
+        burst = byte;
+        fprintf(stdout, ": BK %02X ", burst);
+    }
+
+    if (calfr == 0x00  &&  option_verbose) {
+        byte = xorbyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
+        f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
+        byte = xorbyte(pos_Calfreq+1);
+        f1 = 40 * byte;
+        freq = 400000 + f1+f0; // kHz;
+        fprintf(stdout, ": fq %d ", freq);
+    }
+
+    if (calfr == 0x21  &&  option_verbose == 2) {  // eventuell noch zwei bytes in 0x22
+        for (i = 0; i < 9; i++) sondetyp[i] = 0;
+        for (i = 0; i < 8; i++) {
+            byte = xorbyte(pos_CalRSTyp + i);
+            if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
+            else if (byte == 0x00) sondetyp[i] = '\0';
         }
-        if (calfr == 0x00) {
-            byte = xorbyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
-            f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
-            byte = xorbyte(pos_Calfreq+1);
-            f1 = 40 * byte;
-            freq = 400000 + f1+f0; // kHz;
-            fprintf(stderr, ": fq %d ", freq);
-        }
-        if (calfr == 0x21) {  // eventuell noch zwei bytes in 0x22
-            for (i = 0; i < 9; i++) sondetyp[i] = 0;
-            for (i = 0; i < 8; i++) {
-                byte = xorbyte(pos_CalRSTyp + i);
-                if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
-                else if (byte == 0x00) sondetyp[i] = '\0';
-            }
-            fprintf(stderr, ": %s ", sondetyp);
-        }
+        fprintf(stdout, ": %s ", sondetyp);
     }
 
     return 0;
@@ -600,18 +643,17 @@ int print_position() {
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
-            if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
+            if (option_verbose == 2) fprintf(stdout, " (W %d)", gpx.week);
             fprintf(stdout, " ");
             fprintf(stdout, " lat: %.5f ", gpx.lat);
             fprintf(stdout, " lon: %.5f ", gpx.lon);
             fprintf(stdout, " h: %.2f ", gpx.h);
-            fprintf(stdout, "\n");  // fflush(stdout);
-
-            if (option_verbose) { 
-                fprintf(stderr, "[%5d] ", gpx.frnr);
-                get_Cal();
-                fprintf(stderr, "\n");
+            if (option_verbose) {
+                //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
+                fprintf(stdout,"  vH: %.1f  D: %.1f°  vV: %.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
+            get_Cal();
+            fprintf(stdout, "\n");  // fflush(stdout);
         }
 
     return err;
