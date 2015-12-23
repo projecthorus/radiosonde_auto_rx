@@ -28,7 +28,7 @@
 #include <string.h>
 #include <math.h>
 
-#ifdef WIN
+#ifdef CYGWIN
   #include <fcntl.h>  // cygwin: _setmode()
   #include <io.h>
 #endif
@@ -930,7 +930,7 @@ int main(int argc, char *argv[]) {
     int bit, len;
     char *pbuf = NULL;
 
-#ifdef WIN
+#ifdef CYGWIN
     _setmode(_fileno(stdin), _O_BINARY);
     setbuf(stdout, NULL);
 #endif
