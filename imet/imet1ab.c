@@ -8,6 +8,7 @@
  *       options:
  *               -r, --raw
  *               -i, --invert
+ *               -2  (v2: TOW/ms)
  */
 
 #include <stdio.h>
@@ -25,10 +26,10 @@ typedef unsigned char ui8_t;
 typedef struct {
     int frnr;
     char id1[9]; char id2[9];
-    int week; int gpssec;
+    int week; double gpssec;
     //int jahr; int monat; int tag;
     int wday;
-    int std; int min; int sek;
+    int std; int min; int sek; int ms;
     double lat; double lon; double h;
     double vH; double vD; double vV;
     double vx; double vy; double vD2;
@@ -40,6 +41,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_color = 0,    // Farbe
     option_inv = 0,      // invertiert Signal
+    option2 = 0,
     wavloaded = 0;
 
 /* -------------------------------------------------------------------------- */
@@ -254,6 +256,11 @@ int gpsTOW(int gpstime) {
     int day;
 
     gpx.gpssec = gpstime;
+    if (option2) {
+        gpx.ms = gpstime % 1000;
+        gpx.gpssec /= 1000.0;
+        gpstime /= 1000;
+    }
     if (gpx.gpssec<0 || gpx.gpssec>7*24*60*60) return -1;  // 1 Woche = 604800 sek
 
     day = gpstime / (24 * 3600);
@@ -409,7 +416,9 @@ int get_SondeID() {
 
 void print_gps(FILE *fp) {
     fprintf(fp, "%s ",weekday[gpx.wday]);
-    fprintf(fp, "%02d:%02d:%02d ", gpx.std, gpx.min, gpx.sek);
+    fprintf(fp, "%02d:%02d:%02d", gpx.std, gpx.min, gpx.sek);
+    if (option2) fprintf(fp, ".%03d", gpx.ms);
+    fprintf(fp, " ");
     fprintf(fp, " lat: %.6f ", gpx.lat);
     fprintf(fp, " lon: %.6f ", gpx.lon);
     fprintf(fp, " h: %.2f ", gpx.h);
@@ -495,6 +504,8 @@ int bitl1 = 0,
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
+            fprintf(stderr, "       -v, --verbose\n");
+            fprintf(stderr, "       -2  (v2: TOW/ms)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -510,6 +521,7 @@ int bitl1 = 0,
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;
         }
+        else if ( (strcmp(*argv, "-2") == 0) ) { option2 = 1; }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
