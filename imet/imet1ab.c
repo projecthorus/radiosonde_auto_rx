@@ -261,14 +261,14 @@ int gpsTOW(int gpstime) {
         gpx.gpssec /= 1000.0;
         gpstime /= 1000;
     }
-    if (gpx.gpssec<0 || gpx.gpssec>7*24*60*60) return -1;  // 1 Woche = 604800 sek
+    if (gpx.gpssec<0 || gpx.gpssec>7*24*60*60) return 1;  // 1 Woche = 604800 sek
 
     day = gpstime / (24 * 3600);
     gpstime %= (24*3600);
 
     if ((day < 0) || (day > 6)) {
         //gpx.wday = 0;
-        return -1;
+        return 1;
     }
     gpx.wday = day;
     gpx.std = gpstime / 3600;
@@ -280,37 +280,49 @@ int gpsTOW(int gpstime) {
 
 int gpsLat(int lat) {
     gpx.lat = lat / B60B60;
-    if (gpx.lat < -90  ||  gpx.lat > 90) return -1;
+    if (gpx.lat < -90  ||  gpx.lat > 90) return 1;
     return 0;
 }
 
 int gpsLon(int lon) {
     gpx.lon = lon / B60B60;
+    if (gpx.lon < -180  ||  gpx.lon > 180) return 1;
     return 0;
 }
 
 int gpsAlt(int alt) {
     gpx.h = alt / 1000.0;
-    if (gpx.h < -200  ||  gpx.h > 50000) return -1;
+    if (gpx.h < -200  ||  gpx.h > 50000) return 1;
     return 0;
 }
 
-int get_GPSpos() {
-    int i, tow, lat, lon, alt;
+int get_GPStow() {
+    int i, tow;
     int err = 0;
 
-    tow = lat = lon = alt = 0;
+    tow = 0;
     for (i = 0; i < 4; i++) {
         tow |= frame[pos_GPSTOW+i] << (8*i);
+    }
+    err = gpsTOW(tow);
+
+    return err;
+}
+
+int get_GPSpos() {
+    int i, lat, lon, alt;
+    int err = 0;
+
+    lat = lon = alt = 0;
+    for (i = 0; i < 4; i++) {
         lat |= frame[pos_GPSlat+i] << (8*i);
         lon |= frame[pos_GPSlon+i] << (8*i);
         alt |= frame[pos_GPSalt+i] << (8*i);
     }
     err = 0;
-    err |= gpsTOW(tow);
-    err |= gpsLat(lat);
-    err |= gpsLon(lon);
-    err |= gpsAlt(alt);
+    err |= gpsLat(lat) << 1;
+    err |= gpsLon(lon) << 2;
+    err |= gpsAlt(alt) << 3;
 
     return err;
 }
@@ -414,16 +426,6 @@ int get_SondeID() {
 
 /* -------------------------------------------------------------------------- */
 
-void print_gps(FILE *fp) {
-    fprintf(fp, "%s ",weekday[gpx.wday]);
-    fprintf(fp, "%02d:%02d:%02d", gpx.std, gpx.min, gpx.sek);
-    if (option2) fprintf(fp, ".%03d", gpx.ms);
-    fprintf(fp, " ");
-    fprintf(fp, " lat: %.6f ", gpx.lat);
-    fprintf(fp, " lon: %.6f ", gpx.lon);
-    fprintf(fp, " h: %.2f ", gpx.h);
-}
-
 
 int bits2byte(char *bits) {
     int i, d = 1, byte = 0;
@@ -441,8 +443,9 @@ int bits2byte(char *bits) {
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 void print_frame(int len) {
+    FILE *fp;
     int i;
-    int err1, err2, err3, err;
+    int err1, err2, err3;
 
     if (option_raw) {
         for (i = 0; i < len; i++) {
@@ -455,22 +458,36 @@ void print_frame(int len) {
         fprintf(stdout, "\n");
     }
     else {
-        err1 = err2 = err3 = 0;
-        err1 |= get_RecordNo();
-        err2 |= get_SondeID();
-        err3 |= get_GPSpos();
-        if ( !err3 || err2!=0x3 ) {
-            fprintf(stdout, "[%5d] ", gpx.frnr);
-            if (err2!=0x3) fprintf(stdout, "(%s)  ", err2&0x1?gpx.id2:gpx.id1);
-            if (!err3) print_gps(stdout);
-            if (option_verbose) {
-                err = get_GPSvel();
-                if (!err) {
-                    if (option_verbose == 2) fprintf(stdout, "  (%.1f , %.1f : %.1f°) ", gpx.vx, gpx.vy, gpx.vD2);
-                    fprintf(stdout, "  vH: %.1f  D: %.1f°  vV: %.1f ", gpx.vH, gpx.vD, gpx.vV);
+        fp = stdout;
+        get_RecordNo();
+        err1 = get_SondeID();
+        err2 = get_GPStow();
+        err3 = get_GPSpos();
+
+        if ( !err1 || !err2 || !err3 ) {
+            fprintf(fp, "[%5d] ", gpx.frnr);
+            if ( err1!=0x3 ) {
+                fprintf(fp, "(%s)  ", err1&0x1?gpx.id2:gpx.id1);
+            }
+            if ( !err2 ) {
+                fprintf(fp, "%s ",weekday[gpx.wday]);
+                fprintf(fp, "%02d:%02d:%02d", gpx.std, gpx.min, gpx.sek);
+                if (option2) fprintf(fp, ".%03d", gpx.ms);
+                fprintf(fp, " ");
+            }
+            if ( !err3 ) {
+                fprintf(fp, " lat: %.6f ", gpx.lat);
+                fprintf(fp, " lon: %.6f ", gpx.lon);
+                fprintf(fp, " h: %.2f ", gpx.h);
+                if (option_verbose) {
+                    err3 = get_GPSvel();
+                    if (!err3) {
+                        if (option_verbose == 2) fprintf(fp, "  (%.1f , %.1f : %.1f°) ", gpx.vx, gpx.vy, gpx.vD2);
+                        fprintf(fp, "  vH: %.1f  D: %.1f°  vV: %.1f ", gpx.vH, gpx.vD, gpx.vV);
+                    }
                 }
             }
-            fprintf(stdout, "\n");
+            fprintf(fp, "\n");
         }
     }
 }
