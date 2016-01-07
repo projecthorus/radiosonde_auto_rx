@@ -94,7 +94,7 @@ int read_IQwavheader(FILE *fp, int *sample_rate, int *bits_sample, FILE *fout) {
 }
 
 int read_csample(FILE *fp, double complex *z) {
-    short x, y;
+    short x = 0, y = 0;
 
     if (fread( &x, bits_sample/8, 1, fp) != 1) return EOF;
     if (fread( &y, bits_sample/8, 1, fp) != 1) return EOF;
