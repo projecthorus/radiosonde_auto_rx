@@ -1,6 +1,6 @@
 
 /*
- * radiosonde iMet-1-AB (Trimble GPS)
+ * radiosonde iMet-1-AB (GPS: Trimble/ublox)
  * author: zilog80
  * usage:
  *     gcc imet1ab.c -lm -o imet1ab
@@ -8,7 +8,8 @@
  *       options:
  *               -r, --raw
  *               -i, --invert
- *               -2  (v2: TOW/ms)
+ *               -1  (trimble: TOW/s)
+ *               -2  (ublox: TOW/ms)
  */
 
 #include <stdio.h>
@@ -41,7 +42,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_color = 0,    // Farbe
     option_inv = 0,      // invertiert Signal
-    option2 = 0,
+    option_gps = 0,
     wavloaded = 0;
 
 /* -------------------------------------------------------------------------- */
@@ -252,11 +253,28 @@ double B60B60 = 0xB60B60;  // 2^32/360 = 0xB60B60.xxx
 
 char weekday[7][3] = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 
+typedef struct {
+    int cnt;
+    int tow;
+} gpstow_t;
+
+gpstow_t tow0, tow1;
+
 int gpsTOW(int gpstime) {
     int day;
 
+    tow0 = tow1;
+    tow1.tow = gpstime;
+    tow1.cnt = gpx.frnr;
+    if (!option_gps) {
+        if (tow1.cnt-tow0.cnt == 1) {
+            if (tow1.tow-tow0.tow > 998  &&  tow1.tow-tow0.tow < 1002)  option_gps = 2;
+            if (tow1.tow-tow0.tow > 0    &&  tow1.tow-tow0.tow < 2   )  option_gps = 1;
+        }
+    }
+
     gpx.gpssec = gpstime;
-    if (option2) {
+    if (option_gps == 2) {
         gpx.ms = gpstime % 1000;
         gpx.gpssec /= 1000.0;
         gpstime /= 1000;
@@ -472,7 +490,7 @@ void print_frame(int len) {
             if ( !err2 ) {
                 fprintf(fp, "%s ",weekday[gpx.wday]);
                 fprintf(fp, "%02d:%02d:%02d", gpx.std, gpx.min, gpx.sek);
-                if (option2) fprintf(fp, ".%03d", gpx.ms);
+                if (option_gps == 2) fprintf(fp, ".%03d", gpx.ms);
                 fprintf(fp, " ");
             }
             if ( !err3 ) {
@@ -522,6 +540,7 @@ int bitl1 = 0,
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       -v, --verbose\n");
+            fprintf(stderr, "       -1  (v1: TOW/s)\n");
             fprintf(stderr, "       -2  (v2: TOW/ms)\n");
             return 0;
         }
@@ -538,7 +557,8 @@ int bitl1 = 0,
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;
         }
-        else if ( (strcmp(*argv, "-2") == 0) ) { option2 = 1; }
+        else if ( (strcmp(*argv, "-1") == 0) ) { option_gps = 1; }  // Trimble
+        else if ( (strcmp(*argv, "-2") == 0) ) { option_gps = 2; }  // ublox
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
