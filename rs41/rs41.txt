@@ -140,7 +140,7 @@ CRC16      2  (poly=0x(1)1021, init=0xFFFF)
 
 Reed-Solomon:
 RS(255,231)
-GF(2^8)=GF(2)[X]/(f): f=X^8+X^4+X^3+X^2+1 = 0x11D
+GF(2^8)=GF(2)[x]/(f): f=x^8+x^4+x^3+x^2+1 = 0x11D
 Generator von GF(2^8)*: alpha=0x02 (primitive Einheitswurzel)
 Generatorpolynom fuer RS-Code:
 (X-alpha^0)...(X-alpha^23) =
