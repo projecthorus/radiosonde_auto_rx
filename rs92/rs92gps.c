@@ -858,16 +858,18 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
         */
 
-        k = get_pseudorange();
-        if ((almanac || ephem) && (k >= 4)) {
-            if (get_GPSkoord(k) > 0) {
-                fprintf(stdout, " ");
-                if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                if (option_vergps) {
-                    fprintf(stdout, " sats: ");
-                    for (j = 0; j < 4; j++) fprintf(stdout, "%02d ", gpx.sats[j]);
-                    fprintf(stdout, " GDOP: %.1f ", gpx.dop);
+        if (almanac || ephem) {
+            k = get_pseudorange();
+            if (k >= 4) {
+                if (get_GPSkoord(k) > 0) {
+                    fprintf(stdout, " ");
+                    if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+                    else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+                    if (option_vergps) {
+                        fprintf(stdout, " sats: ");
+                        for (j = 0; j < 4; j++) fprintf(stdout, "%02d ", gpx.sats[j]);
+                        fprintf(stdout, " GDOP: %.1f ", gpx.dop);
+                    }
                 }
             }
         }

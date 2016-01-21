@@ -868,22 +868,24 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
         */
 
-        k = get_pseudorange();
-        if ((almanac || ephem) && (k >= 4)) {
-            if (get_GPSkoord(k) > 0) {
-                fprintf(stdout, " ");
-                if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                if (option_vergps) {
-                    if (option_vergps != 2) {
-                        fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
-                                       gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
-                    }
-                    else {
-                        fprintf(stdout, " GDOP[");
-                        for (j = 0; j < k; j++) {
-                            printf("%d", prn[j]);
-                            if (j < k-1) printf(","); else printf("] %.1f ", gpx.dop);
+        if (almanac || ephem) {
+            k = get_pseudorange();
+            if (k >= 4) {
+                if (get_GPSkoord(k) > 0) {
+                    fprintf(stdout, " ");
+                    if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+                    else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+                    if (option_vergps) {
+                        if (option_vergps != 2) {
+                            fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
+                                           gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
+                        }
+                        else {
+                            fprintf(stdout, " GDOP[");
+                            for (j = 0; j < k; j++) {
+                                printf("%d", prn[j]);
+                                if (j < k-1) printf(","); else printf("] %.1f ", gpx.dop);
+                            }
                         }
                     }
                 }
