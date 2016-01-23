@@ -262,14 +262,8 @@ int main(int argc, char *argv[]) {
         }
         ++argv;
     }
-/*
-    if ( !option ) {
-        if (wavloaded) fclose(fp);
-        return 0;
-    }
-*/
-    if (!wavloaded) fp = stdin;
 
+    if (!wavloaded) fp = stdin;
 
 
     if ( (option & 0xF0) == (DEMOD & 0xF0) ) ch = 1;
@@ -324,7 +318,7 @@ int main(int argc, char *argv[]) {
             gain = 128.0;
             while ( read_csample(fp, &z) != EOF ) {
                 w = z * conj(z0);
-                switch ( phi ) {  // d_phi-Algo
+                switch ( phi ) {  // phi'-Algo
                   case 1: fm = carg(w); break; // = atan2( cimag(w) , creal(w) );
                   case 2: fm = cimag(w) / (cabs(z0)*cabs(z0)); break;
                 }         //fm3 = cimag(w); // FM: |z|=const
@@ -376,3 +370,4 @@ $ ./dfm06 -v IQdemod48k2.wav
 [112] 2015-03-17 13:10:05.0  lat: 50.0281218  lon: 7.7047649  h: 7723.05   dir:  23.9  hV: 15.49  vV: -2.95  (ID:314377) 
 [114] 2015-03-17 13:10:07.0  lat: 50.0283693  lon: 7.7050185  h: 7716.84   dir:  38.6  hV: 18.67  vV: -3.14 
 */
+
