@@ -9,7 +9,7 @@
    ./wavIQ -d1 IQlowpass1.wav > IQdemod1.wav
    sox IQdemod1.wav -r 48000 IQdemod48k1.wav
 
-   ./wavIQ -t 11100 IQswap.wav > IQtransl2.wav
+   ./wavIQ -t 11200 IQswap.wav > IQtransl2.wav
    ./wavIQ -l 6000 IQtransl2.wav > IQlowpass2.wav
    ./wavIQ -d1 IQlowpass2.wav > IQdemod2.wav
    sox IQdemod2.wav -r 48000 IQdemod48k2.wav
