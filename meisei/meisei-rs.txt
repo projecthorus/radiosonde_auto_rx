@@ -13,11 +13,11 @@ d.h. 0x049DCE xor 0xFB6230 = 0xFFFFFE.
 Nach jedem Header folgen 6 Bloecke zu je 46 bit, also 24+6*46=300.
 
 Die 46bit-Bloecke sind BCH-Codewoerter. Es handelt sich um einen (63,51)-Code mit Generatorpolynom
-x^12+x^10+x^8+x^5+x^4+x^3+1.
+g(x)=x^12+x^10+x^8+x^5+x^4+x^3+1=(x^6+x^4+x^2+x+1)(x^6+x+1).
 gekuerzt auf (46,34), die letzten 12 bit sind die BCH-Kontrollbits.
 
 Die 34 Nachrichtenbits sind aufgeteilt in 16+1+16+1, d.h. nach einem 16 bit Block kommt ein Paritaetsbit,
-dass 1 ist, wenn die Anzahl 1en in den 16 bit davor gerade ist, und sonst 0.
+das 1 ist, wenn die Anzahl 1en in den 16 bit davor gerade ist, und sonst 0.
 
 Fuer Datenanordnung und Inhalt gibt es mindestens zwei Version je nach Sondentyp.
 GPS z.B. ist bei dem einen Typ jeweils 32bit Integer mit Faktor 1e7 bzw. Hoehe Faktor 1e2;
