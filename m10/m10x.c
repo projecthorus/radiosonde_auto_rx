@@ -26,6 +26,7 @@ typedef struct {
     double lat; double lon; double h;
     double vH; double vD; double vV;
     double vx; double vy; double vD2;
+    char SN[12];
 } datum_t;
 
 datum_t datum;
@@ -332,6 +333,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define pos_GPSvO  0x04  // 2 byte
 #define pos_GPSvN  0x06  // 2 byte
 #define pos_GPSvV  0x08  // 2 byte
+#define pos_GPSsn  0x5D  // 2+3 byte: 02 __ xy zz 2z ?
 
 
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -351,6 +353,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define col_GPSlon     "\x1b[38;5;70m"  // 4 byte
 #define col_GPSheight  "\x1b[38;5;82m"  // 4 byte
 #define col_GPSvel     "\x1b[38;5;36m"  // 6 byte
+#define col_GPSsn      "\x1b[38;5;58m"  // 3 byte
 #define col_TXT        "\x1b[38;5;244m"
 #define col_FRTXT      "\x1b[38;5;244m"
 
@@ -533,6 +536,27 @@ int get_GPSvel() {
     return 0;
 }
 
+int get_SN() {
+    int i;
+    unsigned byte;
+    ui8_t sn_bytes[5];
+
+    for (i = 0; i < 11; i++) datum.SN[i] = ' '; datum.SN[11] = '\0';
+
+    for (i = 0; i < 5; i++) {
+        byte = frame_bytes[pos_GPSsn + i];
+        if (byte > 0xFF) return -1;
+        sn_bytes[i] = byte;
+    }
+
+    byte = sn_bytes[2];
+    sprintf(datum.SN, "%1X%02u", (byte>>4)&0xF, byte&0xF);
+    byte = sn_bytes[3] | (sn_bytes[4]<<8);
+    sprintf(datum.SN+3, " %1X _%04u", (byte>>12)&0xF, byte&0xFFF);
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
 int print_pos() {
@@ -564,6 +588,10 @@ int print_pos() {
                     if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
                 }
+                if (option_verbose == 2) {
+                    get_SN();
+                    printf("  SN: "col_GPSsn"%s"col_TXT" ", datum.SN);
+                }
             }
             printf(ANSI_COLOR_RESET"");
         }
@@ -580,6 +608,10 @@ int print_pos() {
                 if (!err) {
                     if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+                }
+                if (option_verbose == 2) {
+                    get_SN();
+                    printf("  SN: %s", datum.SN);
                 }
             }
         }
@@ -609,6 +641,7 @@ void print_frame(int pos) {
                 if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
                 if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
                 if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
+                if ((i >= pos_GPSsn+2)   && (i < pos_GPSsn+5))     fprintf(stdout, col_GPSsn);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
             }
