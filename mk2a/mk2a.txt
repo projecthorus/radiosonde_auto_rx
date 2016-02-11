@@ -1,0 +1,40 @@
+
+Sippican MkIIa
+
+FSK 9600 baud, 8N1
+bits: little endian
+bytes: big endian
+
+2x2 subframes pro Sekunde (2 Subframes + Wiederholung)
+
+sync:
+... 0 01010011 10 01010011 10 01010011 10 01010011 1
+      CA          CA          CA          CA        
+head:
+0 00100100 10 01001010 1
+  24          52
+
+Beispiel:
+http://www.hfunderground.com/board/index.php/topic,11020.msg33291.html#msg33291
+
+subframe1: 0x24 0x52 0x4D
+subframe2: 0x24 0x52 0x54
+
+subframe2:
+           |ID?  |Count|     |TOW/ms     |           |Lat/B60B60 |Lon/B60B60 | Alt/mm    |vE/mm   |vN/mm   |vU/mm   |
+24 52 54 32 EC 64 05 D7 00 A2 19 94 37 BB FF EE 84 92 21 41 60 82 B8 57 DA EF 00 1B FD 3E 00 07 BD FF F9 A0 00 0E E8 00 ..
+24 52 54 31 EC 64 05 D8 00 A2 19 94 3B A2 FF E5 18 43 21 41 5F 68 B8 57 D9 C6 00 1C 09 67 FF F9 0F FF F5 E4 00 0D 38 00 ..
+24 52 54 32 EC 64 05 D8 00 A2 19 94 3B A2 FF E5 18 43 21 41 5F 68 B8 57 D9 C6 00 1C 09 67 FF F9 0F FF F5 E4 00 0D 38 00 ..
+24 52 54 31 EC 64 05 D9 00 A2 19 94 3F 8D FF EA CE 9F 21 41 5C D7 B8 57 D8 CA 00 1C 1D 62 FF F9 ED FF E8 62 00 13 2E 00 ..
+24 52 54 32 EC 64 05 D9 00 A2 19 94 3F 8D FF EA CE 9F 21 41 5C D7 B8 57 D8 CA 00 1C 1D 62 FF F9 ED FF E8 62 00 13 2E 00 ..
+24 52 54 31 EC 64 05 DA 00 A2 19 94 43 74 FF E1 62 52 21 41 59 18 B8 57 DA 6B 00 1C 32 15 00 0A 22 FF DD 15 00 13 1B 00 ..
+24 52 54 32 EC 64 05 DA 00 A2 19 94 43 74 FF E1 62 52 21 41 59 18 B8 57 DA 6B 00 1C 32 15 00 0A 22 FF DD 15 00 13 1B 00 ..
+
+ EC64  [ 1495] Do (23:12:24.0)  lat: 46.765379°  lon: -100.767403°  alt: 1834.30m   vH: 2.6m/s  D: 129.5°  vV: 3.8m/s 
+ EC64  [ 1496] Do (23:12:25.0)  lat: 46.765356°  lon: -100.767428°  alt: 1837.41m   vH: 3.1m/s  D: 214.5°  vV: 3.4m/s 
+ EC64  [ 1496] Do (23:12:25.0)  lat: 46.765356°  lon: -100.767428°  alt: 1837.41m   vH: 3.1m/s  D: 214.5°  vV: 3.4m/s 
+ EC64  [ 1497] Do (23:12:26.0)  lat: 46.765301°  lon: -100.767449°  alt: 1842.53m   vH: 6.2m/s  D: 194.4°  vV: 4.9m/s 
+ EC64  [ 1497] Do (23:12:26.0)  lat: 46.765301°  lon: -100.767449°  alt: 1842.53m   vH: 6.2m/s  D: 194.4°  vV: 4.9m/s 
+ EC64  [ 1498] Do (23:12:27.0)  lat: 46.765220°  lon: -100.767414°  alt: 1847.83m   vH: 9.3m/s  D: 163.8°  vV: 4.9m/s 
+ EC64  [ 1498] Do (23:12:27.0)  lat: 46.765220°  lon: -100.767414°  alt: 1847.83m   vH: 9.3m/s  D: 163.8°  vV: 4.9m/s 
+
