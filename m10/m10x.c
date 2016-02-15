@@ -333,7 +333,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define pos_GPSvO  0x04  // 2 byte
 #define pos_GPSvN  0x06  // 2 byte
 #define pos_GPSvV  0x08  // 2 byte
-#define pos_GPSsn  0x5D  // 2+3 byte: 02 __ xy zz 2z ?
+#define pos_GPSsn  0x5D  // 2+3 byte
 
 
 #define ANSI_COLOR_RED     "\x1b[31m"
