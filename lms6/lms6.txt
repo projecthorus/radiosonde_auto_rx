@@ -1,0 +1,28 @@
+
+Lockheed Martin Sippican LMS6
+(403 MHz)
+
+FSK 4800 baud
+convolutional code
+
+bits: little endian
+bytes: big endian
+
+
+
+
+
+
+
+
+
+subframe: 0x7A
+
+  |     |Count|TOW/ms     |           |Lat/B60B60 |Lon/B60B60 | Alt/mm    |vE/mm   |vN/mm   |vU/mm   |
+7A 9A 4A 18 DB 0C A6 BD 29 FF EB 16 A5 24 21 42 C4 FE EB 37 FC 00 E9 1A E2 00 AE 0C 00 29 F3 00 0C 1D ..
+7A 9A 4A 18 DC 0C A6 C1 15 FF E1 8A D1 24 21 47 6F FE EB 55 3B 00 E9 2A 61 00 AD 30 00 2B 94 00 0F A2 ..
+
+ [ 6363] Di (10:57:34.0)  lat: 50.807710°  lon: -1.520405°  alt: 15276.77m   vH: 45.8m/s  D: 76.4°  vV: 3.1m/s 
+ [ 6364] Di (10:57:35.0)  lat: 50.807810°  lon: -1.519778°  alt: 15280.74m   vH: 45.7m/s  D: 75.9°  vV: 4.0m/s 
+
+
