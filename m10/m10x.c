@@ -552,9 +552,9 @@ int get_SN() {
     byte = sn_bytes[2];
     sprintf(datum.SN, "%1X%02u", (byte>>4)&0xF, byte&0xF);
     byte = sn_bytes[3] | (sn_bytes[4]<<8);
-    //sprintf(datum.SN+3, " %1X _%04u", (byte>>12)&0xF, byte&0xFFF);
-    //sprintf(datum.SN+3, " _ %1u%04u", (byte>>13)&0x7, byte&0x1FFF);
+    //sprintf(datum.SN+3, " _ _%04u", /*(byte>>13)&0x7,*/ byte&0x1FFF);
     sprintf(datum.SN+3, " %1X 1%04u", ((byte>>13)&0x7)<<1, byte&0x1FFF);
+    //oder?: sprintf(datum.SN+3, " %1X 1%04u", ((byte>>13)&0x7)+1, byte&0x1FFF);
 
     return 0;
 }
