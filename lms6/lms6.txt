@@ -16,13 +16,19 @@ bytes: big endian
 
 
 
+
 subframe: 0x7A
 
   |     |Count|TOW/ms     |           |Lat/B60B60 |Lon/B60B60 | Alt/mm    |vE/mm   |vN/mm   |vU/mm   |
-7A 9A 4A 18 DB 0C A6 BD 29 FF EB 16 A5 24 21 42 C4 FE EB 37 FC 00 E9 1A E2 00 AE 0C 00 29 F3 00 0C 1D ..
-7A 9A 4A 18 DC 0C A6 C1 15 FF E1 8A D1 24 21 47 6F FE EB 55 3B 00 E9 2A 61 00 AD 30 00 2B 94 00 0F A2 ..
+7A 9A 4A 1C 5C 0C B4 6D 12 FF E7 0D B6 24 2D CA 2D FF 52 36 C2 01 1E E6 68 00 B1 1B 00 11 33 00 11 E4 ..
+7A 9A 4A 1C 5D 0C B4 70 FC FF EC CA 81 24 2D CB CF FF 52 54 CF 01 1E F7 3A 00 B1 D4 00 0F 7F 00 10 B9 ..
+7A 9A 4A 1C 5E 0C B4 74 E3 FF E3 5E 52 24 2D CC B9 FF 52 71 EB 01 1F 0A 7F 00 AC 27 00 08 92 00 13 14 ..
+7A 9A 4A 1C 5F 0C B4 78 C9 FF E9 34 63 24 2D CD 1F FF 52 8D D7 01 1F 18 8A 00 A5 2F 00 03 CF 00 0D E9 ..
+7A 9A 4A 1C 60 0C B4 7C B5 FF DF A8 9C 24 2D CD 58 FF 52 A9 7E 01 1F 27 0D 00 A3 A2 00 02 1C 00 0E 70 ..
 
- [ 6363] Di (10:57:34.0)  lat: 50.807710°  lon: -1.520405°  alt: 15276.77m   vH: 45.8m/s  D: 76.4°  vV: 3.1m/s 
- [ 6364] Di (10:57:35.0)  lat: 50.807810°  lon: -1.519778°  alt: 15280.74m   vH: 45.7m/s  D: 75.9°  vV: 4.0m/s 
-
+ [ 7260] Di (11:12:31.0)  lat: 50.876534°  lon: -0.954636°  alt: 18802.28m   vH: 45.6m/s  D: 84.5°  vV: 4.6m/s 
+ [ 7261] Di (11:12:32.0)  lat: 50.876569°  lon: -0.953991°  alt: 18806.59m   vH: 45.7m/s  D: 85.0°  vV: 4.3m/s 
+ [ 7262] Di (11:12:33.0)  lat: 50.876588°  lon: -0.953366°  alt: 18811.52m   vH: 44.1m/s  D: 87.1°  vV: 4.9m/s 
+ [ 7263] Di (11:12:34.0)  lat: 50.876597°  lon: -0.952767°  alt: 18815.11m   vH: 42.3m/s  D: 88.7°  vV: 3.6m/s 
+ [ 7264] Di (11:12:35.0)  lat: 50.876602°  lon: -0.952174°  alt: 18818.83m   vH: 41.9m/s  D: 89.3°  vV: 3.7m/s 
 

@@ -1,5 +1,6 @@
 
 Sippican MkIIa
+(1680 MHz)
 
 FSK 9600 baud, 8N1
 bits: little endian
