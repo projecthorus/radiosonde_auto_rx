@@ -548,22 +548,28 @@ void print_frame(int len) {
     bits2bytes(frame_bits, frame_bytes);
 
 
-    if (option_raw == 1) {
-        for (i = 0; i < BITFRAME_LEN; i++) {
-            fprintf(stdout, "%c", frame_bits[i]);
-        }
-        fprintf(stdout, "\n");
-/*
-        for (i = 0; i < RAWBITFRAME_LEN; i++) {
-            fprintf(stdout, "%c", frame_rawbits[i]);
-        }
-        fprintf(stdout, "\n");
-*/
-    }
-    else if (option_raw == 2) {
+    if (option_raw) {
         for (i = 0; i < FRAME_LEN; i++) {
-            //fprintf(stdout, "%02x", frame_bytes[i]);
-            fprintf(stdout, "%02X ", frame_bytes[i]);
+            fprintf(stdout, "%02x", frame_bytes[i]);
+            //fprintf(stdout, "%02X ", frame_bytes[i]);
+            if (option_raw == 2) {
+              if ( i==2  || i==4                     // frame-counter
+                || i==6  || i==10 || i==14 || i==18  // sensors (P,T,U1,U2)?
+                || i==22 || i==23
+                || i==25 || i==29                    // TOW
+                || i==33 || i==35                    // week
+                || i==37 || i==41 || i==45 || i==49  // ECEF-pos
+                || i==53 || i==57 || i==61 || i==65  // ECEF-vel1
+                || i==69
+                || i==75 || i==79 || i==83 || i==87  // ECEF-vel2
+                || i==91
+                || i==94  || i==103                  // SondeType/ID?
+                || i==104
+                || i==105 || i==109
+                || i==110 || i==112 || i==113
+                || i==115 || i==117
+                 ) fprintf(stdout, " ");
+            }
         }
         fprintf(stdout, "\n");
     }
@@ -618,8 +624,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "  file: audio.wav or raw_data\n");
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose\n");
-            fprintf(stderr, "       -r, --rawbits\n");
-            fprintf(stderr, "       -R, --rawbytes\n");
+            fprintf(stderr, "       -r, --rawbytes\n");
+            fprintf(stderr, "       -R, --raw_bytes\n");
             fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       --rawin  (rawbits file)\n");
             return 0;
@@ -627,10 +633,10 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
-        else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--rawbits") == 0) ) {
+        else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--rawbytes") == 0) ) {
             option_raw = 1;
         }
-        else if ( (strcmp(*argv, "-R") == 0) || (strcmp(*argv, "--rawbytes") == 0) ) {
+        else if ( (strcmp(*argv, "-R") == 0) || (strcmp(*argv, "--raw_bytes") == 0) ) {
             option_raw = 2;
         }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
