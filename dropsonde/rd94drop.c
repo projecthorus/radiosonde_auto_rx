@@ -413,7 +413,7 @@ int get_V() {
     }
     memcpy(&XYZ, XYZ_bytes, 4);
     X = XYZ / 100.0;
-    if (option_verbose) {
+    if (option_verbose == 2) {
         printf(" # ");
         printf(" %6.2f ", X);
     }
@@ -426,7 +426,7 @@ int get_V() {
         memcpy(&XYZ, XYZ_bytes, 4);
         V[k] = XYZ / 100.0;
     }
-    if (option_verbose) {
+    if (option_verbose == 2) {
         printf(" # ");
         printf(" (%7.2f,%7.2f,%7.2f) ", V[0], V[1], V[2]);
     }
@@ -451,7 +451,7 @@ int get_V() {
         memcpy(&XYZ, XYZ_bytes, 4);
         V[k] = XYZ / 100.0;
     }
-    if (option_verbose) {
+    if (option_verbose == 2) {
     //printf(" # ");
         printf(" (%7.2f,%7.2f,%7.2f) ", V[0], V[1], V[2]);
     }
@@ -539,6 +539,28 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
     return 0;
 }
 
+double float32(unsigned idx) {
+    int i;
+    unsigned num, val;
+    double e, s, m, f;
+
+    num = 0;
+    for (i=0;i<4;i++) { num |= frame_bytes[idx+i] << (24-8*i); }
+
+    val = 0;
+    for (i=31;i>=24;i--) { val |= ((num>>i)&1)<<(i-24); }
+    e = (double)val-127;  // exponent
+
+    val = 0;
+    for (i=22;i>= 0;i--) { val |= ((num>>i)&1)<<i; }
+    m = (double)val/(1<<23);  // mantissa
+
+    s = (num>>23)&1 ? -1.0 : +1.0 ;  // sign
+
+    f = s*(1+m)*pow(2,e);
+
+    return f;
+}
 
 void print_frame(int len) {
     int i, err;
@@ -602,6 +624,15 @@ void print_frame(int len) {
 */
             if (len > 2*BITS*(pos_GPSecefV2+12))  get_V();
 
+            if (option_verbose  &&  frame_bytes[118] == 0x1A) {
+                fprintf(stdout, "  ");
+                fprintf(stdout, " P=%.2fhPa ", float32(7));
+                fprintf(stdout, " T=%.2f°C ",  float32(11));
+                fprintf(stdout, " H1=%.2f%% ", float32(15));
+                fprintf(stdout, " H2=%.2f%% ", float32(19));
+                fprintf(stdout, " Ti=%.2f°C ", float32(106));
+            }
+
             fprintf(stdout, "\n");  // fflush(stdout);
         }
     }
@@ -632,6 +663,9 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
+        }
+        else if ( (strcmp(*argv, "-vv") == 0) ) {
+            option_verbose = 2;
         }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--rawbytes") == 0) ) {
             option_raw = 1;
