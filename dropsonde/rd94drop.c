@@ -539,14 +539,15 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
     return 0;
 }
 
-double float32(unsigned idx) {
+float float32(unsigned idx) {
     int i;
     unsigned num, val;
-    double e, s, m, f;
+    float f;
+    // double e, s, m;
 
     num = 0;
     for (i=0;i<4;i++) { num |= frame_bytes[idx+i] << (24-8*i); }
-
+/*
     val = 0;
     for (i=31;i>=24;i--) { val |= ((num>>i)&1)<<(i-24); }
     e = (double)val-127;  // exponent
@@ -558,6 +559,12 @@ double float32(unsigned idx) {
     s = (num>>23)&1 ? -1.0 : +1.0 ;  // sign
 
     f = s*(1+m)*pow(2,e);
+*/
+    val  = (num     &   0x800000)<<8;  // sign
+    val |= (num>>1) & 0x7F800000;      // exponent
+    val |=  num     &   0x7FFFFF;      // mantissa
+
+    memcpy(&f, &val, 4);
 
     return f;
 }
