@@ -24,7 +24,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
 typedef struct {
     int frnr1;
     int frnr2;
-    char id[9];
+    unsigned id;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int wday;
@@ -237,7 +237,22 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define pos_sensorU1  (OFS+0x0C)   // 4 byte float32
 #define pos_sensorU2  (OFS+0x10)   // 4 byte float32
 #define pos_sensorTi  (OFS+0x67)   // 4 byte float32
+#define pos_ID        (OFS+0x5C)   // 4 byte ?
+#define pos_rev       (OFS+0x60)   // 2 byte char // e.g. "A5"
 
+
+int get_ID() {
+    int i;
+    unsigned byte;
+
+    byte = 0;
+    for (i = 0; i < 4; i++) {         // big endian?
+        byte |= frame_bytes[pos_ID + i] << (24-8*i);
+    }
+    gpx.id = byte;
+
+    return 0;
+}
 
 int get_FrameNb() {
     int i;
@@ -598,8 +613,8 @@ void print_frame(int len) {
                 || i==65 || i==69
                 || i==75 || i==79 || i==83           // ECEF-vel2
                 || i==87 || i==91
-                || i==94 || i==103                   // SondeType/ID?
-                || i==104
+                || i==94 || i==98 || i==100          // SondeID?Rev?
+                || i==103 || i==104
                 || i==105 || i==109
                 || i==110 || i==112 || i==113
                 || i==115 || i==117
@@ -612,7 +627,6 @@ void print_frame(int len) {
 
         err = 0;
         err |= get_FrameNb();
-        //err |= get_SondeID();
         err |= get_GPSweek();
         err |= get_GPStime();
         err |= get_GPSkoord();
@@ -620,7 +634,6 @@ void print_frame(int len) {
             Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d]  ", gpx.frnr1);
             //fprintf(stdout, "0x%08X ", gpx.frnr2);
-            //fprintf(stdout, "(%s) ", gpx.id);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d.%03d", 
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.ms);
@@ -636,8 +649,11 @@ void print_frame(int len) {
             }
 */
             if (len > 2*BITS*(pos_GPSecefV2+12))  get_V();
+            get_ID();
 
             if (option_verbose  &&  frame_bytes[OFS+115] == 0x1A) {
+                fprintf(stdout, "  ");
+                fprintf(stdout, " (%d) ", gpx.id);
                 fprintf(stdout, "  ");
                 fprintf(stdout, " P=%.2fhPa ", float32(pos_sensorP));
                 fprintf(stdout, " T=%.2f°C ",  float32(pos_sensorT));
