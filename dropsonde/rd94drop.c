@@ -232,6 +232,11 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define pos_GPSV      (OFS+0x2F)   // 4 byte...
 #define pos_GPSecefV1 (OFS+0x33)   // 3*4 byte...
 #define pos_GPSecefV2 (OFS+0x49)   // 3*4 byte...
+#define pos_sensorP   (OFS+0x04)   // 4 byte float32
+#define pos_sensorT   (OFS+0x08)   // 4 byte float32
+#define pos_sensorU1  (OFS+0x0C)   // 4 byte float32
+#define pos_sensorU2  (OFS+0x10)   // 4 byte float32
+#define pos_sensorTi  (OFS+0x67)   // 4 byte float32
 
 
 int get_FrameNb() {
@@ -583,16 +588,17 @@ void print_frame(int len) {
             //fprintf(stdout, "%02X ", frame_bytes[i]);
             if (option_raw == 2) {
               if ( i==2  || i==4                     // frame-counter
-                || i==6  || i==10 || i==14 || i==18  // sensors (P,T,U1,U2)?
+                || i==6  || i==10 || i==14 || i==18  // sensors (P,T,U1,U2)
                 || i==22 || i==23
                 || i==25 || i==29                    // TOW
                 || i==33 || i==35                    // week
-                || i==37 || i==41 || i==45 || i==49  // ECEF-pos
-                || i==53 || i==57 || i==61 || i==65  // ECEF-vel1
-                || i==69
-                || i==75 || i==79 || i==83 || i==87  // ECEF-vel2
-                || i==91
-                || i==94  || i==103                  // SondeType/ID?
+                || i==37 || i==41 || i==45           // ECEF-pos
+                || i==49
+                || i==53 || i==57 || i==61           // ECEF-vel1
+                || i==65 || i==69
+                || i==75 || i==79 || i==83           // ECEF-vel2
+                || i==87 || i==91
+                || i==94 || i==103                   // SondeType/ID?
                 || i==104
                 || i==105 || i==109
                 || i==110 || i==112 || i==113
@@ -631,13 +637,13 @@ void print_frame(int len) {
 */
             if (len > 2*BITS*(pos_GPSecefV2+12))  get_V();
 
-            if (option_verbose  &&  frame_bytes[118] == 0x1A) {
+            if (option_verbose  &&  frame_bytes[OFS+115] == 0x1A) {
                 fprintf(stdout, "  ");
-                fprintf(stdout, " P=%.2fhPa ", float32(7));
-                fprintf(stdout, " T=%.2f°C ",  float32(11));
-                fprintf(stdout, " H1=%.2f%% ", float32(15));
-                fprintf(stdout, " H2=%.2f%% ", float32(19));
-                fprintf(stdout, " Ti=%.2f°C ", float32(106));
+                fprintf(stdout, " P=%.2fhPa ", float32(pos_sensorP));
+                fprintf(stdout, " T=%.2f°C ",  float32(pos_sensorT));
+                fprintf(stdout, " H1=%.2f%% ", float32(pos_sensorU1));
+                fprintf(stdout, " H2=%.2f%% ", float32(pos_sensorU2));
+                fprintf(stdout, " Ti=%.2f°C ", float32(pos_sensorTi));
             }
 
             fprintf(stdout, "\n");  // fflush(stdout);
