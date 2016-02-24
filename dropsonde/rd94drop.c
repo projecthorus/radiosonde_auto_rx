@@ -316,7 +316,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define pos_GPSecefX  (OFS+0x24)   // 4 byte
 #define pos_GPSecefY  (OFS+0x28)   // 4 byte
 #define pos_GPSecefZ  (OFS+0x2C)   // 4 byte
-#define pos_GPSV      (OFS+0x30)   // 4 byte...
+#define pos_GPSposD   (OFS+0x30)   // 4 byte...
 #define pos_GPSecefV1 (OFS+0x34)   // 3*4 byte...
 #define pos_GPSecefV2 (OFS+0x4A)   // 3*4 byte...
 #define pos_GPSsats1  (OFS+0x46)   // 1 byte
@@ -509,6 +509,19 @@ int get_GPSkoord() {
     gpx.alt = h;
     if ((h < -1000) || (h > 80000)) return -1;
 
+/*
+    double X;
+    for (i = 0; i < 4; i++) {
+        byte = frame_bytes[pos_GPSposD + i];
+        XYZ_bytes[i] = byte;
+    }
+    memcpy(&XYZ, XYZ_bytes, 4);
+    X = XYZ / 100.0;
+    if (option_verbose == 2) {
+        printf(" # ");
+        printf(" %6.2f ", X);
+    }
+*/
 
 /*
     for (k = 0; k < 3; k++) {
@@ -551,19 +564,6 @@ int get_V() {
     double V[3];
     double phi, lam, dir;
 
-/*
-    double X;
-    for (i = 0; i < 4; i++) {
-        byte = frame_bytes[pos_GPSV + i];
-        XYZ_bytes[i] = byte;
-    }
-    memcpy(&XYZ, XYZ_bytes, 4);
-    X = XYZ / 100.0;
-    if (option_verbose == 2) {
-        printf(" # ");
-        printf(" %6.2f ", X);
-    }
-*/
 
     for (k = 0; k < 3; k++) {
         for (i = 0; i < 4; i++) {
@@ -673,33 +673,38 @@ void print_frame(int len) {
             fprintf(stdout, "%02x", frame_bytes[i]);
             //fprintf(stdout, "%02X ", frame_bytes[i]);
             if (option_raw == 2) {
-              if ( i==1
-                || i==2  || i==4                     // frame-counter
-                || i==6  || i==10 || i==14 || i==18  // sensors (P,T,U1,U2)
-                || i==22 || i==23
-                || i==25 || i==29                    // TOW
-                || i==33 || i==35                    // week
-                || i==37 || i==41 || i==45           // ECEF-pos
-                || i==49
-                || i==53 || i==57 || i==61           // ECEF-vel1
-                || i==65 || i==69
-                || i==71 || i==72                    // sats-1
-                || i==74
-                || i==75 || i==79 || i==83           // ECEF-vel2
-                || i==87
-                || i==91 || i==92                    // sats-2
-                || i==94 || i==98 || i==100          // SondeID, Rev?
-                || i==103                            // bat
-                || i==105 || i==109                  // internT
-                //|| i==110 || i==112 || i==113
-                || i==115 || i==117
+              if ( i==OFS-1
+                || i==OFS+0  || i==OFS+2                            // frame-counter
+                || i==OFS+4  || i==OFS+8 || i==OFS+12 || i==OFS+16  // sensors (P,T,U1,U2)
+                || i==OFS+20 || i==OFS+21
+                || i==OFS+23 || i==OFS+27                           // TOW
+                || i==OFS+31 || i==OFS+33                           // week
+                || i==OFS+35 || i==OFS+39 || i==OFS+43              // ECEF-pos
+                || i==OFS+47
+                || i==OFS+51 || i==OFS+55 || i==OFS+59              // ECEF-vel1
+                || i==OFS+63 || i==OFS+67
+                || i==OFS+69 || i==OFS+70                           // sats-1
+                || i==OFS+72
+                || i==OFS+73 || i==OFS+77 || i==OFS+81              // ECEF-vel2
+                || i==OFS+85
+                || i==OFS+89 || i==OFS+90                           // sats-2
+                || i==OFS+92 || i==OFS+96 || i==OFS+98              // SondeID, Rev?
+                || i==OFS+101                                       // bat
+                || i==OFS+103 || i==OFS+107                         // internT
+                || i==OFS+113 || i==OFS+115
                  ) fprintf(stdout, " ");
 
-              if ( i==pos_chkFrNb  +1 )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkFrNb-3, 3));  // OK
-              if ( i==pos_chkPTU   +1 )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkPTU-17, 17));  // OK
-              if ( i==pos_chkGPS1  +1 )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS1-47, 47));  // OK
-              if ( i==pos_chkGPS2  +1 )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS2-18, 18));  // OK
-              if ( i==pos_chkIntern+1 )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkIntern-21, 21));  // OK
+              if ( i==pos_chkFrNb  -4  )  printf(" ");
+              if ( i==pos_chkFrNb  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkFrNb-3, 3));
+              if ( i==pos_chkPTU   -18 )  printf(" ");
+              if ( i==pos_chkPTU   +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkPTU-17, 17));
+              if ( i==pos_chkGPS1  -48 )  printf(" ");
+              if ( i==pos_chkGPS1  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS1-47, 47));
+              if ( i==pos_chkGPS2  -19 )  printf(" ");
+              if ( i==pos_chkGPS2  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS2-18, 18));
+              if ( i==pos_chkIntern-22 )  printf(" ");
+              if ( i==pos_chkIntern+1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkIntern-21, 21));
+              if ( i==pos_chkIntern+1  )  printf(" ");
             }
         }
         fprintf(stdout, "\n");
@@ -869,7 +874,7 @@ int main(int argc, char **argv) {
             if (pbuf == NULL) break;
             frame_rawbits[RAWBITFRAME_LEN+1] = '\0';
             len = strlen(frame_rawbits);
-            if (len > 2*BITS*pos_GPSV) print_frame(len);
+            if (len > 2*BITS*pos_GPSposD) print_frame(len);
         }
 
     }
