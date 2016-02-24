@@ -731,14 +731,14 @@ void print_frame(int len) {
 
             //if (len > 2*BITS*(pos_GPSecefV2+12))
             get_V();
-            if (option_verbose) fprintf(stdout," sats: %d ", gpx.sats1);
+            if (option_verbose) fprintf(stdout," sats: %2d ", gpx.sats1);
             if (option_verbose == 2) {
                 fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.vX1, gpx.vY1, gpx.vZ1);
             }
             fprintf(stdout," vH: %.1fm/s  D: %.1f°  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vU);
             if (option_verbose == 2) {
                 fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.vX2, gpx.vY2, gpx.vZ2);
-                fprintf(stdout," sats: %d ", gpx.sats2);
+                fprintf(stdout," sats: %2d ", gpx.sats2);
             }
 
 
@@ -749,18 +749,18 @@ void print_frame(int len) {
             fprintf(stdout, " T=%.2f°C ",  gpx.T);
             fprintf(stdout, " H1=%.2f%% ", gpx.U1);
             fprintf(stdout, " H2=%.2f%% ", gpx.U2);
-            fprintf(stdout, "  ");
+            fprintf(stdout, " ");
             fprintf(stdout, " (%d) ", gpx.id);
 
             if (option_verbose  &&  frame_bytes[OFS+116] == 0x1A) {
                 get_Sensors2();
-                fprintf(stdout, "  ");
+                fprintf(stdout, " ");
                 fprintf(stdout, " Ti=%.2f°C ", gpx.iT);
                 fprintf(stdout, " Bat=%.2fV ", gpx.bat);
             }
 
             chk = chkFrame();
-            printf(" Check: ");
+            printf("  check[FSGGI]: ");
             for (i = 0; i < 5; i++) printf("%d", (chk>>i)&1);
 
             fprintf(stdout, "\n");  // fflush(stdout);
