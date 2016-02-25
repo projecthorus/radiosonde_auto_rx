@@ -3,6 +3,7 @@ Dropsonde RD94
 
 GPS: ublox TIM-5H
 
+
 FSK 4800 bit/sec
 Manchester, 8N1: 240 bytes/sec
 
@@ -18,10 +19,10 @@ Frame besteht aus header plus 5 Bloecke mit 16bit-Checksumme.
 Checksumme: Fletcher16 mod 256
 
 PTU data: float32 (exp|sgn|mantissa)
+GPS: ublox5 NAV-SOL
 
 
-
-header   |    cnt  chk0 | P        T        U1       U2          chk1 | TOW               week      ecef-X   ecef-Y   ecef-Z   pos-acc  vX1      vY1      vZ1      vel-acc      sat chk2 |    vX2      vY2      vZ2      vel-acc sat chk3 | ID       "A5"        bat  Ti                    chk4
+header   |    cnt  chk0 | P        T        U1       U2          chk1 | iTOW     fTOW?    week      ecef-X   ecef-Y   ecef-Z   pAcc     vX1      vY1      vZ1      sAcc1        sat chk2 |    vX2      vY2      vZ2      sAcc2   sat chk3 | ID       "A5"        bat  Ti                    chk4
 1acffc1d   01 4002 4385   873f3e9f 84b8747c 8419e1c0 8407b540 00 8dc5   b6960a0d 4c6a0200 5b07 03dd b0891417 8284de00 9bd4251e 23010000 3bf6ffff 53050000 25000000 3d000000 ac00 08 18d8   03 66f6ffff 46050000 16000000 3c000000 08 0203   07df0266 4135 069201 c21e 831a2ff0 a80305227006 4126    # check: 00000_00
 1acffc1d   01 4102 4487   873f6622 84b83b34 841a7ac0 84088040 00 1da0   aa980a0d ea6b0200 5b07 03dd d0841417 2787de00 9fd4251e 23010000 46f6ffff 47050000 26000000 3b000000 ac00 08 7245   03 52f6ffff 3c050000 26000000 3f000000 08 f7cc   07df0266 4135 069201 071f 83199130 880305216d06 046b    # check: 00000_00
 1acffc1d   01 4202 4589   873fad73 84b7f7a3 841b8040 84093a40 00 21f9   9e9a0a0d 876d0200 5b07 03dd f27f1417 ca89de00 a4d4251e 23010000 50f6ffff 59050000 13000000 3e000000 ac00 08 daac   03 5af6ffff 59050000 1a000000 3d000000 08 0e57   07df0266 4135 069201 c21e 83195a70 900305227106 d467    # check: 00000_00
