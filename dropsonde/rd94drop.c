@@ -30,9 +30,12 @@ typedef struct {
     int std; int min; int sek; int ms;
     double lat; double lon; double alt;
     double   X; double   Y; double   Z;
+    double posAcc;
     double vX1; double vY1; double vZ1;
+    double vel1Acc;
     int sats1;
     double vX2; double vY2; double vZ2;
+    double vel2Acc;
     int sats2;
     double vN; double vE; double vU;
     double vH; double vD; double vD2;
@@ -309,31 +312,33 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 /* ------------------------------------------------------------------------------------ */
 
 
-#define OFS           (0x02)  // HEADLEN/(2*BITS)
-#define pos_FrameNb   (OFS+0x01)   // 2 byte
-#define pos_GPSTOW    (OFS+0x18)   // 4 byte...
-#define pos_GPSweek   (OFS+0x20)   // 2 byte
-#define pos_GPSecefX  (OFS+0x24)   // 4 byte
-#define pos_GPSecefY  (OFS+0x28)   // 4 byte
-#define pos_GPSecefZ  (OFS+0x2C)   // 4 byte
-#define pos_GPSposD   (OFS+0x30)   // 4 byte...
-#define pos_GPSecefV1 (OFS+0x34)   // 3*4 byte...
-#define pos_GPSecefV2 (OFS+0x4A)   // 3*4 byte...
-#define pos_GPSsats1  (OFS+0x46)   // 1 byte
-#define pos_GPSsats2  (OFS+0x5A)   // 1 byte
-#define pos_sensorP   (OFS+0x05)   // 4 byte float32
-#define pos_sensorT   (OFS+0x09)   // 4 byte float32
-#define pos_sensorU1  (OFS+0x0D)   // 4 byte float32
-#define pos_sensorU2  (OFS+0x11)   // 4 byte float32
-#define pos_sensorTi  (OFS+0x68)   // 4 byte float32
-#define pos_ID        (OFS+0x5D)   // 4 byte
-#define pos_rev       (OFS+0x61)   // 2 byte char // e.g. "A5"
-#define pos_bat       (OFS+0x66)   // 2 byte
-#define pos_chkFrNb   (pos_FrameNb-1   +  3)  // 16 bit
-#define pos_chkPTU    (pos_sensorP     + 17)  // 16 bit
-#define pos_chkGPS1   (pos_GPSTOW      + 47)  // 16 bit
-#define pos_chkGPS2   (pos_GPSecefV2-1 + 18)  // 16 bit
-#define pos_chkInt (pos_ID          + 21)  // 16 bit
+#define OFS             (0x02)  // HEADLEN/(2*BITS)
+#define pos_FrameNb     (OFS+0x01)   // 2 byte
+#define pos_GPSTOW      (OFS+0x18)   // 4 byte...
+#define pos_GPSweek     (OFS+0x20)   // 2 byte
+#define pos_GPSecefX    (OFS+0x24)   // 4 byte
+#define pos_GPSecefY    (OFS+0x28)   // 4 byte
+#define pos_GPSecefZ    (OFS+0x2C)   // 4 byte
+#define pos_GPSposAcc   (OFS+0x30)   // 4 byte
+#define pos_GPSecefV1   (OFS+0x34)   // 3*4 byte
+#define pos_GPSvel1Acc  (OFS+0x40)   // 4 byte
+#define pos_GPSsats1    (OFS+0x46)   // 1 byte
+#define pos_GPSecefV2   (OFS+0x4A)   // 3*4 byte
+#define pos_GPSvel2Acc  (OFS+0x56)   // 4 byte
+#define pos_GPSsats2    (OFS+0x5A)   // 1 byte
+#define pos_sensorP     (OFS+0x05)   // 4 byte float32
+#define pos_sensorT     (OFS+0x09)   // 4 byte float32
+#define pos_sensorU1    (OFS+0x0D)   // 4 byte float32
+#define pos_sensorU2    (OFS+0x11)   // 4 byte float32
+#define pos_sensorTi    (OFS+0x68)   // 4 byte float32
+#define pos_ID          (OFS+0x5D)   // 4 byte
+#define pos_rev         (OFS+0x61)   // 2 byte char // e.g. "A5"
+#define pos_bat         (OFS+0x66)   // 2 byte
+#define pos_chkFrNb     (pos_FrameNb-1   +  3)  // 16 bit
+#define pos_chkPTU      (pos_sensorP     + 17)  // 16 bit
+#define pos_chkGPS1     (pos_GPSTOW      + 47)  // 16 bit
+#define pos_chkGPS2     (pos_GPSecefV2-1 + 18)  // 16 bit
+#define pos_chkInt      (pos_ID          + 21)  // 16 bit
 
 
 unsigned check16(ui8_t *bytes, int len) {
@@ -479,21 +484,18 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.alt = h;
-    if ((h < -1000) || (h > 80000)) return 0x0200;
 
-/*
-    double X;
     for (i = 0; i < 4; i++) {
-        byte = frame_bytes[pos_GPSposD + i];
+        byte = frame_bytes[pos_GPSposAcc + i];
         XYZ_bytes[i] = byte;
     }
     memcpy(&XYZ, XYZ_bytes, 4);
-    X = XYZ / 100.0;
-    if (option_verbose == 2) {
-        printf(" # ");
-        printf(" %6.2f ", X);
-    }
-*/
+    gpx.posAcc = XYZ / 100.0;
+    gpx.X = X[0];
+    gpx.Y = X[1];
+    gpx.Z = X[2];
+
+    if ((h < -1000) || (h > 80000)) return 0x0200;
 
 /*
     for (k = 0; k < 3; k++) {
@@ -561,6 +563,13 @@ int get_GPSvel() {
     if (dir < 0) dir += 360;
     gpx.vD = dir;
 
+    for (i = 0; i < 4; i++) {
+        byte = frame_bytes[pos_GPSvel1Acc + i];
+        XYZ_bytes[i] = byte;
+    }
+    memcpy(&XYZ, XYZ_bytes, 4);
+    gpx.vel1Acc = XYZ / 100.0;
+
 
     for (k = 0; k < 3; k++) {
         for (i = 0; i < 4; i++) {
@@ -574,6 +583,13 @@ int get_GPSvel() {
     gpx.vY2 = V[1];
     gpx.vZ2 = V[2];
     gpx.sats2 = frame_bytes[pos_GPSsats2];
+
+    for (i = 0; i < 4; i++) {
+        byte = frame_bytes[pos_GPSvel2Acc + i];
+        XYZ_bytes[i] = byte;
+    }
+    memcpy(&XYZ, XYZ_bytes, 4);
+    gpx.vel2Acc = XYZ / 100.0;
 
 
     return 0;
@@ -777,15 +793,21 @@ void print_frame() {
             fprintf(stdout, " lat: %.5f° ", gpx.lat);
             fprintf(stdout, " lon: %.5f° ", gpx.lon);
             fprintf(stdout, " alt: %.2fm ", gpx.alt);
-
+            if (option_verbose == 2) {
+                //fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.X, gpx.Y, gpx.Z);
+                fprintf(stdout, " (E:%.2fm) ", gpx.posAcc);
+            }
 
             if (option_verbose) fprintf(stdout," sats: %2d ", gpx.sats1);
             if (option_verbose == 2) {
-                fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.vX1, gpx.vY1, gpx.vZ1);
+                fprintf(stdout," V1: (%5.2f,%5.2f,%5.2f) ", gpx.vX1, gpx.vY1, gpx.vZ1);
+                fprintf(stdout, "(E:%.2fm/s) ", gpx.vel1Acc);
             }
             fprintf(stdout," vH: %.1fm/s  D: %.1f°  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vU);
+            fprintf(stdout," ENU=(%.2f,%.2f,%.2f) ", gpx.vE, gpx.vN, gpx.vU);
             if (option_verbose == 2) {
-                fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.vX2, gpx.vY2, gpx.vZ2);
+                fprintf(stdout," V2: (%5.2f,%5.2f,%5.2f) ", gpx.vX2, gpx.vY2, gpx.vZ2);
+                fprintf(stdout, "(E:%.2fm/s) ", gpx.vel2Acc);
                 fprintf(stdout," sats: %2d ", gpx.sats2);
             }
 
@@ -929,7 +951,7 @@ int main(int argc, char **argv) {
             if (pbuf == NULL) break;
             frame_rawbits[RAWBITFRAME_LEN+1] = '\0';
             len = strlen(frame_rawbits);
-            if (len > 2*BITS*pos_GPSposD) print_bitframe(len);
+            if (len > 2*BITS*pos_GPSposAcc) print_bitframe(len);
         }
     }
     else {  // input: bytes

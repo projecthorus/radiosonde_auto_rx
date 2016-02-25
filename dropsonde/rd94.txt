@@ -1,0 +1,34 @@
+
+Dropsonde RD94
+
+GPS: ublox TIM-5H
+
+FSK 4800 bit/sec
+Manchester, 8N1: 240 bytes/sec
+
+2 frames/sec
+Frame: 120 byte
+
+
+pro Frame 2 Geschwindigkeitsmessungen, d.h.
+GPS-Pos, PTU: 2 Hz
+GPS-Vel: 4 Hz
+
+Frame besteht aus header plus 5 Bloecke mit 16bit-Checksumme.
+Checksumme: Fletcher16 mod 256
+
+PTU data: float32 (exp|sgn|mantissa)
+
+
+
+header   |    cnt  chk0 | P        T        U1       U2          chk1 | TOW               week      ecef-X   ecef-Y   ecef-Z   pos-acc  vX1      vY1      vZ1      vel-acc      sat chk2 |    vX2      vY2      vZ2      vel-acc sat chk3 | ID       "A5"        bat  Ti                    chk4
+1acffc1d   01 4002 4385   873f3e9f 84b8747c 8419e1c0 8407b540 00 8dc5   b6960a0d 4c6a0200 5b07 03dd b0891417 8284de00 9bd4251e 23010000 3bf6ffff 53050000 25000000 3d000000 ac00 08 18d8   03 66f6ffff 46050000 16000000 3c000000 08 0203   07df0266 4135 069201 c21e 831a2ff0 a80305227006 4126    # check: 00000_00
+1acffc1d   01 4102 4487   873f6622 84b83b34 841a7ac0 84088040 00 1da0   aa980a0d ea6b0200 5b07 03dd d0841417 2787de00 9fd4251e 23010000 46f6ffff 47050000 26000000 3b000000 ac00 08 7245   03 52f6ffff 3c050000 26000000 3f000000 08 f7cc   07df0266 4135 069201 071f 83199130 880305216d06 046b    # check: 00000_00
+1acffc1d   01 4202 4589   873fad73 84b7f7a3 841b8040 84093a40 00 21f9   9e9a0a0d 876d0200 5b07 03dd f27f1417 ca89de00 a4d4251e 23010000 50f6ffff 59050000 13000000 3e000000 ac00 08 daac   03 5af6ffff 59050000 1a000000 3d000000 08 0e57   07df0266 4135 069201 c21e 83195a70 900305227106 d467    # check: 00000_00
+1acffc1d   01 4302 468b   873fe5a9 84b7be8b 841bc200 84099f00 00 65cf   929c0a0d 256f0200 5b07 03dd 0a7b1417 788cde00 a9d4251e 24010000 4cf6ffff 61050000 28000000 3e000000 ac00 08 548f   03 4af6ffff 46050000 2b000000 41000000 08 00fd   07df0266 4135 069201 fd1e 83192650 ab0305246d06 d44b    # check: 00000_00
+
+[  576]  Di 2016-02-09 12:46:37.750 (W 1883)   lat: 52.72925°  lon: 2.15676°  alt: 7041.68m  sats:  8  vH: 24.5m/s  D: 36.5°  vV: -14.5m/s    P=382.49hPa  T=-46.11°C  H1=38.47%  H2=33.93%   (132055654)   Ti=19.27°C  Bat=7.87V   # check: 00000_00
+[  577]  Di 2016-02-09 12:46:38.250 (W 1883)   lat: 52.72933°  lon: 2.15687°  alt: 7034.31m  sats:  8  vH: 24.4m/s  D: 36.3°  vV: -14.5m/s    P=382.80hPa  T=-46.06°C  H1=38.62%  H2=34.13%   (132055654)   Ti=19.20°C  Bat=7.94V   # check: 00000_00
+[  578]  Di 2016-02-09 12:46:38.750 (W 1883)   lat: 52.72942°  lon: 2.15697°  alt: 7026.96m  sats:  8  vH: 24.3m/s  D: 37.0°  vV: -14.5m/s    P=383.36hPa  T=-45.99°C  H1=38.88%  H2=34.31%   (132055654)   Ti=19.17°C  Bat=7.87V   # check: 00000_00
+[  579]  Di 2016-02-09 12:46:39.250 (W 1883)   lat: 52.72951°  lon: 2.15708°  alt: 7019.56m  sats:  8  vH: 24.5m/s  D: 36.9°  vV: -14.4m/s    P=383.79hPa  T=-45.94°C  H1=38.94%  H2=34.41%   (132055654)   Ti=19.14°C  Bat=7.93V   # check: 00000_00
+
