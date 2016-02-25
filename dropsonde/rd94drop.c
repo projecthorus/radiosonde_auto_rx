@@ -44,15 +44,15 @@ gpx_t gpx;
 
 #define BITS (1+8+1)  // 8N1 = 10bit/byte
 
-#define HEADLEN (60)
+#define HEADLEN (40)
 #define HEADOFS (40)
 
 char header[] = 
-"10100110010110101001"  // 0x1A = 0 01011000 1
-"10010101011010010101"  // 0xCF = 0 11110011 1
-"10101001010101010101"  // 0xFC = 0 00111111 1
-"10011001010110101001"  // 0x1D = 0 10111000 1
-"10011010101010101001"; // 0x01 = 0 10000000 1
+"10100110010110101001"   // 0x1A = 0 01011000 1
+"10010101011010010101"   // 0xCF = 0 11110011 1
+"10101001010101010101"   // 0xFC = 0 00111111 1
+"10011001010110101001";  // 0x1D = 0 10111000 1
+//"10011010101010101001" // 0x01 = 0 10000000 1
 
 char buf[HEADLEN+1] = "x";
 int bufpos = -1;
@@ -333,7 +333,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define pos_chkPTU    (pos_sensorP     + 17)  // 16 bit
 #define pos_chkGPS1   (pos_GPSTOW      + 47)  // 16 bit
 #define pos_chkGPS2   (pos_GPSecefV2-1 + 18)  // 16 bit
-#define pos_chkIntern (pos_ID          + 21)  // 16 bit
+#define pos_chkInt (pos_ID          + 21)  // 16 bit
 
 
 unsigned check16(ui8_t *bytes, int len) {
@@ -346,34 +346,6 @@ unsigned check16(ui8_t *bytes, int len) {
     }
     //return sum1 | (sum2<<8);
     return sum2 | (sum1<<8);
-}
-
-unsigned chkFrame() {
-    unsigned byte;
-    unsigned checksum;
-    int err = 0;
-
-    byte = check16(frame_bytes+pos_chkFrNb-3, 3);
-    checksum = (frame_bytes[pos_chkFrNb]<<8) | frame_bytes[pos_chkFrNb+1];
-    if (byte != checksum)  err |= (0x1 << 0);
-
-    byte = check16(frame_bytes+pos_chkPTU-17, 17);
-    checksum = (frame_bytes[pos_chkPTU]<<8) | frame_bytes[pos_chkPTU+1];
-    if (byte != checksum)  err |= (0x1 << 1);
-
-    byte = check16(frame_bytes+pos_chkGPS1-47, 47);
-    checksum = (frame_bytes[pos_chkGPS1]<<8) | frame_bytes[pos_chkGPS1+1];
-    if (byte != checksum)  err |= (0x1 << 2);
-
-    byte = check16(frame_bytes+pos_chkGPS2-18, 18);
-    checksum = (frame_bytes[pos_chkGPS2]<<8) | frame_bytes[pos_chkGPS2+1];
-    if (byte != checksum)  err |= (0x1 << 3);
-
-    byte = check16(frame_bytes+pos_chkIntern-21, 21);
-    checksum = (frame_bytes[pos_chkIntern]<<8) | frame_bytes[pos_chkIntern+1];
-    if (byte != checksum)  err |= (0x1 << 4);
-
-    return err;
 }
 
 int get_ID() {
@@ -417,7 +389,7 @@ int get_GPSweek() {
     }
 
     gpsweek = gpsweek_bytes[0] + (gpsweek_bytes[1] << 8);
-    if (gpsweek < 0) { gpx.week = -1; return -1; }
+    if (gpsweek < 0) { gpx.week = -1; return 0x0300; }
     gpx.week = gpsweek;
 
     return 0;
@@ -446,7 +418,7 @@ int get_GPStime() {
     day = gpstime / (24 * 3600);
     gpstime %= (24*3600);
 
-    if ((day < 0) || (day > 6)) return -1;
+    if ((day < 0) || (day > 6)) return 0x0100;
     gpx.wday = day;
     gpx.std = gpstime / 3600;
     gpx.min = (gpstime % 3600) / 60;
@@ -507,7 +479,7 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.alt = h;
-    if ((h < -1000) || (h > 80000)) return -1;
+    if ((h < -1000) || (h > 80000)) return 0x0200;
 
 /*
     double X;
@@ -556,7 +528,7 @@ int get_GPSkoord() {
     return 0;
 }
 
-int get_V() {
+int get_GPSvel() {
     int i, k;
     unsigned byte;
     ui8_t XYZ_bytes[4];
@@ -659,14 +631,84 @@ int get_Sensors2() {
 }
 
 
-void print_frame(int len) {
+int getBlock_FrNb(){  // block 0: frame counter
+    unsigned byte;
+    unsigned checksum;
+    int chk = 0;
+
+     // header (next frame)
+    if ( frame_bytes[OFS+116] != 0x1A ) {
+        chk |= (0x1 << 6);
+    }
+    if ( frame_bytes[OFS+117] != 0xCF ) {
+        chk |= (0x1 << 7);
+    }
+
+    byte = check16(frame_bytes+pos_chkFrNb-3, 3);
+    checksum = (frame_bytes[pos_chkFrNb]<<8) | frame_bytes[pos_chkFrNb+1];
+    if (byte != checksum)  chk |= (0x1 << 0);
+
+    get_FrameNb();
+
+    return chk;
+}
+
+int getBlock_PTU(){  // block 1: sensors P, T, U1, U2
+    unsigned byte;
+    unsigned checksum;
+    int chk = 0;
+
+    byte = check16(frame_bytes+pos_chkPTU-17, 17);
+    checksum = (frame_bytes[pos_chkPTU]<<8) | frame_bytes[pos_chkPTU+1];
+    if (byte != checksum)  chk |= (0x1 << 1);
+
+    get_Sensors1();
+
+    return chk;
+}
+
+int getBlock_GPS(){  // block 2,3: GPS pos+vel1, vel2
+    unsigned byte;
+    unsigned checksum;
+    int chk = 0, err = 0;
+
+    byte = check16(frame_bytes+pos_chkGPS1-47, 47);
+    checksum = (frame_bytes[pos_chkGPS1]<<8) | frame_bytes[pos_chkGPS1+1];
+    if (byte != checksum)  chk |= (0x1 << 2);
+
+    byte = check16(frame_bytes+pos_chkGPS2-18, 18);
+    checksum = (frame_bytes[pos_chkGPS2]<<8) | frame_bytes[pos_chkGPS2+1];
+    if (byte != checksum)  chk |= (0x1 << 3);
+
+    err |= get_GPSweek();
+    err |= get_GPStime();
+    err |= get_GPSkoord();
+    err |= get_GPSvel();
+
+    return chk | (err<<8);
+}
+
+int getBlock_Int(){  // block 4: SondeID, internalTemp, battery
+    unsigned byte;
+    unsigned checksum;
+    int chk = 0;
+
+    byte = check16(frame_bytes+pos_chkInt-21, 21);
+    checksum = (frame_bytes[pos_chkInt]<<8) | frame_bytes[pos_chkInt+1];
+    if (byte != checksum)  chk |= (0x1 << 4);
+
+    get_ID();
+
+    //if (option_verbose)
+    get_Sensors2();
+
+    return chk;
+}
+
+
+void print_frame() {
     int i, err=0;
     unsigned chk=0;
-
-    for (i = len; i < RAWBITFRAME_LEN; i++) frame_rawbits[i] = '0';
-    manchester2(frame_rawbits, frame_bits);
-    bits2bytes(frame_bits, frame_bytes);
-
 
     if (option_raw) {
         for (i = 0; i < FRAME_LEN; i++) {
@@ -694,29 +736,37 @@ void print_frame(int len) {
                 || i==OFS+113 || i==OFS+115
                  ) fprintf(stdout, " ");
 
-              if ( i==pos_chkFrNb  -4  )  printf(" ");
-              if ( i==pos_chkFrNb  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkFrNb-3, 3));
-              if ( i==pos_chkPTU   -18 )  printf(" ");
-              if ( i==pos_chkPTU   +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkPTU-17, 17));
-              if ( i==pos_chkGPS1  -48 )  printf(" ");
-              if ( i==pos_chkGPS1  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS1-47, 47));
-              if ( i==pos_chkGPS2  -19 )  printf(" ");
-              if ( i==pos_chkGPS2  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS2-18, 18));
-              if ( i==pos_chkIntern-22 )  printf(" ");
-              if ( i==pos_chkIntern+1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkIntern-21, 21));
-              if ( i==pos_chkIntern+1  )  printf(" ");
+              if ( i==pos_chkFrNb -4  )  fprintf(stdout, " ");
+              if ( i==pos_chkFrNb +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkFrNb-3, 3));
+              if ( i==pos_chkPTU  -18 )  fprintf(stdout, " ");
+              if ( i==pos_chkPTU  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkPTU-17, 17));
+              if ( i==pos_chkGPS1 -48 )  fprintf(stdout, " ");
+              if ( i==pos_chkGPS1 +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS1-47, 47));
+              if ( i==pos_chkGPS2 -19 )  fprintf(stdout, " ");
+              if ( i==pos_chkGPS2 +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkGPS2-18, 18));
+              if ( i==pos_chkInt  -22 )  fprintf(stdout, " ");
+              if ( i==pos_chkInt  +1  )  fprintf(stdout, "[%04X] ", check16(frame_bytes+pos_chkInt-21, 21));
+              if ( i==pos_chkInt  +1  )  fprintf(stdout, " ");
             }
+        }
+        if (option_raw == 2) {
+            chk = err & 0xFF;
+            printf("  # check: ");  // blocks: 0=F, 1=S, 2=G1, 3=G2, 4=I, 6=H1, 7=H2
+            for (i = 0; i < 5; i++) fprintf(stdout, "%d", (chk>>i)&1); fprintf(stdout, "_");
+            for (i = 6; i < 8; i++) fprintf(stdout, "%d", (chk>>i)&1);
         }
         fprintf(stdout, "\n");
     }
     else {
 
         err = 0;
-        err |= get_FrameNb();
-        err |= get_GPSweek();
-        err |= get_GPStime();
-        err |= get_GPSkoord();
-        if (!err) {
+        err |= getBlock_FrNb();
+        err |= getBlock_PTU();
+        err |= getBlock_GPS();
+        err |= getBlock_Int();
+
+        if (! (err & 0xFF00) )
+        {
             Gps2Date(gpx.week, gpx.gpstow, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d]  ", gpx.frnr);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
@@ -729,8 +779,6 @@ void print_frame(int len) {
             fprintf(stdout, " alt: %.2fm ", gpx.alt);
 
 
-            //if (len > 2*BITS*(pos_GPSecefV2+12))
-            get_V();
             if (option_verbose) fprintf(stdout," sats: %2d ", gpx.sats1);
             if (option_verbose == 2) {
                 fprintf(stdout," (%7.2f,%7.2f,%7.2f) ", gpx.vX1, gpx.vY1, gpx.vZ1);
@@ -742,30 +790,36 @@ void print_frame(int len) {
             }
 
 
-            get_ID();
-            get_Sensors1();
             fprintf(stdout, "  ");
             fprintf(stdout, " P=%.2fhPa ", gpx.P);
             fprintf(stdout, " T=%.2f°C ",  gpx.T);
             fprintf(stdout, " H1=%.2f%% ", gpx.U1);
             fprintf(stdout, " H2=%.2f%% ", gpx.U2);
             fprintf(stdout, " ");
-            fprintf(stdout, " (%d) ", gpx.id);
+            fprintf(stdout, " (%09d) ", gpx.id);
 
-            if (option_verbose  &&  frame_bytes[OFS+116] == 0x1A) {
-                get_Sensors2();
+            if (option_verbose) {
                 fprintf(stdout, " ");
                 fprintf(stdout, " Ti=%.2f°C ", gpx.iT);
                 fprintf(stdout, " Bat=%.2fV ", gpx.bat);
             }
 
-            chk = chkFrame();
-            printf("  check[FSGGI]: ");
-            for (i = 0; i < 5; i++) printf("%d", (chk>>i)&1);
+            chk = err & 0xFF;
+            printf("  # check: ");  // blocks: 0=F, 1=S, 2=G1, 3=G2, 4=I, 6=H1, 7=H2
+            for (i = 0; i < 5; i++) fprintf(stdout, "%d", (chk>>i)&1); fprintf(stdout, "_");
+            for (i = 6; i < 8; i++) fprintf(stdout, "%d", (chk>>i)&1);
 
             fprintf(stdout, "\n");  // fflush(stdout);
         }
     }
+}
+
+void print_bitframe(int len) {
+    int i;
+    for (i = len; i < RAWBITFRAME_LEN; i++) frame_rawbits[i] = '0';
+    manchester2(frame_rawbits, frame_bits);
+    bits2bytes(frame_bits, frame_bytes);
+    print_frame();
 }
 
 
@@ -784,29 +838,31 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s [options] <file>\n", fpname);
             fprintf(stderr, "  file: audio.wav or raw_data\n");
             fprintf(stderr, "  options:\n");
-            fprintf(stderr, "       -v, --verbose\n");
-            fprintf(stderr, "       -r, --rawbytes\n");
-            fprintf(stderr, "       -R, --raw_bytes\n");
-            fprintf(stderr, "       -i, --invert\n");
-            fprintf(stderr, "       --rawin  (rawbits file)\n");
+            fprintf(stderr, "       -v,        (verbose)\n");
+            fprintf(stderr, "       -r,        (output: rawbytes)\n");
+            fprintf(stderr, "       -R,        (output: raw_bytes)\n");
+            fprintf(stderr, "       -i         (invert polarity)\n");
+            fprintf(stderr, "       --inbits   (input: bits)\n");
+            fprintf(stderr, "       --inbytes  (input: bytes)\n");
             return 0;
         }
-        else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
+        else if ( strcmp(*argv, "-v") == 0 ) {
             option_verbose = 1;
         }
-        else if ( (strcmp(*argv, "-vv") == 0) ) {
+        else if ( strcmp(*argv, "-vv") == 0 ) {
             option_verbose = 2;
         }
-        else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--rawbytes") == 0) ) {
+        else if ( strcmp(*argv, "-r") == 0 ) {
             option_raw = 1;
         }
-        else if ( (strcmp(*argv, "-R") == 0) || (strcmp(*argv, "--raw_bytes") == 0) ) {
+        else if ( strcmp(*argv, "-R") == 0 ) {
             option_raw = 2;
         }
-        else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
+        else if ( strcmp(*argv, "-i") == 0 ) {
             option_inv = 1;
         }
-        else if (strcmp(*argv, "--rawin") == 0) { rawin = 1; }     // rawbits input
+        else if (strcmp(*argv, "--inbits") == 0) { rawin = 1; }     // rawbits  input
+        else if (strcmp(*argv, "--inbytes") == 0) { rawin = 2; }     // rawbytes input
         else {
             if (!rawin) fp = fopen(*argv, "rb");
             else        fp = fopen(*argv, "r");
@@ -837,7 +893,7 @@ int main(int argc, char **argv) {
 
             if (len == 0) { // reset_frame();
             /*  if (pos > 2*BITS*pos_GPSV) {
-                    print_frame(pos);
+                    print_bitframe(pos);
                     pos = HEADLEN;
                     header_found = 0;
                 } */
@@ -858,7 +914,7 @@ int main(int argc, char **argv) {
                     pos++;
                     if (pos == RAWBITFRAME_LEN) {
                         //frames++;
-                        print_frame(pos);
+                        print_bitframe(pos);
                         header_found = 0;
                         pos = HEADLEN;
                     }
@@ -867,16 +923,29 @@ int main(int argc, char **argv) {
         }
 
     }
-    else {
-
+    else if (rawin==1) {  // input: bits
         while (1 > 0) {
             pbuf = fgets(frame_rawbits, RAWBITFRAME_LEN+4, fp);
             if (pbuf == NULL) break;
             frame_rawbits[RAWBITFRAME_LEN+1] = '\0';
             len = strlen(frame_rawbits);
-            if (len > 2*BITS*pos_GPSposD) print_frame(len);
+            if (len > 2*BITS*pos_GPSposD) print_bitframe(len);
         }
-
+    }
+    else {  // input: bytes
+        while (1 > 0) {              // rawin=2: 2chars->1byte
+            pbuf = fgets(frame_rawbits, rawin*FRAME_LEN+4, fp);
+            if (pbuf == NULL) break;
+            frame_rawbits[rawin*FRAME_LEN+1] = '\0';
+            len = strlen(frame_rawbits) / rawin;
+            for (i = 0; i < len; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                sscanf(frame_rawbits+rawin*i, "%2hhx", frame_bytes+i);
+            }
+            for (i = len; i < FRAME_LEN; i++) frame_bytes[i] = 0x00;
+            if (frame_bytes[0] == 0xFC  &&  frame_bytes[1] == 0x1D) { // Header: 1A CF FC 1D
+                print_frame();
+            }
+        }
     }
 
     fclose(fp);
