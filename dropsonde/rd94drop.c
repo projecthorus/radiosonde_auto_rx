@@ -769,12 +769,14 @@ void print_frame() {
               if ( i==pos_chkInt  +1  )  fprintf(stdout, " ");
             }
         }
+/*
+        // chk = checkBlocks();
         if (option_raw == 2) {
-            chk = err & 0xFF;
             printf("  # check: ");  // blocks: 0=F, 1=S, 2=G1, 3=G2, 4=I, 6=H1, 7=H2
             for (i = 0; i < 5; i++) fprintf(stdout, "%d", (chk>>i)&1); fprintf(stdout, "_");
             for (i = 6; i < 8; i++) fprintf(stdout, "%d", (chk>>i)&1);
         }
+*/
         fprintf(stdout, "\n");
     }
     else {
