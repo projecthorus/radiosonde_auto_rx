@@ -419,10 +419,10 @@ int get_GPStime() {
     }
 
     memcpy(&gpstime, gpstime_bytes, 4);
+    gpx.gpstow = gpstime;
     gpx.ms = gpstime % 1000;
     gpstime /= 1000;
 
-    gpx.gpstow = gpstime;
 
     day = gpstime / (24 * 3600);
     gpstime %= (24*3600);
@@ -789,7 +789,7 @@ void print_frame() {
 
         if (! (err & 0xFF00) )
         {
-            Gps2Date(gpx.week, gpx.gpstow, &gpx.jahr, &gpx.monat, &gpx.tag);
+            Gps2Date(gpx.week, gpx.gpstow/1000, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d]  ", gpx.frnr);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d.%03d", 
