@@ -19,7 +19,7 @@ https://www.youtube.com/watch?v=-0Ydq9Ole48
 
 subframe: 0x7A ..
 
-|   ID   |Count|TOW/ms     |           |Lat/B60B60 |Lon/B60B60 | Alt/mm    |vE/mm   |vN/mm   |vU/mm   |
+|  SN/ID |Count|TOW/ms     |           |Lat/B60B60 |Lon/B60B60 | Alt/mm    |vE/mm   |vN/mm   |vU/mm   |
  7A 9A 4A 1C 5C 0C B4 6D 12 FF E7 0D B6 24 2D CA 2D FF 52 36 C2 01 1E E6 68 00 B1 1B 00 11 33 00 11 E4 ..
  7A 9A 4A 1C 5D 0C B4 70 FC FF EC CA 81 24 2D CB CF FF 52 54 CF 01 1E F7 3A 00 B1 D4 00 0F 7F 00 10 B9 ..
  7A 9A 4A 1C 5E 0C B4 74 E3 FF E3 5E 52 24 2D CC B9 FF 52 71 EB 01 1F 0A 7F 00 AC 27 00 08 92 00 13 14 ..
