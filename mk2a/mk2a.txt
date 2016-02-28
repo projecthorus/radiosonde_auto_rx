@@ -11,6 +11,8 @@ bytes: big endian
 sync:
 ... 0 01010011 10 01010011 10 01010011 10 01010011 1
       CA          CA          CA          CA        
+(moeglicherweise auch anderes sync-byte moeglich)
+
 head:
 0 00100100 10 01001010 1
   24          52

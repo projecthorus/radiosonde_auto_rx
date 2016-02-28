@@ -166,7 +166,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 #define HEADOFS 0
               //  CA          CA          CA          24              52      
 char header[] = "0010100111""0010100111""0010100111""0001001001"; //"0010010101";
-
+// moeglicherweise auch anderes sync-byte als 0xCA moeglich
 char sync[]   = "0010100111""0010100111""0010100111""0010100111"; // CA CA CA CA
 
 #define FRAMESTART 0
