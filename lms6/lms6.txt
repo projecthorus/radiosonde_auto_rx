@@ -11,8 +11,12 @@ bytes: big endian
 
 
 
+sync/header:
+.. pp pp pp 24 54 00 00 00 (7A .. ..)
+wobei pp sich wiederholendes (sync-)byte, z.B. 0xCA oder 0x30
 
-
+Dann beginnt Frame mit 3 byte Sonde-SN, 0x7A.... = 80..... ,
+dann Frame-Counter, GPS.
 
 
 https://www.youtube.com/watch?v=-0Ydq9Ole48
