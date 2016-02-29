@@ -3,7 +3,7 @@ Lockheed Martin Sippican LMS6
 (403 MHz)
 
 FSK 4800 baud
-convolutional code
+NRZ-S, convolutional code R=1/2, K=8: 0xA9=10010101, 0x44=00100010
 
 bits: little endian
 bytes: big endian
