@@ -311,13 +311,13 @@ unsigned check2(ui8_t *bytes, int len) {
     int i;
 
     sum1 = 0;
-    sum2 = -1;
+    sum2 = 0;
     for (i = 0; i < len; i++) {
-        sum1 = sum1 + bytes[i];
-        sum2 = sum2 - (len-i)*bytes[i];
+        sum1 += bytes[i];
+        sum2 += (len-i)*bytes[i];
     }
     sum1 = sum1 & 0xFF;
-    sum2 = sum2 & 0xFF;
+    sum2 = (-1-sum2) & 0xFF; // = (~sum2) & 0xFF;
 
     return sum2 | (sum1<<8);
 }
@@ -376,7 +376,7 @@ int evalBytes() {
 
 void printRaw() {
     int j;
-    if ( ((bytes[5]<<8)|bytes[6]) == check2(bytes, 5))
+    //if ( ((bytes[5]<<8)|bytes[6]) == check2(bytes, 5))
     {
         printf("%s", headerstr);
         for (j = 0; j < LEN_BITFRAME; j++) {
