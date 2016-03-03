@@ -13,9 +13,8 @@ Datenpaket besteht aus 8 byte:
 header  2 byte  00FF
 pck_id  1 byte  N
 data    4 byte  val (big endian)
-chksum  2 byte  Summe ueber byte[0]=pck_id,byte[1]=data[0],...,byte[4]=data[3]
-                byte1: (sum_i byte[i]) & 0xFF
-                byte2: (-1 - sum_i byte[i]*(5-i)) & 0xFF = ~(sum_i byte[i]*(5-i)) & 0xFF
+chksum  2 byte  Fletcher16 (hier: byte2 1's-complement am Ende)
+
 
 Telemetrie pck_id N:
 0x14: date: 0x00027173 =   160115 -> 2015-01-16
@@ -29,7 +28,7 @@ GPS-lat/lon wie NMEA mit Faktor 1e4
 
 
 Checksum:
-2 byte
+2 byte, Summe ueber byte[0]=pck_id,byte[1]=data[0],...,byte[4]=data[3]
 byte1: (sum_i byte[i]) & 0xFF
 byte2: (-1 - sum_i byte[i]*(5-i)) & 0xFF = ~(sum_i byte[i]*(5-i)) & 0xFF
 
@@ -43,6 +42,10 @@ FrameID 0x15 (time):
  00FF 15 0001E604 00C3
  00FF 15 0001E605 01C2
  00FF 15 0001E606 02C1
+
+-> Fletcher16:
+5*byte[0]+4*byte[1]+3*byte[2]+2*byte[3]+1*byte[4]
+= byte[0] + (byte[0]+byte[1]) + (byte[0]+byte[1]+byte[2]) + (byte[0]+byte[1]+byte[2]+byte[3]) + (byte[0]+byte[1]+byte[2]+byte[3]+byte[4])
 
 
 PTU-Data: float32?

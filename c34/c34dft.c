@@ -306,6 +306,7 @@ void printGPX() {
         printf("\n");
 }
 
+// Chechsum Fletcher16
 unsigned check2(ui8_t *bytes, int len) {
     int sum1, sum2;
     int i;
@@ -321,6 +322,19 @@ unsigned check2(ui8_t *bytes, int len) {
 
     return sum2 | (sum1<<8);
 }
+/* // equivalent
+unsigned check16(ui8_t *bytes, int len) {
+    unsigned sum1, sum2;
+    int i;
+    sum1 = sum2 = 0;
+    for (i = 0; i < len; i++) {
+        sum1 = (sum1 + bytes[i]) % 0x100;
+        sum2 = (sum2 + sum1) % 0x100;
+    }
+    sum2 = (~sum2) & 0xFF;  // 1's complement
+    return sum2 | (sum1<<8);
+}
+*/
 
 double NMEAll(int ll) {  // NMEA GGA,GLL: ll/1e4=(D)DDMM.mmmm
     int deg = ll / 1000000;
