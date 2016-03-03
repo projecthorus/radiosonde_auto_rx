@@ -13,7 +13,9 @@ Datenpaket besteht aus 8 byte:
 header  2 byte  00FF
 pck_id  1 byte  N
 data    4 byte  val (big endian)
-chksum  2 byte  (byte1: Summe der bytes von pck_id+val & 0xFF)
+chksum  2 byte  Summe ueber byte[0]=pck_id,byte[1]=data[0],...,byte[4]=data[3]
+                byte1: (sum_i byte[i]) & 0xFF
+                byte2: (-1 - sum_i byte[i]*(5-i)) & 0xFF = ~(sum_i byte[i]*(5-i)) & 0xFF
 
 Telemetrie pck_id N:
 0x14: date: 0x00027173 =   160115 -> 2015-01-16
@@ -22,5 +24,27 @@ Telemetrie pck_id N:
 0x17: lon : 0x006CB603 =  7124483 ->  7+124483/600000=7.2074717°
 0x18: alt : 0x0004AB21 =   305953 -> 305953/10 = 30595.3m
 
+
 GPS-lat/lon wie NMEA mit Faktor 1e4
+
+
+Checksum:
+2 byte
+byte1: (sum_i byte[i]) & 0xFF
+byte2: (-1 - sum_i byte[i]*(5-i)) & 0xFF = ~(sum_i byte[i]*(5-i)) & 0xFF
+
+FrameID 0x15 (time):
+ 00FF 15 0001E5FE F9CB
+ 00FF 15 0001E5FF FACA <- vorletztes byte +1
+ 00FF 15 0001E600 FCC7 -> byte2: -1-2*1 Differenz
+ 00FF 15 0001E601 FDC6
+ 00FF 15 0001E602 FEC5
+ 00FF 15 0001E603 FFC4
+ 00FF 15 0001E604 00C3
+ 00FF 15 0001E605 01C2
+ 00FF 15 0001E606 02C1
+
+
+PTU-Data: float32?
+
 
