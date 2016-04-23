@@ -239,10 +239,10 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 #define HEADLEN (20)     // HEADLEN+HEADOFS=32 <= strlen(header)
 #define HEADOFS  0
 
-              //  A   A       A   A    
+              //  A   A       A   A    : preamble: 0xAAAAAA
 char header[] = "0010101011""0010101011";
 
-#define FRAME_LEN       (50+1)
+#define FRAME_LEN       (50)
 #define BITFRAME_LEN    (FRAME_LEN*BITS)
 
 char buf[HEADLEN];
@@ -250,7 +250,7 @@ int bufpos = -1;
 
 #define FRAMESTART 0
 char  frame_bits[BITFRAME_LEN+4];
-ui8_t frame_bytes[FRAME_LEN+10];
+ui8_t frame_bytes[FRAME_LEN+10] = { 0xAA, 0xAA, 0xAA };
 
 
 void inc_bufpos() {
@@ -314,7 +314,7 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
         byteval &= 0xFF;
         bitpos += BITS;
 
-       if (bytepos == 0 && byteval == 0xAA) continue;
+       if (bytepos == 0 && byteval == frame_bytes[2]/*0xAA*/) continue;
 
         bytes[bytepos++] = byteval & 0xFF;
         
@@ -328,7 +328,7 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
 
 /* -------------------------------------------------------------------------- */
 
-#define OFS           (0x00)
+#define OFS           (0x03)
 #define pos_GPSlat    (OFS+0x03)  // 4 byte
 #define pos_GPSlon    (OFS+0x07)  // 4 byte
 #define pos_GPSalt    (OFS+0x0B)  // 4 byte
@@ -418,11 +418,33 @@ int get_GPSdate() {
     return 0;
 }
 
+/* -------------------------------------------------------------------------- */
+
+int crc16poly = 0xA001;
+
+unsigned int crc16rev(unsigned char bytes[], int len) {
+    unsigned int rem = 0xFFFF; // init value: crc(0xAAAAAA;init:0xFFFF)=0x3FAF
+    int i, j;
+    for (i = 0; i < len; i++) {
+        rem = rem ^ bytes[i];
+        for (j = 0; j < 8; j++) {
+            if (rem & 0x0001) {
+                rem = (rem >> 1) ^ crc16poly;
+            }
+            else {
+                rem = (rem >> 1);
+            }
+            rem &= 0xFFFF;
+        }
+    }
+    return rem;
+}
 
 /* -------------------------------------------------------------------------- */
 
 int print_pos() {
     int err;
+    unsigned int crc = 0x0000;
 
     err = 0;
     err |= get_GPSpos();
@@ -442,6 +464,9 @@ int print_pos() {
 
         //fprintf(stdout, "  (%.1f , %.1f , %.1f) ", datum.vE/1e2, datum.vN/1e2, datum.vU/1e2);
         fprintf(stdout, "  vH: %.1fm/s  D: %.1f°  vV: %.1fm/s", datum.vH, datum.vD, datum.vV);
+
+        crc = (frame_bytes[FRAME_LEN-2]<<8) | frame_bytes[FRAME_LEN-1];
+        if (crc == crc16rev(frame_bytes, FRAME_LEN-2)) fprintf(stdout, "  [OK]"); else fprintf(stdout, "  [NO]");
     }
     fprintf(stdout, "\n");
 
@@ -450,8 +475,9 @@ int print_pos() {
 
 void print_frame(int pos) {
     int i;
+    unsigned int crc = 0x0000;
 
-    bits2bytes(frame_bits, frame_bytes);
+    bits2bytes(frame_bits, frame_bytes+OFS);
 
     if (option_raw) {
         if (option_raw == 2) {
@@ -462,9 +488,12 @@ void print_frame(int pos) {
             fprintf(stdout, "\n");
         }
         else {
-            for (i = 0; i < FRAME_LEN; i++) {
+            for (i = OFS; i < FRAME_LEN-2; i++) {
                 fprintf(stdout, "%02x ", frame_bytes[i]);
             }
+            crc = (frame_bytes[FRAME_LEN-2]<<8) | frame_bytes[FRAME_LEN-1];
+            fprintf(stdout, " %04x ", crc);
+            fprintf(stdout, "# %04x ", crc16rev(frame_bytes, FRAME_LEN-2));
             fprintf(stdout, "\n");
         }
     }
