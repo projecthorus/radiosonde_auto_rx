@@ -27,6 +27,7 @@ typedef struct {
     int vE; int vN; int vU;
     double vH; double vD; double vV;
     int date; int time;
+    ui8_t sats; ui8_t fix;
 } datum_t;
 
 datum_t datum;
@@ -337,6 +338,8 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
 #define pos_GPSvU     (OFS+0x13)  // 2 byte
 #define pos_GPStime   (OFS+0x15)  // 4 byte
 #define pos_GPSdate   (OFS+0x19)  // 4 byte
+#define pos_GPSsats   (OFS+0x01)  // 1 byte
+#define pos_GPSfix    (OFS+0x02)  // 1 byte
 
 
 int get_GPSpos() {
@@ -418,6 +421,12 @@ int get_GPSdate() {
     return 0;
 }
 
+int get_GPSstatus() {
+    datum.sats = frame_bytes[pos_GPSsats];
+    datum.fix  = frame_bytes[pos_GPSfix];
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
 int crc16poly = 0xA001;
@@ -465,8 +474,14 @@ int print_pos() {
         //fprintf(stdout, "  (%.1f , %.1f , %.1f) ", datum.vE/1e2, datum.vN/1e2, datum.vU/1e2);
         fprintf(stdout, "  vH: %.1fm/s  D: %.1f°  vV: %.1fm/s", datum.vH, datum.vD, datum.vV);
 
+        if (option_verbose) {
+            get_GPSstatus();
+            fprintf(stdout, "  sats: %d  fix: %d ", datum.sats, datum.fix);
+        }
+
         crc = (frame_bytes[FRAME_LEN-2]<<8) | frame_bytes[FRAME_LEN-1];
-        if (crc == crc16rev(frame_bytes, FRAME_LEN-2)) fprintf(stdout, "  [OK]"); else fprintf(stdout, "  [NO]");
+        fprintf(stdout, "  # CRC ");
+        if (crc == crc16rev(frame_bytes, FRAME_LEN-2)) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
     }
     fprintf(stdout, "\n");
 
@@ -523,7 +538,7 @@ int main(int argc, char **argv) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
             fprintf(stderr, "%s [options] audio.wav\n", fpname);
             fprintf(stderr, "  options:\n");
-            //fprintf(stderr, "       -v, --verbose\n");
+            fprintf(stderr, "       -v, --verbose\n");
             fprintf(stderr, "       -r, --raw; -R\n");
             fprintf(stderr, "       -i, --invert; --auto\n");
             return 0;
