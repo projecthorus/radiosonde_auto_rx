@@ -225,7 +225,7 @@ char header[] = "11001100110011001010011001001100"; //"011001001001111100100000"
 char buf[HEADLEN];
 int bufpos = -1;
 
-int frame_bytes[FRAME_LEN+10];
+ui8_t frame_bytes[FRAME_LEN+10];
 
 #define FRAMESTART 0
 char frame_rawbits[RAWBITFRAME_LEN+8];  // frame_rawbits-32="11001100110011001010011001001100";
@@ -271,7 +271,7 @@ int compare2() {
 
 }
 
-int bits2bytes(char *bitstr, int *bytes) {
+int bits2bytes(char *bitstr, ui8_t *bytes) {
     int i, bit, d, byteval;
     int bitpos, bytepos;
 
@@ -291,7 +291,7 @@ int bits2bytes(char *bitstr, int *bytes) {
             d <<= 1;
         }
         bitpos += BITS;
-        bytes[bytepos++] = byteval;
+        bytes[bytepos++] = byteval & 0xFF;
         
     }
 
@@ -333,7 +333,8 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define pos_GPSvO  0x04  // 2 byte
 #define pos_GPSvN  0x06  // 2 byte
 #define pos_GPSvV  0x08  // 2 byte
-#define pos_GPSsn  0x5D  // 2+3 byte
+#define pos_SN     0x5D  // 2+3 byte
+#define pos_Check  0x63  // 2 byte
 
 
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -353,7 +354,8 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define col_GPSlon     "\x1b[38;5;70m"  // 4 byte
 #define col_GPSheight  "\x1b[38;5;82m"  // 4 byte
 #define col_GPSvel     "\x1b[38;5;36m"  // 6 byte
-#define col_GPSsn      "\x1b[38;5;58m"  // 3 byte
+#define col_SN         "\x1b[38;5;58m"  // 3 byte
+#define col_Check      "\x1b[38;5;11m"  // 2 byte
 #define col_TXT        "\x1b[38;5;244m"
 #define col_FRTXT      "\x1b[38;5;244m"
 
@@ -371,7 +373,6 @@ int get_GPSweek() {
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSweek + i];
-        if (byte > 0xFF) return -1;
         gpsweek_bytes[i] = byte;
     }
 
@@ -393,7 +394,6 @@ int get_GPStime() {
 
     for (i = 0; i < 4; i++) {
         byte = frame_bytes[pos_GPSTOW + i];
-        if (byte > 0xFF) return -1;
         gpstime_bytes[i] = byte;
     }
 
@@ -429,7 +429,6 @@ int get_GPSlat() {
 
     for (i = 0; i < 4; i++) {
         byte = frame_bytes[pos_GPSlat + i];
-        if (byte > 0xFF) return -1;
         gpslat_bytes[i] = byte;
     }
 
@@ -452,7 +451,6 @@ int get_GPSlon() {
 
     for (i = 0; i < 4; i++) {
         byte = frame_bytes[pos_GPSlon + i];
-        if (byte > 0xFF) return -1;
         gpslon_bytes[i] = byte;
     }
 
@@ -475,7 +473,6 @@ int get_GPSheight() {
 
     for (i = 0; i < 4; i++) {
         byte = frame_bytes[pos_GPSheight + i];
-        if (byte > 0xFF) return -1;
         gpsheight_bytes[i] = byte;
     }
 
@@ -498,7 +495,6 @@ int get_GPSvel() {
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvO + i];
-        if (byte > 0xFF) return -1;
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
@@ -506,7 +502,6 @@ int get_GPSvel() {
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvN + i];
-        if (byte > 0xFF) return -1;
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
@@ -527,7 +522,6 @@ int get_GPSvel() {
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvV + i];
-        if (byte > 0xFF) return -1;
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
@@ -544,8 +538,7 @@ int get_SN() {
     for (i = 0; i < 11; i++) datum.SN[i] = ' '; datum.SN[11] = '\0';
 
     for (i = 0; i < 5; i++) {
-        byte = frame_bytes[pos_GPSsn + i];
-        if (byte > 0xFF) return -1;
+        byte = frame_bytes[pos_SN + i];
         sn_bytes[i] = byte;
     }
 
@@ -557,6 +550,67 @@ int get_SN() {
     //oder?: sprintf(datum.SN+3, " %1X 1%04u", ((byte>>13)&0x7)+1, byte&0x1FFF);
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/*
+g : F^n -> F^16      // checksum, linear
+g(m||b) = f(g(m),b)
+
+// update checksum
+f : F^16 x F^8 -> F^16 linear
+
+010100001000000101000000
+001010000100000010100000
+000101000010000001010000
+000010100001000000101000
+000001010000100000010100
+100000100000010000001010
+000000011010100000000100
+100000000101010000000010
+000000001000000000000000
+000000000100000000000000
+000000000010000000000000
+000000000001000000000000
+000000000000100000000000
+000000000000010000000000
+000000000000001000000000
+000000000000000100000000
+*/
+
+int update_checkM10(int c, ui8_t b) {
+    int c0, c1, t, t6, t7, s;
+
+    c1 = c & 0xFF;
+
+    // B
+    b  = (b >> 1) | ((b & 1) << 7);
+    b ^= (b >> 2) & 0xFF;
+
+    // A1
+    t6 = ( c     & 1) ^ ((c>>2) & 1) ^ ((c>>4) & 1);
+    t7 = ((c>>1) & 1) ^ ((c>>3) & 1) ^ ((c>>5) & 1);
+    t = (c & 0x3F) | (t6 << 6) | (t7 << 7);
+
+    // A2
+    s  = (c >> 7) & 0xFF;
+    s ^= (s >> 2) & 0xFF;
+
+
+    c0 = b ^ t ^ s;
+
+    return ((c1<<8) | c0) & 0xFFFF;
+}
+
+int checkM10(ui8_t *msg, int len) {
+    int i, cs;
+
+    cs = 0;
+    for (i = 0; i < len; i++) {
+        cs = update_checkM10(cs, msg[i]);
+    }
+
+    return cs & 0xFFFF;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -592,7 +646,7 @@ int print_pos() {
                 }
                 if (option_verbose == 2) {
                     get_SN();
-                    printf("  SN: "col_GPSsn"%s"col_TXT" ", datum.SN);
+                    printf("  SN: "col_SN"%s"col_TXT" ", datum.SN);
                 }
             }
             printf(ANSI_COLOR_RESET"");
@@ -627,6 +681,7 @@ int print_pos() {
 void print_frame(int pos) {
     int i;
     ui8_t byte;
+    int cs1, cs2;
 
     psk_bpm(frame_rawbits, frame_bits);
     bits2bytes(frame_bits, frame_bytes);
@@ -635,7 +690,7 @@ void print_frame(int pos) {
 
         if (option_color  &&  frame_bytes[1] != 0x49) {
             fprintf(stdout, col_FRTXT);
-            for (i = 0; i < FRAME_LEN; i++) {
+            for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
                 if ((i >= pos_GPSTOW)    && (i < pos_GPSTOW+4))    fprintf(stdout, col_GPSTOW);
                 if ((i >= pos_GPSlat)    && (i < pos_GPSlat+4))    fprintf(stdout, col_GPSlat);
@@ -643,16 +698,32 @@ void print_frame(int pos) {
                 if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
                 if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
                 if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
-                if ((i >= pos_GPSsn+2)   && (i < pos_GPSsn+5))     fprintf(stdout, col_GPSsn);
+                if ((i >= pos_SN+2)      && (i < pos_SN+5))        fprintf(stdout, col_SN);
+                if ((i >= pos_Check)      && (i < pos_Check+2))    fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
+            }
+            if (option_verbose) {
+                cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
+                cs2 = checkM10(frame_bytes, pos_Check);
+                fprintf(stdout, " # ");
+                fprintf(stdout, col_Check);
+                fprintf(stdout, "%04x", cs2);
+                fprintf(stdout, col_FRTXT);
+                if (cs1 == cs2) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
             }
             fprintf(stdout, ANSI_COLOR_RESET"\n");
         }
         else {
-            for (i = 0; i < FRAME_LEN; i++) {
+            for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
                 fprintf(stdout, "%02x", byte);
+            }
+            if (option_verbose) {
+                cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
+                cs2 = checkM10(frame_bytes, pos_Check);
+                fprintf(stdout, " # %04x", cs2);
+                if (cs1 == cs2) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
             }
             fprintf(stdout, "\n");
         }
@@ -660,7 +731,7 @@ void print_frame(int pos) {
     }
     else if (frame_bytes[1] == 0x49) {
         if (option_verbose == 2) {
-            for (i = 0; i < FRAME_LEN; i++) {
+            for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
                 fprintf(stdout, "%02x", byte);
             }
