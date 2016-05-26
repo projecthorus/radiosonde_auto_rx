@@ -105,4 +105,5 @@ weitere Infos:
 http://www.vaisala.com/Vaisala%20Documents/Brochures%20and%20Datasheets/RS92SGP-Datasheet-B210358EN-F-LOW.pdf
 http://www.vaisala.com/Vaisala%20Documents/Vaisala%20News%20Articles/VN164/VN164_State-of-the-Art_Radiosonde_Telemetry.pdf
 http://brmlab.cz/project/weathersonde/
+http://prohu.altervista.org/convert.pdf (PTU, Haeberli 2001)
 
