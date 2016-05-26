@@ -641,7 +641,7 @@ int print_pos() {
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
+                    //if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
                 }
                 if (option_verbose == 2) {
@@ -662,7 +662,7 @@ int print_pos() {
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
+                    //if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
                 }
                 if (option_verbose == 2) {
@@ -699,7 +699,7 @@ void print_frame(int pos) {
                 if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
                 if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
                 if ((i >= pos_SN+2)      && (i < pos_SN+5))        fprintf(stdout, col_SN);
-                if ((i >= pos_Check)      && (i < pos_Check+2))    fprintf(stdout, col_Check);
+                if ((i >= pos_Check)     && (i < pos_Check+2))     fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
             }
