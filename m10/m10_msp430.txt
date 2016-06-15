@@ -54,10 +54,10 @@ erased automatically.
 M10v05 mit MSP430F233, MCU_ID 0xF249, BSL_VER 2.02.
 
 olimex-JTAG:
-# mspdebug -j olimex "hexout 0x0200 0xFE00 m10v05.hex"
-# msp430-objdump -m msp430 -D m10v05.hex > m10v05.asm
+$ mspdebug -j olimex "hexout 0x0200 0xFE00 m10v05.hex"
+$ msp430-objdump -m msp430 -D m10v05.hex > m10v05.asm
 USB-TTL CP2102:
-# ./msp430-bsl.py -c /dev/ttyUSB0 --invert-reset --invert-test -P pwd_m10v05.txt --upload=0x0200 --size=0xFE00 > f233hex.out
+$ ./msp430-bsl.py -c /dev/ttyUSB0 --invert-reset --invert-test -P pwd_m10v05.txt --upload=0x0200 --size=0xFE00 > f233hex.out
 
 
 In den letzten 32 Bytes (0xFFE0-0xFFFF) stehen 16 Interrupt-Vektoren, die auch als Passwort fuer die "Protected Commands" dienen.
@@ -99,12 +99,12 @@ pwd neq:
      d5a:	82 93 de ff 	tst	&0xffde	    ;             BSLSKEY==0x0000?
      d5e:	07 24       	jz	$+16     	;abs 0xd6e
 MCU_ID/BSL_VER:
-     ff0:	f2 49  ; MCU_ID F249
+     ff0:	f2 49       	; MCU_ID F249
      ff2:	04 60
      ff4:	00 00
      ff6:	00 00
      ff8:	00 00
-     ffa:	02 02  ; BSL 2.02
+     ffa:	02 02       	; BSL 2.02
      ffc:	01 00
      ffe:	f5 2b
 
@@ -124,7 +124,7 @@ MCU_ID/BSL_VER:
 
 0xFFC0-0xFFDF  interrupt vector table (IVT)
 BSLSKEY:
-    ffde:   ff ff           ; BSLSKEY
+    ffde:   ff ff       	; BSLSKEY
 0xFFE0-0xFFFF  interrupt vector table (IVT)
 IVT:
     ffe0:	ff ff       	
@@ -142,7 +142,7 @@ IVT:
     fff8:	b0 fd       	
     fffa:   d0 f8       	
     fffc:	ff ff       	
-    fffe:   00 e0           ; RESET
+    fffe:   00 e0       	; RESET
 
 
 
