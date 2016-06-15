@@ -96,7 +96,7 @@ pwd neq:
      d50:	b0 12 58 0e 	call	#0x0e58	
      d54:	3b b0 40 00 	bit	#64,	r11	;#0x0040
      d58:	b0 27       	jz	$-158    	;abs 0xcba
-     d5a:	82 93 de ff 	tst	&0xffde	    ;             BSLSKEY==0x0000?
+     d5a:	82 93 de ff 	tst	&0xffde    	;             BSLSKEY==0x0000?
      d5e:	07 24       	jz	$+16     	;abs 0xd6e
 MCU_ID/BSL_VER:
      ff0:	f2 49       	; MCU_ID F249
@@ -128,21 +128,21 @@ BSLSKEY:
 0xFFE0-0xFFFF  interrupt vector table (IVT)
 IVT:
     ffe0:	ff ff       	
-    ffe2:   ff ff       	
+    ffe2:	ff ff       	
     ffe4:	ff ff       	
-    ffe6:   ff ff       	
+    ffe6:	ff ff       	
     ffe8:	ff ff       	
-    ffea:   ff ff       	
+    ffea:	ff ff       	
     ffec:	ff ff       	
-    ffee:   e6 f4       	
+    ffee:	e6 f4       	
     fff0:	b4 ed       	
-    fff2:   48 f3       	
+    fff2:	48 f3       	
     fff4:	ff ff       	
-    fff6:   ff ff       	
+    fff6:	ff ff       	
     fff8:	b0 fd       	
-    fffa:   d0 f8       	
+    fffa:	d0 f8       	
     fffc:	ff ff       	
-    fffe:   00 e0       	; RESET
+    fffe:	00 e0       	; RESET
 
 
 
