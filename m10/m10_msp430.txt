@@ -124,7 +124,7 @@ MCU_ID/BSL_VER:
 
 0xFFC0-0xFFDF  interrupt vector table (IVT)
 BSLSKEY:
-    ffde:   ff ff       	; BSLSKEY
+    ffde:	ff ff       	; BSLSKEY
 0xFFE0-0xFFFF  interrupt vector table (IVT)
 IVT:
     ffe0:	ff ff       	
