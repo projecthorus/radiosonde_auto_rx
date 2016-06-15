@@ -1,0 +1,148 @@
+
+M10v05:
+16-bit Microcontroller TI MSP430F233
+
+
+Dokumente
+slas5471: MSP430F233 data sheet
+slau144 : MSP430x2xx User's Guide
+slau278 : MSP430 Hardware Tools
+slaa089 : Features of the MSP430 Bootstrap Loader
+slau319 : MSP430 Programming With the Bootloader (BSL)
+slau320 : MSP430 Programming With the JTAG Interface
+
+
+slaa089:
+5.1
+Unprotected Commands
+• Receive password
+• Mass erase
+• Transmit BSL version (V1.50 or higher or in loadables BL_150S_14x.txt, BL_150S_44x.txt)
+• Change baud rate (V1.60 or higher or in loadables BL_150S_14x.txt, BL_150S_44x.txt)
+5.2
+Password Protected Commands
+• Receive data block to program flash memory, RAM, or peripherals
+• Transmit data block
+• Erase segment
+• Erase check (V1.50 or higher or in loadables BL_150S_14x.txt, BL_150S_44x.txt)
+• Load program counter and start user program
+
+slau319:
+2.7
+Password Protection
+The password protection prohibits every command that potentially allows direct or indirect data access.
+Only the unprotected commands like mass erase and RX password (optionally, TX BSL version and
+change baud rate) can be performed without prior receipt of the correct password after BSL entry.
+Applying the RX password command for receiving the correct password unlocks the remaining
+commands.
+After it is unlocked, it remains unlocked until initiating another BSL entry.
+The password itself consists of the 16 interrupt vectors located at addresses FFE0h to FFFFh (256 bits),
+starting with the first byte at address FFE0h. After mass erase and with unprogrammed devices, all
+password bits are logical high (1).
+BSL versions 2.00 and higher have enhanced security features. These features are controlled by the flash
+data word located beneath the interrupt vector table addresses (for example, for the MSP430F2131,
+address 0xFFDE). If this word contains:
+• 0x0000: The flash memory is not erased if an incorrect BSL password has been received by the target.
+• 0xAA55: The BSL is disabled. This means that the BSL is not started with the default initialization
+sequence shown in Section 1.3.
+• All other values: If an incorrect password is transmitted, the entire flash memory address space is
+erased automatically.
+
+
+
+
+M10v05 mit MSP430F233, MCU_ID 0xF249, BSL_VER 2.02.
+
+olimex-JTAG:
+# mspdebug -j olimex "hexout 0x0200 0xFE00 m10v05.hex"
+# msp430-objdump -m msp430 -D m10v05.hex > m10v05.asm
+USB-TTL CP2102:
+# ./msp430-bsl.py -c /dev/ttyUSB0 --invert-reset --invert-test -P pwd_m10v05.txt --upload=0x0200 --size=0xFE00 > f233hex.out
+
+
+In den letzten 32 Bytes (0xFFE0-0xFFFF) stehen 16 Interrupt-Vektoren, die auch als Passwort fuer die "Protected Commands" dienen.
+Will man den Speicher lesen (Protected Command), muss man die richtigen 32 Bytes des IVT uebergeben. (Durch "Mass Erase" wird der 
+Speicher mit 0xFF beschrieben. Somit haben auch die 32 (pwd-)Bytes des IVT den (default) Wert 0xFF. Danach koennen auch die 
+"Protected Commands" genutzt und ein neues Programm geschrieben werden.)
+
+In Version 2.02 des BSL steht in Adresse 0xFFDE, ob bei falschem Passwort der Speicher geloescht wird. Wenn man den Speicher mit
+JTAG ausliest, kann man in die Adresse 0xFFDE den Wert 0x0000 schreiben, um leichter mit BSL zu arbeiten.
+
+Abfrage von TX_BSL in Version 2.02 gibt DATA_NAK=A0h zurueck.
+
+
+
+
+0x0000-0x000F  special function registers
+0x0010-0x01FF  peripheral modules
+0x0200         RAM
+
+0x0C00-0x0FFF  boot strap loader (BSL)
+BSLSKEY-cmp:
+     c0c:	b2 90 55 aa 	cmp	#-21931,&0xffde	;#0xaa55, BSLSKEY==0xAA55?
+     c10:	de ff 
+     c12:	ff 27       	jz	$+0      	;abs 0xc12
+BSL-pwd_cmp:
+     d3a:	b0 12 54 0f 	call	#0x0f54	;             read byte
+     d3e:	7c 96       	cmp.b	@r6+,	r12	
+     d40:	03 24       	jz	$+8      	;abs 0xd48
+     d42:	3b d0 40 00 	bis	#64,	r11	;#0x0040
+     d46:	02 3c       	jmp	$+6      	;abs 0xd4c
+     d48:	00 3c       	jmp	$+2      	;abs 0xd4a
+     d4a:	00 3c       	jmp	$+2      	;abs 0xd4c
+     d4c:	17 83       	dec	r7		
+     d4e:	f5 23       	jnz	$-20     	;abs 0xd3a
+pwd neq:
+     d50:	b0 12 58 0e 	call	#0x0e58	
+     d54:	3b b0 40 00 	bit	#64,	r11	;#0x0040
+     d58:	b0 27       	jz	$-158    	;abs 0xcba
+     d5a:	82 93 de ff 	tst	&0xffde	    ;             BSLSKEY==0x0000?
+     d5e:	07 24       	jz	$+16     	;abs 0xd6e
+MCU_ID/BSL_VER:
+     ff0:	f2 49  ; MCU_ID F249
+     ff2:	04 60
+     ff4:	00 00
+     ff6:	00 00
+     ff8:	00 00
+     ffa:	02 02  ; BSL 2.02
+     ffc:	01 00
+     ffe:	f5 2b
+
+0x1000-0x10FF  info memory
+    1080:	31 25       	; SN
+    1082:	02 08       	; SN
+    1084:	3a 08       	; SN 310 2 11329
+    1086:	00 0d       	
+    1088:	00 00       	
+    108a:	e8 03       	
+    108c:	e8 03       	
+    108e:	00 01       	
+    1090:	df 07       	; Freq [kHz/200]: 403000 kHz
+    1092:	00 00       	
+
+0xE000-0xFFBF  code memory
+
+0xFFC0-0xFFDF  interrupt vector table (IVT)
+BSLSKEY:
+    ffde:   ff ff           ; BSLSKEY
+0xFFE0-0xFFFF  interrupt vector table (IVT)
+IVT:
+    ffe0:	ff ff       	
+    ffe2:   ff ff       	
+    ffe4:	ff ff       	
+    ffe6:   ff ff       	
+    ffe8:	ff ff       	
+    ffea:   ff ff       	
+    ffec:	ff ff       	
+    ffee:   e6 f4       	
+    fff0:	b4 ed       	
+    fff2:   48 f3       	
+    fff4:	ff ff       	
+    fff6:   ff ff       	
+    fff8:	b0 fd       	
+    fffa:   d0 f8       	
+    fffc:	ff ff       	
+    fffe:   00 e0           ; RESET
+
+
+
