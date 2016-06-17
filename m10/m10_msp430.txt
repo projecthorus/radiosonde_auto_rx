@@ -86,16 +86,15 @@ BSL-pwd_cmp:
      d3a:	b0 12 54 0f 	call	#0x0f54	;             read byte
      d3e:	7c 96       	cmp.b	@r6+,	r12	
      d40:	03 24       	jz	$+8      	;abs 0xd48
-     d42:	3b d0 40 00 	bis	#64,	r11	;#0x0040
+     d42:	3b d0 40 00 	bis	#64,	r11	;#0x0040      set pwd-bit
      d46:	02 3c       	jmp	$+6      	;abs 0xd4c
      d48:	00 3c       	jmp	$+2      	;abs 0xd4a
      d4a:	00 3c       	jmp	$+2      	;abs 0xd4c
      d4c:	17 83       	dec	r7		
-     d4e:	f5 23       	jnz	$-20     	;abs 0xd3a
-pwd neq:
+     d4e:	f5 23       	jnz	$-20     	;abs 0xd3a    loop 32 bytes
      d50:	b0 12 58 0e 	call	#0x0e58	
-     d54:	3b b0 40 00 	bit	#64,	r11	;#0x0040
-     d58:	b0 27       	jz	$-158    	;abs 0xcba
+     d54:	3b b0 40 00 	bit	#64,	r11	;#0x0040      pwd-bit set?
+     d58:	b0 27       	jz	$-158    	;abs 0xcba    pwd correct
      d5a:	82 93 de ff 	tst	&0xffde    	;             BSLSKEY==0x0000?
      d5e:	07 24       	jz	$+16     	;abs 0xd6e
 MCU_ID/BSL_VER:
