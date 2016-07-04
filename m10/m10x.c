@@ -545,9 +545,7 @@ int get_SN() {
     byte = sn_bytes[2];
     sprintf(datum.SN, "%1X%02u", (byte>>4)&0xF, byte&0xF);
     byte = sn_bytes[3] | (sn_bytes[4]<<8);
-    //sprintf(datum.SN+3, " _ _%04u", /*(byte>>13)&0x7,*/ byte&0x1FFF);
-    sprintf(datum.SN+3, " %1X 1%04u", ((byte>>13)&0x7)<<1, byte&0x1FFF);
-    //oder?: sprintf(datum.SN+3, " %1X 1%04u", ((byte>>13)&0x7)+1, byte&0x1FFF);
+    sprintf(datum.SN+3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte>>13)&0x7, byte&0x1FFF);
 
     return 0;
 }
@@ -698,7 +696,7 @@ void print_frame(int pos) {
                 if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
                 if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
                 if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
-                if ((i >= pos_SN+2)      && (i < pos_SN+5))        fprintf(stdout, col_SN);
+                if ((i >= pos_SN)        && (i < pos_SN+5))        fprintf(stdout, col_SN);
                 if ((i >= pos_Check)     && (i < pos_Check+2))     fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
