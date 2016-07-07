@@ -2,7 +2,7 @@
 /* big endian forest
  *
  * gcc -o m1x12 m1x12.c -lm
- *
+ * M10 w/ G.top GPS (like pilotsonde)
  */
 
 
@@ -476,7 +476,7 @@ int checkM10(ui8_t *msg, int len) {
 
 /* -------------------------------------------------------------------------- */
 
-int print_pos() {
+int print_pos(int csOK) {
     int err;
 
     err = 0;
@@ -500,7 +500,9 @@ int print_pos() {
 
         if (option_verbose /*== 2*/) {
             get_SN();
-            printf("   SN: %s", datum.SN);
+            fprintf(stdout, "   SN: %s", datum.SN);
+            fprintf(stdout, "  # ");
+            if (csOK) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
         }
 
     }
@@ -517,6 +519,9 @@ void print_frame(int pos) {
     psk_bpm(frame_rawbits, frame_bits);
     bits2bytes(frame_bits, frame_bytes);
 
+    cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
+    cs2 = checkM10(frame_bytes, pos_Check);
+
     if (option_raw) {
 
             for (i = 0; i < FRAME_LEN-1; i++) {
@@ -524,15 +529,13 @@ void print_frame(int pos) {
                 fprintf(stdout, "%02x", byte);
             }
             if (option_verbose) {
-                cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
-                cs2 = checkM10(frame_bytes, pos_Check);
                 fprintf(stdout, " # %04x", cs2);
                 if (cs1 == cs2) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
             }
             fprintf(stdout, "\n");
 
     }
-    else print_pos();
+    else print_pos(cs1 == cs2);
 
 }
 
