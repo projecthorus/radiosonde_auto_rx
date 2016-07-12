@@ -82,6 +82,10 @@ BSLSKEY-cmp:
      c0c:	b2 90 55 aa 	cmp	#-21931,&0xffde	;#0xaa55, BSLSKEY==0xAA55?
      c10:	de ff 
      c12:	ff 27       	jz	$+0      	;abs 0xc12
+     ...
+     d30:	36 40 e0 ff 	mov	#-32,	r6	;#0xffe0      &0xffe0: IVT
+     d34:	37 40 20 00 	mov	#32,	r7	;#0x0020               32 bytes
+     d38:	2b c2       	bic	#4,	r11	;r2 As==10
 BSL-pwd_cmp:
      d3a:	b0 12 54 0f 	call	#0x0f54	;             read byte
      d3e:	7c 96       	cmp.b	@r6+,	r12	
