@@ -497,7 +497,7 @@ int get_GPSvel() {
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
     //vx = vel16 / 2e2; // ost
-    vx = vel16 / 1e3; // ost
+    datum.vD = vel16 / 1e2;
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvN + i];
@@ -505,21 +505,21 @@ int get_GPSvel() {
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
     //vy= vel16 / 2e2; // nord
-    vy= vel16 / 1e3; // nord
-
+    datum.vH= vel16 / 2e2;
+/*
     datum.vx = vx;
     datum.vy = vy;
     datum.vH = sqrt(vx*vx+vy*vy);
-///*
+//
     alpha = atan2(vy, vx)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
     dir = 90-alpha;                  // z=x+iy= -> i*conj(z)=y+ix=re(i(pi/2-t)), Achsen und Drehsinn vertauscht
     if (dir < 0) dir += 360;         // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
     datum.vD2 = dir;
-//*/
+//
     dir = atan2(vx, vy) * 180 / M_PI;
     if (dir < 0) dir += 360;
     datum.vD = dir;
-
+*/
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvV + i];
         gpsVel_bytes[i] = byte;
@@ -632,12 +632,11 @@ int print_pos() {
                    datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
-            printf(" h: "col_GPSheight"%.2f"col_TXT" ", datum.h);
+            printf(" h: "col_GPSheight"%.1f"col_TXT" ", datum.h);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    //if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f , %.1f)"col_TXT" ", datum.vx, datum.vy, datum.vV);
-                    //printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
+                    printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"", datum.vH, datum.vD);
                     printf("  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vV);
                 }
                 if (option_verbose == 2) {
@@ -652,12 +651,11 @@ int print_pos() {
                     datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: %.6f ", datum.lat);
             printf(" lon: %.6f ", datum.lon);
-            printf(" h: %.2f ", datum.h);
+            printf(" h: %.1f ", datum.h);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    //if (option_verbose == 2) printf("  (%.1f , %.1f , %.1f) ", datum.vx, datum.vy, datum.vV);
-                    //printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+                    printf("  vH: %.1f  D: %.1f°", datum.vH, datum.vD);
                     printf("  vV: %.1f ", datum.vV);
                 }
                 if (option_verbose == 2) {
