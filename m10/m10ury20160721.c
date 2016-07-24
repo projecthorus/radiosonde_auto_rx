@@ -299,14 +299,14 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 
 /* -------------------------------------------------------------------------- */
 
-#define pos_GPSTOW     0x0A  // 4 byte
+#define pos_GPSTOD     0x0A  // 4 byte
 #define pos_GPSlat     0x0E  // 4 byte
 #define pos_GPSlon     0x12  // 4 byte
 #define pos_GPSheight  0x16  // 4 byte
 #define pos_GPSdate    0x20  // 3 byte
-//Velocity East-North-Up (ENU)
-#define pos_GPSvO  0x04  // 2 byte
-#define pos_GPSvN  0x06  // 2 byte
+//Velocity
+#define pos_GPSvD  0x04  // 2 byte
+#define pos_GPSvH  0x06  // 2 byte
 #define pos_GPSvV  0x08  // 2 byte
 #define pos_SN     0x5D  // 2+3 byte
 #define pos_Check  0x63  // 2 byte
@@ -322,9 +322,9 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 
 #define XTERM_COLOR_BROWN   "\x1b[38;5;94m"  // 38;5;{0..255}m
 
-#define col_GPSweek    "\x1b[38;5;20m"  // 2 byte
-#define col_GPSTOW     "\x1b[38;5;27m"  // 4 byte
-#define col_GPSdate    "\x1b[38;5;94m" //111
+#define col_GPSdate    "\x1b[38;5;20m"  // 3 byte
+#define col_GPSTOD     "\x1b[38;5;27m"  // 4 byte
+//#define col_GPSdate    "\x1b[38;5;94m" //111
 #define col_GPSlat     "\x1b[38;5;34m"  // 4 byte
 #define col_GPSlon     "\x1b[38;5;70m"  // 4 byte
 #define col_GPSheight  "\x1b[38;5;82m"  // 4 byte
@@ -373,7 +373,7 @@ int get_GPStime() {
     int gpstime, day; // int ms;
 
     for (i = 0; i < 4; i++) {
-        byte = frame_bytes[pos_GPSTOW + i];
+        byte = frame_bytes[pos_GPSTOD + i];
         gpstime_bytes[i] = byte;
     }
 
@@ -489,18 +489,19 @@ int get_GPSvel() {
     unsigned byte;
     ui8_t gpsVel_bytes[2];
     short vel16;
-    double vx, vy, dir, alpha;
+    unsigned short uvel16;
+    //double vx, vy, dir, alpha;
 
     for (i = 0; i < 2; i++) {
-        byte = frame_bytes[pos_GPSvO + i];
+        byte = frame_bytes[pos_GPSvD + i];
         gpsVel_bytes[i] = byte;
     }
-    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    uvel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
     //vx = vel16 / 2e2; // ost
-    datum.vD = vel16 / 1e2;
+    datum.vD = uvel16 / 1e2;  // ui16 0..360 oder i16 -180..180 ?
 
     for (i = 0; i < 2; i++) {
-        byte = frame_bytes[pos_GPSvN + i];
+        byte = frame_bytes[pos_GPSvH + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
@@ -628,7 +629,7 @@ int print_pos() {
 
         if (option_color) {
             printf(col_TXT);
-            printf(col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOW"%02d:%02d:%02d"col_TXT") ", 
+            printf(col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOD"%02d:%02d:%02d"col_TXT") ", 
                    datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
@@ -685,12 +686,12 @@ void print_frame(int pos) {
             fprintf(stdout, col_FRTXT);
             for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
-                if ((i >= pos_GPSTOW)    && (i < pos_GPSTOW+4))    fprintf(stdout, col_GPSTOW);
+                if ((i >= pos_GPSTOD)    && (i < pos_GPSTOD+4))    fprintf(stdout, col_GPSTOD);
                 if ((i >= pos_GPSlat)    && (i < pos_GPSlat+4))    fprintf(stdout, col_GPSlat);
                 if ((i >= pos_GPSlon)    && (i < pos_GPSlon+4))    fprintf(stdout, col_GPSlon);
                 if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
-                if ((i >= pos_GPSdate)   && (i < pos_GPSdate+3))   fprintf(stdout, col_GPSweek);
-                if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
+                if ((i >= pos_GPSdate)   && (i < pos_GPSdate+3))   fprintf(stdout, col_GPSdate);
+                if ((i >= pos_GPSvD)     && (i < pos_GPSvD+6))     fprintf(stdout, col_GPSvel);
                 if ((i >= pos_SN)        && (i < pos_SN+5))        fprintf(stdout, col_SN);
                 if ((i >= pos_Check)     && (i < pos_Check+2))     fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);
