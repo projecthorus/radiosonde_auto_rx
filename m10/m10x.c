@@ -358,6 +358,8 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define col_Check      "\x1b[38;5;11m"  // 2 byte
 #define col_TXT        "\x1b[38;5;244m"
 #define col_FRTXT      "\x1b[38;5;244m"
+#define col_CSok       "\x1b[38;5;2m"
+#define col_CSno       "\x1b[38;5;1m"
 
 /*
 $ for code in  {0..255}
@@ -613,7 +615,7 @@ int checkM10(ui8_t *msg, int len) {
 
 /* -------------------------------------------------------------------------- */
 
-int print_pos() {
+int print_pos(int csOK) {
     int err;
 
     err = 0;
@@ -642,9 +644,14 @@ int print_pos() {
                     //if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
                 }
-                if (option_verbose == 2) {
+                if (option_verbose >= 2) {
                     get_SN();
-                    printf("  SN: "col_SN"%s"col_TXT" ", datum.SN);
+                    printf("  SN: "col_SN"%s"col_TXT, datum.SN);
+                }
+                if (option_verbose >= 2) {
+                    fprintf(stdout, "  # ");
+                    if (csOK) fprintf(stdout, " "col_CSok"[OK]"col_TXT);
+                    else      fprintf(stdout, " "col_CSno"[NO]"col_TXT);
                 }
             }
             printf(ANSI_COLOR_RESET"");
@@ -663,9 +670,13 @@ int print_pos() {
                     //if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
                     printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
                 }
-                if (option_verbose == 2) {
+                if (option_verbose >= 2) {
                     get_SN();
                     printf("  SN: %s", datum.SN);
+                }
+                if (option_verbose >= 2) {
+                    fprintf(stdout, "  # ");
+                    if (csOK) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
                 }
             }
         }
@@ -683,6 +694,9 @@ void print_frame(int pos) {
 
     psk_bpm(frame_rawbits, frame_bits);
     bits2bytes(frame_bits, frame_bytes);
+
+    cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
+    cs2 = checkM10(frame_bytes, pos_Check);
 
     if (option_raw) {
 
@@ -702,13 +716,9 @@ void print_frame(int pos) {
                 fprintf(stdout, col_FRTXT);
             }
             if (option_verbose) {
-                cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
-                cs2 = checkM10(frame_bytes, pos_Check);
-                fprintf(stdout, " # ");
-                fprintf(stdout, col_Check);
-                fprintf(stdout, "%04x", cs2);
-                fprintf(stdout, col_FRTXT);
-                if (cs1 == cs2) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+                fprintf(stdout, " # "col_Check"%04x"col_FRTXT, cs2);
+                if (cs1 == cs2) fprintf(stdout, " "col_CSok"[OK]"col_TXT);
+                else            fprintf(stdout, " "col_CSno"[NO]"col_TXT);
             }
             fprintf(stdout, ANSI_COLOR_RESET"\n");
         }
@@ -718,8 +728,6 @@ void print_frame(int pos) {
                 fprintf(stdout, "%02x", byte);
             }
             if (option_verbose) {
-                cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
-                cs2 = checkM10(frame_bytes, pos_Check);
                 fprintf(stdout, " # %04x", cs2);
                 if (cs1 == cs2) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
             }
@@ -728,7 +736,7 @@ void print_frame(int pos) {
 
     }
     else if (frame_bytes[1] == 0x49) {
-        if (option_verbose == 2) {
+        if (option_verbose == 3) {
             for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
                 fprintf(stdout, "%02x", byte);
@@ -736,7 +744,7 @@ void print_frame(int pos) {
             fprintf(stdout, "\n");
         }
     }
-    else print_pos();
+    else print_pos(cs1 == cs2);
 
 }
 
@@ -770,7 +778,8 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
-        else if ( (strcmp(*argv, "-vv") == 0) ) option_verbose = 2;
+        else if ( (strcmp(*argv, "-vv" ) == 0) ) option_verbose = 2;
+        else if ( (strcmp(*argv, "-vvv") == 0) ) option_verbose = 3;
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
