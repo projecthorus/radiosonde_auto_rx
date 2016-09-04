@@ -18,6 +18,7 @@ typedef unsigned int ui32_t;
 typedef struct {
     int frnr;
     int sonde_id;
+    int sonde_typ;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int std; int min; float sek;
@@ -392,10 +393,32 @@ int dat_out(ui8_t *dat_bits) {
 int conf_out(ui8_t *conf_bits) {
     int conf_id;
     int ret = 0;
+    int val, hl;
+    static int typ6, typ9;
 
     conf_id = bits2val(conf_bits, 4);
-    if (conf_id == 6) {
-        gpx.sonde_id = bits2val(conf_bits+4, 4*6);
+    if (gpx.sonde_typ < 9  &&  conf_id == 6) {
+        if (typ6 < 4) typ6 += 1;
+        else if (typ6 == 4) {
+            gpx.sonde_typ = 6;
+            gpx.sonde_id = 0;
+            typ6 += 1;
+        }
+        else {
+            gpx.sonde_id = bits2val(conf_bits+4, 4*6);
+        }
+    }
+    if (conf_id == 0xA) {
+        if (typ9 < 4) typ9 += 1;
+        if (typ9 == 4) {
+            gpx.sonde_typ = 9;
+            gpx.sonde_id = 0;
+            typ9 += 1;
+        }
+         val = bits2val(conf_bits+8, 4*5);
+         hl = (val & 1) == 0;
+         val = (val >> 4) & 0xFFFF;
+         gpx.sonde_id |= val << (16*hl);
     }
 
     return ret;
@@ -428,9 +451,14 @@ void print_gpx() {
               printf(" dir: %5.1f ", gpx.dir);
               printf(" hV: %5.2f ", gpx.horiV);
               printf(" vV: %5.2f ", gpx.vertV);
-              if (gpx.sonde_id >= 0) {
-                  printf(" (ID:%06X) ", gpx.sonde_id);
-                  gpx.sonde_id = -1;
+              if (option_verbose == 2)
+              {
+                  if (gpx.sonde_typ == 6) {
+                      printf(" (ID-%1d:%06X) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                  }
+                  if (gpx.sonde_typ == 9) {
+                      printf(" (ID-%1d:%06d) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                  }
               }
           }
       }
@@ -514,6 +542,9 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
+        }
+        else if ( (strcmp(*argv, "-vv") == 0) ) {
+            option_verbose = 2;
         }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
