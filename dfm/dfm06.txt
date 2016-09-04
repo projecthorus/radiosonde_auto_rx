@@ -52,7 +52,7 @@ PCK_ID  bitpos
 0xF      0..47   000000000000
 
 
-DFM-09 ((543410) Seriennummer xxxxxx:
+DFM-09 (543410) Seriennummer xxxxxx:
 CFG-Block Acaaaab (Kanal A)
 y=0: high 16bit
 y=1: low  16bit
