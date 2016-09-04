@@ -62,4 +62,9 @@ ACDB131 : 0xDB13
 -> 0x0007DB13 = 514835
 
 
+DFM-06 und DFM-09 haben unterschiedliche Polaritaet bzw. Manchester-Varianten
+DFM-06 hat Kanaele 0..6 (anfangs nur 0..5)
+DFM-09 hat Kanaele 0..A
+Ausnahme: erste DFM-09-Versionen senden wie DFM-06
+
 

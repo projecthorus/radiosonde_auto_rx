@@ -1,6 +1,10 @@
 
 /*
  *
+ * DFM-06 und DFM-09 haben unterschiedliche Polaritaet bzw. Manchester-Varianten
+ * DFM-06 hat Kanaele 0..6 (anfangs nur 0..5)
+ * DFM-09 hat Kanaele 0..A
+ * Ausnahme: erste DFM-09-Versionen senden wie DFM-06
  */
 
 #include <stdio.h>
@@ -17,8 +21,8 @@ typedef unsigned int ui32_t;
 
 typedef struct {
     int frnr;
-    int sonde_id;
     int sonde_typ;
+    ui32_t sonde_id;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int std; int min; float sek;
@@ -394,31 +398,34 @@ int conf_out(ui8_t *conf_bits) {
     int conf_id;
     int ret = 0;
     int val, hl;
-    static int typ6, typ9;
+    static int typ6, typ9, chAbit, chA[2];
 
     conf_id = bits2val(conf_bits, 4);
     if (gpx.sonde_typ < 9  &&  conf_id == 6) {
         if (typ6 < 4) typ6 += 1;
         else if (typ6 == 4) {
             gpx.sonde_typ = 6;
-            gpx.sonde_id = 0;
             typ6 += 1;
         }
-        else {
-            gpx.sonde_id = bits2val(conf_bits+4, 4*6);
-        }
+        gpx.sonde_id = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
     }
     if (conf_id == 0xA) {
-        if (typ9 < 4) typ9 += 1;
-        if (typ9 == 4) {
+        if (typ9 < 4) {
+            typ9 += 1;
+            typ6 = 0;
+        }
+        else if (typ9 == 4) {
             gpx.sonde_typ = 9;
-            gpx.sonde_id = 0;
             typ9 += 1;
         }
-         val = bits2val(conf_bits+8, 4*5);
-         hl = (val & 1) == 0;
-         val = (val >> 4) & 0xFFFF;
-         gpx.sonde_id |= val << (16*hl);
+        val = bits2val(conf_bits+8, 4*5);
+        hl =  (val & 1) == 0;
+        chA[hl] = (val >> 4) & 0xFFFF;
+        chAbit |= 1 << hl;
+        if (chAbit == 3) {  // DFM-09: Kanal A
+            gpx.sonde_id = (chA[1] << 16) | chA[0];
+            chAbit = 0;
+        }
     }
 
     return ret;
@@ -451,14 +458,15 @@ void print_gpx() {
               printf(" dir: %5.1f ", gpx.dir);
               printf(" hV: %5.2f ", gpx.horiV);
               printf(" vV: %5.2f ", gpx.vertV);
-              if (option_verbose == 2)
+              if (option_verbose == 2  && gpx.sonde_id > 0)
               {
                   if (gpx.sonde_typ == 6) {
-                      printf(" (ID-%1d:%06X) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                      printf(" (ID%1d:%06X) ", gpx.sonde_typ % 10, gpx.sonde_id);
                   }
                   if (gpx.sonde_typ == 9) {
-                      printf(" (ID-%1d:%06d) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                      printf(" (ID%1d:%06d) ", gpx.sonde_typ % 10, gpx.sonde_id);
                   }
+                  gpx.sonde_id = 0;
               }
           }
       }
