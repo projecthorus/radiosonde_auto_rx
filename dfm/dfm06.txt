@@ -54,8 +54,8 @@ PCK_ID  bitpos
 
 DFM-09 (543410) Seriennummer xxxxxx:
 CFG-Block Acaaaab (Kanal A)
-y=0: high 16bit
-y=1: low  16bit
+b=0: high 16bit aaaa
+b=1: low  16bit aaaa
 e.g. 
 AC00070 : 0x0007
 ACDB131 : 0xDB13
