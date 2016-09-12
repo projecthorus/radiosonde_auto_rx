@@ -596,7 +596,7 @@ int get_Cal() {
         }
     }
 
-    if (calfr == 0x02  &&  option_verbose == 2) {
+    if (calfr == 0x02  &&  option_verbose /*== 2*/) {
         byte = xorbyte(pos_Calburst);
         burst = byte;
         fprintf(stdout, ": BK %02X ", burst);
@@ -611,7 +611,7 @@ int get_Cal() {
         fprintf(stdout, ": fq %d ", freq);
     }
 
-    if (calfr == 0x21  &&  option_verbose == 2) {  // eventuell noch zwei bytes in 0x22
+    if (calfr == 0x21  &&  option_verbose /*== 2*/) {  // eventuell noch zwei bytes in 0x22
         for (i = 0; i < 9; i++) sondetyp[i] = 0;
         for (i = 0; i < 8; i++) {
             byte = xorbyte(pos_CalRSTyp + i);

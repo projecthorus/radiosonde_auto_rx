@@ -1,5 +1,6 @@
-RS41-SG
-RS41-SGP (mit Preambel)
+RS41-SG (TU)
+RS41-SGP (PTU)
+(ohne/mit Preambel)
 
 
 Modulation: GFSK, 4800 baud
