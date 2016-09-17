@@ -273,8 +273,8 @@ ui8_t hamming_conf[ 7*B];  //  7*8=56
 ui8_t hamming_dat1[13*B];  // 13*8=104
 ui8_t hamming_dat2[13*B];
 
-ui8_t block_conf[ 7*S];  //  7*8=56
-ui8_t block_dat1[13*S];  // 13*8=104
+ui8_t block_conf[ 7*S];  //  7*4=28
+ui8_t block_dat1[13*S];  // 13*4=52
 ui8_t block_dat2[13*S];
 
 void deinterleave(char *str, int L, ui8_t *block) {
