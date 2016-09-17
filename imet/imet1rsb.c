@@ -21,7 +21,7 @@ typedef unsigned int ui32_t;
 
 
 int //option_verbose = 0,  // ausfuehrliche Anzeige
-    option_raw = 1,      // rohe Frames
+    option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     wavloaded = 0;
 
@@ -167,6 +167,26 @@ int read_bits(FILE *fp, char *Bit, float *l) {
 }
 
 /* -------------------------------------------------------------------------- */
+int crc16poly = 0x1021; // CRC16-CCITT
+int crc16(ui8_t bytes[], int len) {
+    int rem = 0x1D0F;   // initial value
+    int i, j;
+    for (i = 0; i < len; i++) {
+        rem = rem ^ (bytes[i] << 8);
+        for (j = 0; j < 8; j++) {
+            if (rem & 0x8000) {
+                rem = (rem << 1) ^ crc16poly;
+            }
+            else {
+                rem = (rem << 1);
+            }
+            rem &= 0xFFFF;
+        }
+    }
+    return rem;
+}
+
+/* -------------------------------------------------------------------------- */
 
 /*
 GPS Data Packet
@@ -195,6 +215,10 @@ void print_gps(int pos) {
     float lat, lon;
     int alt;
     int std, min, sek;
+    int crc1, crc2;
+
+    crc1 = ((frame+pos)[16] << 8) | (frame+pos)[17];
+    crc2 = crc16(frame+pos, 16);
 
     lat = *(float*)(frame+pos+pos_GPSlat);
     lon = *(float*)(frame+pos+pos_GPSlon);
@@ -207,6 +231,11 @@ void print_gps(int pos) {
     fprintf(stdout, " lon: %.6f ", lon);
     fprintf(stdout, " alt: %d ", alt);
     fprintf(stdout, " %02d:%02d:%02d ", std, min, sek);
+
+    fprintf(stdout, " # ");
+    fprintf(stdout, " CRC: %04X ", crc1);
+    fprintf(stdout, "- %04X ", crc2);
+    if (crc1 == crc2) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
 }
 
 
@@ -230,7 +259,8 @@ void print_frame(int len) {
     int byte;
     //int err = 0;
 
-    printf("\n");
+    if ( len < 2 ) return;
+
     for (i = 0; i < len; i++) {
         byte = bits2byte(bitframe+10*i+2);
         frame[i] = byte;
@@ -238,6 +268,7 @@ void print_frame(int len) {
     }
 
     if (option_raw) {
+        fprintf(stdout, "\n"); //
         for (i = 0; i < len; i++) {
             fprintf(stdout, "%02x ", frame[i]);
         }
