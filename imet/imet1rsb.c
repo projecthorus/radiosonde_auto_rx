@@ -188,6 +188,11 @@ int crc16(ui8_t bytes[], int len) {
 
 /* -------------------------------------------------------------------------- */
 
+#define FRAMELEN 150
+ui8_t frame[FRAMELEN+6];
+ui8_t bitframe[BAUD+10];
+
+
 /*
 GPS Data Packet
 offset bytes description
@@ -205,20 +210,16 @@ packet size = 18 bytes
 #define pos_GPSlon  0x06  // 4 byte float
 #define pos_GPSalt  0x0A  // 2 byte int
 #define pos_GPStim  0x0D  // 3 byte
+#define pos_GPScrc  0x10  // 2 byte
 
-#define FRAMELEN 150
-ui8_t frame[FRAMELEN+6];
-ui8_t bitframe[BAUD+10];
-
-
-void print_gps(int pos) {
+void print_GPS(int pos) {
     float lat, lon;
     int alt;
     int std, min, sek;
     int crc1, crc2;
 
-    crc1 = ((frame+pos)[16] << 8) | (frame+pos)[17];
-    crc2 = crc16(frame+pos, 16);
+    crc1 = ((frame+pos)[pos_GPScrc] << 8) | (frame+pos)[pos_GPScrc+1];
+    crc2 = crc16(frame+pos, pos_GPScrc); // len=pos
 
     lat = *(float*)(frame+pos+pos_GPSlat);
     lon = *(float*)(frame+pos+pos_GPSlon);
@@ -227,10 +228,10 @@ void print_gps(int pos) {
     min = (frame+pos)[pos_GPStim+1];
     sek = (frame+pos)[pos_GPStim+2];
 
-    fprintf(stdout, " lat: %.6f ", lat);
-    fprintf(stdout, " lon: %.6f ", lon);
-    fprintf(stdout, " alt: %d ", alt);
-    fprintf(stdout, " %02d:%02d:%02d ", std, min, sek);
+    fprintf(stdout, " lat: %.6f° ", lat);
+    fprintf(stdout, " lon: %.6f° ", lon);
+    fprintf(stdout, " alt: %dm ", alt);
+    fprintf(stdout, " (%02d:%02d:%02d) ", std, min, sek);
 
     fprintf(stdout, " # ");
     fprintf(stdout, " CRC: %04X ", crc1);
@@ -238,6 +239,58 @@ void print_gps(int pos) {
     if (crc1 == crc2) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
 }
 
+
+/*
+PTU (enhanced) Data Packet
+offset bytes description
+ 0     1     SOH = 0x01
+ 1     1     PKT_ID = 0x04
+ 2     2     PKT = packet number
+ 4     3     P, mbs (P = n/100)
+ 7     2     T, °C (T = n/100)
+ 9     2     U, % (U = n/100)
+11     1     Vbat, V (V = n/10)
+12     2     Tint, °C (Tint = n/100)
+14     2     Tpr, °C (Tpr = n/100)
+16     2     Tu, °C (Tu = n/100)
+18     2     CRC (16-bit)
+packet size = 20 bytes
+*/
+#define pos_PCKnum  0x02  // 2 byte
+#define pos_PTUprs  0x04  // 3 byte
+#define pos_PTUtem  0x07  // 2 byte int
+#define pos_PTUhum  0x09  // 2 byte
+#define pos_PTUbat  0x0B  // 1 byte
+#define pos_PTUcrc  0x12  // 2 byte
+
+void print_ePTU(int pos) {
+    int P, U;
+    short T;
+    int bat, pcknum;
+    int crc1, crc2;
+
+    crc1 = ((frame+pos)[pos_PTUcrc] << 8) | (frame+pos)[pos_PTUcrc+1];
+    crc2 = crc16(frame+pos, pos_PTUcrc); // len=pos
+
+    P   = (frame+pos)[pos_PTUprs] | ((frame+pos)[pos_PTUprs+1]<<8) | ((frame+pos)[pos_PTUprs+2]<<16);
+    T   = (frame+pos)[pos_PTUtem] | ((frame+pos)[pos_PTUtem+1]<<8);
+    U   = (frame+pos)[pos_PTUhum] | ((frame+pos)[pos_PTUhum+1]<<8);
+    bat = (frame+pos)[pos_PTUbat];
+
+    pcknum = (frame+pos)[pos_PCKnum] | ((frame+pos)[pos_PCKnum+1]<<8);
+    fprintf(stdout, "[%d] ", pcknum);
+
+    fprintf(stdout, " P:%.2fmb ", P/100.0);
+    fprintf(stdout, " T:%.2f°C ", T/100.0);
+    fprintf(stdout, " U:%.2f%% ", U/100.0);
+    fprintf(stdout, " bat:%.1fV ", bat/10.0);
+
+    fprintf(stdout, " # ");
+    fprintf(stdout, " CRC: %04X ", crc1);
+    fprintf(stdout, "- %04X ", crc2);
+    if (crc1 == crc2) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+
+}
 
 
 /* -------------------------------------------------------------------------- */
@@ -254,12 +307,13 @@ int bits2byte(ui8_t *bits) {
     return byte & 0xFF;
 }
 
-void print_frame(int len) {
+int print_frame(int len) {
     int i;
     int byte;
     //int err = 0;
 
-    if ( len < 2 ) return;
+    if ( len < 2 || len > FRAMELEN) return -1;
+    for (i = len; i < FRAMELEN; i++) frame[i] = 0;
 
     for (i = 0; i < len; i++) {
         byte = bits2byte(bitframe+10*i+2);
@@ -277,11 +331,22 @@ void print_frame(int len) {
     //else
     {
         if ((frame[0] == 0x01) && (frame[1] == 0x02)) { // GPS Data Packet
-            print_gps(0x00);  // packet offset in frame
+            print_GPS(0x00);  // packet offset in frame
             fprintf(stdout, "\n");
         }
+        if ((frame[pos_GPScrc+2+0] == 0x01) && (frame[pos_GPScrc+2+1] == 0x04)) { // PTU Data Packet
+            print_ePTU(pos_GPScrc+2);  // packet offset in frame
+            fprintf(stdout, "\n");
+        }
+/*
+        if ((frame[0] == 0x01) && (frame[1] == 0x04)) { // PTU Data Packet
+            print_ePTU(0x00);  // packet offset in frame
+            fprintf(stdout, "\n");
+        }
+*/
     }
 
+    return 0;
 }
 
 int main(int argc, char **argv) {
