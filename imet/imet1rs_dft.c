@@ -319,7 +319,7 @@ int crc16(ui8_t bytes[], int len) {
 
 /* -------------------------------------------------------------------------- */
 
-#define LEN_GPSePTU   (18+20+2)
+#define LEN_GPSePTU   (18+20)
 
 
 /*
@@ -431,7 +431,7 @@ int print_frame(int len) {
 
     if (option_rawbits)
     {
-        print_rawbits(LEN_GPSePTU*BITS);
+        print_rawbits((LEN_GPSePTU+2)*BITS);
     }
     else
     {
