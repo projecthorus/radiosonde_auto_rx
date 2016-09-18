@@ -228,10 +228,10 @@ void print_GPS(int pos) {
     min = (frame+pos)[pos_GPStim+1];
     sek = (frame+pos)[pos_GPStim+2];
 
+    fprintf(stdout, "(%02d:%02d:%02d) ", std, min, sek);
     fprintf(stdout, " lat: %.6f° ", lat);
     fprintf(stdout, " lon: %.6f° ", lon);
     fprintf(stdout, " alt: %dm ", alt);
-    fprintf(stdout, " (%02d:%02d:%02d) ", std, min, sek);
 
     fprintf(stdout, " # ");
     fprintf(stdout, " CRC: %04X ", crc1);
