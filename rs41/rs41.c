@@ -605,24 +605,32 @@ int get_Aux() {
 //
 // "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
 //
-    int i, auxlen, auxcrc;
+    int i, auxlen, auxcrc, count7E, pos7E;
+
+    count7E = 0;
+    pos7E = pos_Haux;
 
     // 7Exx: xdata
-    if ( xorbyte(pos_Haux) == 0x7E ) {
+    while ( pos7E < FRAME_LEN  &&  xorbyte(pos7E) == 0x7E ) {
+
         auxlen = xorbyte(pos_Haux+1);
         auxcrc = xorbyte(pos_Haux+2+auxlen) | (xorbyte(pos_Haux+2+auxlen+1)<<8);
+
+        if (count7E == 0) fprintf(stdout, "\n # xdata = ");
+        else              fprintf(stdout, " # ");
+
         if ( auxcrc == crc16x(frame, pos_Haux+2, auxlen) ) {
-            //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));
-            fprintf(stdout, "  #  xdata=");
+            //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));  
             for (i = 1; i < auxlen; i++) {
                 fprintf(stdout, "%c", xorbyte(pos_Haux+2+i));
             }
-            fprintf(stdout, " ");
+            count7E++;
+            pos7E += 2+auxlen+2;
         }
+        else pos7E = FRAME_LEN;
     }
-    else return -1;
 
-    return 0;
+    return count7E;
 }
 
 int get_Cal() {
@@ -636,7 +644,7 @@ int get_Cal() {
     byte = xorbyte(pos_CalData);
     calfr = byte;
 
-    if (option_verbose == 2) {
+    if (option_verbose == 3) {
         fprintf(stdout, "\n");  // fflush(stdout);
         fprintf(stdout, "[%5d] ", gpx.frnr);
         fprintf(stdout, " 0x%02x: ", calfr);
@@ -693,7 +701,7 @@ int print_position() {
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
-            if (option_verbose == 2) fprintf(stdout, " (W %d)", gpx.week);
+            if (option_verbose == 3) fprintf(stdout, " (W %d)", gpx.week);
             fprintf(stdout, " ");
             fprintf(stdout, " lat: %.5f ", gpx.lat);
             fprintf(stdout, " lon: %.5f ", gpx.lon);
@@ -703,10 +711,8 @@ int print_position() {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
-            if (option_verbose) {
-                get_Aux();
-            }
             get_Cal();
+            if (option_verbose > 1) get_Aux();
             fprintf(stdout, "\n");  // fflush(stdout);
         }
 
@@ -750,7 +756,7 @@ int main(int argc, char *argv[]) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
             fprintf(stderr, "%s [options] audio.wav\n", fpname);
             fprintf(stderr, "  options:\n");
-            fprintf(stderr, "       -v, --verbose\n");
+            fprintf(stderr, "       -v, -vx, -vv\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
             return 0;
@@ -758,7 +764,8 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
-        else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 2; }
+        else if   (strcmp(*argv, "-vx") == 0) { option_verbose = 2; }
+        else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 3; }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
