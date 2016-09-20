@@ -3,20 +3,20 @@
  * radiosondes RS41-SG(P)
  * author: zilog80
  * usage:
- *     gcc rs41test.c -lm -o rs41test
- *     ./rs41test [options] audio.wav
+ *     gcc rs41.c -lm -o rs41
+ *     ./rs41 [options] audio.wav
  *       options:
  *               -v, --verbose
  *               -r, --raw
- *     ./rs41test audio.wav
- *     ./rs41test -r audio.wav | less -S
- *     ./rs41test -v audio.wav 1> /dev/null
- *     ./rs41test -v audio.wav 1> pos.txt
- *     ./rs41test -v audio.wav 2> cal.txt
- *     ./rs41test -v audio.wav 2>&1 >/dev/null | grep 0x00
- *     ./rs41test < audio.wav
- *     sox -t oss /dev/dsp -t wav - 2>/dev/null | ./rs41test
- *     sox -t oss /dev/dsp -t wav - lowpass 3000 2>/dev/null | ./rs41test
+ *     ./rs41 audio.wav
+ *     ./rs41 -r audio.wav | less -S
+ *     ./rs41 -v audio.wav 1> /dev/null
+ *     ./rs41 -v audio.wav 1> pos.txt
+ *     ./rs41 -v audio.wav 2> cal.txt
+ *     ./rs41 -vv audio.wav 2>&1 >/dev/null | grep 0x00
+ *     ./rs41 < audio.wav
+ *     sox -t oss /dev/dsp -t wav - 2>/dev/null | ./rs41
+ *     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs41
  */
 
 #include <stdio.h>
@@ -48,12 +48,11 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     option_res = 0,      // genauere Bitmessung
-    option_auto = 0,
     wavloaded = 0;
 
 
-#define HEADOFS 16 // HEADOFS+HEADLEN <= 64
-#define HEADLEN 48 // HEADOFS+HEADLEN mod 8 = 0
+#define HEADOFS 24 // HEADOFS+HEADLEN <= 64
+#define HEADLEN 32 // HEADOFS+HEADLEN mod 8 = 0
 #define FRAMESTART ((HEADOFS+HEADLEN)/8)
 
 /*               10      B6      CA      11      22      96      12      F8      */      
@@ -61,8 +60,8 @@ char header[] = "000010000110110101010011100010000100010001101001010010000001111
 char buf[HEADLEN+1] = "x";
 int bufpos = -1;
 
-#define AUX_LEN   (260)
-#define FRAME_LEN (320+AUX_LEN)
+#define XDATA_LEN 198
+#define FRAME_LEN (320+XDATA_LEN)
 ui8_t frame[FRAME_LEN] = { 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8};
 
 
@@ -195,7 +194,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
         if (sample == EOF_INT) return EOF;
         sample_count++;
         par_alt = par;
-        par =  (sample >= 0) ? 1 : -1;     // 8bit: 0..127,128..255 (-128..-1,0..127)
+        par =  (sample >= 0) ? 1 : -1;  // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
     } while (par*par_alt > 0);
 
@@ -236,39 +235,16 @@ void inc_bufpos() {
   bufpos = (bufpos+1) % HEADLEN;
 }
 
-char cb_inv(char c) {
-    if (c == '0') return '1';
-    if (c == '1') return '0';
-    return c;
-}
+int compare() {
+    int i=0, j = bufpos;
 
-int compare2() {
-    int i, j;
-
-    i = 0;
-    j = bufpos;
     while (i < HEADLEN) {
         if (j < 0) j = HEADLEN-1;
         if (buf[j] != header[HEADOFS+HEADLEN-1-i]) break;
         j--;
         i++;
     }
-    if (i == HEADLEN) return 1;
-
-    if (option_auto) {
-    i = 0;
-    j = bufpos;
-    while (i < HEADLEN) {
-        if (j < 0) j = HEADLEN-1;
-        if (buf[j] != cb_inv(header[HEADOFS+HEADLEN-1-i])) break;
-        j--;
-        i++;
-    }
-    if (i == HEADLEN) return -1;
-    }
-
-    return 0;
-
+    return i;
 }
 
 ui8_t xorbyte(int pos) {
@@ -304,11 +280,12 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 /* ------------------------------------------------------------------------------------ */
 
 /*
-SubHeader, 2byte
+  Pos: SubHeader, 1+1 byte (ID+LEN)
 0x039: 7928  FrameNumber+SondeID
 0x050: 0732  CalFrames 0x00..0x32
 0x093: 7C1E  GPS Week + TOW
 0x112: 7B15  ECEF (X,Y,Z) Coordinates
+0x12B: 7Exx  AUX-xdata
 */
 
 #define pos_FrameNb   0x03B  // 2 byte
@@ -335,6 +312,30 @@ SubHeader, 2byte
 
 #define pos_Hkoord 0x112
 #define HEAD_koord 0xB9FF  // ^0xC2EA=0x7B15
+
+#define pos_Haux 0x12B
+
+
+int crc16x(ui8_t bytes[], int start, int len) {
+    int crc16poly = 0x1021;
+    int rem = 0xFFFF, i, j;
+    int xbyte;
+    for (i = 0; i < len; i++) {
+        xbyte = xorbyte(start+i);
+        rem = rem ^ (xbyte << 8);
+        for (j = 0; j < 8; j++) {
+            if (rem & 0x8000) {
+                rem = (rem << 1) ^ crc16poly;
+            }
+            else {
+                rem = (rem << 1);
+            }
+            rem &= 0xFFFF;
+        }
+    }
+    return rem;
+}
+
 
 unsigned shiftLeft(int pos) {
     unsigned tmp;
@@ -525,7 +526,11 @@ int get_GPSkoord() {
     ui8_t XYZ_bytes[4];
     int XYZ; // 32bit
     double X[3], lat, lon, h;
+    ui8_t gpsVel_bytes[2];
+    short vel16; // 16bit
+    double V[3], phi, lam, alpha, dir;
     int shift = 0;
+
 
     byte = (frame[pos_Hkoord]<<8) + frame[pos_Hkoord+1];
     /* fprintf(stdout, "0x%04X ", byte );  // ^ 0xC2EA == 0x7B15 ? */
@@ -549,50 +554,37 @@ int get_GPSkoord() {
             byte = byte ^ mask[(pos_GPSecefX + 4*k + i) % MASK_LEN];
             XYZ_bytes[i] = byte;
         }
-
         memcpy(&XYZ, XYZ_bytes, 4);
         X[k] = XYZ / 100.0;
 
+        for (i = 0; i < 2; i++) {
+            if      (shift > 0) byte = shiftLeft(pos_GPSecefV + 2*k + i);
+            else if (shift < 0) byte = shiftRight(pos_GPSecefV + 2*k + i);
+            else                byte = frame[pos_GPSecefV + 2*k + i];
+            byte = byte ^ mask[(pos_GPSecefV + 2*k + i) % MASK_LEN];
+            gpsVel_bytes[i] = byte;
+        }
+        vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
+        V[k] = vel16 / 100.0;
+
     }
 
+
+    // ECEF-Position
     ecef2elli(X, &lat, &lon, &h);
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.h = h;
     if ((h < -1000) || (h > 80000)) return -1;
 
-    return 0;
-}
-
-int get_GPSvel() {
-    int i, k;
-    unsigned byte;
-    ui8_t gpsVel_bytes[2];
-    short vel16;
-    short V[3];
-    double vx, vy, vz;
-    double phi, lam, alpha, dir;
-
-    for (k = 0; k < 3; k++) {
-        for (i = 0; i < 2; i++) {
-            byte = frame[pos_GPSecefV + 2*k + i] ^ mask[(pos_GPSecefV + 2*k + i) % MASK_LEN];
-            gpsVel_bytes[i] = byte & 0xFF;
-        }
-        vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
-        V[k] = vel16;
-    }
 
     // ECEF-Velocities
-    vx = V[0] / 1e2;
-    vy = V[1] / 1e2;
-    vz = V[2] / 1e2;
-
     // ECEF-Vel -> NorthEastUp
-    phi = gpx.lat*M_PI/180.0;
-    lam = gpx.lon*M_PI/180.0;
-    gpx.vN = -vx*sin(phi)*cos(lam) - vy*sin(phi)*sin(lam) + vz*cos(phi);
-    gpx.vE = -vx*sin(lam) + vy*cos(lam);
-    gpx.vU =  vx*cos(phi)*cos(lam) + vy*cos(phi)*sin(lam) + vz*sin(phi);
+    phi = lat*M_PI/180.0;
+    lam = lon*M_PI/180.0;
+    gpx.vN = -V[0]*sin(phi)*cos(lam) - V[1]*sin(phi)*sin(lam) + V[2]*cos(phi);
+    gpx.vE = -V[0]*sin(lam) + V[1]*cos(lam);
+    gpx.vU =  V[0]*cos(phi)*cos(lam) + V[1]*cos(phi)*sin(lam) + V[2]*sin(phi);
 
     // NEU -> HorDirVer
     gpx.vH = sqrt(gpx.vN*gpx.vN+gpx.vE*gpx.vE);
@@ -609,6 +601,30 @@ int get_GPSvel() {
     return 0;
 }
 
+int get_Aux() {
+//
+// "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
+//
+    int i, auxlen, auxcrc;
+
+    // 7Exx: xdata
+    if ( xorbyte(pos_Haux) == 0x7E ) {
+        auxlen = xorbyte(pos_Haux+1);
+        auxcrc = xorbyte(pos_Haux+2+auxlen) | (xorbyte(pos_Haux+2+auxlen+1)<<8);
+        if ( auxcrc == crc16x(frame, pos_Haux+2, auxlen) ) {
+            //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));
+            fprintf(stdout, "  #  xdata=");
+            for (i = 1; i < auxlen; i++) {
+                fprintf(stdout, "%c", xorbyte(pos_Haux+2+i));
+            }
+            fprintf(stdout, " ");
+        }
+    }
+    else return -1;
+
+    return 0;
+}
+
 int get_Cal() {
     int i;
     unsigned byte;
@@ -620,35 +636,39 @@ int get_Cal() {
     byte = xorbyte(pos_CalData);
     calfr = byte;
 
-    fprintf(stderr, " 0x%02x: ", calfr);
-    for (i = 0; i < 16; i++) {
-        byte = xorbyte(pos_CalData+1+i);
-        fprintf(stderr, "%02x ", byte);
+    if (option_verbose == 2) {
+        fprintf(stdout, "\n");  // fflush(stdout);
+        fprintf(stdout, "[%5d] ", gpx.frnr);
+        fprintf(stdout, " 0x%02x: ", calfr);
+        for (i = 0; i < 16; i++) {
+            byte = xorbyte(pos_CalData+1+i);
+            fprintf(stdout, "%02x ", byte);
+        }
     }
 
-    if (option_verbose == 2) {
-        if (calfr == 0x02) {
-            byte = xorbyte(pos_Calburst);
-            burst = byte;
-            fprintf(stderr, ": BK %02X ", burst);
+    if (calfr == 0x02  &&  option_verbose /*== 2*/) {
+        byte = xorbyte(pos_Calburst);
+        burst = byte;
+        fprintf(stdout, ": BK %02X ", burst);
+    }
+
+    if (calfr == 0x00  &&  option_verbose) {
+        byte = xorbyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
+        f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
+        byte = xorbyte(pos_Calfreq+1);
+        f1 = 40 * byte;
+        freq = 400000 + f1+f0; // kHz;
+        fprintf(stdout, ": fq %d ", freq);
+    }
+
+    if (calfr == 0x21  &&  option_verbose /*== 2*/) {  // eventuell noch zwei bytes in 0x22
+        for (i = 0; i < 9; i++) sondetyp[i] = 0;
+        for (i = 0; i < 8; i++) {
+            byte = xorbyte(pos_CalRSTyp + i);
+            if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
+            else if (byte == 0x00) sondetyp[i] = '\0';
         }
-        if (calfr == 0x00) {
-            byte = xorbyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
-            f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
-            byte = xorbyte(pos_Calfreq+1);
-            f1 = 40 * byte;
-            freq = 400000 + f1+f0; // kHz;
-            fprintf(stderr, ": fq %d ", freq);
-        }
-        if (calfr == 0x21) {  // eventuell noch zwei bytes in 0x22
-            for (i = 0; i < 9; i++) sondetyp[i] = 0;
-            for (i = 0; i < 8; i++) {
-                byte = xorbyte(pos_CalRSTyp + i);
-                if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
-                else if (byte == 0x00) sondetyp[i] = '\0';
-            }
-            fprintf(stderr, ": %s ", sondetyp);
-        }
+        fprintf(stdout, ": %s ", sondetyp);
     }
 
     return 0;
@@ -657,47 +677,40 @@ int get_Cal() {
 /* ------------------------------------------------------------------------------------ */
 
 int print_position() {
-    int err1, err2, err3;
+    int err;
 
-        err1 = err2 = err3 = 0;
-        err1 |= get_FrameNb();
-        err1 |= get_SondeID();
-        err2 |= get_GPSweek();
-        err2 |= get_GPStime();
-        err3 |= get_GPSkoord();
+        err = 0;
+        err |= get_FrameNb();
+        err |= get_SondeID();
+        err |= get_GPSweek();
+        err |= get_GPStime();
+        err |= get_GPSkoord();
 
-        if (!err1) {
-            if (!err2) Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
+        if (!err) {
+            Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
-            if (!err2) {
-                fprintf(stdout, "%s ", weekday[gpx.wday]);
-                fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
-                        gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
-                if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
+            fprintf(stdout, "%s ", weekday[gpx.wday]);
+            fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
+                    gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
+            if (option_verbose == 2) fprintf(stdout, " (W %d)", gpx.week);
+            fprintf(stdout, " ");
+            fprintf(stdout, " lat: %.5f ", gpx.lat);
+            fprintf(stdout, " lon: %.5f ", gpx.lon);
+            fprintf(stdout, " h: %.2f ", gpx.h);
+            //if (option_verbose)
+            {
+                //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
+                fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
-            if (!err3) {
-                fprintf(stdout, " ");
-                fprintf(stdout, " lat: %.5f ", gpx.lat);
-                fprintf(stdout, " lon: %.5f ", gpx.lon);
-                fprintf(stdout, " h: %.2f ", gpx.h);
-                if (option_verbose) {
-                    get_GPSvel();
-                    //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
-                    fprintf(stdout,"  vH: %.1f  D: %.1f°  vV: %.1f ", gpx.vH, gpx.vD, gpx.vU);
-                }
+            if (option_verbose) {
+                get_Aux();
             }
+            get_Cal();
             fprintf(stdout, "\n");  // fflush(stdout);
-
-            if (option_verbose) { 
-                fprintf(stderr, "[%5d] ", gpx.frnr);
-                if (option_auto) fprintf(stderr, "[%c] ", option_inv?'-':'+');
-                get_Cal();
-                fprintf(stderr, "\n");
-            }
         }
 
-    return err1 | err2 | err3;
+    return err;
 }
 
 void print_frame(int len) {
@@ -751,10 +764,7 @@ int main(int argc, char *argv[]) {
             option_raw = 1;
         }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
-            option_inv = 0x1;
-        }
-        else if ( (strcmp(*argv, "--auto") == 0) ) {
-            option_auto = 1;
+            option_inv = 1;
         }
         else {
             fp = fopen(*argv, "rb");
@@ -779,7 +789,8 @@ int main(int argc, char *argv[]) {
     while (!read_bits_fsk(fp, &bit, &len)) {
 
         if (len == 0) { // reset_frame();
-            if (byte_count > FRAME_LEN-AUX_LEN-20) {
+            if (byte_count > pos_Haux) {
+                for (i = byte_count; i < FRAME_LEN; i++) frame[i] = 0;
                 print_frame(byte_count);
                 bit_count = 0;
                 byte_count = FRAMESTART;
@@ -796,8 +807,7 @@ int main(int argc, char *argv[]) {
             buf[bufpos] = 0x30 + bit;  // Ascii
 
             if (!header_found) {
-                header_found = compare2();
-                if (header_found < 0) option_inv ^= 0x1;
+                if (compare() >= HEADLEN) header_found = 1;
             }
             else {
                 bitbuf[bit_count] = bit;
@@ -809,9 +819,9 @@ int main(int argc, char *argv[]) {
                     frame[byte_count] = byte;
                     byte_count++;
                     if (byte_count == FRAME_LEN) {
-                        print_frame(FRAME_LEN);
                         byte_count = FRAMESTART;
                         header_found = 0;
+                        print_frame(FRAME_LEN);
                     }
                 }
             }
