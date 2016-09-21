@@ -12,7 +12,7 @@
  *     ./rs41 -r audio.wav | less -S
  *     ./rs41 -v audio.wav 1> /dev/null
  *     ./rs41 -v audio.wav 1> pos.txt
- *     ./rs41 -v audio.wav 2> cal.txt
+ *     ./rs41 -vv audio.wav 2> cal.txt
  *     ./rs41 -vv audio.wav 2>&1 >/dev/null | grep 0x00
  *     ./rs41 < audio.wav
  *     sox -t oss /dev/dsp -t wav - 2>/dev/null | ./rs41
@@ -48,6 +48,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     option_res = 0,      // genauere Bitmessung
+    option_crc = 0,      // check CRC
     wavloaded = 0;
 
 
@@ -305,21 +306,28 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 
 
 #define pos_Hframe 0x039
-#define HEAD_frame 0x1713  // ^0x6E3B=0x7928
+#define HEAD_frame 0x7928
+#define HXOR_frame 0x1713  // ^0x6E3B=0x7928
 
 #define pos_Htow   0x093
-#define HEAD_tow   0x9667  // ^0xEA79=0x7C1E
+#define HEAD_tow   0x7C1E
+#define HXOR_tow   0x9667  // ^0xEA79=0x7C1E
 
 #define pos_Hkoord 0x112
-#define HEAD_koord 0xB9FF  // ^0xC2EA=0x7B15
+#define HEAD_koord 0x7B15
+#define HXOR_koord 0xB9FF  // ^0xC2EA=0x7B15
 
-#define pos_Haux 0x12B
+#define pos_Haux   0x12B
+#define HEAD_aux   0x7E00  // LEN variable
 
 
 int crc16x(ui8_t bytes[], int start, int len) {
     int crc16poly = 0x1021;
     int rem = 0xFFFF, i, j;
     int xbyte;
+
+    if (start+len >= FRAME_LEN) return -1;
+
     for (i = 0; i < len; i++) {
         xbyte = xorbyte(start+i);
         rem = rem ^ (xbyte << 8);
@@ -378,11 +386,11 @@ int getShift(int pos, unsigned head) {
     int shift = 0;
 
     byte = (frame[pos]<<8) + frame[pos+1];
-    // fprintf(stdout, "0x%04X ", byte );  // HEAD_frame ^ 0x6E38 == 0x7928 ? 
+    // fprintf(stdout, "0x%04X ", byte );  // HXOR_frame ^ 0x6E38 == 0x7928 ?
     if (byte != head) {
         byte = (shiftLeft(pos)<<8) + shiftLeft(pos+1);
         //fprintf(stdout, " %04X", byte);
-        if (byte == HEAD_frame) shift = 1;
+        if (byte == HXOR_frame) shift = 1;
         else {
             byte = (shiftRight(pos)<<8) + shiftRight(pos+1);
             if (byte == head) shift = -1;
@@ -400,7 +408,7 @@ int get_FrameNb() {
     int frnr;
 /*  int shift = 0;
 
-    shift = getShift(pos_Hframe, HEAD_frame);
+    shift = getShift(pos_Hframe, HXOR_frame);
     if (shift == 0x100) return 0x100;
     //printf("shift:%2d ", shift);
     shiftFrame(pos_Hframe, shift);
@@ -442,7 +450,7 @@ int get_GPSweek() {
     int gpsweek;
 /*  int shift = 0;
 
-    shift = getShift(pos_Htow, HEAD_tow);
+    shift = getShift(pos_Htow, HXOR_tow);
     if (shift == 0x100) return 0x100;
     //printf("shift:%2d ", shift);
     shiftFrame(pos_Htow, shift);
@@ -467,6 +475,20 @@ int get_GPStime() {
     ui8_t gpstime_bytes[4];
     int gpstime = 0, // 32bit
         day;
+
+    int crclen;
+    int crcdat;
+    int crcpos = pos_Htow;
+
+    if ( option_crc ) {
+        // xorbyte(crcpos) == (HEAD_tow>>8) & 0xFF ?
+        crclen = xorbyte(crcpos+1);
+        crcdat = xorbyte(crcpos+2+crclen) | (xorbyte(crcpos+2+crclen+1)<<8);
+        if ( crcdat != crc16x(frame, crcpos+2, crclen) ) {
+            return -2; // CRC error
+        }
+    }
+
 
     for (i = 0; i < 4; i++) {
         byte = xorbyte(pos_GPSTOW + i);
@@ -531,15 +553,28 @@ int get_GPSkoord() {
     double V[3], phi, lam, alpha, dir;
     int shift = 0;
 
+    int crclen;
+    int crcdat;
+    int crcpos = pos_Hkoord;
+
+    if ( option_crc ) {
+        // xorbyte(crcpos) == (HEAD_koord>>8) & 0xFF ?
+        crclen = xorbyte(crcpos+1);
+        crcdat = xorbyte(crcpos+2+crclen) | (xorbyte(crcpos+2+crclen+1)<<8);
+        if ( crcdat != crc16x(frame, crcpos+2, crclen) ) {
+            return -2; // CRC error
+        }
+    }
+
 
     byte = (frame[pos_Hkoord]<<8) + frame[pos_Hkoord+1];
     /* fprintf(stdout, "0x%04X ", byte );  // ^ 0xC2EA == 0x7B15 ? */
-    if (byte != HEAD_koord) {
+    if (byte != HXOR_koord) {
         byte = (shiftLeft(pos_Hkoord)<<8) + shiftLeft(pos_Hkoord+1);
-        if (byte == HEAD_koord) shift = 1;
+        if (byte == HXOR_koord) shift = 1;
         else {
             byte = (shiftRight(pos_Hkoord)<<8) + shiftRight(pos_Hkoord+1);
-            if (byte == HEAD_koord) shift = -1;
+            if (byte == HXOR_koord) shift = -1;
         }
         if (!shift) return 0x100;
         //printf("shift:%2d ", shift);
@@ -620,7 +655,7 @@ int get_Aux() {
         else              fprintf(stdout, " # ");
 
         if ( auxcrc == crc16x(frame, pos_Haux+2, auxlen) ) {
-            //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));  
+            //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));
             for (i = 1; i < auxlen; i++) {
                 fprintf(stdout, "%c", xorbyte(pos_Haux+2+i));
             }
@@ -766,6 +801,7 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "-vx") == 0) { option_verbose = 2; }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 3; }
+        else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
