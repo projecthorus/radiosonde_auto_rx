@@ -102,7 +102,7 @@ RS92
 ----
 HEADER     6
 DATA       210
-RS-PARITY  24 
+RS-PARITY  24
 
 2a2a2a2a2a10 (header)
 6510 (L=2*0x10=32)
@@ -140,7 +140,7 @@ cat rs92raw.txt | ./ecc-rs_vaisala | ./rs92gps_rawin --rawin1 -a almanac.txt
 RS41
 ----
 HEADER     8
-RS-PARITY  48 = 2*24 
+RS-PARITY  48 = 2*24
 DATA       264-462  (max 2*231=462)
 
 "interleaved"
