@@ -269,6 +269,9 @@ int compare() {
 int bits2byte(ui8_t *bits) {
     int i, d = 1, byte = 0;
 
+    if ( bits[0]+bits[1]+bits[2]+bits[3]+bits[4] // 1 11111111 1 (sync)
+        +bits[5]+bits[6]+bits[7]+bits[8]+bits[9] == 10 ) return 0xFFFF;
+
     for (i = 1; i < BITS-1; i++) {  // little endian
         if      (bits[i] == 1)  byte += d;
         else if (bits[i] == 0)  byte += 0;
@@ -280,10 +283,13 @@ int bits2byte(ui8_t *bits) {
 
 int bits2bytes(ui8_t *bits, ui8_t *bytes, int len) {
     int i;
+    int byte;
     for (i = 0; i < len; i++) {
-        bytes[i] = bits2byte(bits+BITS*i);
+        byte = bits2byte(bits+BITS*i);
+        bytes[i] = byte & 0xFF;
+        if (byte == 0xFFFF) break;
     }
-    return 0;
+    return i;
 }
 
 void print_rawbits(int len) {
@@ -425,6 +431,7 @@ void print_ePTU(int pos) {
 
 int print_frame(int len) {
     int i;
+    int framelen;
 
     if ( len < 2 || len > LEN_BYTEFRAME) return -1;
     for (i = len; i < LEN_BYTEFRAME; i++) byteframe[i] = 0;
@@ -435,10 +442,10 @@ int print_frame(int len) {
     }
     else
     {
-        bits2bytes(bitframe, byteframe, len);
+        framelen = bits2bytes(bitframe, byteframe, len);
 
         if (option_raw) {
-            for (i = 0; i < LEN_GPSePTU; i++) {
+            for (i = 0; i < framelen; i++) { // LEN_GPSePTU
                 fprintf(stdout, "%02X ", byteframe[i]);
             }
             fprintf(stdout, "\n");
@@ -587,7 +594,7 @@ int main(int argc, char *argv[]) {
                     else {
                         bitframe[bitpos] = bit0;
                         bitpos++;
-                        if (bitpos >= LEN_GPSePTU*BITS+40) {
+                        if (bitpos >= LEN_BITFRAME-200) {  // LEN_GPSePTU*BITS+40
 
                             print_frame(bitpos/BITS);
 
