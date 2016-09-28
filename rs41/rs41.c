@@ -210,7 +210,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
         y0 = sample;
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
-        sample_count++;
+        //sample_count++; // in read_signed_sample()
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;  // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
