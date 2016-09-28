@@ -404,7 +404,7 @@ int get_SondeID() {
     for (i = 0; i < 8; i++) {
         gpx.id[i] = sondeid_bytes[i];
     }
-    gpx.id[9] = '\0';
+    gpx.id[8] = '\0';
 
     return 0;
 }
