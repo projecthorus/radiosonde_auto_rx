@@ -6,8 +6,13 @@
  *     gcc rs41.c -lm -o rs41
  *     ./rs41 [options] audio.wav
  *       options:
- *               -v, --verbose
- *               -r, --raw
+ *            -v, -vx, -vv  (info, aux, info/conf)
+ *            -r, --raw
+ *            -i, --invert
+ *            --crc        (check CRC)
+ *            --avg        (moving average)
+ *            -b           (alt. Demod.)
+ *
  *     ./rs41 audio.wav
  *     ./rs41 -r audio.wav | less -S
  *     ./rs41 -v audio.wav 1> /dev/null
@@ -87,6 +92,8 @@ ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
 
 /* ------------------------------------------------------------------------------------ */
 
+// option_b: exakte Baudrate wichtig!
+// im Prinzip in sync-preamble/header ermittelbar
 #define BAUD_RATE 4800
 
 int sample_rate = 0, bits_sample = 0, channels = 0;
@@ -840,9 +847,12 @@ int main(int argc, char *argv[]) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
             fprintf(stderr, "%s [options] audio.wav\n", fpname);
             fprintf(stderr, "  options:\n");
-            fprintf(stderr, "       -v, -vx, -vv\n");
+            fprintf(stderr, "       -v, -vx, -vv  (info, aux, info/conf)\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
+            fprintf(stderr, "       --crc        (check CRC)\n");
+            fprintf(stderr, "       --avg        (moving average)\n");
+            fprintf(stderr, "       -b           (alt. Demod.)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
