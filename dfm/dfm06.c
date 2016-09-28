@@ -5,6 +5,14 @@
  * DFM-06 hat Kanaele 0..6 (anfangs nur 0..5)
  * DFM-09 hat Kanaele 0..A
  * Ausnahme: erste DFM-09-Versionen senden wie DFM-06
+ *
+ * Optionen:
+ *   -v, -vv  verbose/velocity, SN
+ *   -r, -R   raw frames
+ *   -i       invertiert Signal (DFM-06 / DFM-09)
+ *   -b       alternative Demodulation
+ *   --avg    moving average
+ *   --ecc    Hamming Error Correction
  */
 
 #include <stdio.h>
@@ -48,6 +56,8 @@ int start = 0;
 
 /* -------------------------------------------------------------------------- */
 
+// option_b: exakte Baudrate wichtig!
+// eventuell in header ermittelbar
 #define BAUD_RATE   2500
 
 int sample_rate = 0, bits_sample = 0, channels = 0;
@@ -659,9 +669,12 @@ int main(int argc, char **argv) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
             fprintf(stderr, "%s [options] audio.wav\n", fpname);
             fprintf(stderr, "  options:\n");
-            fprintf(stderr, "       -v, --verbose\n");
+            fprintf(stderr, "       -v, -vv\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
+            fprintf(stderr, "       --ecc        (Hamming ECC)\n");
+            fprintf(stderr, "       --avg        (moving average)\n");
+            fprintf(stderr, "       -b           (alt. Demod.)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
