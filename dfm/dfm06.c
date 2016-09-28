@@ -213,10 +213,10 @@ int read_rawbit(FILE *fp, int *bit) {
         n++;
     } while (sample_count < bitgrenze);  // n < samples_per_bit
 
-    if (sum >= 0) *bit = 0;
-    else          *bit = 1;
+    if (sum >= 0) *bit = 1;
+    else          *bit = 0;
 
-    if (!option_inv) *bit ^= 1;
+    if (option_inv) *bit ^= 1;
 
     return 0;
 }
@@ -770,7 +770,6 @@ int main(int argc, char **argv) {
     }
 
     fclose(fp);
-
 
     return 0;
 }
