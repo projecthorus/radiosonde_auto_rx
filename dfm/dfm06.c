@@ -39,6 +39,9 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     option_auto = 0,
+    option_avg = 0,      // moving average
+    option_b = 0,
+    option_ecc = 0,
     wavloaded = 0;
 
 int start = 0;
@@ -118,31 +121,44 @@ int read_wav_header(FILE *fp) {
 
 #define EOF_INT  0x1000000
 
+#define LEN_movAvg 3
+int movAvg[LEN_movAvg];
+unsigned long sample_count = 0;
+double bitgrenze = 0;
+
 int read_signed_sample(FILE *fp) {  // int = i32_t
-    int byte, i, ret;         //  EOF -> 0x1000000
+    int byte, i, sample, s=0;       // EOF -> 0x1000000
 
     for (i = 0; i < channels; i++) {
                            // i = 0: links bzw. mono
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
-        if (i == 0) ret = byte;
+        if (i == 0) sample = byte;
     
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
-            if (i == 0) ret +=  byte << 8;
+            if (i == 0) sample +=  byte << 8;
         }
 
     }
 
-    if (bits_sample ==  8) return ret-128;   // 8bit: 00..FF, centerpoint 0x80=128
-    if (bits_sample == 16) return (short)ret;
+    if (bits_sample ==  8)  s = sample-128;   // 8bit: 00..FF, centerpoint 0x80=128
+    if (bits_sample == 16)  s = (short)sample;
 
-    return ret;
+    if (option_avg) {
+        movAvg[sample_count % LEN_movAvg] = s;
+        s = 0;
+        for (i = 0; i < LEN_movAvg; i++) s += movAvg[i];
+        s = (s+0.5) / LEN_movAvg;
+    }
+
+    sample_count++;
+
+    return s;
 }
 
 int par=1, par_alt=1;
-unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
     static int sample;
@@ -150,10 +166,11 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     float l;
 
     n = 0;
-    do{
+    do {
         sample = read_signed_sample(fp);
+
         if (sample == EOF_INT) return EOF;
-        sample_count++;
+
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
@@ -172,9 +189,41 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     return 0;
 }
 
+int bitstart = 0;
+int read_rawbit(FILE *fp, int *bit) {
+    int sample;
+    int n, sum;
+
+    sum = 0;
+    n = 0;
+
+    if (bitstart) {
+        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
+        bitgrenze = sample_count;
+        bitstart = 0;
+    }
+    bitgrenze += samples_per_bit;
+
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum += sample;
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 0;
+    else          *bit = 1;
+
+    if (!option_inv) *bit ^= 1;
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
-//#define BITS (2*(8))  // 16
+//#define BITS (2*8)  // 16
 #define HEADLEN 32  // HEADLEN+HEADOFS=32 <= strlen(header)
 #define HEADOFS  0
 char header[] = "01100101011001101010010110101010";
@@ -269,6 +318,13 @@ void manchester1(char* frame_rawbits, char *frame_bits) {
 #define DAT2 (16+160) // 104 bit
                // frame: 280 bit
 
+ui8_t H[4][8] =  // Parity-Check
+             {{ 0, 1, 1, 1, 1, 0, 0, 0},
+              { 1, 0, 1, 1, 0, 1, 0, 0},
+              { 1, 1, 0, 1, 0, 0, 1, 0},
+              { 1, 1, 1, 0, 0, 0, 0, 1}};
+ui8_t He[8] = { 0x7, 0xB, 0xD, 0xE, 0x8, 0x4, 0x2, 0x1}; // Spalten von H:
+                                                         // 1-bit-error-Syndrome
 ui8_t hamming_conf[ 7*B];  //  7*8=56
 ui8_t hamming_dat1[13*B];  // 13*8=104
 ui8_t hamming_dat2[13*B];
@@ -276,6 +332,17 @@ ui8_t hamming_dat2[13*B];
 ui8_t block_conf[ 7*S];  //  7*4=28
 ui8_t block_dat1[13*S];  // 13*4=52
 ui8_t block_dat2[13*S];
+
+ui32_t bits2val(ui8_t *bits, int len) { // big endian
+    int j;
+    ui32_t val;
+    if ((len < 0) || (len > 32)) return -1;
+    val = 0;
+    for (j = 0; j < len; j++) {
+        val |= (bits[j] << (len-1-j));
+    }
+    return val;
+}
 
 void deinterleave(char *str, int L, ui8_t *block) {
     int i, j;
@@ -288,26 +355,44 @@ void deinterleave(char *str, int L, ui8_t *block) {
     }
 }
 
-int hamming(ui8_t *ham, int L, ui8_t *sym) {
-    int i, j;
-    int ret = 0;
-    for (i = 0; i < L; i++) {  // L * 2 nibble (data+parity)
-        for (j = 0; j < S; j++) {  // systematic: bits 0..S-1 data
-            sym[S*i+j] = ham[B*i+j];
+int check(ui8_t code[8]) {
+    int i, j;               // Bei Demodulierung durch Nulldurchgaenge, wenn durch Fehler ausser Takt,
+    ui32_t synval = 0;      // verschieben sich die bits. Fuer Hamming-Decode waere es besser,
+    ui8_t syndrom[4];       // sync zu Beginn mit Header und dann Takt beibehalten fuer decision.
+    int ret=0;
+
+    for (i = 0; i < 4; i++) { // S = 4
+        syndrom[i] = 0;
+        for (j = 0; j < 8; j++) { // B = 8
+            syndrom[i] ^= H[i][j] & code[j];
         }
-     }
+    }
+    synval = bits2val(syndrom, 4);
+    if (synval) {
+        ret = -1;
+        for (j = 0; j < 8; j++) {   // 1-bit-error
+            if (synval == He[j]) {  // reicht auf databits zu pruefen, d.h.
+                ret = j+1;          // (systematischer Code) He[0..3]
+                break;
+            }
+        }
+    }
+    else ret = 0;
+    if (ret > 0) code[ret-1] ^= 0x1;
+
     return ret;
 }
 
-ui32_t bits2val(ui8_t *bits, int len) { // big endian
-    int j;
-    ui32_t val;
-    if ((len < 0) || (len > 32)) return -1;
-    val = 0;
-    for (j = 0; j < len; j++) {
-        val |= (bits[j] << (len-1-j));
+int hamming(ui8_t *ham, int L, ui8_t *sym) {
+    int i, j;
+    int ret = 0;               // L = 7, 13
+    for (i = 0; i < L; i++) {  // L * 2 nibble (data+parity)
+        if (option_ecc) ret |= check(ham+B*i);
+        for (j = 0; j < S; j++) {  // systematic: bits 0..S-1 data
+            sym[S*i+j] = ham[B*i+j];
+        }
     }
-    return val;
+    return ret;
 }
 
 char nib2chr(ui8_t nib) {
@@ -480,6 +565,7 @@ void print_frame() {
     int i;
     int nib = 0;
     int frid = -1;
+    int ret0, ret1, ret2;
 
     manchester1(frame_rawbits, frame_bits);
 
@@ -487,9 +573,9 @@ void print_frame() {
     deinterleave(frame_bits+DAT1, 13, hamming_dat1);
     deinterleave(frame_bits+DAT2, 13, hamming_dat2);
 
-    hamming(hamming_conf,  7, block_conf);
-    hamming(hamming_dat1, 13, block_dat1);
-    hamming(hamming_dat2, 13, block_dat2);
+    ret0 = hamming(hamming_conf,  7, block_conf);
+    ret1 = hamming(hamming_dat1, 13, block_dat1);
+    ret2 = hamming(hamming_dat2, 13, block_dat2);
 
     if (option_raw == 1) {
 
@@ -497,17 +583,47 @@ void print_frame() {
             nib = bits2val(block_conf+S*i, S);
             printf("%01X", nib & 0xFF);
         }
+        if (option_ecc) {
+            if      (ret0 == 0) printf(" [OK] ");
+            else if (ret0  > 0) printf(" [KO] ");
+            else                printf(" [NO] ");
+        }
         printf("  ");
         for (i = 0; i < 13; i++) {
             nib = bits2val(block_dat1+S*i, S);
             printf("%01X", nib & 0xFF);
+        }
+        if (option_ecc) {
+            if      (ret1 == 0) printf(" [OK] ");
+            else if (ret1  > 0) printf(" [KO] ");
+            else                printf(" [NO] ");
         }
         printf("  ");
         for (i = 0; i < 13; i++) {
             nib = bits2val(block_dat2+S*i, S);
             printf("%01X", nib & 0xFF);
         }
+        if (option_ecc) {
+            if      (ret2 == 0) printf(" [OK] ");
+            else if (ret2  > 0) printf(" [KO] ");
+            else                printf(" [NO] ");
+        }
         printf("\n");
+
+    }
+    else if (option_ecc) {
+
+        if (ret0 == 0 || ret0 > 0) {
+            conf_out(block_conf);
+        }
+        if (ret1 == 0 || ret1 > 0) {
+            frid = dat_out(block_dat1);
+            if (frid == 8) print_gpx();
+        }
+        if (ret2 == 0 || ret2 > 0) {
+            frid = dat_out(block_dat2);
+            if (frid == 8) print_gpx();
+        }
 
     }
     else {
@@ -566,6 +682,13 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--auto") == 0) ) {
             option_auto = 1;
         }
+        else if ( (strcmp(*argv, "--avg") == 0) ) {
+            option_avg = 1;
+        }
+        else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
+        else if ( (strcmp(*argv, "--ecc") == 0) ) {
+            option_ecc = 1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -615,21 +738,39 @@ int main(int argc, char **argv) {
             if (!header_found) {
                 header_found = compare2();
                 if (header_found < 0) option_inv ^= 0x1;
+
             }
             else {
                 frame_rawbits[pos] = 0x30 + bit;  // Ascii
                 pos++;
-            
+
                 if (pos == RAWBITFRAME_LEN) {
+                    frame_rawbits[pos] = '\0';
                     print_frame();//FRAME_LEN
                     header_found = 0;
                     pos = FRAMESTART;
                 }
             }
+
+        }
+        if (header_found && option_b) {
+            bitstart = 1;
+
+            while ( pos < RAWBITFRAME_LEN ) {
+                if (read_rawbit(fp, &bit) == EOF) break;
+                frame_rawbits[pos] = 0x30 + bit;
+                pos++;
+            }
+            frame_rawbits[pos] = '\0';
+            print_frame();//FRAME_LEN
+
+            header_found = 0;
+            pos = FRAMESTART;
         }
     }
 
     fclose(fp);
+
 
     return 0;
 }
