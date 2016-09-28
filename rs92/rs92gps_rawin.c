@@ -19,6 +19,9 @@
  */
 
 /*
+    gcc rs92gps_rawin.c -lm -o rs92gps_rawin
+    (includes nav_gps.c)
+
     examples:
 
     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e brdc3050.15n
@@ -52,7 +55,7 @@ typedef unsigned int   ui32_t;
 
 typedef struct {
     int frnr;
-    char id[9];
+    char id[11];
     int week; int gpssec;
     int jahr; int monat; int tag;
     int wday;
@@ -334,7 +337,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 /* ------------------------------------------------------------------------------------ */
 
 #define pos_FrameNb   0x08  // 2 byte
-#define pos_SondeID   0x0C  // 8 byte
+#define pos_SondeID   0x0C  // 8 byte  // oder: 0x0A, 10 byte?
 #define pos_CalData   0x17  // 1 byte, counter 0x00..0x1f
 #define pos_Calfreq   0x1A  // 2 byte, calfr 0x00
 #define pos_GPSTOW    0x48  // 4 byte
@@ -364,7 +367,7 @@ int get_FrameNb() {
 int get_SondeID() {
     int i;
     unsigned byte;
-    ui8_t sondeid_bytes[8];
+    ui8_t sondeid_bytes[10];
 
     for (i = 0; i < 8; i++) {
         byte = xorbyte(pos_SondeID + i);
@@ -375,7 +378,7 @@ int get_SondeID() {
     for (i = 0; i < 8; i++) {
         gpx.id[i] = sondeid_bytes[i];
     }
-    gpx.id[9] = '\0';
+    gpx.id[8] = '\0';
 
     return 0;
 }
