@@ -17,6 +17,8 @@
  *     ./rs41 < audio.wav
  *     sox -t oss /dev/dsp -t wav - 2>/dev/null | ./rs41
  *     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs41
+ *     ./rs41b -vx -b --avg audio_aux.wav
+ *     sox audio.wav -t wav - lowpass 3400 | ../rs41b -v -b
  */
 
 #include <stdio.h>
@@ -49,6 +51,8 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_inv = 0,      // invertiert Signal
     option_res = 0,      // genauere Bitmessung
     option_crc = 0,      // check CRC
+    option_avg = 0,      // moving average
+    option_b = 0,
     wavloaded = 0;
 
 
@@ -156,31 +160,44 @@ int read_wav_header(FILE *fp) {
 
 #define EOF_INT  0x1000000
 
+#define LEN_movAvg 3
+int movAvg[LEN_movAvg];
+unsigned long sample_count = 0;
+double bitgrenze = 0;
+
 int read_signed_sample(FILE *fp) {  // int = i32_t
-    int byte, i, ret;         //  EOF -> 0x1000000
+    int byte, i, sample, s=0;       // EOF -> 0x1000000
 
     for (i = 0; i < channels; i++) {
                            // i = 0: links bzw. mono
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
-        if (i == 0) ret = byte;
+        if (i == 0) sample = byte;
     
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
-            if (i == 0) ret +=  byte << 8;
+            if (i == 0) sample +=  byte << 8;
         }
 
     }
 
-    if (bits_sample ==  8) return ret-128;   // 8bit: 00..FF, centerpoint 0x80=128
-    if (bits_sample == 16) return (short)ret;
+    if (bits_sample ==  8)  s = sample-128;   // 8bit: 00..FF, centerpoint 0x80=128
+    if (bits_sample == 16)  s = (short)sample;
 
-    return ret;
+    if (option_avg) {
+        movAvg[sample_count % LEN_movAvg] = s;
+        s = 0;
+        for (i = 0; i < LEN_movAvg; i++) s += movAvg[i];
+        s = (s+0.5) / LEN_movAvg;
+    }
+
+    sample_count++;
+
+    return s;
 }
 
 int par=1, par_alt=1;
-unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
     static int sample;
@@ -212,6 +229,38 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
     else             *bit = (1-par_alt)/2;  // sdr#<rev1381?, invers: unten 1, oben -1
 
     /* Y-offset ? */
+
+    return 0;
+}
+
+int bitstart = 0;
+int read_rawbit(FILE *fp, int *bit) {
+    int sample;
+    int n, sum;
+
+    sum = 0;
+    n = 0;
+
+    if (bitstart) {
+        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
+        bitgrenze = sample_count-1;
+        bitstart = 0;
+    }
+    bitgrenze += samples_per_bit;
+
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum += sample;
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 0;
+    else          *bit = 1;
+
+    if (!option_inv) *bit ^= 1;
 
     return 0;
 }
@@ -809,6 +858,10 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;
         }
+        else if ( (strcmp(*argv, "--avg") == 0) ) {
+            option_avg = 1;
+        }
+        else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -870,8 +923,28 @@ int main(int argc, char *argv[]) {
             }
 
         }
+        if (header_found && option_b) {
+            bitstart = 1;
+
+            while ( byte_count < FRAME_LEN ) {
+                if (read_rawbit(fp, &bit) == EOF) break;
+                bitbuf[bit_count] = bit;
+                bit_count++;
+                if (bit_count == 8) {
+                    bit_count = 0;
+                    byte = bits2byte(bitbuf);
+                    frame[byte_count] = byte;
+                    byte_count++;
+                }
+            }
+            byte_count = FRAMESTART;
+            header_found = 0;
+            print_frame(FRAME_LEN);
+
+        }
 
     }
+
     fclose(fp);
 
     return 0;
