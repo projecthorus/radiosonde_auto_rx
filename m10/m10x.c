@@ -35,7 +35,10 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     option_res = 0,      // genauere Bitmessung
+    option_avg = 0,      // moving average
+    option_b = 0,
     option_color = 0,
+    option_rawbits = 0,
     wavloaded = 0;
 
 
@@ -66,7 +69,16 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 }
 /* -------------------------------------------------------------------------- */
 
-#define BAUD_RATE   9600 //2*4800
+/*
+   alternative Demodulation: M10 problematisch
+   bits_per_sample klein, sync laeuft auseinander
+   exakte Baudrate entscheidend
+   9600 baud -> 9616 baud ?
+*/
+
+// option_b: exakte Baudrate wichtig!
+// im Prinzip in sync-preamble ermittelbar
+#define BAUD_RATE   9616 //2*4800
 
 int sample_rate = 0, bits_sample = 0, channels = 0;
 float samples_per_bit = 0;
@@ -139,31 +151,44 @@ int read_wav_header(FILE *fp) {
 
 #define EOF_INT  0x1000000
 
+#define LEN_movAvg 3
+int movAvg[LEN_movAvg];
+unsigned long sample_count = 0;
+double bitgrenze = 0;
+
 int read_signed_sample(FILE *fp) {  // int = i32_t
-    int byte, i, ret;         //  EOF -> 0x1000000
+    int byte, i, sample, s=0;       // EOF -> 0x1000000
 
     for (i = 0; i < channels; i++) {
                            // i = 0: links bzw. mono
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
-        if (i == 0) ret = byte;
+        if (i == 0) sample = byte;
     
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
-            if (i == 0) ret +=  byte << 8;
+            if (i == 0) sample +=  byte << 8;
         }
 
     }
 
-    if (bits_sample ==  8) return ret-128;   // 8bit: 00..FF, centerpoint 0x80=128
-    if (bits_sample == 16) return (short)ret;
+    if (bits_sample ==  8)  s = sample-128;   // 8bit: 00..FF, centerpoint 0x80=128
+    if (bits_sample == 16)  s = (short)sample;
 
-    return ret;
+    if (option_avg) {
+        movAvg[sample_count % LEN_movAvg] = s;
+        s = 0;
+        for (i = 0; i < LEN_movAvg; i++) s += movAvg[i];
+        s = (s+0.5) / LEN_movAvg;
+    }
+
+    sample_count++;
+
+    return s;
 }
 
 int par=1, par_alt=1;
-unsigned long sample_count = 0;
 
 int read_bits_fsk(FILE *fp, int *bit, int *len) {
     static int sample;
@@ -176,7 +201,7 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
         y0 = sample;
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
-        sample_count++;
+        //sample_count++; // in read_signed_sample()
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
@@ -196,6 +221,39 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 // *bit = (1+inv*par_alt)/2; // ausser inv=0
 
     /* Y-offset ? */
+
+    return 0;
+}
+
+int bitstart = 0;
+int read_rawbit(FILE *fp, int *bit) {
+    int sample;
+    int n, sum;
+
+    sum = 0;
+    n = 0;
+
+    if (bitstart)
+    {
+        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
+        bitgrenze = sample_count-1;
+        bitstart = 0;
+    }
+    bitgrenze += samples_per_bit;
+
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum += sample;
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 1;
+    else          *bit = 0;
+
+    if (option_inv) *bit ^= 1;
 
     return 0;
 }
@@ -698,6 +756,10 @@ void print_frame(int pos) {
     cs1 = (frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check+1];
     cs2 = checkM10(frame_bytes, pos_Check);
 
+    if (option_rawbits == 1) {
+        printf("%s\n", frame_rawbits);
+    }
+    else
     if (option_raw) {
 
         if (option_color  &&  frame_bytes[1] != 0x49) {
@@ -790,6 +852,13 @@ int main(int argc, char **argv) {
             option_color = 1;
         }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
+        else if ( (strcmp(*argv, "--avg") == 0) ) {
+            option_avg = 1;
+        }
+        else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
+        else if ( (strcmp(*argv, "--rawbits") == 0) ) {
+            option_rawbits = 1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -839,12 +908,26 @@ int main(int argc, char **argv) {
                 pos++;
             
                 if (pos == RAWBITFRAME_LEN) {
+                    frame_rawbits[pos] = '\0';
                     print_frame(pos);//FRAME_LEN
                     header_found = 0;
                     pos = FRAMESTART;
                 }
             }
 
+        }
+        if (header_found && option_b) {
+            bitstart = 1;
+
+            while ( pos < RAWBITFRAME_LEN ) {
+                if (read_rawbit(fp, &bit) == EOF) break;
+                frame_rawbits[pos] = 0x30 + bit;
+                pos++;
+            }
+            frame_rawbits[pos] = '\0';
+            print_frame(pos);//FRAME_LEN
+            header_found = 0;
+            pos = FRAMESTART;
         }
     }
 
