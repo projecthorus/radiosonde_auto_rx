@@ -793,7 +793,7 @@ int print_position() {
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
-            fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
+            fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
             if (option_verbose == 3) fprintf(stdout, " (W %d)", gpx.week);
             fprintf(stdout, " ");
