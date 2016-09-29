@@ -338,11 +338,14 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 
 /*
   Pos: SubHeader, 1+1 byte (ID+LEN)
-0x039: 7928  FrameNumber+SondeID
-0x050: 0732  CalFrames 0x00..0x32
-0x093: 7C1E  GPS Week + TOW
-0x112: 7B15  ECEF (X,Y,Z) Coordinates
-0x12B: 7Exx  AUX-xdata
+0x039: 7928   FrameNumber+SondeID
+              +(0x050: 0732  CalFrames 0x00..0x32)
+0x065: 7A2A   
+0x093: 7C1E   GPS Week + TOW
+0x0B5: 7D59   
+0x112: 7B15   ECEF (X,Y,Z) Coordinates
+0x12B: 7611   00
+0x12B: 7Exx   AUX-xdata
 */
 
 #define pos_FrameNb   0x03B  // 2 byte
