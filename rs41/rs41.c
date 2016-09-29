@@ -65,7 +65,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
 #define HEADLEN 32 // HEADOFS+HEADLEN mod 8 = 0
 #define FRAMESTART ((HEADOFS+HEADLEN)/8)
 
-/*               10      B6      CA      11      22      96      12      F8      */      
+/*               10      B6      CA      11      22      96      12      F8      */
 char header[] = "0000100001101101010100111000100001000100011010010100100000011111";
 char buf[HEADLEN+1] = "x";
 int bufpos = -1;
@@ -76,7 +76,7 @@ ui8_t frame[FRAME_LEN] = { 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8};
 
 
 #define MASK_LEN 64
-ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98, 
+ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
                          0x32, 0x05, 0x59, 0x0E, 0xF9, 0x44, 0xC6, 0x26,
                          0x21, 0x60, 0xC2, 0xEA, 0x79, 0x5D, 0x6D, 0xA1,
                          0x54, 0x69, 0x47, 0x0C, 0xDC, 0xE8, 0x5C, 0xF1,
@@ -180,7 +180,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) sample = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -282,7 +282,7 @@ int bits2byte(char bits[]) {
         if      (bits[i] == 1)  byteval += d;
         else if (bits[i] == 0)  byteval += 0;
         else return 0x100;
-        d <<= 1;      
+        d <<= 1;
     }
     return byteval;
 }
@@ -340,9 +340,9 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
   Pos: SubHeader, 1+1 byte (ID+LEN)
 0x039: 7928   FrameNumber+SondeID
               +(0x050: 0732  CalFrames 0x00..0x32)
-0x065: 7A2A   
+0x065: 7A2A
 0x093: 7C1E   GPS Week + TOW
-0x0B5: 7D59   
+0x0B5: 7D59
 0x112: 7B15   ECEF (X,Y,Z) Coordinates
 0x12B: 7611   00
 0x12B: 7Exx   AUX-xdata
@@ -590,13 +590,13 @@ void ecef2elli(double X[], double *lat, double *lon, double *h) {
 
     p = sqrt( X[0]*X[0] + X[1]*X[1] );
     t = atan2( X[2]*a , p*b );
-    
+
     phi = atan2( X[2] + ee2 * b * sin(t)*sin(t)*sin(t) ,
                  p - e2 * a * cos(t)*cos(t)*cos(t) );
 
     R = a / sqrt( 1 - e2*sin(phi)*sin(phi) );
     *h = p / cos(phi) - R;
-    
+
     *lat = phi*180/M_PI;
     *lon = lam*180/M_PI;
 }
@@ -921,7 +921,7 @@ int main(int argc, char *argv[]) {
             else {
                 bitbuf[bit_count] = bit;
                 bit_count++;
-            
+
                 if (bit_count == 8) {
                     bit_count = 0;
                     byte = bits2byte(bitbuf);
