@@ -1171,8 +1171,8 @@ int main(int argc, char *argv[]) {
         }
 
     }
-   else //if (rawin)
-   {
+    else //if (rawin)
+    {
         if (rawin == 3) frameofs = 5;
 
         while (1 > 0) {
