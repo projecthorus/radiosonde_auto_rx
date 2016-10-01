@@ -18,6 +18,26 @@
  *  http://geographiclib.sourceforge.net/cgi-bin/GeoidEval
  */
 
+/*
+    gcc rs92gps_rawin.c -lm -o rs92gps_rawin
+    (includes nav_gps.c)
+
+    examples:
+
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e brdc3050.15n
+
+    ./rs92gps_rawin -r 2015_11_01.wav > raw1.out
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps_rawin -r > raw2.out
+    ./rs92gps_rawin --dop 5 -gg -e brdc3050.15n --rawin1 raw.out
+
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | tee audio.wav | ./rs92gps -e brdc3050.15n
+    ./rs92gps -g -e brdc3050.15n 2015_11_01-14.wav | tee out1.txt
+    sox 2015_11_01.wav -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e -gg brdc3050.15n | tee out2.txt
+
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n > out1.txt
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n | tee out2.txt
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,8 +71,9 @@ gpx_t gpx;
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
-    wavloaded = 0,
-    option_vergps = 0;
+    fileloaded = 0,
+    option_vergps = 0,
+    rawin = 0;
 double dop_limit = 10.0;
 
 int rollover = 0,
@@ -84,6 +105,8 @@ int bufpos = -1;
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
 /* --- RS92-SGP ------------------- */
 
+char buffer_rawin[3*FRAME_LEN+8]; //## rawin1: buffer_rawin[2*FRAME_LEN+4]; 
+int frameofs = 0;
 
 #define MASK_LEN 64
 ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98, 
@@ -116,59 +139,47 @@ int findstr(char *buff, char *str, int pos) {
 }
 
 int read_wav_header(FILE *fp) {
-    char txt[5] = "\0\0\0\0";
-    char buff[4];
+    char txt[4+1] = "\0\0\0\0";
+    unsigned char dat[4];
     int byte, p=0;
-    // long pos_fmt, pos_dat;
-    char fmt_[5] = "fmt ";
-    char data[5] = "data";
 
-    //if (fseek(fp, 0L, SEEK_SET)) return -1;
     if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "RIFF", 4)) return -1;
-
+    if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (fread(txt, 1, 4, fp) < 4) return -1;
     if (strncmp(txt, "WAVE", 4)) return -1;
-
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, fmt_, p) == 4) break;
+        if (findstr(txt, "fmt ", p) == 4) break;
     }
-    
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    //memcpy(&byte, buff, 4); fprintf(stderr, "fmt_length : %04x\n", byte);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    //byte = buff[0] + (buff[1] << 8); fprintf(stderr, "fmt_tag    : %04x\n", byte & 0xFFFF);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    channels = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "channels   : %d\n", channels & 0xFFFF);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    memcpy(&sample_rate, buff, 4);
-    //fprintf(stderr, "samplerate : %d\n", sample_rate);
-    if (fread(buff, 1, 4, fp) < 4) return -1;
-    //memcpy(&byte, buff, 4); fprintf(stderr, "bytes/sec  : %d\n", byte);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    byte = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "block_align: %04x\n", byte & 0xFFFF);
-    if (fread(buff, 1, 2, fp) < 2) return -1;
-    bits_sample = buff[0] + (buff[1] << 8);
-    //fprintf(stderr, "bits/sample: %d\n", bits_sample & 0xFFFF);
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    channels = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    memcpy(&sample_rate, dat, 4); //sample_rate = dat[0]|(dat[1]<<8)|(dat[2]<<16)|(dat[3]<<24);
+
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    //byte = dat[0] + (dat[1] << 8);
+
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    bits_sample = dat[0] + (dat[1] << 8);
 
     // pos_dat = 36L + info
-    //if (fread(txt, 1, 4, fp) < 4) return -1;
-    //fprintf(stderr, "data: %s\n", txt);
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
-        buff[p % 4] = byte;
+        txt[p % 4] = byte;
         p++; if (p==4) p=0;
-        if (findstr(buff, data, p) == 4) break;
+        if (findstr(txt, "data", p) == 4) break;
     }
-    if (fread(buff, 1, 4, fp) < 4) return -1;
+    if (fread(dat, 1, 4, fp) < 4) return -1;
 
 
     fprintf(stderr, "sample_rate: %d\n", sample_rate);
@@ -685,12 +696,12 @@ int get_pseudorange() {
              range[prns[j]].chips = 0;
              continue;
         }
-/*
+        if (option_vergps != 8) {
         if ( byteval >  0x10000000  &&  byteval <  0xF0000000 ) {
              range[prns[j]].chips = 0;
              continue;
-        }
-*/
+        }}
+
         if ( prns[j] == 0 )  prns[j] = 32;
         range[prns[j]].chips = byteval;
         range[prns[j]].time = gpstime;
@@ -746,14 +757,15 @@ int get_GPSkoord(int N) {
     SAT_t Sat_A[4];
     SAT_t Sat_B[12]; // N <= 12
 
-    if (option_vergps == 2) {
+    if (option_vergps == 8) {
         printf("  sats: ");
-        for (j = 0; j < N; j++) fprintf(stdout, "%2d ", prn[j]);
+        for (j = 0; j < N; j++) fprintf(stdout, "%02d ", prn[j]);
         printf("\n");
     }
 
     gpx.lat = gpx.lon = gpx.h = 0;
 
+    if (option_vergps != 2) {
     for (i0=0;i0<N;i0++) { for (i1=i0+1;i1<N;i1++) { for (i2=i1+1;i2<N;i2++) { for (i3=i2+1;i3<N;i3++) {
 
         Sat_A[0] = sat[prn[i0]];
@@ -767,7 +779,7 @@ int get_GPSkoord(int N) {
             if (calc_DOPn(4, Sat_A, pos_ecef, DOP) == 0) {
                 gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
                 //printf(" DOP : %.1f ", gdop);
-                if (option_vergps == 2) {
+                if (option_vergps == 8) {
                     //gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
                     hdop = sqrt(DOP[0]+DOP[1]);
                     vdop = sqrt(DOP[2]);
@@ -797,29 +809,43 @@ int get_GPSkoord(int N) {
         }
 
     }}}}
+    }
 
+    if (option_vergps == 8  ||  option_vergps == 2) {
 
-    if (option_vergps == 2) {
+        for (j = 0; j < N; j++) Sat_B[j] = sat[prn[j]];
 
-            for (j = 0; j < N; j++) Sat_B[j] = sat[prn[j]];
-
+        if (option_vergps == 8) {
             NAV_bancroft1(N, Sat_B, pos_ecef, &rx_cl_bias);
             ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
             printf("bancroft1[%d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
             printf("\n");
+        }
 
-            NAV_bancroft2(N, Sat_B, pos_ecef, &rx_cl_bias);
-            ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+        NAV_bancroft2(N, Sat_B, pos_ecef, &rx_cl_bias);
+        ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+        gdop = -1;
+        if (calc_DOPn(N, Sat_B, pos_ecef, DOP) == 0) {
+            gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
+        }
+
+        if (option_vergps == 8) {
             printf("bancroft2[%d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
-            if (calc_DOPn(N, Sat_B, pos_ecef, DOP) == 0) {
-                gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
-                printf(" GDOP[");
-                for (j = 0; j < N; j++) {
-                    printf("%d", prn[j]);
-                    if (j < N-1) printf(","); else printf("] %.1f ", gdop);
-                }
+            printf(" GDOP[");
+            for (j = 0; j < N; j++) {
+                printf("%d", prn[j]);
+                if (j < N-1) printf(","); else printf("] %.1f ", gdop);
             }
             printf("\n");
+        }
+
+        if (option_vergps == 2) {
+            gpx.lat = lat;
+            gpx.lon = lon;
+            gpx.h   = alt;
+            gpx.dop = gdop;
+            num = N;
+        }
     }
 
 
@@ -866,9 +892,17 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                     if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                     else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                     if (option_vergps) {
-                        fprintf(stdout, " sats: ");
-                        for (j = 0; j < 4; j++) fprintf(stdout, "%02d ", gpx.sats[j]);
-                        fprintf(stdout, " GDOP: %.1f ", gpx.dop);
+                        if (option_vergps != 2) {
+                            fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
+                                           gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
+                        }
+                        else {
+                            fprintf(stdout, " GDOP[");
+                            for (j = 0; j < k; j++) {
+                                printf("%d", prn[j]);
+                                if (j < k-1) printf(","); else printf("] %.1f ", gpx.dop);
+                            }
+                        }
                     }
                 }
             }
@@ -880,7 +914,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
 
     if (!err1) {
         fprintf(stdout, "\n");
-        if (option_vergps == 2) printf("\n");
+        if (option_vergps == 8) printf("\n");
     }
 
     return err2;
@@ -912,6 +946,7 @@ int main(int argc, char *argv[]) {
         header_found = 0,
         byte, i;
     int bit, len;
+    char *pbuf = NULL;
 
 #ifdef CYGWIN
     _setmode(_fileno(stdin), _O_BINARY);
@@ -920,15 +955,20 @@ int main(int argc, char *argv[]) {
 
     fpname = argv[0];
     ++argv;
-    while ((*argv) && (!wavloaded)) {
+    while ((*argv) && (!fileloaded)) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
-            fprintf(stderr, "%s [options] audio.wav\n", fpname);
+            fprintf(stderr, "%s [options] <file>\n", fpname);
+            fprintf(stderr, "  file: audio.wav or raw_data\n");
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose\n");
             fprintf(stderr, "       -r, --raw\n");
+            fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       -a, --almanac  <almanacSEM>\n");
             fprintf(stderr, "       -e, --ephem    <ephemperisRinex>\n");
-            fprintf(stderr, "       -i, --invert\n");
+            fprintf(stderr, "       -g1         (verbose GPS:   4 sats)\n");
+            fprintf(stderr, "       -g2         (verbose GPS: all sats)\n");
+            fprintf(stderr, "       -gg         (vverbose GPS)\n");
+            fprintf(stderr, "       --rawin1,2  (raw_data file)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -961,19 +1001,23 @@ int main(int argc, char *argv[]) {
             }
             else return -1;
         }
-        else if (strcmp(*argv, "-g" ) == 0) { option_vergps = 1; }  //  verbose GPS
-        else if (strcmp(*argv, "-gg") == 0) { option_vergps = 2; }  // vverbose GPS
+        else if (strcmp(*argv, "-g1") == 0) { option_vergps = 1; }  //  verbose1 GPS
+        else if (strcmp(*argv, "-g2") == 0) { option_vergps = 2; }  //  verbose2 GPS (bancroft)
+        else if (strcmp(*argv, "-gg") == 0) { option_vergps = 8; }  // vverbose GPS
+        else if (strcmp(*argv, "--rawin1") == 0) { rawin = 2; }     // raw_txt input1
+        else if (strcmp(*argv, "--rawin2") == 0) { rawin = 3; }     // raw_txt input2 (SM)
         else {
-            fp = fopen(*argv, "rb");
+            if (!rawin) fp = fopen(*argv, "rb");
+            else        fp = fopen(*argv, "r");
             if (fp == NULL) {
                 fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
                 return -1;
             }
-            wavloaded = 1;
+            fileloaded = 1;
         }
         ++argv;
     }
-    if (!wavloaded) fp = stdin;
+    if (!fileloaded) fp = stdin;
 
     if (fp_alm) {
         i = read_SEMalmanac(fp_alm, alm);
@@ -998,62 +1042,84 @@ int main(int argc, char *argv[]) {
     }
 
 
-    i = read_wav_header(fp);
-    if (i) {
-        fclose(fp);
-        return -1;
-    }
+    if (!rawin) {
 
-
-    while (!read_bits_fsk(fp, &bit, &len)) {
-
-        if (len == 0) { // reset_frame();
-            if (byte_count > pos_SondeID+8) {
-                if (byte_count < FRAME_LEN-20) err_gps = 1;
-                print_frame(byte_count);
-                err_gps = 0;
-            }
-            bit_count = 0;
-            byte_count = FRAMESTART;
-            header_found = 0;
-            inc_bufpos();
-            buf[bufpos] = 'x';
-            continue;   // ...
+        i = read_wav_header(fp);
+        if (i) {
+            fclose(fp);
+            return -1;
         }
 
-        for (i = 0; i < len; i++) {
+        while (!read_bits_fsk(fp, &bit, &len)) {
 
-            inc_bufpos();
-            buf[bufpos] = 0x30 + bit;  // Ascii
-
-            if (!header_found) {
-                if (compare() >= HEADLEN) header_found = 1;
+            if (len == 0) { // reset_frame();
+                if (byte_count > pos_SondeID+8) {
+                    if (byte_count < FRAME_LEN-20) err_gps = 1;
+                    print_frame(byte_count);
+                    err_gps = 0;
+                }
+                bit_count = 0;
+                byte_count = FRAMESTART;
+                header_found = 0;
+                inc_bufpos();
+                buf[bufpos] = 'x';
+                continue;   // ...
             }
-            else {
-                bitbuf[bit_count] = bit;
-                bit_count++;
+
+            for (i = 0; i < len; i++) {
+
+                inc_bufpos();
+                buf[bufpos] = 0x30 + bit;  // Ascii
+
+                if (!header_found) {
+                    if (compare() >= HEADLEN) header_found = 1;
+                }
+                else {
+                    bitbuf[bit_count] = bit;
+                    bit_count++;
             
-                if (bit_count == BITS) {
-                    bit_count = 0;
-                    byte = bits2byte(bitbuf);
-                    frame[byte_count] = byte;
-                    byte_count++;
-                    if (byte_count == FRAME_LEN) {
-                        byte_count = FRAMESTART;
-                        header_found = 0;
-                        //inc_bufpos();
-                        //buf[bufpos] = 'x';
-                        print_frame(FRAME_LEN);
+                    if (bit_count == BITS) {
+                        bit_count = 0;
+                        byte = bits2byte(bitbuf);
+                        frame[byte_count] = byte;
+                        byte_count++;
+                        if (byte_count == FRAME_LEN) {
+                            byte_count = FRAMESTART;
+                            header_found = 0;
+                            //inc_bufpos();
+                            //buf[bufpos] = 'x';
+                            print_frame(FRAME_LEN);
+                        }
                     }
                 }
             }
-
         }
 
     }
+   else //if (rawin)
+   {
+        if (rawin == 3) frameofs = 5;
 
-    fclose(fp);
+        while (1 > 0) {
+
+            pbuf = fgets(buffer_rawin, rawin*FRAME_LEN+4, fp);
+            if (pbuf == NULL) break;
+            buffer_rawin[rawin*FRAME_LEN+1] = '\0';
+            len = strlen(buffer_rawin) / rawin;
+            if (len > pos_SondeID+8) {
+                for (i = 0; i < len-frameofs; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                    sscanf(buffer_rawin+rawin*i, "%2hhx", frame+frameofs+i);
+                    // wenn ohne %hhx: sscanf(buffer_rawin+rawin*i, "%2x", &byte); frame[frameofs+i] = (ui8_t)byte;
+                }
+                if (len < FRAME_LEN-20) err_gps = 1;
+                print_frame(len);
+                err_gps = 0;
+            }
+        }
+    }
+
     free(ephs);
+    fclose(fp);
 
     return 0;
 }
