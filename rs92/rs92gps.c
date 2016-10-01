@@ -19,20 +19,21 @@
  */
 
 /*
-    gcc rs92gps_rawin.c -lm -o rs92gps_rawin
+    gcc rs92gps.c -lm -o rs92gps
     (includes nav_gps.c)
 
     examples:
 
     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e brdc3050.15n
 
-    ./rs92gps_rawin -r 2015_11_01.wav > raw1.out
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps_rawin -r > raw2.out
-    ./rs92gps_rawin --dop 5 -gg -e brdc3050.15n --rawin1 raw.out
+    ./rs92gps -r 2015_11_01.wav > raw1.out
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -r > raw2.out
+    ./rs92gps --dop 5 -gg -e brdc3050.15n --rawin1 raw.out
 
     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | tee audio.wav | ./rs92gps -e brdc3050.15n
-    ./rs92gps -g -e brdc3050.15n 2015_11_01-14.wav | tee out1.txt
-    sox 2015_11_01.wav -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e -gg brdc3050.15n | tee out2.txt
+    ./rs92gps -g1 -e brdc3050.15n 2015_11_01-14.wav | tee out1.txt
+    ./rs92gps -g2 -e brdc3050.15n 2015_11_01-14.wav | tee out2.txt
+    sox 2015_11_01.wav -t wav - lowpass 2600 2>/dev/null | ./rs92gps -gg -e brdc3050.15n | tee out3.txt
 
     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n > out1.txt
     sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n | tee out2.txt
