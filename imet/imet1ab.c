@@ -232,6 +232,8 @@ Ende:
 96 96 96 96 96 96 96 96 96
 */
 
+#define pos_Start  0x05  // 2 byte
+
 #define pos_RecordNo  0x08  // 2 byte
 #define pos_SondeID1  0x12  // 5 byte
 #define pos_SondeID2  0x2C  // 5 byte
@@ -245,6 +247,8 @@ Ende:
 #define pos_GPSvN  0x86  // 2 byte
 #define pos_GPSvV  0x88  // 2 byte
 
+#define pos_xcSum  0xC2  // 1 byte: xsumDLE(frame+pos_Start, 189)
+                         //         189 = pos_xcSum-pos_Start
 
 #define FRAMELEN 204
 ui8_t frame[FRAMELEN+6];
@@ -444,6 +448,23 @@ int get_SondeID() {
 
 /* -------------------------------------------------------------------------- */
 
+// Frame: <DLE><id><data_bytes><DLE><ETX>,
+//        <DLE>=0x10, <ETX>=0x03; <id>=0xb9
+// (.. 69) 10 b9 01 .. .. 10 03 cs (96 ..)
+// 8bit-xor-checksum:
+//  xsumDLE(frame+pos_Start, pos_xcSum-pos_Start)
+int xsumDLE(ui8_t bytes[], int len) {
+    int i, xsum = 0;
+    for (i = 0; i < len; i++) {  // TSIP-Protokoll: <DLE>=0x10
+        // innnerhalb <DLE>, 0x10 doppelt, und 0x10^0x10=0x00
+        if (bytes[i] != 0x10) xsum ^= bytes[i];
+        // ausser <DLE> zu Beginn/Ende
+    }
+    return xsum & 0xFF;
+}
+
+/* -------------------------------------------------------------------------- */
+
 
 int bits2byte(char *bits) {
     int i, d = 1, byte = 0;
@@ -472,6 +493,9 @@ void print_frame(int len) {
                 else fprintf(stdout, ANSI_COLOR_RESET);
             }
             fprintf(stdout, "%02x ", frame[i]);
+        }
+        if (option_verbose) {                                                          // pos_xcSum-pos_Start=189
+             fprintf(stdout, " [%02X # %02X]", frame[pos_xcSum], xsumDLE(frame+pos_Start, pos_xcSum-pos_Start));
         }
         fprintf(stdout, "\n");
     }
