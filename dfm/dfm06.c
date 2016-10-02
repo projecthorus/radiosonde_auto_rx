@@ -30,7 +30,8 @@ typedef unsigned int ui32_t;
 typedef struct {
     int frnr;
     int sonde_typ;
-    ui32_t sonde_id;
+    ui32_t SN6;
+    ui32_t SN9;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int std; int min; float sek;
@@ -489,36 +490,42 @@ int dat_out(ui8_t *dat_bits) {
     return ret;
 }
 
+#define SNbit 0x0100
 int conf_out(ui8_t *conf_bits) {
     int conf_id;
     int ret = 0;
     int val, hl;
-    static int typ6, typ9, chAbit, chA[2];
+    static int chAbit, chA[2];
+    ui32_t SN6, SN9;
 
     conf_id = bits2val(conf_bits, 4);
-    if (gpx.sonde_typ < 9  &&  conf_id == 6) {
-        if (typ6 < 4) typ6 += 1;
-        else if (typ6 == 4) {
-            gpx.sonde_typ = 6;
-            typ6 += 1;
+
+    if ((gpx.sonde_typ & 0xFF) < 9  &&  conf_id == 6) {
+        SN6 = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
+        if ( SN6 == gpx.SN6 ) {
+            gpx.sonde_typ = SNbit | 6;
+            ret = 6;
         }
-        gpx.sonde_id = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
+        else {
+            gpx.sonde_typ = 0;
+        }
+        gpx.SN6 = SN6;
     }
-    if (conf_id == 0xA) {
-        if (typ9 < 4) {
-            typ9 += 1;
-            typ6 = 0;
-        }
-        else if (typ9 == 4) {
-            gpx.sonde_typ = 9;
-            typ9 += 1;
-        }
+    if (conf_id == 0xA) {  // 0xACxxxxy
         val = bits2val(conf_bits+8, 4*5);
         hl =  (val & 1) == 0;
         chA[hl] = (val >> 4) & 0xFFFF;
         chAbit |= 1 << hl;
         if (chAbit == 3) {  // DFM-09: Kanal A
-            gpx.sonde_id = (chA[1] << 16) | chA[0];
+            SN9 = (chA[1] << 16) | chA[0];
+            if ( SN9 == gpx.SN9 ) {
+                gpx.sonde_typ = SNbit | 9;
+                ret = 9;
+            }
+            else {
+                gpx.sonde_typ = 0;
+            }
+            gpx.SN9 = SN9;
             chAbit = 0;
         }
     }
@@ -553,15 +560,15 @@ void print_gpx() {
               printf(" dir: %5.1f ", gpx.dir);
               printf(" hV: %5.2f ", gpx.horiV);
               printf(" vV: %5.2f ", gpx.vertV);
-              if (option_verbose == 2  && gpx.sonde_id > 0)
+              if (option_verbose == 2  &&  (gpx.sonde_typ & SNbit))
               {
-                  if (gpx.sonde_typ == 6) {
-                      printf(" (ID%1d:%06X) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                  if ((gpx.sonde_typ & 0xFF) == 6) {
+                      printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
                   }
-                  if (gpx.sonde_typ == 9) {
-                      printf(" (ID%1d:%06d) ", gpx.sonde_typ % 10, gpx.sonde_id);
+                  if ((gpx.sonde_typ & 0xFF) == 9) {
+                      printf(" (ID%1d:%06d) ", gpx.sonde_typ & 0xF, gpx.SN9);
                   }
-                  gpx.sonde_id = 0;
+                  gpx.sonde_typ ^= SNbit;
               }
           }
       }
@@ -722,7 +729,6 @@ int main(int argc, char **argv) {
     }
 
 
-    gpx.sonde_id = -1;
     for (i = 0; i < 9; i++) {
         for (j = 0; j < 13; j++) dat_str[i][j] = ' ';
     }
