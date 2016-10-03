@@ -380,7 +380,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define HEAD_aux   0x7E00  // LEN variable
 
 
-int crc16x(ui8_t bytes[], int start, int len) {
+int crc16x(int start, int len) {
     int crc16poly = 0x1021;
     int rem = 0xFFFF, i, j;
     int xbyte;
@@ -543,7 +543,7 @@ int get_GPStime() {
         // xorbyte(crcpos) == (HEAD_tow>>8) & 0xFF ?
         crclen = xorbyte(crcpos+1);
         crcdat = xorbyte(crcpos+2+crclen) | (xorbyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16x(frame, crcpos+2, crclen) ) {
+        if ( crcdat != crc16x(crcpos+2, crclen) ) {
             return -2; // CRC error
         }
     }
@@ -620,7 +620,7 @@ int get_GPSkoord() {
         // xorbyte(crcpos) == (HEAD_koord>>8) & 0xFF ?
         crclen = xorbyte(crcpos+1);
         crcdat = xorbyte(crcpos+2+crclen) | (xorbyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16x(frame, crcpos+2, crclen) ) {
+        if ( crcdat != crc16x(crcpos+2, crclen) ) {
             return -2; // CRC error
         }
     }
@@ -713,7 +713,7 @@ int get_Aux() {
         if (count7E == 0) fprintf(stdout, "\n # xdata = ");
         else              fprintf(stdout, " # ");
 
-        if ( auxcrc == crc16x(frame, pos_Haux+2, auxlen) ) {
+        if ( auxcrc == crc16x(pos_Haux+2, auxlen) ) {
             //fprintf(stdout, " # %02x : ", xorbyte(pos_Haux+2));
             for (i = 1; i < auxlen; i++) {
                 fprintf(stdout, "%c", xorbyte(pos_Haux+2+i));
