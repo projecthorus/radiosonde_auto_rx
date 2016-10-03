@@ -746,7 +746,7 @@ int get_Cal() {
 
 /* ------------------------------------------------------------------------------------ */
 
-int rs_ecc(int msglen) {
+int rs41_ecc(int msglen) {
 
     int i, ret = 0;
     int errors1, errors2,
@@ -847,7 +847,7 @@ void print_frame(int len) {
     int i, ret = 0;
 
     if (option_ecc) {
-        ret = rs_ecc(len);
+        ret = rs41_ecc(len);
     }
 
     for (i = len; i < FRAME_LEN; i++) {
