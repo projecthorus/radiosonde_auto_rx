@@ -127,7 +127,7 @@ int almanac = 0,
 */
 #define FRAMESTART ((HEADOFS+HEADLEN)/BITS)
 
-/*               2A                  10*/      
+/*               2A                  10*/
 char header[] = "10100110011001101001"
                 "10100110011001101001"
                 "10100110011001101001"
@@ -140,11 +140,11 @@ int bufpos = -1;
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
 /* --- RS92-SGP ------------------- */
 
-char buffer_rawin[3*FRAME_LEN+8]; //## rawin1: buffer_rawin[2*FRAME_LEN+4]; 
+char buffer_rawin[3*FRAME_LEN+8]; //## rawin1: buffer_rawin[2*FRAME_LEN+4];
 int frameofs = 0;
 
 #define MASK_LEN 64
-ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98, 
+ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
                          0x32, 0x05, 0x59, 0x0E, 0xF9, 0x44, 0xC6, 0x26,
                          0x21, 0x60, 0xC2, 0xEA, 0x79, 0x5D, 0x6D, 0xA1,
                          0x54, 0x69, 0x47, 0x0C, 0xDC, 0xE8, 0x5C, 0xF1,
@@ -357,13 +357,13 @@ int bits2byte(char bits[]) {
         bit8[i] = manch(bits+2*(i+1));
     }
     if (manch(bits+(2*(8+1))) != 1) return 0x100;
-    
+
     for (i = 0; i < 8; i++) {     // little endian
     /* for (i = 7; i >= 0; i--) { // big endian */
         if      (bit8[i] == 1)  byteval += d;
         else if (bit8[i] == 0)  byteval += 0;
         else return 0x100;
-        d <<= 1;      
+        d <<= 1;
     }
     return byteval;
 }
@@ -614,7 +614,7 @@ int get_Cal() {
             if (gpx.aux[0] != 0 || gpx.aux[1] != 0 || gpx.aux[2] != 0 || gpx.aux[3] != 0) {
                 fprintf(stdout, " # %04x %04x %04x %04x", gpx.aux[0], gpx.aux[1], gpx.aux[2], gpx.aux[3]);
             }
-        }   
+        }
     }
 
     if (calfr == 0x00) {
@@ -1007,8 +1007,6 @@ int get_GPSkoord(int N) {
 
 /* ------------------------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------------------------ */
-
 int rs92_ecc(int msglen) {
 
     int i, ret = 0;
@@ -1067,7 +1065,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         fprintf(stdout, "%s ", weekday[gpx.wday]);
         fprintf(stdout, "%02d:%02d:%04.1f", gpx.std, gpx.min, gpx.sek);
         /*
-        fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d", 
+        fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
                 gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
         if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
         */
@@ -1300,7 +1298,7 @@ int main(int argc, char *argv[]) {
                 else {
                     bitbuf[bit_count] = bit;
                     bit_count++;
-            
+
                     if (bit_count == BITS) {
                         bit_count = 0;
                         byte = bits2byte(bitbuf);
