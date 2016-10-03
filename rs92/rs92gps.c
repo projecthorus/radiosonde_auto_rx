@@ -73,6 +73,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
     option_res = 0,      // genauere Bitmessung
+    option_crc = 0,      // check CRC
     option_avg = 0,      // moving average
     option_b = 0,
     fileloaded = 0,
@@ -354,8 +355,13 @@ int compare() {
     return i;
 }
 
+/*
 ui8_t xorbyte(int pos) {
-    return  frame[pos]; // ^ mask[pos % MASK_LEN];
+    return  xframe[pos] ^ mask[pos % MASK_LEN];
+}
+*/
+ui8_t framebyte(int pos) {
+    return  frame[pos];
 }
 
 
@@ -398,6 +404,40 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define posGPS_PRN    0x4E  // 12*5 bit in 8 byte
 #define posGPS_DATA   0x62  // 12*8 byte
 
+#define pos_MEAS      0x2C  // 24 byte
+
+
+#define BLOCK_CFG 0x6510  // frame[pos_FrameNb-2], frame[pos_FrameNb-1]
+#define BLOCK_PTU 0x690C
+#define BLOCK_GPS 0x673D  // frame[pos_GPSTOW-2], (frame[pos_GPSTOW-1]
+#define BLOCK_AUX 0x6805
+
+#define LEN_CFG (2*(BLOCK_CFG & 0xFF))
+#define LEN_GPS (2*(BLOCK_GPS & 0xFF))
+
+
+int crc16(int start, int len) {
+    int crc16poly = 0x1021;
+    int rem = 0xFFFF, i, j;
+    int byte;
+
+    if (start+len >= FRAME_LEN) return -1;
+
+    for (i = 0; i < len; i++) {
+        byte = framebyte(start+i);
+        rem = rem ^ (byte << 8);
+        for (j = 0; j < 8; j++) {
+            if (rem & 0x8000) {
+                rem = (rem << 1) ^ crc16poly;
+            }
+            else {
+                rem = (rem << 1);
+            }
+            rem &= 0xFFFF;
+        }
+    }
+    return rem;
+}
 
 int get_FrameNb() {
     int i;
@@ -406,7 +446,7 @@ int get_FrameNb() {
     int frnr;
 
     for (i = 0; i < 2; i++) {
-        byte = xorbyte(pos_FrameNb + i);
+        byte = framebyte(pos_FrameNb + i);
         frnr_bytes[i] = byte;
     }
 
@@ -417,12 +457,27 @@ int get_FrameNb() {
 }
 
 int get_SondeID() {
-    int i;
+    int i, ret=0;
     unsigned byte;
     ui8_t sondeid_bytes[10];
+    int crc_frame, crc;
+
+    // BLOCK_CFG == frame[pos_FrameNb-2 .. pos_FrameNb-1] ?
+    crc_frame = framebyte(pos_FrameNb+LEN_CFG) | (framebyte(pos_FrameNb+LEN_CFG+1) << 8);
+    crc = crc16(pos_FrameNb, LEN_CFG);
+/*
+    if (option_crc) {
+      //printf(" (%04X:%02X%02X) ", BLOCK_CFG, frame[pos_FrameNb-2], frame[pos_FrameNb-1]);
+      printf(" [%04X:%04X] ", crc_frame, crc);
+    }
+*/
+    ret = 0;
+    if ( 0  &&  option_crc  &&  crc != crc_frame) {
+        ret = -2;  // erst wichtig, wenn Cal/Cfg-Data
+    }
 
     for (i = 0; i < 8; i++) {
-        byte = xorbyte(pos_SondeID + i);
+        byte = framebyte(pos_SondeID + i);
         if ((byte < 0x20) || (byte > 0x7E)) return -1;
         sondeid_bytes[i] = byte;
     }
@@ -432,21 +487,36 @@ int get_SondeID() {
     }
     gpx.id[8] = '\0';
 
-    return 0;
+    return ret;
 }
 
 char weekday[7][3] = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 
 int get_GPStime() {
-    int i;
+    int i, ret=0;
     unsigned byte;
     ui8_t gpstime_bytes[4];
     int gpstime = 0, // 32bit
         day;
     float ms;
+    int crc_frame, crc;
+
+    // BLOCK_GPS == frame[pos_GPSTOW-2 .. pos_GPSTOW-1] ?
+    crc_frame = framebyte(pos_GPSTOW+LEN_GPS) | (framebyte(pos_GPSTOW+LEN_GPS+1) << 8);
+    crc = crc16(pos_GPSTOW, LEN_GPS);
+/*
+    if (option_crc) {
+      //printf(" (%04X:%02X%02X) ", BLOCK_GPS, frame[pos_GPSTOW-2], frame[pos_GPSTOW-1]);
+      printf(" [%04X:%04X] ", crc_frame, crc);
+    }
+*/
+    ret = 0;
+    if (option_crc  &&  crc != crc_frame) {
+        ret = -2;
+    }
 
     for (i = 0; i < 4; i++) {
-        byte = xorbyte(pos_GPSTOW + i);
+        byte = framebyte(pos_GPSTOW + i);
         gpstime_bytes[i] = byte;
     }
 
@@ -465,7 +535,7 @@ int get_GPStime() {
     gpx.min = (gpstime % 3600) / 60;
     gpx.sek = gpstime % 60 + ms/1000.0;
 
-    return 0;
+    return ret;
 }
 
 int get_Aux() {
@@ -473,7 +543,7 @@ int get_Aux() {
     unsigned short byte;
 
     for (i = 0; i < 4; i++) {
-        byte = xorbyte(pos_AuxData+2*i)+(xorbyte(pos_AuxData+2*i+1)<<8);
+        byte = framebyte(pos_AuxData+2*i)+(framebyte(pos_AuxData+2*i+1)<<8);
         gpx.aux[i] = byte;
     }
 
@@ -488,7 +558,7 @@ int get_Cal() {
     int freq = 0;
     ui8_t freq_bytes[2];
 
-    byte = xorbyte(pos_CalData);
+    byte = framebyte(pos_CalData);
     calfr = byte;
 
     if (option_verbose == 2) {
@@ -496,7 +566,7 @@ int get_Cal() {
         fprintf(stderr, "  0x%02x:", calfr);
     }
     for (i = 0; i < 16; i++) {
-        byte = xorbyte(pos_CalData+1+i);
+        byte = framebyte(pos_CalData+1+i);
         if (option_verbose == 2) {
             fprintf(stderr, " %02x", byte);
         }
@@ -506,12 +576,12 @@ int get_Cal() {
         if (option_verbose == 2) {
             fprintf(stderr, "  #  ");
             for (i = 0; i < 8; i++) {
-                byte = xorbyte(pos_AuxData+i);
+                byte = framebyte(pos_AuxData+i);
                 fprintf(stderr, "%02x ", byte);
             }
         }
         else {
-            if (gpx.aux[0] != 0 || gpx.aux[1] != 0 ||gpx.aux[2] != 0 || gpx.aux[3] != 0) {
+            if (gpx.aux[0] != 0 || gpx.aux[1] != 0 || gpx.aux[2] != 0 || gpx.aux[3] != 0) {
                 fprintf(stdout, " # %04x %04x %04x %04x", gpx.aux[0], gpx.aux[1], gpx.aux[2], gpx.aux[3]);
             }
         }   
@@ -519,7 +589,7 @@ int get_Cal() {
 
     if (calfr == 0x00) {
         for (i = 0; i < 2; i++) {
-            byte = xorbyte(pos_Calfreq + i);
+            byte = framebyte(pos_Calfreq + i);
             freq_bytes[i] = byte;
         }
         byte = freq_bytes[0] + (freq_bytes[1] << 8);
@@ -720,7 +790,7 @@ int get_pseudorange() {
     double  pr0, prj;
 
     for (i = 0; i < 4; i++) {
-        gpstime_bytes[i] = xorbyte(pos_GPSTOW + i);
+        gpstime_bytes[i] = framebyte(pos_GPSTOW + i);
     }
     memcpy(&gpstime, gpstime_bytes, 4);  // GPS-TOW in ms
 
@@ -976,10 +1046,15 @@ void print_frame(int len) {
     int i;
     ui8_t byte;
 
+    for (i = len; i < FRAME_LEN; i++) {
+        frame[i] = 0;
+    }
+
+
     if (option_raw) {
         for (i = 0; i < len; i++) {
             //byte = frame[i];
-            byte = xorbyte(i);
+            byte = framebyte(i);
             fprintf(stdout, "%02x", byte);
         }
         fprintf(stdout, "\n");
@@ -1020,6 +1095,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       -g1         (verbose GPS:   4 sats)\n");
             fprintf(stderr, "       -g2         (verbose GPS: all sats)\n");
             fprintf(stderr, "       -gg         (vverbose GPS)\n");
+            fprintf(stderr, "       --crc       (CRC check GPS)\n");
             fprintf(stderr, "       --rawin1,2  (raw_data file)\n");
             return 0;
         }
@@ -1029,6 +1105,7 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "-vv") == 0) ) {
             option_verbose = 2;
         }
+        else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
