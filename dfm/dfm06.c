@@ -500,9 +500,11 @@ int conf_out(ui8_t *conf_bits) {
 
     conf_id = bits2val(conf_bits, 4);
 
+    //if (conf_id > 6) gpx.SN6 = 0;  //// gpx.sonde_typ & 0xF = 9; // SNbit?
+
     if ((gpx.sonde_typ & 0xFF) < 9  &&  conf_id == 6) {
         SN6 = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
-        if ( SN6 == gpx.SN6 ) {
+        if ( SN6 == gpx.SN6 ) {            // nur Nibble-Werte 0..9
             gpx.sonde_typ = SNbit | 6;
             ret = 6;
         }
