@@ -117,6 +117,8 @@ int rollover = 0,
 int almanac = 0,
     ephem = 0;
 
+int exSat = -1;
+
 /* --- RS92-SGP: 8N1 manchester --- */
 #define BITS (2*(1+8+1))  // 20
 #define HEADOFS 40 //  HEADOFS+HEADLEN = 120  (bis 0x10)
@@ -870,7 +872,7 @@ int get_pseudorange() {
         if ( dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000 )
         {
             for (i = 0; i < k; i++) { if (prn[i] == prns[j]) break; }
-            if (i == k) {
+            if (i == k  &&  prns[j] != exSat) {
                 prn[k] = prns[j];
                 k++;
             }
@@ -1209,6 +1211,14 @@ int main(int argc, char *argv[]) {
             if (*argv) {
                 dop_limit = atof(*argv);
                 if (dop_limit <= 0  || dop_limit >= 100)  dop_limit = 10;
+            }
+            else return -1;
+        }
+        else if ( (strcmp(*argv, "--exsat") == 0) ) {
+            ++argv;
+            if (*argv) {
+                exSat = atoi(*argv);
+                if (exSat < 1  || exSat > 32)  return -1;
             }
             else return -1;
         }
