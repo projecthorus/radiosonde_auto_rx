@@ -115,14 +115,19 @@ frame:
 2a2a2a2a2a106510e81820204b34393533393334006100083d3d07b342bb3e9809d3bc3f754c963bebfb690cca2b0fd9670f00670f8c0f11a458111e8810da410d30430ddc84673db01c852167ab07298b3cb05a536e0fffcf4faf7f4f3fff8fcfffffffff7fe5918aef20e8110175879900d0e0e900061f8c048aa393009edea1fe2557dc0019549f04b5160d00ae998b00e12a4200370b8608cacc1900b3e08905bd60040126da9303e1d4b4006d04a00573469700d6a98b00699f120195828f046ed7680503030000000000000000b27dff0202000200f0be2a40a7cd69b9ed0668ec12182e8560ea6dd0733612a1
 
 2a)
-./rs92gps_rawin -r rs92.wav > rs92raw.txt
+./rs92gps -r rs92.wav > rs92raw.txt
 cat rs92raw.txt | ./ecc-rs_vaisala > rs92raw_ecc.txt
-./rs92gps_rawin --rawin1 -a almanac.txt rs92raw_ecc.txt
+./rs92gps --rawin1 -a almanac.txt rs92raw_ecc.txt
 2b)
-cat rs92raw.txt | ./ecc-rs_vaisala | ./rs92gps_rawin --rawin1 -a almanac.txt
+cat rs92raw.txt | ./ecc-rs_vaisala | ./rs92gps --rawin1 -a almanac.txt
 2c)
-./rs92gps_rawin -r rs92.wav | ./ecc-rs_vaisala | ./rs92gps_rawin --rawin1 -a almanac.txt
+./rs92gps -r rs92.wav | ./ecc-rs_vaisala | ./rs92gps --rawin1 -a almanac.txt
 
+3)
+./rs92ecc -b --ecc -e rinex.txt rs92.wav
+./rs92ecc -b --ecc --crc -e rinex.txt rs92.wav
+Fehler werden nur in raw-output angezeigt:
+./rs92ecc -b --ecc -r rs92.wav
 
 
 
