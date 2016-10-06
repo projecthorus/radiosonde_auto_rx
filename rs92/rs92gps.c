@@ -724,11 +724,12 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
     int week;
     double cl_corr;
     double tdiff, td;
-    int count, count0;
+    int count, count0, satfound;
 
     for (j = 1; j < 33; j++) {
 
         count = count0 = 0;
+        satfound = 0;
 
         // Woche hat 604800 sec
         tdiff = 604800;
@@ -736,6 +737,8 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
         while (eph[count].prn > 0) {
 
             if (eph[count].prn == j) {
+
+                satfound += 1;
 
                 if      (t - eph[count].toe >  604800/2) rollover = +1;
                 else if (t - eph[count].toe < -604800/2) rollover = -1;
@@ -751,16 +754,19 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
             count += 1;
         }
 
-        GPS_SatellitePosition_Ephem(
-            week, t, eph[count0],
-            &cl_corr, &X, &Y, &Z
-        );
+        if ( satfound )
+        {
+            GPS_SatellitePosition_Ephem(
+                week, t, eph[count0],
+                &cl_corr, &X, &Y, &Z
+            );
 
-        satp[j].X = X;
-        satp[j].Y = Y;
-        satp[j].Z = Z;
-        satp[j].clock_corr = cl_corr;
-        satp[j].ephtime = eph[count0].toe;
+            satp[j].X = X;
+            satp[j].Y = Y;
+            satp[j].Z = Z;
+            satp[j].clock_corr = cl_corr;
+            satp[j].ephtime = eph[count0].toe;
+        }
 
     }
 
