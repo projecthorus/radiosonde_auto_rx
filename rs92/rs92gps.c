@@ -79,7 +79,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     fileloaded = 0,
     option_vergps = 0,
     rawin = 0;
-double dop_limit = 10.0;
+double dop_limit = 9.9;
 
 int rollover = 0,
     err_gps = 0;
@@ -621,16 +621,19 @@ EPHEM_t *ephs = NULL;
 SAT_t sat[33];
 
 
-ui8_t prn_le[12*5];
+ui8_t prn_le[12*5+4];
 /* le - little endian */
-void prnbits_le(ui16_t byte16, ui8_t bits[15]) {
-    int i; /* letztes bit wird nicht gelesen */
+int prnbits_le(ui16_t byte16, ui8_t bits[64], int block) {
+    int i; /* letztes bit Ueberlauf, wenn 3. PRN = 32 */
     for (i = 0; i < 15; i++) {
-        bits[i] = byte16 & 1;
+        bits[15*block+i] = byte16 & 1;
         byte16 >>= 1;
     }
+    bits[60+block] = byte16 & 1;
+    return byte16 & 1;
 }
-ui8_t prns[12];
+ui8_t prns[12], // PRNs in data
+      sat_status[12];
 void prn12(ui8_t *prn_le, ui8_t prns[12]) {
     int i, j, d;
     for (i = 0; i < 12; i++) {
@@ -640,7 +643,17 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
           if (prn_le[5*i+j]) prns[i] += d;
           d <<= 1;
         }
-        // ?? if (prns[i] == 0) prns[i] = 32; ??  // 5 bit: 0..31
+    }
+    for (i = 0; i < 12; i++) {  // PRN-32 overflow
+        if ( (prns[i] == 0) && (sat_status[i] & 0x0F) ) {  // 5 bit: 0..31
+            if ( (i % 3 == 2) && (prn_le[60+i/3] & 1) ) {  // Spalte 2
+                prns[i] = 32;
+            }
+            else if ( (i % 3 != 2) && (prn_le[5*(i+1)] & 1) ) {  // Spalte 0,1
+                prns[i] = 32;                        // vorausgesetzt im Block folgt auf PRN-32
+                if (prns[i+1] > 1) prns[i+1] ^= 0x1; // entweder PRN-1 oder PRN-gerade
+            }
+        }
     }
 }
 
@@ -783,7 +796,7 @@ typedef struct {
 } RANGE_t;
 RANGE_t range[33];
 
-int prn[12];
+int prn[12];  // valide PRN 0,..,k-1
 
 
 // pseudo.range = -df*pseudo.chips , df = lightspeed/(chips/sec)/2^10
@@ -804,12 +817,16 @@ int get_pseudorange() {
     }
     memcpy(&gpstime, gpstime_bytes, 4);  // GPS-TOW in ms
 
+    for (i = 0; i < 12; i++) {
+        sat_status[i] = framebyte(posGPS_STATUS + i);
+    }
+
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 2; j++) {
             bytes[j] = frame[posGPS_PRN+2*i+j];
         }
         memcpy(&byte16, bytes, 2);
-        prnbits_le(byte16, prn_le+15*i);
+        prnbits_le(byte16, prn_le, i);
     }
     prn12(prn_le, prns);  // PRN-Nummern
 
@@ -836,10 +853,10 @@ int get_pseudorange() {
              continue;
         }}
 
-        if ( prns[j] == 0 )  prns[j] = 32;
+        if ( (prns[j] == 0) && (sat_status[j] & 0x0F) )  prns[j] = 32;
         range[prns[j]].chips = byteval;
         range[prns[j]].tow = gpstime;
-        range[prns[j]].status = frame[posGPS_STATUS+j];
+        range[prns[j]].status = sat_status[j];
 /*
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+4+i]; }
         memcpy(&byteval, pseudobytes, 4);
@@ -854,8 +871,11 @@ int get_pseudorange() {
         {
             for (i = 0; i < k; i++) { if (prn[i] == prns[j]) break; }
             if (i == k  &&  prns[j] != exSat) {
-                prn[k] = prns[j];
-                k++;
+                if ( /* (range[prns[j]].status & 0xF0) &&*/ // Signalstaerke > 0 ?
+                    ((range[prns[j]].status & 0x0F) == 0xF) ) {
+                    prn[k] = prns[j];
+                    k++;
+                }
             }
         }
 
@@ -1044,7 +1064,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
 
         get_Cal();
 
-        if (option_vergps == 8)
+        if (option_vergps == 8 /*||  option_vergps == 2*/)
         {
             fprintf(stdout, "\n");
             for (j = 0; j < 60; j++) { fprintf(stdout, "%d", prn_le[j]); if (j % 5 == 4) fprintf(stdout, " "); }
@@ -1150,7 +1170,7 @@ int main(int argc, char *argv[]) {
             ++argv;
             if (*argv) {
                 dop_limit = atof(*argv);
-                if (dop_limit <= 0  || dop_limit >= 100)  dop_limit = 10;
+                if (dop_limit <= 0  || dop_limit >= 100)  dop_limit = 9.9;
             }
             else return -1;
         }
