@@ -644,7 +644,8 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
           d <<= 1;
         }
     }
-    for (i = 0; i < 12; i++) {  // PRN-32 overflow
+    for (i = 0; i < 12; i++) {
+        // PRN-32 overflow
         if ( (prns[i] == 0) && (sat_status[i] & 0x0F) ) {  // 5 bit: 0..31
             if ( (i % 3 == 2) && (prn_le[60+i/3] & 1) ) {  // Spalte 2
                 prns[i] = 32;
@@ -653,6 +654,9 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
                 prns[i] = 32;                        // vorausgesetzt im Block folgt auf PRN-32
                 if (prns[i+1] > 1) prns[i+1] ^= 0x1; // entweder PRN-1 oder PRN-gerade
             }
+        }
+        else if ((sat_status[i] & 0x0F) == 0) {  // erste beiden bits: 0x03 ?
+            prns[i] = 0;
         }
     }
 }
@@ -806,21 +810,24 @@ int get_pseudorange() {
     ui32_t gpstime;
     ui8_t gpstime_bytes[4];
     ui8_t pseudobytes[4];
-    unsigned byteval;
+    unsigned chipbytes;
     int i, j, k;
     ui8_t bytes[4];
     ui16_t byte16;
     double  pr0, prj;
 
+    // GPS-TOW in ms
     for (i = 0; i < 4; i++) {
         gpstime_bytes[i] = framebyte(posGPS_TOW + i);
     }
-    memcpy(&gpstime, gpstime_bytes, 4);  // GPS-TOW in ms
+    memcpy(&gpstime, gpstime_bytes, 4);
 
+    // Sat Status
     for (i = 0; i < 12; i++) {
         sat_status[i] = framebyte(posGPS_STATUS + i);
     }
 
+    // PRN-Nummern
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 2; j++) {
             bytes[j] = frame[posGPS_PRN+2*i+j];
@@ -828,35 +835,39 @@ int get_pseudorange() {
         memcpy(&byte16, bytes, 2);
         prnbits_le(byte16, prn_le, i);
     }
-    prn12(prn_le, prns);  // PRN-Nummern
+    prn12(prn_le, prns);
 
 
+    // GPS Sat Positionen
     if (almanac) calc_satpos_alm(alm, gpstime/1000.0, sat);
     //if (ephem)   calc_satpos_rnx(eph, gpstime/1000.0, sat);
     if (ephem)   calc_satpos_rnx2(ephs, gpstime/1000.0, sat);
 
+
     k = 0;
     for (j = 0; j < 12; j++) {
 
-        for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+i]; }
-        memcpy(&byteval, pseudobytes, 4);
+        // Pseudorange/chips
+        for (i = 0; i < 4; i++) {
+            pseudobytes[i] = frame[posGPS_DATA+8*j+i];
+        }
+        memcpy(&chipbytes, pseudobytes, 4);
 
-        if ( byteval == 0x7FFFFFFF  ||  byteval == 0x55555555 ) {
+        //if ( (prns[j] == 0) && (sat_status[j] & 0x0F) )  prns[j] = 32;
+        range[prns[j]].tow = gpstime;
+        range[prns[j]].status = sat_status[j];
+
+        if ( chipbytes == 0x7FFFFFFF  ||  chipbytes == 0x55555555 ) {
              range[prns[j]].chips = 0;
-             range[prns[j]].status = frame[posGPS_STATUS+j];
              continue;
         }
         if (option_vergps != 8) {
-        if ( byteval >  0x10000000  &&  byteval <  0xF0000000 ) {
+        if ( chipbytes >  0x10000000  &&  chipbytes <  0xF0000000 ) {
              range[prns[j]].chips = 0;
-             range[prns[j]].status = frame[posGPS_STATUS+j];
              continue;
         }}
 
-        if ( (prns[j] == 0) && (sat_status[j] & 0x0F) )  prns[j] = 32;
-        range[prns[j]].chips = byteval;
-        range[prns[j]].tow = gpstime;
-        range[prns[j]].status = sat_status[j];
+        range[prns[j]].chips = chipbytes;
 /*
         for (i = 0; i < 4; i++) { pseudobytes[i] = frame[posGPS_DATA+8*j+4+i]; }
         memcpy(&byteval, pseudobytes, 4);
@@ -867,12 +878,13 @@ int get_pseudorange() {
             continue;
         }
 */
-        if ( dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000 )
+        if ( (prns[j] > 0) && (dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000) )
         {
             for (i = 0; i < k; i++) { if (prn[i] == prns[j]) break; }
             if (i == k  &&  prns[j] != exSat) {
-                if ( /* (range[prns[j]].status & 0xF0) &&*/ // Signalstaerke > 0 ?
-                    ((range[prns[j]].status & 0x0F) == 0xF) ) {
+                if ( ((range[prns[j]].status & 0x0F) == 0xF)
+                    /* && (range[prns[j]].status & 0xF0) */ // Signalstaerke > 0 ?
+                   ) {
                     prn[k] = prns[j];
                     k++;
                 }
@@ -1072,7 +1084,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
             for (j = 0; j < 12; j++) fprintf(stdout, "%2d ", prns[j]);
             fprintf(stdout, "\n");
             fprintf(stdout, "                                                                  status: ");
-            for (j = 0; j < 12; j++) fprintf(stdout, "%02X ", range[prns[j]].status);
+            for (j = 0; j < 12; j++) fprintf(stdout, "%02X ", sat_status[j]); //range[prns[j]].status
             fprintf(stdout, "\n");
         }
 
@@ -1292,9 +1304,9 @@ int main(int argc, char *argv[]) {
                         byte_count++;
                     }
                 }
-                byte_count = FRAMESTART;
                 header_found = 0;
-                print_frame(FRAME_LEN);
+                print_frame(byte_count);
+                byte_count = FRAMESTART;
 
             }
         }
