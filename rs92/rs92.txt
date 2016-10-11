@@ -53,28 +53,39 @@ FE 01 -> 405.10 MHz (Meppen 9 Uhr/Lindenberg)
 GPS TOW (gps time of week)
 (Receiver: Common Transmission Time vs Common Reception Time)
 
-0x4E:
-PRN
+0x4E..0x55: GPS PRN
 12*5 bit = 60 bit, auf 8 byte verteilt:
 little endian
 00000111 1122222x
 33333444 4455555x
 66666777 7788888x
 99999AAA AABBBBBx
+PRN-32, 6.bit:
+Entweder es ist die 3.PRN in dem Block und dann steht es im sonst nicht genutzten 16.bit x,
+oder wenn im 16-bit-Block noch eine weitere PRN folgt,
+dann ist diese entweder PRN-1 oder eine gerade PRN,
+so dass man im letzteren Fall das unterste Bit wieder loescht.
+Das Status-Byte sollte anzeigen, dass es sich davor tatsaechlich um PRN-32 handelt
+und nicht um einen Satelliten, der noch nicht gelockt ist.
 
-0x56..0x61: 12 byte STATUS
+0x56..0x61: 12 byte GPS STATUS
 
 0x62: 12*8 byte GPS DATA
-4 byte pseudochips, 3 byte doppler, 1 byte
+4 byte pseudochips; 3 byte delta_chips/385; 1 byte
 pseudochip-counter 32bit-fract, Faktor 2^(-10)=1/1024
 df = c/(chips/sec) / 2^10 = 299792.458/1023.0/1024.0 = 0.286183844 // c=299792458m/s, 1023000chips/s
 pseudorange[m] = - df[m/chips] * pseudochips[chips]
+delta(pseudochips, 1s) = delta_chips/385
+
 delta(pseudochips) = ca 25800 +/- d, 
 + sat kommt naeher
 - sat entfernt sich
 d.h. chip-counter zaehlt, wieviele chips im Intervall schon empfangen wurden;
 wenn sat sich entfernt, weniger chips.
 nach ca 14 min reset
+
+Geschwindigkeit kann aus 1sec-ECEF-Differenz von pseudochips und delta_chips/385
+errechnet werden.
 
 Bei GPS-Loesung ist DOP-Wert der Konstellation wichtig fuer die Genauigkeit.
 Bei almanac-Daten 500-1000m Fehler moeglich, rinex-ephemeris deutlich genauer.
