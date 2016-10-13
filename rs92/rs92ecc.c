@@ -110,6 +110,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     fileloaded = 0,
     option_vergps = 0,
     option_vel = 0,      // velocity
+    option_aux = 0,      // Aux/Ozon
     rawin = 0;
 double dop_limit = 9.9;
 
@@ -596,20 +597,20 @@ int get_Cal() {
     byte = framebyte(pos_CalData);
     calfr = byte;
 
-    if (option_verbose == 2) {
+    if (option_verbose == 4) {
         fprintf(stdout, "\n");
         fprintf(stdout, "[%5d] ", gpx.frnr);
         fprintf(stdout, "  0x%02x:", calfr);
     }
     for (i = 0; i < 16; i++) {
         byte = framebyte(pos_CalData+1+i);
-        if (option_verbose == 2) {
+        if (option_verbose == 4) {
             fprintf(stdout, " %02x", byte);
         }
     }
-    if (option_verbose) {
+    if (option_aux) {
         get_Aux();
-        if (option_verbose == 2) {
+        if (option_verbose == 4) {
             fprintf(stdout, "  #  ");
             for (i = 0; i < 8; i++) {
                 byte = framebyte(pos_AuxData+i);
@@ -641,7 +642,7 @@ int get_Cal() {
 /* ---------------------------------------------------------------------------------------------------- */
 
 
-#include "nav_gps.c"
+#include "nav_gps_vel.c"
 
 EPHEM_t alm[33];
 //EPHEM_t eph[33][24];
@@ -693,10 +694,10 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
 
 
 int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
-    double X, Y, Z;
+    double X, Y, Z, vX, vY, vZ;
     int j;
     int week;
-    double cl_corr;
+    double cl_corr, cl_drift;
 
     for (j = 1; j < 33; j++) {
         if (alm[j].prn > 0) {  // prn==j
@@ -707,10 +708,22 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
             else rollover = 0;
             week = alm[j].week - rollover;
 
-            GPS_SatellitePosition_Ephem(
-                week, t, alm[j],
-                &cl_corr, &X, &Y, &Z
-            );
+            if (option_vel == 2) {
+                GPS_SatellitePositionVelocity_Ephem(
+                    week, t, alm[j],
+                    &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
+                );
+                satp[alm[j].prn].clock_drift = cl_drift;
+                satp[alm[j].prn].vX = vX;
+                satp[alm[j].prn].vY = vY;
+                satp[alm[j].prn].vZ = vZ;
+            }
+            else {
+                GPS_SatellitePosition_Ephem(
+                    week, t, alm[j],
+                    &cl_corr, &X, &Y, &Z
+                );
+            }
 
             satp[alm[j].prn].X = X;
             satp[alm[j].prn].Y = Y;
@@ -724,10 +737,10 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
 }
 
 int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
-    double X, Y, Z;
+    double X, Y, Z, vX, vY, vZ;
     int j, i, ti;
     int week;
-    double cl_corr;
+    double cl_corr, cl_drift;
     double tdiff, td;
 
     for (j = 1; j < 33; j++) {
@@ -751,10 +764,22 @@ int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
             }
         }
 
-        GPS_SatellitePosition_Ephem(
-            week, t, eph[j][ti],
-            &cl_corr, &X, &Y, &Z
-        );
+        if (option_vel == 2) {
+            GPS_SatellitePositionVelocity_Ephem(
+                week, t, eph[j][ti],
+                &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
+            );
+            satp[eph[j][ti].prn].clock_drift = cl_drift;
+            satp[eph[j][ti].prn].vX = vX;
+            satp[eph[j][ti].prn].vY = vY;
+            satp[eph[j][ti].prn].vZ = vZ;
+        }
+        else {
+            GPS_SatellitePosition_Ephem(
+                week, t, eph[j][ti],
+                &cl_corr, &X, &Y, &Z
+            );
+        }
 
         satp[eph[j][ti].prn].X = X;
         satp[eph[j][ti].prn].Y = Y;
@@ -767,10 +792,10 @@ int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
 }
 
 int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
-    double X, Y, Z;
+    double X, Y, Z, vX, vY, vZ;
     int j;
     int week;
-    double cl_corr;
+    double cl_corr, cl_drift;
     double tdiff, td;
     int count, count0, satfound;
 
@@ -804,10 +829,22 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
 
         if ( satfound )
         {
-            GPS_SatellitePosition_Ephem(
-                week, t, eph[count0],
-                &cl_corr, &X, &Y, &Z
-            );
+            if (option_vel == 2) {
+                GPS_SatellitePositionVelocity_Ephem(
+                    week, t, eph[count0],
+                    &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
+                );
+                satp[j].clock_drift = cl_drift;
+                satp[j].vX = vX;
+                satp[j].vY = vY;
+                satp[j].vZ = vZ;
+            }
+            else {
+                GPS_SatellitePosition_Ephem(
+                    week, t, eph[count0],
+                    &cl_corr, &X, &Y, &Z
+                );
+            }
 
             satp[j].X = X;
             satp[j].Y = Y;
@@ -868,12 +905,12 @@ int get_pseudorange() {
     prn12(prn_le, prns);
 
 
-    // GPS Sat Positionen
+    // GPS Sat Pos (& Vel)
     if (almanac) calc_satpos_alm(  alm, gpstime/1000.0, sat);
     if (ephem)   calc_satpos_rnx2(ephs, gpstime/1000.0, sat);
 
-    // GPS Sat Positionen t -= 1s
-    if (option_vel) {
+    // GPS Sat Pos t -= 1s
+    if (option_vel == 1) {
         if (almanac) calc_satpos_alm(  alm, gpstime/1000.0-1, sat1s);
         if (ephem)   calc_satpos_rnx2(ephs, gpstime/1000.0-1, sat1s);
     }
@@ -935,7 +972,8 @@ int get_pseudorange() {
     for (j = 0; j < 12; j++) {    // 0x013FB0A4
         sat[prns[j]].pseudorange = /*0x01400000*/ - range[prns[j]].chips * df;
         sat1s[prns[j]].pseudorange = -(range[prns[j]].chips - range[prns[j]].deltachips/385.0)*df;
-                                   //+ sat[prn[j]].clock_corr - sat1s[prn[j]].clock_corr
+                                   //+ sat[prns[j]].clock_corr - sat1s[prns[j]].clock_corr
+        sat[prns[j]].pseudorate = - range[prns[j]].deltachips * df / 385.0;
     }
 
 
@@ -977,8 +1015,8 @@ int get_GPSkoord(int N) {
     double lat, lon, alt, rx_cl_bias;
     double vH, vD, vU;
     double lat1s, lon1s, alt1s;
-    double pos_ecef[3],
-           pos1s_ecef[3], vel_ecef[3];
+    double pos_ecef[3], pos1s_ecef[3],
+           vel_ecef[3], dvel_ecef[3];
     double gdop, gdop0 = 1000.0;
     double hdop, vdop, pdop;
     int i0, i1, i2, i3, j;
@@ -1054,7 +1092,7 @@ int get_GPSkoord(int N) {
             gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
         }
 
-        if (option_vel) {
+        if (option_vel == 1) {
             NAV_bancroft1(N, Sat_V, pos1s_ecef, &rx_cl_bias);
             for (j = 0; j < 3; j++) vel_ecef[j] = pos_ecef[j] - pos1s_ecef[j];
             get_GPSvel(lat, lon, vel_ecef, &vH, &vD, &vU);
@@ -1064,6 +1102,21 @@ int get_GPSkoord(int N) {
                 fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
                 fprintf(stdout, "\n");
             }
+        }
+        if (option_vel == 2) {
+              //fprintf(stdout, "\nP(%.1f,%.1f,%.1f) \n", pos_ecef[0], pos_ecef[1], pos_ecef[2]);
+            vel_ecef[0] = vel_ecef[1] = vel_ecef[2] = 0;
+            NAV_LinV(N, Sat_B, pos_ecef, vel_ecef, 0.0, dvel_ecef, &rx_cl_bias);
+            for (j=0; j<3; j++) vel_ecef[j] += dvel_ecef[j];
+              //fprintf(stdout, " V(%.1f,%.1f,%.1f) ", vel_ecef[0], vel_ecef[1], vel_ecef[2]);
+              //fprintf(stdout, " rx_vel_bias: %.1f \n", rx_cl_bias);
+            /* 2. Iteration:
+                NAV_LinV(N, Sat_B, pos_ecef, vel_ecef, rx_cl_bias, dvel_ecef, &rx_cl_bias);
+                for (j=0; j<3; j++) vel_ecef[j] += dvel_ecef[j];
+                //fprintf(stdout, " V(%.1f,%.1f,%.1f) ", vel_ecef[0], vel_ecef[1], vel_ecef[2]);
+                //fprintf(stdout, " rx_vel_bias: %.1f \n", rx_cl_bias);
+            */
+            get_GPSvel(lat, lon, vel_ecef, &vH, &vD, &vU);
         }
 
         if (option_vergps == 8) {
@@ -1167,10 +1220,10 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                     fprintf(stdout, " ");
                     if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                     else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                    if (option_vergps  &&  option_vergps >= 2) {
-                        if (option_vel) {
-                            fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
-                        }
+                    if (option_vel  &&  option_vergps >= 2) {
+                        fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
+                    }
+                    if (option_verbose  &&  option_vergps >= 2) {
                         if (option_vergps != 2) {
                             fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
                                            gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
@@ -1273,6 +1326,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "%s [options] <file>\n", fpname);
             fprintf(stderr, "  file: audio.wav or raw_data\n");
             fprintf(stderr, "  options:\n");
+            fprintf(stderr, "       --vel1, --vel2  (-g2)\n");
             fprintf(stderr, "       -v, -vx, -vv\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
@@ -1286,15 +1340,22 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       --rawin1,2  (raw_data file)\n");
             return 0;
         }
-        else if ( (strcmp(*argv, "-v") == 0) ) {
+        else if ( (strcmp(*argv, "--vel1") == 0) ) {
             option_vel = 1;
             if (option_vergps < 1) option_vergps = 2;
         }
-        else if ( (strcmp(*argv, "-vx") == 0) ) {
+        else if ( (strcmp(*argv, "--vel2") == 0) ) {
+            option_vel = 2;
+            if (option_vergps < 1) option_vergps = 2;
+        }
+        else if ( (strcmp(*argv, "-v") == 0) ) {
             option_verbose = 1;
         }
         else if ( (strcmp(*argv, "-vv") == 0) ) {
-            option_verbose = 2;
+            option_verbose = 4;
+        }
+        else if ( (strcmp(*argv, "-vx") == 0) ) {
+            option_aux = 1;
         }
         else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
