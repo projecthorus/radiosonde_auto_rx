@@ -16,7 +16,7 @@
 #define  SECONDS_IN_WEEK                 (604800.0)          // [s]
 #define  LIGHTSPEED                      (299792458.0)       // light speed constant defined in IS-GPS-200  [m/s]
 
-#define  RANGE_ESTIMATE_IN_SEC           (0.072)             // approx. GPS-Sat range 0.072s*299792458m/s=21585057m
+#define  RANGE_ESTIMATE                  (0.072)             // approx. GPS-Sat range 0.072s*299792458m/s=21585057m
 
 #define EARTH_a      (6378137.0)
 #define EARTH_b      (6356752.31424518)
@@ -107,7 +107,7 @@ typedef struct {
     double clock_corr;
     double X;
     double Y;
-    double Z;    
+    double Z;
     int ephhr;
     double PR;
     double ephtime;
@@ -476,7 +476,7 @@ void GPS_SatelliteClockCorrection(
     d_tr = RELATIVISTIC_CLOCK_CORRECTION * ecc * sqrta * sin(E); // [s]
     d_tr *= LIGHTSPEED;
 
-    // clock correcton 
+    // clock correction
     d_tsv = af0 + af1*tc + af2*tc*tc; // [s]
         
     // L1 only
@@ -486,7 +486,6 @@ void GPS_SatelliteClockCorrection(
     *clock_correction = d_tsv*LIGHTSPEED + d_tr; // [m]
 
 }
-
 
 void GPS_ComputeSatellitePosition( 
   const unsigned short transmission_gpsweek,  // GPS week when signal was transmit (0-1024+)                            [weeks]
@@ -613,7 +612,6 @@ void GPS_ComputeSatellitePosition(
 
 }
 
-
 void GPS_SatellitePosition_Ephem(
   const unsigned short gpsweek,      // gps week of signal transmission (0-1024+)            [week]
   const double         gpstow,       // time of week of signal transmission  (gpstow-psr/c)  [s]
@@ -664,7 +662,6 @@ void GPS_SatellitePosition_Ephem(
 
 }
 
-
 /* ---------------------------------------------------------------------------------------------------- */
 
 
@@ -688,10 +685,10 @@ int NAV_ClosedFormSolution_FromPseudorange(
     double x4, y4, z4;  // Sat4 ECEF
 
     // Erdrotation ECEF-ECI,  0.070s*299792458m/s=20985472m, 0.072s*299792458m/s=21585057m
-    rotZ(sats[0].X, sats[0].Y, sats[0].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x1, &y1, &z1);
-    rotZ(sats[1].X, sats[1].Y, sats[1].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x2, &y2, &z2);
-    rotZ(sats[2].X, sats[2].Y, sats[2].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x3, &y3, &z3);
-    rotZ(sats[3].X, sats[3].Y, sats[3].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, &x4, &y4, &z4);
+    rotZ(sats[0].X, sats[0].Y, sats[0].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, &x1, &y1, &z1);
+    rotZ(sats[1].X, sats[1].Y, sats[1].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, &x2, &y2, &z2);
+    rotZ(sats[2].X, sats[2].Y, sats[2].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, &x3, &y3, &z3);
+    rotZ(sats[3].X, sats[3].Y, sats[3].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, &x4, &y4, &z4);
 
 
     double x12, x13, x14; // 'xij' = 'xi' - 'xj' [m]
@@ -1084,7 +1081,7 @@ int NAV_bancroft1(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
     if (N < 4 || N > 12) return -1;
 
     for (i = 0; i < N; i++) {
-        rotZ(sats[i].X, sats[i].Y, sats[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, B[i], B[i]+1, B[i]+2);
+        rotZ(sats[i].X, sats[i].Y, sats[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, B[i], B[i]+1, B[i]+2);
         B[i][3] = sats[i].pseudorange + sats[i].clock_corr;
     }
 
@@ -1370,7 +1367,7 @@ int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
         X = Lsg2[0]; Y = Lsg2[1]; Z = Lsg2[2]; *cc = Lsg2[3];
     }
 
-    rotZ(X, Y, Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE_IN_SEC, pos_ecef, pos_ecef+1, pos_ecef+2);
+    rotZ(X, Y, Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, pos_ecef, pos_ecef+1, pos_ecef+2);
 
     return 0;
 }
