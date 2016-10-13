@@ -84,8 +84,10 @@ d.h. chip-counter zaehlt, wieviele chips im Intervall schon empfangen wurden;
 wenn sat sich entfernt, weniger chips.
 nach ca 14 min reset
 
-Geschwindigkeit kann aus 1sec-ECEF-Differenz von pseudochips und delta_chips/385
-errechnet werden.
+Geschwindigkeit kann aus delta_chips/385 errechnet werden:
+a) 1sec-ECEF-Differenz von pseudochips und delta_chips (braucht nur Sat-Positionen);
+b) delta_chips/Doppler als Relativgeschwindigkeiten mit gleicher "Design Matrix" wie fuer
+   Positions-Approximation, wobei V-Startwert (0,0,0) (braucht auch Sat-Geschwindigkeiten).
 
 Bei GPS-Loesung ist DOP-Wert der Konstellation wichtig fuer die Genauigkeit.
 Bei almanac-Daten 500-1000m Fehler moeglich, rinex-ephemeris deutlich genauer.
