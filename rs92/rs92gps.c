@@ -66,6 +66,7 @@ typedef struct {
     int sats[4];
     double dop;
     unsigned short aux[4];
+    double diter;
 } gpx_t;
 
 gpx_t gpx;
@@ -79,6 +80,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_b = 0,
     fileloaded = 0,
     option_vergps = 0,
+    option_iter = 0,
     option_vel = 0,      // velocity
     option_aux = 0,      // Aux/Ozon
     rawin = 0;
@@ -985,7 +987,7 @@ int get_GPSkoord(int N) {
     double lat, lon, alt, rx_cl_bias;
     double vH, vD, vU;
     double lat1s, lon1s, alt1s;
-    double pos_ecef[3], pos1s_ecef[3],
+    double pos_ecef[3], pos1s_ecef[3], dpos_ecef[3],
            vel_ecef[3], dvel_ecef[3];
     double gdop, gdop0 = 1000.0;
     double hdop, vdop, pdop;
@@ -994,7 +996,7 @@ int get_GPSkoord(int N) {
     int num = 0;
     SAT_t Sat_A[4];
     SAT_t Sat_B[12]; // N <= 12
-    SAT_t Sat_V[12];
+    SAT_t Sat_B1s[12];
 
     if (option_vergps == 8) {
         fprintf(stdout, "  sats: ");
@@ -1053,7 +1055,7 @@ int get_GPSkoord(int N) {
     if (option_vergps == 8  ||  option_vergps == 2) {
 
         for (j = 0; j < N; j++) Sat_B[j] = sat[prn[j]];
-        for (j = 0; j < N; j++) Sat_V[j] = sat1s[prn[j]];
+        for (j = 0; j < N; j++) Sat_B1s[j] = sat1s[prn[j]];
 
         NAV_bancroft1(N, Sat_B, pos_ecef, &rx_cl_bias);
         ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
@@ -1062,8 +1064,19 @@ int get_GPSkoord(int N) {
             gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
         }
 
+        if (option_iter) {
+            NAV_LinP(N, Sat_B, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+            for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
+            ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+            gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[0],dpos_ecef[0]);
+        }
+
         if (option_vel == 1) {
-            NAV_bancroft1(N, Sat_V, pos1s_ecef, &rx_cl_bias);
+            NAV_bancroft1(N, Sat_B1s, pos1s_ecef, &rx_cl_bias);
+            if (option_iter) {
+                NAV_LinP(N, Sat_B1s, pos1s_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+                for (j = 0; j < 3; j++) pos1s_ecef[j] += dpos_ecef[j];
+            }
             for (j = 0; j < 3; j++) vel_ecef[j] = pos_ecef[j] - pos1s_ecef[j];
             get_GPSvel(lat, lon, vel_ecef, &vH, &vD, &vU);
             ecef2elli(pos1s_ecef[0], pos1s_ecef[1], pos1s_ecef[2], &lat1s, &lon1s, &alt1s);
@@ -1154,8 +1167,13 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
             if (k >= 4) {
                 if (get_GPSkoord(k) > 0) {
                     fprintf(stdout, " ");
+
                     if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
                     else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+
+                    if (option_iter  && (option_vergps == 8  ||  option_vergps == 2)) {
+                        fprintf(stdout, " (d:%.1f) ", gpx.diter);
+                    }
                     if (option_vel  &&  option_vergps >= 2) {
                         fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
                     }
@@ -1265,6 +1283,9 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "--vel2") == 0) ) {
             option_vel = 2;
             if (option_vergps < 1) option_vergps = 2;
+        }
+        else if ( (strcmp(*argv, "--iter") == 0) ) {
+            option_iter = 1;
         }
         else if ( (strcmp(*argv, "-v") == 0) ) {
             option_verbose = 1;

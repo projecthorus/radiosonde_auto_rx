@@ -1708,8 +1708,8 @@ double NAV_relVel(LOC_t loc, VEL_t vel) {
     return d;
 }
 
-int NAV_LinP(int N, SAT_t satv[], double pos0_ecef[3], double dt,
-                    double pos_ecef[3], double *cc) {
+int NAV_LinP(int N, SAT_t satv[], double pos_ecef[3], double dt,
+                    double dpos_ecef[3], double *cc) {
 
     int i, j, k;
     double B[N][4], Binv[4][N], BtB[4][4], BBinv[4][4];
@@ -1717,17 +1717,21 @@ int NAV_LinP(int N, SAT_t satv[], double pos0_ecef[3], double dt,
 
     double X, Y, Z;
     double norm[N];
-    double obs_range, prox_range;
+    double range, obs_range, prox_range;
 
     if (N < 4 || N > 12) return -1;
 
     for (i = 0; i < N; i++) {
-        rotZ(satv[i].X, satv[i].Y, satv[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, B[i], B[i]+1, B[i]+2);
+
+        range = dist( pos_ecef[0], pos_ecef[3], pos_ecef[2], satv[i].X, satv[i].Y, satv[i].Z);
+        range /= LIGHTSPEED;
+        if (range < 0.06  ||  range > 0.1) range = RANGE_ESTIMATE;
+        rotZ(satv[i].X, satv[i].Y, satv[i].Z, EARTH_ROTATION_RATE*range, B[i], B[i]+1, B[i]+2);
         //rotZ(satv[i].X, satv[i].Y, satv[i].Z, 0.0, B[i], B[i]+1, B[i]+2); // est. RANGE_RATE = 0.0
 
-        X = B[i][0]-pos0_ecef[0];
-        Y = B[i][1]-pos0_ecef[1];
-        Z = B[i][2]-pos0_ecef[2];
+        X = B[i][0]-pos_ecef[0];
+        Y = B[i][1]-pos_ecef[1];
+        Z = B[i][2]-pos_ecef[2];
         norm[i] = sqrt(X*X+Y*Y+Z*Z);
 
         B[i][0] = X/norm[i];
@@ -1776,20 +1780,18 @@ int NAV_LinP(int N, SAT_t satv[], double pos0_ecef[3], double dt,
         }
     }
 
-    pos_ecef[0] = Ba[0];
-    pos_ecef[1] = Ba[1];
-    pos_ecef[2] = Ba[2];
+    dpos_ecef[0] = Ba[0];
+    dpos_ecef[1] = Ba[1];
+    dpos_ecef[2] = Ba[2];
     
-    //rotZ(Ba[0], Ba[1], Ba[2], 0.0/*EARTH_ROTATION_RATE*RANGE_ESTIMATE*/, pos_ecef, pos_ecef+1, pos_ecef+2);
-
     *cc = Ba[3];
 
     return 0;
 }
 
-int NAV_LinV(int N, SAT_t satv[], double pos0_ecef[3],
-                    double vel0_ecef[3],double dt,
-                    double vel_ecef[3], double *cc) {
+int NAV_LinV(int N, SAT_t satv[], double pos_ecef[3],
+                    double vel_ecef[3], double dt,
+                    double dvel_ecef[3], double *cc) {
 
     int i, j, k;
     double B[N][4], Binv[4][N], BtB[4][4], BBinv[4][4];
@@ -1804,9 +1806,9 @@ int NAV_LinV(int N, SAT_t satv[], double pos0_ecef[3],
 
     if (N < 4 || N > 12) return -1;
 
-    loc.X = pos0_ecef[0];
-    loc.Y = pos0_ecef[1];
-    loc.Z = pos0_ecef[2];
+    loc.X = pos_ecef[0];
+    loc.Y = pos_ecef[1];
+    loc.Z = pos_ecef[2];
 
     if (N < 4 || N > 12) return -1;
 
@@ -1814,9 +1816,9 @@ int NAV_LinV(int N, SAT_t satv[], double pos0_ecef[3],
         rotZ(satv[i].X, satv[i].Y, satv[i].Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, B[i], B[i]+1, B[i]+2);
         //rotZ(satv[i].X, satv[i].Y, satv[i].Z, 0.0, B[i], B[i]+1, B[i]+2); // est. RANGE_RATE = 0.0
 
-        X = B[i][0]-pos0_ecef[0];
-        Y = B[i][1]-pos0_ecef[1];
-        Z = B[i][2]-pos0_ecef[2];
+        X = B[i][0]-pos_ecef[0];
+        Y = B[i][1]-pos_ecef[1];
+        Z = B[i][2]-pos_ecef[2];
         norm[i] = sqrt(X*X+Y*Y+Z*Z);
         B[i][0] = X/norm[i];
         B[i][1] = Y/norm[i];
@@ -1858,9 +1860,9 @@ int NAV_LinV(int N, SAT_t satv[], double pos0_ecef[3],
         vel.X = satv[i].X;
         vel.Y = satv[i].Y;
         vel.Z = satv[i].Z;
-        vel.vX = satv[i].vX - vel0_ecef[0];
-        vel.vY = satv[i].vY - vel0_ecef[1];
-        vel.vZ = satv[i].vZ - vel0_ecef[2];
+        vel.vX = satv[i].vX - vel_ecef[0];
+        vel.vY = satv[i].vY - vel_ecef[1];
+        vel.vZ = satv[i].vZ - vel_ecef[2];
         v_proj = NAV_relVel(loc, vel);
         prox_rate = v_proj - dt;
         a[i] = prox_rate - obs_rate;
@@ -1873,12 +1875,10 @@ int NAV_LinV(int N, SAT_t satv[], double pos0_ecef[3],
         }
     }
 
-    vel_ecef[0] = Ba[0];
-    vel_ecef[1] = Ba[1];
-    vel_ecef[2] = Ba[2];
+    dvel_ecef[0] = Ba[0];
+    dvel_ecef[1] = Ba[1];
+    dvel_ecef[2] = Ba[2];
     
-    //rotZ(Ba[0], Ba[1], Ba[2], 0.0/*EARTH_ROTATION_RATE*RANGE_ESTIMATE*/, vel_ecef, vel_ecef+1, vel_ecef+2);
-
     *cc = Ba[3];
 
     return 0;
