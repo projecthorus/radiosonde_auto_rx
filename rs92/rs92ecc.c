@@ -1098,7 +1098,7 @@ int get_GPSkoord(int N) {
         }
 
         NAV_LinP(N, Sat_B, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
-        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[0],dpos_ecef[0]);
+        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
         if (gpx.diter > 10000) prn32toggle ^= 0x1;
         if (option_iter) {
             for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
