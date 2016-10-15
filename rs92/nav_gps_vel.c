@@ -1723,7 +1723,7 @@ int NAV_LinP(int N, SAT_t satv[], double pos_ecef[3], double dt,
 
     for (i = 0; i < N; i++) {
 
-        range = dist( pos_ecef[0], pos_ecef[3], pos_ecef[2], satv[i].X, satv[i].Y, satv[i].Z);
+        range = dist( pos_ecef[0], pos_ecef[1], pos_ecef[2], satv[i].X, satv[i].Y, satv[i].Z );
         range /= LIGHTSPEED;
         if (range < 0.06  ||  range > 0.1) range = RANGE_ESTIMATE;
         rotZ(satv[i].X, satv[i].Y, satv[i].Z, EARTH_ROTATION_RATE*range, B[i], B[i]+1, B[i]+2);
