@@ -637,6 +637,7 @@ int prnbits_le(ui16_t byte16, ui8_t bits[64], int block) {
 }
 ui8_t prns[12], // PRNs in data
       sat_status[12];
+int prn32toggle = 0x1;
 void prn12(ui8_t *prn_le, ui8_t prns[12]) {
     int i, j, d;
     for (i = 0; i < 12; i++) {
@@ -655,7 +656,9 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
             }
             else if ( (i % 3 != 2) && (prn_le[5*(i+1)] & 1) ) {  // Spalte 0,1
                 prns[i] = 32;                        // vorausgesetzt im Block folgt auf PRN-32
-                if (prns[i+1] > 1) prns[i+1] ^= 0x1; // entweder PRN-1 oder PRN-gerade
+                if (prns[i+1] > 1) {                 // entweder PRN-1 oder PRN-gerade
+                    prns[i+1] ^= prn32toggle;
+                }
             }
         }
         else if ((sat_status[i] & 0x0F) == 0) {  // erste beiden bits: 0x03 ?
@@ -1064,11 +1067,12 @@ int get_GPSkoord(int N) {
             gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
         }
 
+        NAV_LinP(N, Sat_B, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[0],dpos_ecef[0]);
+        if (gpx.diter > 10000) prn32toggle ^= 0x1;
         if (option_iter) {
-            NAV_LinP(N, Sat_B, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
             for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
             ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
-            gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[0],dpos_ecef[0]);
         }
 
         if (option_vel == 1) {
