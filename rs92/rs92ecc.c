@@ -20,7 +20,7 @@
 
 /*
     gcc rs92gps.c -lm -o rs92gps
-    (includes nav_gps.c)
+    (includes nav_gps_vel.c)
 
     examples:
 
@@ -94,6 +94,7 @@ typedef struct {
     double vH; double vD; double vU;
     int sats[4];
     double dop;
+    int freq;
     unsigned short aux[4];
     double diter;
 } gpx_t;
@@ -441,7 +442,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 #define posGPS_STATUS 0x56  // 12 byte
 #define posGPS_DATA   0x62  // 12*8 byte
 
-#define pos_MEAS      0x2C  // 24 byte
+#define pos_PTU       0x2C  // 24 byte
 #define pos_AuxData   0xC8  // 8 byte
 
 
@@ -452,6 +453,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 
 #define LEN_CFG (2*(BLOCK_CFG & 0xFF))
 #define LEN_GPS (2*(BLOCK_GPS & 0xFF))
+#define LEN_PTU (2*(BLOCK_PTU & 0xFF))
 
 
 int crc16(int start, int len) {
@@ -634,7 +636,8 @@ int get_Cal() {
         byte = freq_bytes[0] + (freq_bytes[1] << 8);
         //fprintf(stdout, ":%04x ", byte);
         freq = 400000 + 10*byte; // kHz;
-        fprintf(stdout, " : freq %d kHz", freq);
+        gpx.freq = freq;
+        fprintf(stdout, " : fq %d kHz", freq);
     }
 
     return 0;
@@ -713,7 +716,7 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
             else rollover = 0;
             week = alm[j].week - rollover;
 
-            if (option_vel == 2) {
+            if (option_vel >= 2) {
                 GPS_SatellitePositionVelocity_Ephem(
                     week, t, alm[j],
                     &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
@@ -769,7 +772,7 @@ int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
             }
         }
 
-        if (option_vel == 2) {
+        if (option_vel >= 2) {
             GPS_SatellitePositionVelocity_Ephem(
                 week, t, eph[j][ti],
                 &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
@@ -834,7 +837,7 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
 
         if ( satfound )
         {
-            if (option_vel == 2) {
+            if (option_vel >= 2) {
                 GPS_SatellitePositionVelocity_Ephem(
                     week, t, eph[count0],
                     &cl_corr, &cl_drift, &X, &Y, &Z, &vX, &vY, &vZ
@@ -1023,13 +1026,14 @@ int get_GPSkoord(int N) {
     double pos_ecef[3], pos1s_ecef[3], dpos_ecef[3],
            vel_ecef[3], dvel_ecef[3];
     double gdop, gdop0 = 1000.0;
-    double hdop, vdop, pdop;
+    //double hdop, vdop, pdop;
     int i0, i1, i2, i3, j;
     int nav_ret = 0;
     int num = 0;
     SAT_t Sat_A[4];
     SAT_t Sat_B[12]; // N <= 12
     SAT_t Sat_B1s[12];
+    double diter;
 
     if (option_vergps == 8) {
         fprintf(stdout, "  sats: ");
@@ -1053,19 +1057,36 @@ int get_GPSkoord(int N) {
             if (calc_DOPn(4, Sat_A, pos_ecef, DOP) == 0) {
                 gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
                 //fprintf(stdout, " DOP : %.1f ", gdop);
+
+                if ( option_vel == 4 ) {
+                    NAV_LinP(4, Sat_A, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+                    diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+                    for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
+                    ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+                    vel_ecef[0] = vel_ecef[1] = vel_ecef[2] = 0;
+                    NAV_LinV(4, Sat_A, pos_ecef, vel_ecef, 0.0, dvel_ecef, &rx_cl_bias);
+                    for (j=0; j<3; j++) vel_ecef[j] += dvel_ecef[j];
+                    NAV_LinV(4, Sat_A, pos_ecef, vel_ecef, rx_cl_bias, dvel_ecef, &rx_cl_bias);
+                    for (j=0; j<3; j++) vel_ecef[j] += dvel_ecef[j];
+                    get_GPSvel(lat, lon, vel_ecef, &vH, &vD, &vU);
+                }
                 if (option_vergps == 8) {
-                    //gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
-                    hdop = sqrt(DOP[0]+DOP[1]);
-                    vdop = sqrt(DOP[2]);
-                    pdop = sqrt(DOP[0]+DOP[1]+DOP[2]);
+                    // gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]); // s.o.
+                    //hdop = sqrt(DOP[0]+DOP[1]);
+                    //vdop = sqrt(DOP[2]);
+                    //pdop = sqrt(DOP[0]+DOP[1]+DOP[2]);
                     if (gdop < dop_limit) {
                         fprintf(stdout, "       ");
                         fprintf(stdout, "lat: %.5f , lon: %.5f , alt: %.1f ", lat, lon, alt);
+                        if ( option_vel ) {
+                            fprintf(stdout, " (d:%.1f) ", diter);
+                            fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
+                        }
                         fprintf(stdout, "  sats: ");
                         fprintf(stdout, "%02d %02d %02d %02d  ", prn[i0], prn[i1], prn[i2], prn[i3]);
                         fprintf(stdout, " GDOP : %.1f  ", gdop);
-                        fprintf(stdout, " HDOP: %.1f  VDOP: %.1f ", hdop, vdop);
-                        fprintf(stdout, " PDOP: %.1f  ", pdop);
+                        //fprintf(stdout, " HDOP: %.1f  VDOP: %.1f ", hdop, vdop);
+                        //fprintf(stdout, " PDOP: %.1f  ", pdop);
                         fprintf(stdout, "\n");
                     }
                 }
@@ -1079,6 +1100,12 @@ int get_GPSkoord(int N) {
                 gpx.dop = gdop;
                 gpx.sats[0] = prn[i0]; gpx.sats[1] = prn[i1]; gpx.sats[2] = prn[i2]; gpx.sats[3] = prn[i3];
                 gdop0 = gdop;
+
+                if (option_vel) {
+                    gpx.vH = vH;
+                    gpx.vD = vD;
+                    gpx.vU = vU;
+                }
             }
         }
 
@@ -1120,7 +1147,7 @@ int get_GPSkoord(int N) {
                 fprintf(stdout, "\n");
             }
         }
-        if (option_vel == 2) {
+        if (option_vel >= 2) {
               //fprintf(stdout, "\nP(%.1f,%.1f,%.1f) \n", pos_ecef[0], pos_ecef[1], pos_ecef[2]);
             vel_ecef[0] = vel_ecef[1] = vel_ecef[2] = 0;
             NAV_LinV(N, Sat_B, pos_ecef, vel_ecef, 0.0, dvel_ecef, &rx_cl_bias);
@@ -1138,7 +1165,10 @@ int get_GPSkoord(int N) {
 
         if (option_vergps == 8) {
             fprintf(stdout, "bancroft[%2d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
-            fprintf(stdout, " GDOP[");
+            if (option_vel) {
+                fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
+            }
+            fprintf(stdout, "  DOP[");
             for (j = 0; j < N; j++) {
                 fprintf(stdout, "%d", prn[j]);
                 if (j < N-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gdop);
@@ -1152,11 +1182,12 @@ int get_GPSkoord(int N) {
             gpx.h   = alt;
             gpx.dop = gdop;
             num = N;
-        }
-        if (option_vel) {
-            gpx.vH = vH;
-            gpx.vD = vD;
-            gpx.vU = vU;
+
+            if (option_vel) {
+                gpx.vH = vH;
+                gpx.vD = vD;
+                gpx.vU = vU;
+            }
         }
 
     }
@@ -1223,7 +1254,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
 
     if (!err2) {
         fprintf(stdout, "%s ", weekday[gpx.wday]);
-        fprintf(stdout, "%02d:%02d:%04.1f", gpx.std, gpx.min, gpx.sek);
+        fprintf(stdout, "%02d:%02d:%04.1f", gpx.std, gpx.min, gpx.sek);  // wenn sek >= 59.950, wird auf 60.0 gerundet
         /*
         fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
                 gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
@@ -1242,16 +1273,16 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                     if (option_iter  && (option_vergps == 8  ||  option_vergps == 2)) {
                         fprintf(stdout, " (d:%.1f) ", gpx.diter);
                     }
-                    if (option_vel  &&  option_vergps >= 2) {
+                    if (option_vel  /*&&  option_vergps >= 2*/) {
                         fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
                     }
-                    if (option_verbose  &&  option_vergps >= 2) {
+                    if (option_verbose) {
                         if (option_vergps != 2) {
-                            fprintf(stdout, " GDOP[%02d,%02d,%02d,%02d] %.1f",
+                            fprintf(stdout, " DOP[%02d,%02d,%02d,%02d] %.1f",
                                            gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
                         }
                         else {
-                            fprintf(stdout, " GDOP[");
+                            fprintf(stdout, " DOP[");
                             for (j = 0; j < k; j++) {
                                 fprintf(stdout, "%d", prn[j]);
                                 if (j < k-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
@@ -1348,7 +1379,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "%s [options] <file>\n", fpname);
             fprintf(stderr, "  file: audio.wav or raw_data\n");
             fprintf(stderr, "  options:\n");
-            fprintf(stderr, "       --vel1, --vel2  (-g2)\n");
+            fprintf(stderr, "       --vel; --vel1, --vel2 (-g2)\n");
             fprintf(stderr, "       -v, -vx, -vv\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
@@ -1361,6 +1392,9 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       --ecc       (Reed-Solomon)\n");
             fprintf(stderr, "       --rawin1,2  (raw_data file)\n");
             return 0;
+        }
+        else if ( (strcmp(*argv, "--vel") == 0) ) {
+            option_vel = 4;
         }
         else if ( (strcmp(*argv, "--vel1") == 0) ) {
             option_vel = 1;
