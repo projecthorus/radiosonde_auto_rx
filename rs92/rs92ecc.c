@@ -986,6 +986,9 @@ int get_pseudorange() {
         sat1s[prns[j]].pseudorange = -(range[prns[j]].chips - range[prns[j]].deltachips/dl)*df;
                                    //+ sat[prns[j]].clock_corr - sat1s[prns[j]].clock_corr
         sat[prns[j]].pseudorate = - range[prns[j]].deltachips * df / dl;
+
+        sat[prns[j]].prn = prns[j];
+        sat1s[prns[j]].prn = prns[j];
     }
 
 
@@ -1026,18 +1029,21 @@ double DOP[4];
 int get_GPSkoord(int N) {
     double lat, lon, alt, rx_cl_bias;
     double vH, vD, vU;
-    double lat1s, lon1s, alt1s;
+    double lat1s, lon1s, alt1s,
+           lat0 , lon0 , alt0 , pos0_ecef[3];
     double pos_ecef[3], pos1s_ecef[3], dpos_ecef[3],
            vel_ecef[3], dvel_ecef[3];
     double gdop, gdop0 = 1000.0;
     //double hdop, vdop, pdop;
-    int i0, i1, i2, i3, j;
+    int i0, i1, i2, i3, j, k, n;
     int nav_ret = 0;
     int num = 0;
     SAT_t Sat_A[4];
     SAT_t Sat_B[12]; // N <= 12
     SAT_t Sat_B1s[12];
+    SAT_t Sat_C[12]; // 11
     double diter;
+    int exN = -1;
 
     if (option_vergps == 8) {
         fprintf(stdout, "  sats: ");
@@ -1097,7 +1103,7 @@ int get_GPSkoord(int N) {
             }
             else gdop = -1;
 
-            if (gdop > 0 && gdop < gdop0) {
+            if (gdop > 0 && gdop < gdop0) {  // wenn fehlerhafter Sat, diter wohl besserer Indikator
                 gpx.lat = lat;
                 gpx.lon = lon;
                 gpx.h   = alt;
@@ -1129,11 +1135,52 @@ int get_GPSkoord(int N) {
         }
 
         NAV_LinP(N, Sat_B, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
-        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
-        if (gpx.diter > 10000) prn32toggle ^= 0x1;
         if (option_iter) {
             for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
             ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
+        }
+        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+
+        // Sat mit schlechten Daten suchen
+        if (gpx.diter > 10000) {
+            if (N > 5) {  // 5; 4 kann auch funktionieren
+                for (n = 0; n < N; n++) {
+                    k = 0;
+                    for (j = 0; j < N; j++) {
+                        if (j != n) {
+                            Sat_C[k] = Sat_B[j];
+                            k++;
+                        }
+                    }
+                    for (j = 0; j < 3; j++) pos0_ecef[j] = 0;
+                    NAV_bancroft1(N-1, Sat_C, pos0_ecef, &rx_cl_bias);
+                    NAV_LinP(N-1, Sat_C, pos0_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+                    diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+                    ecef2elli(pos0_ecef[0], pos0_ecef[1], pos0_ecef[2], &lat0, &lon0, &alt0);
+                    if (diter < gpx.diter) {
+                        gpx.diter = diter;
+                        for (j = 0; j < 3; j++) pos_ecef[j] = pos0_ecef[j];
+                        lat = lat0;
+                        lon = lon0;
+                        alt = alt0;
+                        exN = n;
+                    }
+                }
+                if (exN >= 0) {
+                    for (k = exN; k < N-1; k++) {
+                        Sat_B[k] = Sat_B[k+1];
+                        prn[k] = prn[k+1];
+                        if (option_vel == 1) {
+                            Sat_B1s[k] = Sat_B1s[k+1];
+                        }
+                    }
+                    N = N-1;
+                    if (calc_DOPn(N, Sat_B, pos_ecef, DOP) == 0) {
+                        gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
+                    }
+                }
+            }
+            if (exN < 0  ||  prn[exN-1] == 32)  prn32toggle ^= 0x1;
         }
 
         if (option_vel == 1) {
@@ -1238,7 +1285,7 @@ int rs92_ecc(int msglen) {
 /* ------------------------------------------------------------------------------------ */
 
 int print_position() {  // GPS-Hoehe ueber Ellipsoid
-    int j, k;
+    int j, k, n;
     int err1, err2;
 
     err1 = 0;
@@ -1268,7 +1315,8 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if (almanac || ephem) {
             k = get_pseudorange();
             if (k >= 4) {
-                if (get_GPSkoord(k) > 0) {
+                n = get_GPSkoord(k);
+                if (n > 0) {
                     fprintf(stdout, " ");
 
                     if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
@@ -1287,9 +1335,9 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                         }
                         else {
                             fprintf(stdout, " DOP[");
-                            for (j = 0; j < k; j++) {
+                            for (j = 0; j < n; j++) {
                                 fprintf(stdout, "%d", prn[j]);
-                                if (j < k-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
+                                if (j < n-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
                             }
                         }
                     }

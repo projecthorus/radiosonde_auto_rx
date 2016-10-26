@@ -117,6 +117,7 @@ typedef struct {
     int ephhr;
     double PR;
     double ephtime;
+    int prn;
 } SAT_t;
 
 typedef struct {double X; double Y; double Z;} LOC_t;
