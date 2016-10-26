@@ -848,8 +848,12 @@ RANGE_t range[33];
 int prn[12];  // valide PRN 0,..,k-1
 
 
-// pseudo.range = -df*pseudo.chips , df = lightspeed/(chips/sec)/2^10
+// pseudo.range = -df*pseudo.chips
+//           df = lightspeed/(chips/sec)/2^10
 const double df = 299792.458/1023.0/1024.0; //0.286183844 // c=299792458m/s, 1023000chips/s
+//           dl = L1/(chips/sec)/4
+const double dl = 1575.42/1.023/4.0; //385.0 // GPS L1 1575.42MHz=154*10.23MHz, dl=154*10/4
+
 
 int get_pseudorange() {
     ui32_t gpstime;
@@ -949,9 +953,9 @@ int get_pseudorange() {
 
     for (j = 0; j < 12; j++) {    // 0x013FB0A4
         sat[prns[j]].pseudorange = /*0x01400000*/ - range[prns[j]].chips * df;
-        sat1s[prns[j]].pseudorange = -(range[prns[j]].chips - range[prns[j]].deltachips/385.0)*df;
+        sat1s[prns[j]].pseudorange = -(range[prns[j]].chips - range[prns[j]].deltachips/dl)*df;
                                    //+ sat[prns[j]].clock_corr - sat1s[prns[j]].clock_corr
-        sat[prns[j]].pseudorate = - range[prns[j]].deltachips * df / 385.0;
+        sat[prns[j]].pseudorate = - range[prns[j]].deltachips * df / dl;
     }
 
 

@@ -75,7 +75,8 @@ und nicht um einen Satelliten, der noch nicht gelockt ist.
 pseudochip-counter 32bit-fract, Faktor 2^(-10)=1/1024
 df = c/(chips/sec) / 2^10 = 299792.458/1023.0/1024.0 = 0.286183844 // c=299792458m/s, 1023000chips/s
 pseudorange[m] = - df[m/chips] * pseudochips[chips]
-delta(pseudochips, 1s) = delta_chips/385
+dl = L1/(chips/sec)/4 = 1575.42/1.023/4.0; //385.0 // GPS L1 1575.42MHz=154*10.23MHz, dl=154*10/4
+delta(pseudochips, 1s) = delta_chips/dl
 
 delta(pseudochips) = ca 25800 +/- d, 
 + sat kommt naeher
