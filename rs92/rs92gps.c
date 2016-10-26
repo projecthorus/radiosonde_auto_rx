@@ -1150,7 +1150,7 @@ int get_GPSkoord(int N) {
                     }
                 }
             }
-            if (exN < 0  ||  prn[exN-1] == 32)  prn32toggle ^= 0x1;
+            if (exN < 0  ||  (exN > 0 && prn[exN-1] == 32))  prn32toggle ^= 0x1;
         }
 
         if (option_vel == 1) {
