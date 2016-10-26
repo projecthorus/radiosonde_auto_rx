@@ -1038,11 +1038,11 @@ int get_GPSkoord(int N) {
                 gdop = sqrt(DOP[0]+DOP[1]+DOP[2]+DOP[3]);
                 //fprintf(stdout, " DOP : %.1f ", gdop);
 
+                NAV_LinP(4, Sat_A, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
+                diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+                for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
+                ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
                 if ( option_vel == 4 ) {
-                    NAV_LinP(4, Sat_A, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
-                    diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
-                    for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
-                    ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
                     vel_ecef[0] = vel_ecef[1] = vel_ecef[2] = 0;
                     NAV_LinV(4, Sat_A, pos_ecef, vel_ecef, 0.0, dvel_ecef, &rx_cl_bias);
                     for (j=0; j<3; j++) vel_ecef[j] += dvel_ecef[j];
@@ -1058,8 +1058,8 @@ int get_GPSkoord(int N) {
                     if (gdop < dop_limit) {
                         fprintf(stdout, "       ");
                         fprintf(stdout, "lat: %.5f , lon: %.5f , alt: %.1f ", lat, lon, alt);
-                        if ( option_vel ) {
-                            fprintf(stdout, " (d:%.1f) ", diter);
+                        fprintf(stdout, " (d:%.1f) ", diter);
+                        if ( option_vel == 4 ) {
                             fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
                         }
                         fprintf(stdout, "  sats: ");
@@ -1078,10 +1078,11 @@ int get_GPSkoord(int N) {
                 gpx.lon = lon;
                 gpx.h   = alt;
                 gpx.dop = gdop;
+                gpx.diter = diter;
                 gpx.sats[0] = prn[i0]; gpx.sats[1] = prn[i1]; gpx.sats[2] = prn[i2]; gpx.sats[3] = prn[i3];
                 gdop0 = gdop;
 
-                if (option_vel) {
+                if (option_vel == 4) {
                     gpx.vH = vH;
                     gpx.vD = vD;
                     gpx.vU = vU;
@@ -1112,7 +1113,7 @@ int get_GPSkoord(int N) {
         gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
 
         // Sat mit schlechten Daten suchen
-        if (gpx.diter > 10000) {
+        if (gpx.diter > 4000) {
             if (N > 5) {  // 5; 4 kann auch funktionieren
                 for (n = 0; n < N; n++) {
                     k = 0;
