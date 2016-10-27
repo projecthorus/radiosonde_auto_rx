@@ -1088,9 +1088,9 @@ int get_GPSkoord(int N) {
                     if (gdop < dop_limit) {
                         fprintf(stdout, "       ");
                         fprintf(stdout, "lat: %.5f , lon: %.5f , alt: %.1f ", lat, lon, alt);
-                        fprintf(stdout, " (d:%.1f) ", diter);
+                        fprintf(stdout, " (d:%.1f)", diter);
                         if ( option_vel == 4 ) {
-                            fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
+                            fprintf(stdout, "  vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
                         }
                         fprintf(stdout, "  sats: ");
                         fprintf(stdout, "%02d %02d %02d %02d  ", prn[i0], prn[i1], prn[i2], prn[i3]);
@@ -1217,8 +1217,9 @@ int get_GPSkoord(int N) {
 
         if (option_vergps == 8) {
             fprintf(stdout, "bancroft[%2d] lat: %.6f , lon: %.6f , alt: %.2f ", N, lat, lon, alt);
+            fprintf(stdout, " (d:%.1f)", gpx.diter);
             if (option_vel) {
-                fprintf(stdout, " vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
+                fprintf(stdout, "  vH: %4.1f  D: %5.1f°  vV: %3.1f ", vH, vD, vU);
             }
             fprintf(stdout, "  DOP[");
             for (j = 0; j < N; j++) {
@@ -1286,7 +1287,7 @@ int rs92_ecc(int msglen) {
 /* ------------------------------------------------------------------------------------ */
 
 int print_position() {  // GPS-Hoehe ueber Ellipsoid
-    int j, k, n;
+    int j, k, n = 0;
     int err1, err2;
 
     err1 = 0;
@@ -1297,6 +1298,13 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
     err2  = err1 | err_gps;
   //err2 |= get_GPSweek();
     err2 |= get_GPStime();
+
+    if (almanac || ephem) {
+        k = get_pseudorange();
+        if (k >= 4) {
+            n = get_GPSkoord(k);
+        }
+    }
 
     if (!err1) {
         //Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
@@ -1313,34 +1321,28 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
         */
 
-        if (almanac || ephem) {
-            k = get_pseudorange();
-            if (k >= 4) {
-                n = get_GPSkoord(k);
-                if (n > 0) {
-                    fprintf(stdout, " ");
+        if (n > 0) {
+            fprintf(stdout, " ");
 
-                    if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-                    else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+            if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+            else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
 
-                    if (option_iter  && (option_vergps == 8  ||  option_vergps == 2)) {
-                        fprintf(stdout, " (d:%.1f) ", gpx.diter);
-                    }
-                    if (option_vel  /*&&  option_vergps >= 2*/) {
-                        fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
-                    }
-                    if (option_verbose) {
-                        if (option_vergps != 2) {
-                            fprintf(stdout, " DOP[%02d,%02d,%02d,%02d] %.1f",
-                                           gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
-                        }
-                        else {
-                            fprintf(stdout, " DOP[");
-                            for (j = 0; j < n; j++) {
-                                fprintf(stdout, "%d", prn[j]);
-                                if (j < n-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
-                            }
-                        }
+            if (option_verbose  &&  option_vergps != 8) {
+                fprintf(stdout, " (d:%.1f)", gpx.diter);
+            }
+            if (option_vel  /*&&  option_vergps >= 2*/) {
+                fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
+            }
+            if (option_verbose) {
+                if (option_vergps != 2) {
+                    fprintf(stdout, " DOP[%02d,%02d,%02d,%02d] %.1f",
+                                   gpx.sats[0], gpx.sats[1], gpx.sats[2], gpx.sats[3], gpx.dop);
+                }
+                else {  // wenn option_vergps=2, dann n=N=k(-1)
+                    fprintf(stdout, " DOP[");
+                    for (j = 0; j < n; j++) {
+                        fprintf(stdout, "%d", prn[j]);
+                        if (j < n-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
                     }
                 }
             }
