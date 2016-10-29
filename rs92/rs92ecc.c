@@ -90,7 +90,7 @@ typedef struct {
     int jahr; int monat; int tag;
     int wday;
     int std; int min; float sek;
-    double lat; double lon; double h;
+    double lat; double lon; double alt;
     double vH; double vD; double vU;
     int sats[4];
     double dop;
@@ -114,8 +114,10 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_iter = 0,
     option_vel = 0,      // velocity
     option_aux = 0,      // Aux/Ozon
+    option_der = 0,      // linErr
     rawin = 0;
 double dop_limit = 9.9;
+double d_err = 10000;
 
 int rollover = 0,
     err_gps = 0;
@@ -1051,7 +1053,7 @@ int get_GPSkoord(int N) {
         fprintf(stdout, "\n");
     }
 
-    gpx.lat = gpx.lon = gpx.h = 0;
+    gpx.lat = gpx.lon = gpx.alt = 0;
 
     if (option_vergps != 2) {
     for (i0=0;i0<N;i0++) { for (i1=i0+1;i1<N;i1++) { for (i2=i1+1;i2<N;i2++) { for (i3=i2+1;i3<N;i3++) {
@@ -1106,7 +1108,7 @@ int get_GPSkoord(int N) {
             if (gdop > 0 && gdop < gdop0) {  // wenn fehlerhafter Sat, diter wohl besserer Indikator
                 gpx.lat = lat;
                 gpx.lon = lon;
-                gpx.h   = alt;
+                gpx.alt = alt;
                 gpx.dop = gdop;
                 gpx.diter = diter;
                 gpx.sats[0] = prn[i0]; gpx.sats[1] = prn[i1]; gpx.sats[2] = prn[i2]; gpx.sats[3] = prn[i3];
@@ -1143,7 +1145,7 @@ int get_GPSkoord(int N) {
         gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
 
         // Sat mit schlechten Daten suchen
-        if (gpx.diter > 4000) {
+        if (gpx.diter > d_err) {
             if (N > 5) {  // 5; 4 kann auch funktionieren
                 for (n = 0; n < N; n++) {
                     k = 0;
@@ -1232,7 +1234,7 @@ int get_GPSkoord(int N) {
         if (option_vergps == 2) {
             gpx.lat = lat;
             gpx.lon = lon;
-            gpx.h   = alt;
+            gpx.alt = alt;
             gpx.dop = gdop;
             num = N;
 
@@ -1324,8 +1326,8 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
         if (n > 0) {
             fprintf(stdout, " ");
 
-            if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
-            else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.h);
+            if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.alt);
+            else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.alt);
 
             if (option_verbose  &&  option_vergps != 8) {
                 fprintf(stdout, " (d:%.1f)", gpx.diter);
@@ -1496,11 +1498,20 @@ int main(int argc, char *argv[]) {
             }
             else return -1;
         }
+        else if ( (strcmp(*argv, "--der") == 0) ) {
+            ++argv;
+            if (*argv) {
+                d_err = atof(*argv);
+                if (d_err <= 0  || d_err >= 100000)  d_err = 10000;
+                else option_der = 1;
+            }
+            else return -1;
+        }
         else if ( (strcmp(*argv, "--exsat") == 0) ) {
             ++argv;
             if (*argv) {
                 exSat = atoi(*argv);
-                if (exSat < 1  || exSat > 32)  return -1;
+                if (exSat < 1  || exSat > 32)  exSat = -1;
             }
             else return -1;
         }
@@ -1533,6 +1544,7 @@ int main(int argc, char *argv[]) {
             almanac = 1;
         }
         fclose(fp_alm);
+        if (!option_der) d_err = 4000;
     }
     if (fp_eph) {
         /* i = read_RNXephemeris(fp_eph, eph);
@@ -1547,6 +1559,7 @@ int main(int argc, char *argv[]) {
             almanac = 0;
         }
         fclose(fp_eph);
+        if (!option_der) d_err = 1000;
     }
 
 
