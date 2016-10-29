@@ -62,7 +62,7 @@ typedef struct {
     int jahr; int monat; int tag;
     int wday;
     int std; int min; int sek;
-    double lat; double lon; double h;
+    double lat; double lon; double alt;
     double vN; double vE; double vU;
     double vH; double vD; double vD2;
 } gpx_t;
@@ -572,7 +572,7 @@ double a = EARTH_a,
        e2  = EARTH_a2_b2 / (EARTH_a*EARTH_a),
        ee2 = EARTH_a2_b2 / (EARTH_b*EARTH_b);
 
-void ecef2elli(double X[], double *lat, double *lon, double *h) {
+void ecef2elli(double X[], double *lat, double *lon, double *alt) {
     double phi, lam, R, p, t;
 
     lam = atan2( X[1] , X[0] );
@@ -584,7 +584,7 @@ void ecef2elli(double X[], double *lat, double *lon, double *h) {
                  p - e2 * a * cos(t)*cos(t)*cos(t) );
 
     R = a / sqrt( 1 - e2*sin(phi)*sin(phi) );
-    *h = p / cos(phi) - R;
+    *alt = p / cos(phi) - R;
 
     *lat = phi*180/M_PI;
     *lon = lam*180/M_PI;
@@ -595,7 +595,7 @@ int get_GPSkoord() {
     unsigned byte;
     ui8_t XYZ_bytes[4];
     int XYZ; // 32bit
-    double X[3], lat, lon, h;
+    double X[3], lat, lon, alt;
     ui8_t gpsVel_bytes[2];
     short vel16; // 16bit
     double V[3], phi, lam, alpha, dir;
@@ -633,11 +633,11 @@ int get_GPSkoord() {
 
 
     // ECEF-Position
-    ecef2elli(X, &lat, &lon, &h);
+    ecef2elli(X, &lat, &lon, &alt);
     gpx.lat = lat;
     gpx.lon = lon;
-    gpx.h = h;
-    if ((h < -1000) || (h > 80000)) return -1;
+    gpx.alt = alt;
+    if ((alt < -1000) || (alt > 80000)) return -1;
 
 
     // ECEF-Velocities
@@ -829,7 +829,7 @@ int print_position() {
             fprintf(stdout, " ");
             fprintf(stdout, " lat: %.5f ", gpx.lat);
             fprintf(stdout, " lon: %.5f ", gpx.lon);
-            fprintf(stdout, " h: %.2f ", gpx.h);
+            fprintf(stdout, " alt: %.2f ", gpx.alt);
             //if (option_verbose)
             {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
