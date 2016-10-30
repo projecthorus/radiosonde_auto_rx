@@ -642,7 +642,8 @@ int prnbits_le(ui16_t byte16, ui8_t bits[64], int block) {
 }
 ui8_t prns[12], // PRNs in data
       sat_status[12];
-int prn32toggle = 0x1;
+int prn32toggle = 0x1,
+    prn32n;
 void prn12(ui8_t *prn_le, ui8_t prns[12]) {
     int i, j, d;
     for (i = 0; i < 12; i++) {
@@ -653,16 +654,26 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
           d <<= 1;
         }
     }
+    prn32n = 32;
     for (i = 0; i < 12; i++) {
         // PRN-32 overflow
         if ( (prns[i] == 0) && (sat_status[i] & 0x0F) ) {  // 5 bit: 0..31
             if ( (i % 3 == 2) && (prn_le[60+i/3] & 1) ) {  // Spalte 2
-                prns[i] = 32;
+                prns[i] = 32; prn32n = i;
             }
             else if ( (i % 3 != 2) && (prn_le[5*(i+1)] & 1) ) {  // Spalte 0,1
-                prns[i] = 32;                        // vorausgesetzt im Block folgt auf PRN-32
+                prns[i] = 32; prn32n = i;            // vorausgesetzt im Block folgt auf PRN-32
                 if (prns[i+1] > 1) {                 // entweder PRN-1 oder PRN-gerade
+                    for (j = 0; j < i; j++) {
+                        if (prns[j] == (prns[i+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
+                    }
+                    if (j < i && (sat_status[i+1] & 0x0F)) prn32toggle ^= 0x1;
                     prns[i+1] ^= prn32toggle;
+                    /*
+                      // nochmal testen
+                      for (j = 0; j < i; j++) { if (prns[j] == prns[i+1]) break; }
+                      if (j < i) prns[i+1] = 0;
+                    */
                 }
             }
         }
@@ -1153,7 +1164,9 @@ int get_GPSkoord(int N) {
                     }
                 }
             }
-            if (exN < 0  ||  (exN > 0 && prn[exN-1] == 32))  prn32toggle ^= 0x1;
+            if (exN < 0  ||  (exN > 0 && prn[exN-1] == 32)) {
+                if (prn32n < 12  &&  (prn32n % 3 != 2)) prn32toggle ^= 0x1;
+            }
         }
 
         if (option_vel == 1) {
