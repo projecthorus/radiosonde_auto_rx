@@ -23,7 +23,7 @@ typedef struct {
     int jahr; int monat; int tag;
     int wday;
     int std; int min; int sek;
-    double lat; double lon; double h;
+    double lat; double lon; double alt;
     double vH; double vD; double vV;
     double vx; double vy; double vD2;
     char SN[12];
@@ -385,7 +385,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define pos_GPSTOW     0x0A  // 4 byte
 #define pos_GPSlat     0x0E  // 4 byte
 #define pos_GPSlon     0x12  // 4 byte
-#define pos_GPSheight  0x16  // 4 byte
+#define pos_GPSalt     0x16  // 4 byte
 #define pos_GPSweek    0x20  // 2 byte
 //Velocity East-North-Up (ENU)
 #define pos_GPSvO  0x04  // 2 byte
@@ -410,7 +410,7 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 #define col_GPSdate    "\x1b[38;5;94m" //111
 #define col_GPSlat     "\x1b[38;5;34m"  // 4 byte
 #define col_GPSlon     "\x1b[38;5;70m"  // 4 byte
-#define col_GPSheight  "\x1b[38;5;82m"  // 4 byte
+#define col_GPSalt     "\x1b[38;5;82m"  // 4 byte
 #define col_GPSvel     "\x1b[38;5;36m"  // 6 byte
 #define col_SN         "\x1b[38;5;58m"  // 3 byte
 #define col_Check      "\x1b[38;5;11m"  // 2 byte
@@ -524,24 +524,24 @@ int get_GPSlon() {
     return 0;
 }
 
-int get_GPSheight() {
+int get_GPSalt() {
     int i;
     unsigned byte;
-    ui8_t gpsheight_bytes[4];
-    int gpsheight;
-    double height;
+    ui8_t gpsalt_bytes[4];
+    int gpsalt;
+    double alt;
 
     for (i = 0; i < 4; i++) {
-        byte = frame_bytes[pos_GPSheight + i];
-        gpsheight_bytes[i] = byte;
+        byte = frame_bytes[pos_GPSalt + i];
+        gpsalt_bytes[i] = byte;
     }
 
-    gpsheight = 0;
+    gpsalt = 0;
     for (i = 0; i < 4; i++) {
-        gpsheight |= gpsheight_bytes[i] << (8*(3-i));
+        gpsalt |= gpsalt_bytes[i] << (8*(3-i));
     }
-    height = gpsheight / 1000.0;
-    datum.h = height;
+    alt = gpsalt / 1000.0;
+    datum.alt = alt;
 
     return 0;
 }
@@ -552,20 +552,21 @@ int get_GPSvel() {
     ui8_t gpsVel_bytes[2];
     short vel16;
     double vx, vy, dir, alpha;
+    const double ms2kts100 = 2e2;  // 1m/s = 3.6/1.852 kts = 1.94 kts
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvO + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vx = vel16 / 2e2; // ost
+    vx = vel16 / ms2kts100; // ost
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvN + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vy= vel16 / 2e2; // nord
+    vy= vel16 / ms2kts100; // nord
 
     datum.vx = vx;
     datum.vy = vy;
@@ -585,7 +586,7 @@ int get_GPSvel() {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    datum.vV = vel16 / 2e2;
+    datum.vV = vel16 / ms2kts100;
 
     return 0;
 }
@@ -681,7 +682,7 @@ int print_pos(int csOK) {
     err |= get_GPStime();
     err |= get_GPSlat();
     err |= get_GPSlon();
-    err |= get_GPSheight();
+    err |= get_GPSalt();
 
     if (!err) {
 
@@ -695,7 +696,7 @@ int print_pos(int csOK) {
                    datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
-            printf(" h: "col_GPSheight"%.2f"col_TXT" ", datum.h);
+            printf(" alt: "col_GPSalt"%.2f"col_TXT" ", datum.alt);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
@@ -721,7 +722,7 @@ int print_pos(int csOK) {
                     datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: %.6f ", datum.lat);
             printf(" lon: %.6f ", datum.lon);
-            printf(" h: %.2f ", datum.h);
+            printf(" alt: %.2f ", datum.alt);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
@@ -766,14 +767,14 @@ void print_frame(int pos) {
             fprintf(stdout, col_FRTXT);
             for (i = 0; i < FRAME_LEN-1; i++) {
                 byte = frame_bytes[i];
-                if ((i >= pos_GPSTOW)    && (i < pos_GPSTOW+4))    fprintf(stdout, col_GPSTOW);
-                if ((i >= pos_GPSlat)    && (i < pos_GPSlat+4))    fprintf(stdout, col_GPSlat);
-                if ((i >= pos_GPSlon)    && (i < pos_GPSlon+4))    fprintf(stdout, col_GPSlon);
-                if ((i >= pos_GPSheight) && (i < pos_GPSheight+4)) fprintf(stdout, col_GPSheight);
-                if ((i >= pos_GPSweek)   && (i < pos_GPSweek+2))   fprintf(stdout, col_GPSweek);
-                if ((i >= pos_GPSvO)     && (i < pos_GPSvO+6))     fprintf(stdout, col_GPSvel);
-                if ((i >= pos_SN)        && (i < pos_SN+5))        fprintf(stdout, col_SN);
-                if ((i >= pos_Check)     && (i < pos_Check+2))     fprintf(stdout, col_Check);
+                if ((i >= pos_GPSTOW)   &&  (i < pos_GPSTOW+4))   fprintf(stdout, col_GPSTOW);
+                if ((i >= pos_GPSlat)   &&  (i < pos_GPSlat+4))   fprintf(stdout, col_GPSlat);
+                if ((i >= pos_GPSlon)   &&  (i < pos_GPSlon+4))   fprintf(stdout, col_GPSlon);
+                if ((i >= pos_GPSalt)   &&  (i < pos_GPSalt+4))   fprintf(stdout, col_GPSalt);
+                if ((i >= pos_GPSweek)  &&  (i < pos_GPSweek+2))  fprintf(stdout, col_GPSweek);
+                if ((i >= pos_GPSvO)    &&  (i < pos_GPSvO+6))    fprintf(stdout, col_GPSvel);
+                if ((i >= pos_SN)       &&  (i < pos_SN+5))       fprintf(stdout, col_SN);
+                if ((i >= pos_Check)    &&  (i < pos_Check+2))    fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);
                 fprintf(stdout, col_FRTXT);
             }
