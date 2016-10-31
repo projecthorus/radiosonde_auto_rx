@@ -658,27 +658,41 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
     for (i = 0; i < 12; i++) {
         // PRN-32 overflow
         if ( (prns[i] == 0) && (sat_status[i] & 0x0F) ) {  // 5 bit: 0..31
-            if ( (i % 3 == 2) && (prn_le[60+i/3] & 1) ) {  // Spalte 2
+            if (  ((i % 3 == 2) && (prn_le[60+i/3] & 1))       // Spalte 2
+               || ((i % 3 != 2) && (prn_le[5*(i+1)] & 1)) ) {  // Spalte 0,1
                 prns[i] = 32; prn32n = i;
-            }
-            else if ( (i % 3 != 2) && (prn_le[5*(i+1)] & 1) ) {  // Spalte 0,1
-                prns[i] = 32; prn32n = i;            // vorausgesetzt im Block folgt auf PRN-32
-                if (prns[i+1] > 1) {                 // entweder PRN-1 oder PRN-gerade
-                    for (j = 0; j < i; j++) {
-                        if (prns[j] == (prns[i+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
-                    }
-                    if (j < i && (sat_status[i+1] & 0x0F)) prn32toggle ^= 0x1;
-                    prns[i+1] ^= prn32toggle;
-                    /*
-                      // nochmal testen
-                      for (j = 0; j < i; j++) { if (prns[j] == prns[i+1]) break; }
-                      if (j < i) prns[i+1] = 0;
-                    */
-                }
             }
         }
         else if ((sat_status[i] & 0x0F) == 0) {  // erste beiden bits: 0x03 ?
             prns[i] = 0;
+        }
+    }
+    if (prn32n < 12) {
+        if (prn32n % 3 != 2) { // -> prn32n<11                            // vorausgesetzt im Block folgt auf PRN-32
+            if ((sat_status[prn32n+1] & 0x0F)  &&  prns[prn32n+1] > 1) {  // entweder PRN-1 oder PRN-gerade
+
+                for (j = 0; j < prn32n; j++) {
+                    if (prns[j] == (prns[prn32n+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
+                }
+                if (j < prn32n) { prn32toggle ^= 0x1; }
+                else {
+                    for (j = prn32n+2; j < 12; j++) {
+                        if (prns[j] == (prns[prn32n+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
+                    }
+                    if (j < 12) { prn32toggle ^= 0x1; }
+                }
+                prns[prn32n+1] ^= prn32toggle;
+                /*
+                  // nochmal testen
+                  for (j = 0; j < prn32n; j++) { if (prns[j] == prns[prn32n+1]) break; }
+                  if (j < prn32n) prns[prn32n+1] = 0;
+                  else {
+                      for (j = prn32n+2; j < 12; j++) { if (prns[j] == prns[prn32n+1]) break; }
+                      if (j < 12) prns[prn32n+1] = 0;
+                  }
+                  if (prns[prn32n+1] == 0) { prn32toggle ^= 0x1; }
+                */
+            }
         }
     }
 }
@@ -948,13 +962,13 @@ int get_pseudorange() {
             continue;
         }
 */
-        if ( (prns[j] > 0) && (dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000) )
+        if (  (prns[j] > 0)  &&  ((sat_status[j] & 0x0F) == 0xF)
+           && (dist(sat[prns[j]].X, sat[prns[j]].Y, sat[prns[j]].Z, 0, 0, 0) > 6700000) )
         {
             for (i = 0; i < k; i++) { if (prn[i] == prns[j]) break; }
             if (i == k  &&  prns[j] != exSat) {
-                if ( ((range[prns[j]].status & 0x0F) == 0xF)
-                    /* && (range[prns[j]].status & 0xF0) */ // Signalstaerke > 0 ?
-                   ) {
+                //if ( range[prns[j]].status & 0xF0 )  // Signalstaerke > 0 ?
+                {
                     prn[k] = prns[j];
                     k++;
                 }
@@ -1127,7 +1141,7 @@ int get_GPSkoord(int N) {
 
         // Sat mit schlechten Daten suchen
         if (gpx.diter > d_err) {
-            if (N > 5) {  // 5; 4 kann auch funktionieren
+            if (N > 5) {  // N > 4 kann auch funktionieren
                 for (n = 0; n < N; n++) {
                     k = 0;
                     for (j = 0; j < N; j++) {
@@ -1250,7 +1264,7 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
   //err2 |= get_GPSweek();
     err2 |= get_GPStime();
 
-    if (almanac || ephem) {
+    if (!err2 && (almanac || ephem)) {
         k = get_pseudorange();
         if (k >= 4) {
             n = get_GPSkoord(k);
