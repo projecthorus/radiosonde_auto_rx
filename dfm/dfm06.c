@@ -35,7 +35,7 @@ typedef struct {
     int week; int gpssec;
     int jahr; int monat; int tag;
     int std; int min; float sek;
-    double lat; double lon; double h;
+    double lat; double lon; double alt;
     double dir; double horiV; double vertV;
 } gpx_t;
 
@@ -421,7 +421,7 @@ int dat_out(ui8_t *dat_bits) {
     // int jahr = 0, monat = 0, tag = 0, std = 0, min = 0;
     int frnr = 0;
     int msek = 0;
-    int lat = 0, lon = 0, height = 0;
+    int lat = 0, lon = 0, alt = 0;
     int nib;
     int dvv;  // signed/unsigned 16bit
 
@@ -463,8 +463,8 @@ int dat_out(ui8_t *dat_bits) {
     }
 
     if (fr_id == 4) {
-        height = bits2val(dat_bits, 32);
-        gpx.h = height/1e2;
+        alt = bits2val(dat_bits, 32);
+        gpx.alt = alt/1e2;
         dvv = (short)bits2val(dat_bits+32, 16);  // signed
         gpx.vertV = dvv/1e2;
     }
@@ -557,10 +557,10 @@ void print_gpx() {
           printf(" ");
           printf("lat: %.7f  ", gpx.lat);
           printf("lon: %.7f  ", gpx.lon);
-          printf("h: %.2f  ", gpx.h);
+          printf("alt: %.2f  ", gpx.alt);
           if (option_verbose) {
-              printf(" dir: %5.1f ", gpx.dir);
-              printf(" hV: %5.2f ", gpx.horiV);
+              printf(" vH: %5.2f ", gpx.horiV);
+              printf(" D: %5.1f ", gpx.dir);
               printf(" vV: %5.2f ", gpx.vertV);
               if (option_verbose == 2  &&  (gpx.sonde_typ & SNbit))
               {
@@ -669,8 +669,8 @@ int main(int argc, char **argv) {
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
-    setbuf(stdout, NULL);
 #endif
+    setbuf(stdout, NULL);
 
     fpname = argv[0];
     ++argv;
