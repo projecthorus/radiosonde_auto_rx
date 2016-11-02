@@ -31,7 +31,7 @@ typedef struct {
     //int jahr; int monat; int tag;
     int wday;
     int std; int min; int sek; int ms;
-    double lat; double lon; double h;
+    double lat; double lon; double alt;
     double vH; double vD; double vV;
     double vx; double vy; double vD2;
 } gpx_t;
@@ -313,8 +313,8 @@ int gpsLon(int lon) {
 }
 
 int gpsAlt(int alt) {
-    gpx.h = alt / 1000.0;
-    if (gpx.h < -200  ||  gpx.h > 50000) return 1;
+    gpx.alt = alt / 1000.0;
+    if (gpx.alt < -200  ||  gpx.alt > 50000) return 1;
     return 0;
 }
 
@@ -355,6 +355,7 @@ int get_GPSvel() {
     ui8_t gpsVel_bytes[2];
     short vel16;
     double vx, vy, dir, alpha;
+    const double ms2kn100 = 2e2;  // m/s -> knots: 1 m/s = 3.6/1.852 kn = 1.94 kn
 
     for (i = 0; i < 2; i++) {
         byte = frame[pos_GPSvO + i];
@@ -362,7 +363,7 @@ int get_GPSvel() {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
-    vx = vel16 / 2e2; // ost
+    vx = vel16 / ms2kn100; // ost
 
     for (i = 0; i < 2; i++) {
         byte = frame[pos_GPSvN + i];
@@ -370,7 +371,7 @@ int get_GPSvel() {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
-    vy= vel16 / 2e2; // nord
+    vy= vel16 / ms2kn100; // nord
 
     gpx.vx = vx;
     gpx.vy = vy;
@@ -391,7 +392,7 @@ int get_GPSvel() {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] | gpsVel_bytes[1] << 8;
-    gpx.vV = vel16 / 2e2;
+    gpx.vV = vel16 / ms2kn100;
 
     return 0;
 }
@@ -520,7 +521,7 @@ void print_frame(int len) {
             if ( !err3 ) {
                 fprintf(fp, " lat: %.6f ", gpx.lat);
                 fprintf(fp, " lon: %.6f ", gpx.lon);
-                fprintf(fp, " h: %.2f ", gpx.h);
+                fprintf(fp, " alt: %.2f ", gpx.alt);
                 if (option_verbose) {
                     err3 = get_GPSvel();
                     if (!err3) {
@@ -552,8 +553,8 @@ int bitl1 = 0,
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
-    setbuf(stdout, NULL);
 #endif
+    setbuf(stdout, NULL);
 
     fpname = argv[0];
     ++argv;
