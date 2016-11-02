@@ -20,7 +20,7 @@ print "      <altitudeMode>absolute</altitudeMode>\n";
 print "        <coordinates>\n";
 print "           ";
 while ($line = <$fh>) {
-    if ($line =~ /(\d\d:\d\d:\d\d).*\ lat:\ *(-?\d*\.\d*)\ +lon:\ *(-?\d*\.\d*)\ +alt:\ *(-?\d*\.\d*).*/) {
+    if ($line =~ /(\d\d:\d\d:\d\d).*\ +lat:\ *(-?\d*\.\d*)\ +lon:\ *(-?\d*\.\d*)\ +alt:\ *(-?\d*\.\d*).*/) {
         $hms = $1;
         $lat = $2;
         $lon = $3;
