@@ -61,7 +61,7 @@ typedef struct {
     int week; int gpssec;
     int jahr; int monat; int tag;
     int wday;
-    int std; int min; int sek;
+    int std; int min; float sek;
     double lat; double lon; double alt;
     double vN; double vE; double vU;
     double vH; double vD; double vD2;
@@ -523,7 +523,7 @@ int get_GPStime() {
     ui8_t gpstime_bytes[4];
     int gpstime = 0, // 32bit
         day;
-
+    int ms;
     int crclen;
     int crcdat;
     int crcpos = pos_Htow;
@@ -544,7 +544,7 @@ int get_GPStime() {
     }
 
     memcpy(&gpstime, gpstime_bytes, 4);
-    //ms = gpstime % 1000;
+    ms = gpstime % 1000;
     gpstime /= 1000;
 
     gpx.gpssec = gpstime;
@@ -556,7 +556,7 @@ int get_GPStime() {
     gpx.wday = day;
     gpx.std = gpstime / 3600;
     gpx.min = (gpstime % 3600) / 60;
-    gpx.sek = gpstime % 60;
+    gpx.sek = gpstime % 60 + ms/1000.0;
 
     return 0;
 }
@@ -823,7 +823,7 @@ int print_position() {
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
-            fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
+            fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%06.3f",
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
             if (option_verbose == 3) fprintf(stdout, " (W %d)", gpx.week);
             fprintf(stdout, " ");
@@ -891,8 +891,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _fileno(stdin)
-    setbuf(stdout, NULL);
 #endif
+    setbuf(stdout, NULL);
 
     fpname = argv[0];
     ++argv;
