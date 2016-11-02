@@ -510,7 +510,7 @@ int get_GPStime() {
     ui8_t gpstime_bytes[4];
     int gpstime = 0, // 32bit
         day;
-    float ms;
+    int ms;
     int crc_frame, crc;
 
     // BLOCK_GPS == frame[posGPS_TOW-2 .. posGPS_TOW-1] ?
@@ -668,9 +668,10 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
         }
     }
     if (prn32n < 12) {
+        // PRN-32 overflow
         if (prn32n % 3 != 2) { // -> prn32n<11                            // vorausgesetzt im Block folgt auf PRN-32
             if ((sat_status[prn32n+1] & 0x0F)  &&  prns[prn32n+1] > 1) {  // entweder PRN-1 oder PRN-gerade
-
+                                            // &&  prns[prn32n+1] != 3 ?
                 for (j = 0; j < prn32n; j++) {
                     if (prns[j] == (prns[prn32n+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
                 }
@@ -1279,9 +1280,9 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
 
     if (!err2) {
         fprintf(stdout, "%s ", weekday[gpx.wday]);
-        fprintf(stdout, "%02d:%02d:%04.1f", gpx.std, gpx.min, gpx.sek);  // wenn sek >= 59.950, wird auf 60.0 gerundet
+        fprintf(stdout, "%02d:%02d:%06.3f", gpx.std, gpx.min, gpx.sek);
         /*
-        fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
+        fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%04.1f",  // %04.1f: wenn sek >= 59.950, wird auf 60.0 gerundet
                 gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
         if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
         */
@@ -1372,8 +1373,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef CYGWIN
     _setmode(_fileno(stdin), _O_BINARY);
-    setbuf(stdout, NULL);
 #endif
+    setbuf(stdout, NULL);
 
     fpname = argv[0];
     ++argv;
