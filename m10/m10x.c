@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#ifdef WIN
+#ifdef CYGWIN
   #include <fcntl.h>  // cygwin: _setmode()
   #include <io.h>
 #endif
@@ -552,21 +552,21 @@ int get_GPSvel() {
     ui8_t gpsVel_bytes[2];
     short vel16;
     double vx, vy, dir, alpha;
-    const double ms2kts100 = 2e2;  // 1m/s = 3.6/1.852 kts = 1.94 kts
+    const double ms2kn100 = 2e2;  // m/s -> knots: 1 m/s = 3.6/1.852 kn = 1.94 kn
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvO + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vx = vel16 / ms2kts100; // ost
+    vx = vel16 / ms2kn100; // ost
 
     for (i = 0; i < 2; i++) {
         byte = frame_bytes[pos_GPSvN + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vy= vel16 / ms2kts100; // nord
+    vy= vel16 / ms2kn100; // nord
 
     datum.vx = vx;
     datum.vy = vy;
@@ -586,7 +586,7 @@ int get_GPSvel() {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    datum.vV = vel16 / ms2kts100;
+    datum.vV = vel16 / ms2kn100;
 
     return 0;
 }
@@ -821,10 +821,10 @@ int main(int argc, char **argv) {
     int header_found = 0;
 
 
-#ifdef WIN
+#ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
-    setbuf(stdout, NULL);
 #endif
+    setbuf(stdout, NULL);
 
     fpname = argv[0];
     ++argv;
