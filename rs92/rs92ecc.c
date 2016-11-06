@@ -406,12 +406,16 @@ ui8_t framebyte(int pos) {
 
 
 /* ------------------------------------------------------------------------------------ */
+
+#define GPS_WEEK1024  1
+#define WEEKSEC       604800
+
 /*
  * Convert GPS Week and Seconds to Modified Julian Day.
  * - Adapted from sci.astro FAQ.
  * - Ignores UTC leap seconds.
  */
-/*
+
 void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 
     long GpsDays, Mjd;
@@ -431,7 +435,7 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
     *Month = M + 2 - (12 * J);
     *Year = 100 * (C - 49) + Y + J;
 }
-*/
+
 /* ------------------------------------------------------------------------------------ */
 
 #define pos_FrameNb   0x08  // 2 byte
@@ -568,10 +572,11 @@ int get_GPStime() {
 
     gpx.gpssec = gpstime;
 
-    day = gpstime / (24 * 3600);
+    day = (gpstime / (24 * 3600)) % 7;        // besser CRC-check, da auch
+    //if ((day < 0) || (day > 6)) return -1;  // gpssec=604800,604801 beobachtet
+
     gpstime %= (24*3600);
 
-    if ((day < 0) || (day > 6)) return -1;
     gpx.wday = day;
     gpx.std = gpstime / 3600;
     gpx.min = (gpstime % 3600) / 60;
@@ -739,10 +744,11 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
         if (alm[j].prn > 0) {  // prn==j
 
             // Woche hat 604800 sec
-            if      (t-alm[j].toa >  604800/2) rollover = +1;
-            else if (t-alm[j].toa < -604800/2) rollover = -1;
+            if      (t-alm[j].toa >  WEEKSEC/2) rollover = +1;
+            else if (t-alm[j].toa < -WEEKSEC/2) rollover = -1;
             else rollover = 0;
             week = alm[j].week - rollover;
+            /*if (j == 1)*/ gpx.week = week + GPS_WEEK1024*1024;
 
             if (option_vel >= 2) {
                 GPS_SatellitePositionVelocity_Ephem(
@@ -782,20 +788,21 @@ int calc_satpos_rnx(EPHEM_t eph[][24], double t, SAT_t *satp) {
     for (j = 1; j < 33; j++) {
 
         // Woche hat 604800 sec
-        tdiff = 604800;
+        tdiff = WEEKSEC;
         ti = 0;
         for (i = 0; i < 24; i++) {
             if (eph[j][i].prn > 0) {
-                if      (t-eph[j][i].toe >  604800/2) rollover = +1;
-                else if (t-eph[j][i].toe < -604800/2) rollover = -1;
+                if      (t-eph[j][i].toe >  WEEKSEC/2) rollover = +1;
+                else if (t-eph[j][i].toe < -WEEKSEC/2) rollover = -1;
                 else rollover = 0;
-                td = t-eph[j][i].toe - rollover*604800;
+                td = t-eph[j][i].toe - rollover*WEEKSEC;
                 if (td < 0) td *= -1;
 
                 if ( td < tdiff ) {
                     tdiff = td;
                     ti = i;
                     week = eph[j][ti].week - rollover;
+                    gpx.week = eph[j][ti].gpsweek - rollover;
                 }
             }
         }
@@ -841,7 +848,7 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
         satfound = 0;
 
         // Woche hat 604800 sec
-        tdiff = 604800;
+        tdiff = WEEKSEC;
 
         while (eph[count].prn > 0) {
 
@@ -849,14 +856,15 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
 
                 satfound += 1;
 
-                if      (t - eph[count].toe >  604800/2) rollover = +1;
-                else if (t - eph[count].toe < -604800/2) rollover = -1;
+                if      (t - eph[count].toe >  WEEKSEC/2) rollover = +1;
+                else if (t - eph[count].toe < -WEEKSEC/2) rollover = -1;
                 else rollover = 0;
-                td = fabs( t - eph[count].toe - rollover*604800);
+                td = fabs( t - eph[count].toe - rollover*WEEKSEC);
 
                 if ( td < tdiff ) {
                     tdiff = td;
                     week = eph[count].week - rollover;
+                    gpx.week = eph[count].gpsweek - rollover;
                     count0 = count;
                 }
             }
@@ -1337,19 +1345,18 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
     }
 
     if (!err1) {
-        //Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
         fprintf(stdout, "[%5d] ", gpx.frnr);
         fprintf(stdout, "(%s) ", gpx.id);
     }
 
     if (!err2) {
-        fprintf(stdout, "%s ", weekday[gpx.wday]);
+        if (option_verbose) {
+            Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
+            //fprintf(stdout, "(W %d) ", gpx.week);
+            fprintf(stdout, "(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag);
+        }
+        fprintf(stdout, "%s ", weekday[gpx.wday]);  // %04.1f: wenn sek >= 59.950, wird auf 60.0 gerundet
         fprintf(stdout, "%02d:%02d:%06.3f", gpx.std, gpx.min, gpx.sek);
-        /*
-        fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%04.1f",  // %04.1f: wenn sek >= 59.950, wird auf 60.0 gerundet
-                gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
-        if (option_verbose) fprintf(stdout, " (W %d)", gpx.week);
-        */
 
         if (n > 0) {
             fprintf(stdout, " ");

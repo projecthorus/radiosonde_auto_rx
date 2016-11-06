@@ -658,7 +658,7 @@ void GPS_SatellitePosition_Ephem(
         tow += SECONDS_IN_WEEK;
         week--;
     }
-    if ( tow > 604800.0 ) {
+    if ( tow > SECONDS_IN_WEEK ) {
         tow -= SECONDS_IN_WEEK;
         week++;
     }
@@ -1667,7 +1667,7 @@ void GPS_SatellitePositionVelocity_Ephem(
         tow += SECONDS_IN_WEEK;
         week--;
     }
-    if ( tow > 604800.0 ) {
+    if ( tow > SECONDS_IN_WEEK ) {
         tow -= SECONDS_IN_WEEK;
         week++;
     }
