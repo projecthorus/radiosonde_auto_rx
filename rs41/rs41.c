@@ -521,7 +521,7 @@ int get_GPSweek() {
     }
 
     gpsweek = gpsweek_bytes[0] + (gpsweek_bytes[1] << 8);
-    if (gpsweek < 0) { gpx.week = -1; return -1; }
+    //if (gpsweek < 0) { gpx.week = -1; return -1; } // (short int)
     gpx.week = gpsweek;
 
     return 0;
@@ -561,10 +561,11 @@ int get_GPStime() {
 
     gpx.gpssec = gpstime;
 
-    day = gpstime / (24 * 3600);
+    day = (gpstime / (24 * 3600)) % 7;
+    //if ((day < 0) || (day > 6)) return -1;  // besser CRC-check
+
     gpstime %= (24*3600);
 
-    if ((day < 0) || (day > 6)) return -1;
     gpx.wday = day;
     gpx.std = gpstime / 3600;
     gpx.min = (gpstime % 3600) / 60;
