@@ -1285,7 +1285,7 @@ int NAV_bancroft2(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
 
 /* ---------------------------------------------------------------------------------------------------- */
 
-int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
+int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef1[3], double *cc1 , double pos_ecef2[3], double *cc2) {
 
     int i, j, k;
     double B[N][4], BtB[4][4], BBinv[4][4], BBB[4][N];
@@ -1295,14 +1295,16 @@ int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
     double Lsg1[4], Lsg2[4];
 
     double tmp1, tmp2;
-    double X, Y, Z;
+    double X1, Y1, Z1;
+    double X2, Y2, Z2;
 
 
     if (N < 4 || N > 12) return -1;
 
     for (i = 0; i < N; i++) {  // Test: nicht hier rotieren, sondern spaeter Lsg rotieren...
         rotZ(sats[i].X, sats[i].Y, sats[i].Z, 0.0, B[i], B[i]+1, B[i]+2);
-        B[i][3] = sats[i].PR;
+        //B[i][3] = sats[i].PR;
+        B[i][3] = sats[i].pseudorange + sats[i].clock_corr;
     }
 
     if (N == 4) {
@@ -1372,16 +1374,19 @@ int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef[3], double *cc) {
     tmp1 = sqrt( Lsg1[0]*Lsg1[0] + Lsg1[1]*Lsg1[1] + Lsg1[2]*Lsg1[2] );
     tmp2 = sqrt( Lsg2[0]*Lsg2[0] + Lsg2[1]*Lsg2[1] + Lsg2[2]*Lsg2[2] );
 
-    tmp1 = fabs( tmp1 - 6371000.0 );
-    tmp2 = fabs( tmp2 - 6371000.0 );
+    tmp1 = tmp1 - 6371000.0;
+    tmp2 = tmp2 - 6371000.0;
 
-    if (tmp1 < tmp2) {
-        X = Lsg1[0]; Y = Lsg1[1]; Z = Lsg1[2]; *cc = Lsg1[3];
+    if ( fabs(tmp1) < fabs(tmp2) ) {
+        X1 = Lsg1[0]; Y1 = Lsg1[1]; Z1 = Lsg1[2]; *cc1 = Lsg1[3];
+        X2 = Lsg2[0]; Y2 = Lsg2[1]; Z2 = Lsg2[2]; *cc2 = Lsg2[3];
     } else {
-        X = Lsg2[0]; Y = Lsg2[1]; Z = Lsg2[2]; *cc = Lsg2[3];
+        X1 = Lsg2[0]; Y1 = Lsg2[1]; Z1 = Lsg2[2]; *cc1 = Lsg2[3];
+        X2 = Lsg1[0]; Y2 = Lsg1[1]; Z2 = Lsg1[2]; *cc2 = Lsg1[3];
     }
 
-    rotZ(X, Y, Z, EARTH_ROTATION_RATE*RANGE_ESTIMATE, pos_ecef, pos_ecef+1, pos_ecef+2);
+    rotZ(X1, Y1, Z1, EARTH_ROTATION_RATE*RANGE_ESTIMATE, pos_ecef1, pos_ecef1+1, pos_ecef1+2);
+    rotZ(X2, Y2, Z2, EARTH_ROTATION_RATE*RANGE_ESTIMATE, pos_ecef2, pos_ecef2+1, pos_ecef2+2);
 
     return 0;
 }

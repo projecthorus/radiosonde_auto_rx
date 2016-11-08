@@ -1105,7 +1105,7 @@ int get_GPSkoord(int N) {
                 //fprintf(stdout, " DOP : %.1f ", gdop);
 
                 NAV_LinP(4, Sat_A, pos_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
-                diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+                diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1], dpos_ecef[2]);
                 for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
                 ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
                 if ( option_vel == 4 ) {
@@ -1176,7 +1176,7 @@ int get_GPSkoord(int N) {
             for (j = 0; j < 3; j++) pos_ecef[j] += dpos_ecef[j];
             ecef2elli(pos_ecef[0], pos_ecef[1], pos_ecef[2], &lat, &lon, &alt);
         }
-        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+        gpx.diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1], dpos_ecef[2]);
 
         // Sat mit schlechten Daten suchen
         if (gpx.diter > d_err) {
@@ -1192,7 +1192,7 @@ int get_GPSkoord(int N) {
                     for (j = 0; j < 3; j++) pos0_ecef[j] = 0;
                     NAV_bancroft1(N-1, Sat_C, pos0_ecef, &rx_cl_bias);
                     NAV_LinP(N-1, Sat_C, pos0_ecef, rx_cl_bias, dpos_ecef, &rx_cl_bias);
-                    diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1],dpos_ecef[2]);
+                    diter = dist(0, 0, 0, dpos_ecef[0], dpos_ecef[1], dpos_ecef[2]);
                     ecef2elli(pos0_ecef[0], pos0_ecef[1], pos0_ecef[2], &lat0, &lon0, &alt0);
                     if (diter < gpx.diter) {
                         gpx.diter = diter;
