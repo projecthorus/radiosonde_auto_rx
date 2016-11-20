@@ -149,29 +149,26 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 }
 
 
-int par=1, par_alt=1;
+int par=1,     // init_sample > 0
+    par_alt=1;
 unsigned long sample_count = 0;
 
 int read_afsk_bits(FILE *fp, int *len) {
     int n, sample;
     float l;
-    int start;
 
-    start = 0;
     n = 0;
-    do{ // High
+    do{ // High                               // par>0
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
         sample_count++;
-        if (sample < 0 && !start) continue;
-        start = 1;
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;
         n++;
     } while (par*par_alt > 0);
 
-    do{ // Low
+    do{ // Low                                // par<0
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
@@ -179,7 +176,7 @@ int read_afsk_bits(FILE *fp, int *len) {
         par_alt = par;
         par =  (sample >= 0) ? 1 : -1;
         n++;
-    } while (par*par_alt > 0);
+    } while (par*par_alt > 0);                // par>0
 
     l = (float)n / (samples_per_bit/2.0);
     *len = (int)(l+0.5); // round(l)
@@ -624,6 +621,14 @@ int bitl1 = 0,
             inout = 1;
             bitl1 = 0;
             bitl2 = 0;
+        }
+
+        if (len == 3) {
+            if (bitl1 == 1 && bitpos < 7) {
+                bitl1 = 0; bitbuf[bitpos++] = 1;
+                bitl2++;
+                len = 2;
+            }
         }
 
         if (len > 0 && len < 3) {
