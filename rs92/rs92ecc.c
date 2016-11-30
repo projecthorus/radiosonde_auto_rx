@@ -42,9 +42,8 @@
 /* (uses fec-lib by KA9Q)
    ka9q-fec:
       gcc -c init_rs_char.c
-      gcc -c encode_rs_char.c
       gcc -c decode_rs_char.c
-   gcc init_rs_char.o encode_rs_char.o decode_rs_char.o rs92ecc.c -lm -o rs92ecc
+   gcc init_rs_char.o decode_rs_char.o rs92ecc.c -lm -o rs92ecc
 */
 
 #include <stdio.h>
