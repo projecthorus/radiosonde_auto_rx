@@ -78,26 +78,28 @@ GPS Chip: u-blox UBX-G6010-ST
 
 
 [RXM-RAW 0x02 0x10]
- 0x93:  7C1E (L=0x1E=30 byte)
- 0x95:     2 byte  GPS week
- 0x97:     4 byte  iTOW
- 0x9B:  12x2 byte  Space Vehicle Number (1 byte) , Signal Strength/Quality (1 byte)
-(0xB3:  2 byte CRC32)
+ 0x093:  7C1E (L=0x1E=30 byte)
+ 0x095:     2 byte:  GPS week
+ 0x097:     4 byte:  iTOW
+ 0x09B:  12x2 byte:  Space Vehicle Number (1 byte) ,
+                     Signal Strength/Quality (1 byte)
+(0x0B3:  2 byte CRC32)
 
- 0xB5: 7D59 (L=0x59=89 byte)
- 0xB7:         4 byte: minPR = min{pseudorange[]}/m
- 0xBB:         1 byte
- 0xBC:  12x(4+3) byte: 4 byte pseudorange[i]/100.0-minPR  (, 3 byte doppler)
+ 0x0B5: 7D59 (L=0x59=89 byte)
+ 0x0B7:         4 byte:  minPRmes = min{prMes[]}
+ 0x0BB:         1 byte
+ 0x0BC:  12x(4+3) byte:  4 byte PR: prMes = PR/100-minPRmes ,
+                         3 byte DP: doMes = -DP/100*L1/c  (DP 24bit signed)
 (0x110:  2 byte CRC32)
 
 
 [NAV-SOL 0x01 0x06]
  0x112: 7B15 (L=0x15=21 byte)
- 0x114:  3x4 byte  ECEF-POS
- 0x120:  3x2 byte  ECEF-VEL
- 0x126:    1 byte  Number of SVs used in Nav Solution
- 0x127:    1 byte  sAcc/10 (in NAV-SOL 4 byte)
- 0x128:    1 byte  pDOP/10 (in NAV-SOL 2 byte)
+ 0x114:  3x4 byte:  ECEF-POS
+ 0x120:  3x2 byte:  ECEF-VEL
+ 0x126:    1 byte:  Number of SVs used in Nav Solution
+ 0x127:    1 byte:  sAcc/10 (in NAV-SOL 4 byte)
+ 0x128:    1 byte:  pDOP/10 (in NAV-SOL 2 byte)
 (0x129:  2 byte CRC32)
 
 
