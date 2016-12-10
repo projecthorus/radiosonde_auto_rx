@@ -53,6 +53,9 @@ rscfg_t cfg_rs41 = { 41, (320-56)/2, 56, 8, 8, 320};
 
 
 typedef unsigned char ui8_t;
+typedef unsigned int  ui32_t;
+typedef short i16_t;
+typedef int   i32_t;
 
 typedef struct {
     int frnr;
@@ -76,6 +79,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_avg = 0,      // moving average
     option_b = 0,
     option_ecc = 0,      // Reed-Solomon ECC
+    option_sat = 0,      // GPS sat data
     wavloaded = 0;
 
 
@@ -369,48 +373,37 @@ void Gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 }
 /* ------------------------------------------------------------------------------------ */
 
+ui32_t u4(ui8_t *bytes) {  // 32bit unsigned int
+    ui32_t val = 0;
+    memcpy(&val, bytes, 4);
+    return val;
+}
+
+int i3(ui8_t *bytes) {  // 24bit signed int
+    int val = 0,
+        val24 = 0;
+    val = bytes[0] | (bytes[1]<<8) | (bytes[2]<<16);
+    val24 = val & 0xFFFFFF; if (val24 & 0x800000) val24 = val24 - 0x1000000;
+    return val24;
+}
+
+ui32_t u2(ui8_t *bytes) {  // 16bit unsigned int
+    return  bytes[0] | (bytes[1]<<8);
+}
+
 /*
-  Pos: SubHeader, 1+1 byte (ID+LEN)
-0x039: 7928   FrameNumber+SondeID
-              +(0x050: 0732  CalFrames 0x00..0x32)
-0x065: 7A2A
-0x093: 7C1E   GPS Week + TOW
-0x0B5: 7D59
-0x112: 7B15   ECEF (X,Y,Z) Coordinates
-0x12B: 7611   00
-0x12B: 7Exx   AUX-xdata
+double r8(ui8_t *bytes) {
+    double val = 0;
+    memcpy(&val, bytes, 8);
+    return val;
+}
+
+float r4(ui8_t *bytes) {
+    float val = 0;
+    memcpy(&val, bytes, 4);
+    return val;
+}
 */
-
-#define pos_FrameNb   0x03B  // 2 byte
-#define pos_SondeID   0x03D  // 8 byte
-#define pos_CalData   0x052  // 1 byte, counter 0x00..0x32
-#define pos_Calfreq   0x055  // 2 byte, calfr 0x00
-#define pos_Calburst  0x05E  // 1 byte, calfr 0x02
-// ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
-#define pos_CalRSTyp  0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
-        // weitere chars in calfr 0x22/0x23; weitere ID
-#define pos_GPSweek   0x095  // 2 byte
-#define pos_GPSTOW    0x097  // 4 byte
-#define pos_GPSecefX  0x114  // 4 byte
-#define pos_GPSecefY  0x118  // 4 byte
-#define pos_GPSecefZ  0x11C  // 4 byte
-#define pos_GPSecefV  0x120  // 3*2 byte
-
-
-#define pos_Hframe 0x039
-#define HEAD_frame 0x7928
-#define HXOR_frame 0x1713  // ^0x6E3B=0x7928
-
-#define pos_Htow   0x093
-#define HEAD_tow   0x7C1E
-#define HXOR_tow   0x9667  // ^0xEA79=0x7C1E
-
-#define pos_Hkoord 0x112
-#define HEAD_koord 0x7B15
-#define HXOR_koord 0xB9FF  // ^0xC2EA=0x7B15
-
-#define pos_Haux   0x12B
-#define HEAD_aux   0x7E00  // LEN variable
 
 /*
 int crc16x(int start, int len) {
@@ -457,6 +450,136 @@ int crc16(int start, int len) {
         }
     }
     return rem;
+}
+
+int check_CRC(ui32_t pos, ui32_t pck) {
+    ui32_t crclen = 0,
+           crcdat = 0;
+    if (((pck>>8) & 0xFF) != frame[pos]) return -1;
+    crclen = frame[pos+1];
+    crcdat = u2(frame+pos+2+crclen);
+    if ( crcdat == crc16(pos+2, crclen) ) {
+        return 1;  // CRC OK
+    }
+    else return 0;
+}
+
+
+/*
+  Pos: SubHeader, 1+1 byte (ID+LEN)
+0x039: 7928   FrameNumber+SondeID
+              +(0x050: 0732  CalFrames 0x00..0x32)
+0x065: 7A2A   PTU
+0x093: 7C1E   GPS1: RXM-RAW (0x02 0x10) Week, TOW, Sats
+0x0B5: 7D59   GPS2: RXM-RAW (0x02 0x10) pseudorange, doppler
+0x112: 7B15   GPS3: NAV-SOL (0x01 0x06) ECEF-POS, ECEF-VEL
+0x12B: 7611   00
+0x12B: 7Exx   AUX-xdata
+*/
+
+#define xor_FRAME    0x1713  // ^0x6E3B=0x7928
+#define pck_FRAME    0x7928
+#define pos_FRAME     0x039
+#define pos_FrameNb   0x03B  // 2 byte
+#define pos_SondeID   0x03D  // 8 byte
+#define pos_CalData   0x052  // 1 byte, counter 0x00..0x32
+#define pos_Calfreq   0x055  // 2 byte, calfr 0x00
+#define pos_Calburst  0x05E  // 1 byte, calfr 0x02
+// ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
+#define pos_CalRSTyp  0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
+        // weitere chars in calfr 0x22/0x23; weitere ID
+
+#define pck_PTU      0x7A2A  // PTU
+#define pos_PTU       0x065
+
+#define xor_GPS1     0x9667  // ^0xEA79=0x7C1E
+#define pck_GPS1     0x7C1E  // RXM-RAW (0x02 0x10)
+#define pos_GPS1      0x093
+#define pos_GPSweek   0x095  // 2 byte
+#define pos_GPSiTOW   0x097  // 4 byte
+#define pos_satsN     0x09B  // 12x2 byte
+
+#define pck_GPS2     0x7D59  // RXM-RAW (0x02 0x10)
+#define pos_GPS2      0x0B5
+#define pos_minPR     0x0B7  //        4 byte
+#define pos_FF        0x0BB  //        1 byte
+#define pos_dataSats  0x0BC  // 12x(4+3) byte (4: pseudorange, 3: doppler)
+
+#define xor_GPS3     0xB9FF  // ^0xC2EA=0x7B15
+#define pck_GPS3     0x7B15  // NAV-SOL (0x01 0x06)
+#define pos_GPS3      0x112
+#define pos_GPSecefX  0x114  //   4 byte
+#define pos_GPSecefY  0x118  //   4 byte
+#define pos_GPSecefZ  0x11C  //   4 byte
+#define pos_GPSecefV  0x120  // 3*2 byte
+#define pos_numSats   0x126  //   1 byte
+#define pos_sAcc      0x127  //   1 byte
+#define pos_pDOP      0x128  //   1 byte
+
+#define pck_AUX      0x7E00  // LEN variable
+#define pos_AUX       0x12B
+
+
+double c = 299.792458e6;
+double L1 = 1575.42e6;
+
+int get_SatData() {
+    int i, n;
+    int sv;
+    ui32_t minPR;
+    int Nfix;
+    double pDOP, sAcc;
+
+    fprintf(stdout, "[%d]\n", u2(frame+pos_FrameNb));
+
+    fprintf(stdout, "iTOW: 0x%08X", u4(frame+pos_GPSiTOW));
+    fprintf(stdout, "  week: 0x%04X", u2(frame+pos_GPSweek));
+    fprintf(stdout, "\n");
+    minPR = u4(frame+pos_minPR);
+    fprintf(stdout, "minPR: %d", minPR);
+    fprintf(stdout, "\n");
+
+    for (i = 0; i < 12; i++) {
+        n = i*7;
+        sv = frame[pos_satsN+2*i];
+        if (sv == 0xFF) break;
+        fprintf(stdout, "    SV: %2d #  ", sv);
+        fprintf(stdout, "prMes: %.1f", u4(frame+pos_dataSats+n)/100.0 + minPR);
+        fprintf(stdout, "  ");
+        fprintf(stdout, "doMes: %.1f", -i3(frame+pos_dataSats+n+4)/100.0*L1/c);
+        fprintf(stdout, "\n");
+    }
+
+    fprintf(stdout, "ECEF-POS: (%d,%d,%d)\n",
+                     (i32_t)u4(frame+pos_GPSecefX),
+                     (i32_t)u4(frame+pos_GPSecefY),
+                     (i32_t)u4(frame+pos_GPSecefZ));
+    fprintf(stdout, "ECEF-VEL: (%d,%d,%d)\n",
+                     (i16_t)u2(frame+pos_GPSecefV+0),
+                     (i16_t)u2(frame+pos_GPSecefV+2),
+                     (i16_t)u2(frame+pos_GPSecefV+4));
+
+    Nfix = frame[pos_numSats];
+    sAcc = frame[pos_sAcc]/10.0;
+    pDOP = frame[pos_pDOP]/10.0;
+    fprintf(stdout, "numSatsFix: %2d  Acc: %.1f  pDOP: %.1f\n", Nfix, sAcc, pDOP);
+
+
+    fprintf(stdout, "CRC: ");
+    fprintf(stdout, " %04X", pck_GPS1);
+    if (check_CRC(pos_GPS1, pck_GPS1)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(pos_GPS1, pck_GPS1));
+    fprintf(stdout, " %04X", pck_GPS2);
+    if (check_CRC(pos_GPS2, pck_GPS2)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(pos_GPS2, pck_GPS2));
+    fprintf(stdout, " %04X", pck_GPS3);
+    if (check_CRC(pos_GPS3, pck_GPS3)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(pos_GPS3, pck_GPS3));
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\n");
+
+    return 0;
 }
 
 
@@ -525,9 +648,9 @@ int get_GPStime() {
     int ms;
     int crclen;
     int crcdat;
-    int crcpos = pos_Htow;
+    int crcpos = pos_GPS1;
 
-    // xorbyte(crcpos) == (HEAD_tow>>8) & 0xFF ?
+    // xorbyte(crcpos) == (pck_GPS1>>8) & 0xFF ?
     if ( option_crc ) {
         crclen = framebyte(crcpos+1);
         crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
@@ -538,7 +661,7 @@ int get_GPStime() {
 
 
     for (i = 0; i < 4; i++) {
-        byte = framebyte(pos_GPSTOW + i);
+        byte = framebyte(pos_GPSiTOW + i);
         gpstime_bytes[i] = byte;
     }
 
@@ -602,9 +725,9 @@ int get_GPSkoord() {
 
     int crclen;
     int crcdat;
-    int crcpos = pos_Hkoord;
+    int crcpos = pos_GPS3;
 
-    // xorbyte(crcpos) == (HEAD_koord>>8) & 0xFF ?
+    // xorbyte(crcpos) == (pck_GPS3>>8) & 0xFF ?
     if ( option_crc ) {
         crclen = framebyte(crcpos+1);
         crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
@@ -670,21 +793,21 @@ int get_Aux() {
     int i, auxlen, auxcrc, count7E, pos7E;
 
     count7E = 0;
-    pos7E = pos_Haux;
+    pos7E = pos_AUX;
 
     // 7Exx: xdata
     while ( pos7E < FRAME_LEN  &&  framebyte(pos7E) == 0x7E ) {
 
-        auxlen = framebyte(pos_Haux+1);
-        auxcrc = framebyte(pos_Haux+2+auxlen) | (framebyte(pos_Haux+2+auxlen+1)<<8);
+        auxlen = framebyte(pos_AUX+1);
+        auxcrc = framebyte(pos_AUX+2+auxlen) | (framebyte(pos_AUX+2+auxlen+1)<<8);
 
         if (count7E == 0) fprintf(stdout, "\n # xdata = ");
         else              fprintf(stdout, " # ");
 
-        if ( auxcrc == crc16(pos_Haux+2, auxlen) ) {
-            //fprintf(stdout, " # %02x : ", framebyte(pos_Haux+2));
+        if ( auxcrc == crc16(pos_AUX+2, auxlen) ) {
+            //fprintf(stdout, " # %02x : ", framebyte(pos_AUX+2));
             for (i = 1; i < auxlen; i++) {
-                fprintf(stdout, "%c", framebyte(pos_Haux+2+i));
+                fprintf(stdout, "%c", framebyte(pos_AUX+2+i));
             }
             count7E++;
             pos7E += 2+auxlen+2;
@@ -872,7 +995,12 @@ void print_frame(int len) {
         fprintf(stdout, "\n");
 //        fprintf(stdout, "\n");
     }
-    else print_position();
+    else if (option_sat) {
+        get_SatData();
+    }
+    else {
+        print_position();
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -927,6 +1055,7 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
         else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -954,7 +1083,7 @@ int main(int argc, char *argv[]) {
     while (!read_bits_fsk(fp, &bit, &len)) {
 
         if (len == 0) { // reset_frame();
-            if (byte_count > pos_Haux) {
+            if (byte_count > pos_AUX) {
                 print_frame(byte_count);
                 bit_count = 0;
                 byte_count = FRAMESTART;
