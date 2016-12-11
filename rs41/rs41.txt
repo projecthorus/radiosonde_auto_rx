@@ -82,7 +82,7 @@ GPS Chip: u-blox UBX-G6010-ST
  0x095:     2 byte:  GPS week
  0x097:     4 byte:  iTOW
  0x09B:  12x2 byte:  Space Vehicle Number (1 byte) ,
-                     Signal Strength/Quality (1 byte)
+                     Signal Quality,Strength (1 byte)
 (0x0B3:  2 byte CRC32)
 
  0x0B5: 7D59 (L=0x59=89 byte)

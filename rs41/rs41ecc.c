@@ -497,7 +497,7 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pos_GPS1      0x093
 #define pos_GPSweek   0x095  // 2 byte
 #define pos_GPSiTOW   0x097  // 4 byte
-#define pos_satsN     0x09B  // 12x2 byte
+#define pos_satsN     0x09B  // 12x2 byte (1: SV, 1: quality,strength)
 
 #define pck_GPS2     0x7D59  // RXM-RAW (0x02 0x10)
 #define pos_GPS2      0x0B5
@@ -562,7 +562,7 @@ int get_SatData() {
     Nfix = frame[pos_numSats];
     sAcc = frame[pos_sAcc]/10.0;
     pDOP = frame[pos_pDOP]/10.0;
-    fprintf(stdout, "numSatsFix: %2d  Acc: %.1f  pDOP: %.1f\n", Nfix, sAcc, pDOP);
+    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", Nfix, sAcc, pDOP);
 
 
     fprintf(stdout, "CRC: ");
