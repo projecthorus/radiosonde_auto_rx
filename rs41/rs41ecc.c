@@ -13,12 +13,6 @@
  *            -b           (alt. Demod.)
  *            --ecc        (Reed-Solomon)
  */
-/* (uses fec-lib by KA9Q)
-   ka9q-fec:
-      gcc -c init_rs_char.c
-      gcc -c decode_rs_char.c
-   gcc init_rs_char.o decode_rs_char.o rs41ecc.c -lm -o rs41ecc
-*/
 
 
 #include <stdio.h>
@@ -31,14 +25,14 @@
 #endif
 
 
-#include "fec.h"
+typedef unsigned char ui8_t;
+typedef unsigned int  ui32_t;
+typedef short i16_t;
+typedef int   i32_t;
 
-#define rs_N 255
-#define rs_R 24
-#define rs_K (rs_N-rs_R)
 
-void *rs;
-unsigned char codeword1[rs_N], codeword2[rs_N];
+#include "bch_ecc.c"  // RS/ecc/
+
 
 typedef struct {
     int typ;
@@ -51,11 +45,6 @@ typedef struct {
 
 rscfg_t cfg_rs41 = { 41, (320-56)/2, 56, 8, 8, 320};
 
-
-typedef unsigned char ui8_t;
-typedef unsigned int  ui32_t;
-typedef short i16_t;
-typedef int   i32_t;
 
 typedef struct {
     int frnr;
@@ -868,63 +857,77 @@ int get_Cal() {
 }
 
 /* ------------------------------------------------------------------------------------ */
+/*
+   (uses fec-lib by KA9Q)
+   ka9q-fec:
+      gcc -c init_rs_char.c
+      gcc -c decode_rs_char.c
+
+#include "fec.h"  // ka9q-fec
+
+
+void *rs;
+unsigned char codeword1[rs_N], codeword2[rs_N];
+
+    rs = init_rs_char( 8, 0x11d, 0, 1, rs_R, 0);
+
+    // ka9q-fec301: p(x) = p[0]x^(N-1) + ... + p[N-2]x + p[N-1]
+    //          ->  cw[i] = codeword[RS.N-1-i]
+
+*/
+
+#define rs_N 255
+#define rs_R 24
+#define rs_K (rs_N-rs_R)
+
+ui8_t cw1[rs_N], cw2[rs_N];
 
 int rs41_ecc(int msglen) {
 
-    int i, ret = 0;
-    int errors1, errors2,
-        errpos1[rs_R], errpos2[rs_R];
+    int i, leak, ret = 0;
+    int errors1, errors2;
+    ui8_t err_pos1[rs_R], err_pos2[rs_R],
+          err_val1[rs_R], err_val2[rs_R];
+
 
     if (msglen > FRAME_LEN) msglen = FRAME_LEN;
     cfg_rs41.frmlen = msglen;
     cfg_rs41.msglen = (msglen-56)/2; // msgpos=56;
+    leak = msglen % 2;
 
-    for (i = msglen; i < FRAME_LEN; i++) frame[i] = 0;
+    for (i = msglen; i < FRAME_LEN; i++) frame[i] = 0;  // FRAME_LEN-HDR = 510 = 2*255
 
 
-    for (i = 0; i < cfg_rs41.msglen; i++) {
-        codeword1[rs_K-1-i] = frame[cfg_rs41.msgpos+  2*i];
-        codeword2[rs_K-1-i] = frame[cfg_rs41.msgpos+1+2*i];
+    for (i = 0; i < rs_R; i++) cw1[i] = frame[cfg_rs41.parpos+i     ];
+    for (i = 0; i < rs_R; i++) cw2[i] = frame[cfg_rs41.parpos+i+rs_R];
+    for (i = 0; i < rs_K; i++) cw1[rs_R+i] = frame[cfg_rs41.msgpos+2*i  ];
+    for (i = 0; i < rs_K; i++) cw2[rs_R+i] = frame[cfg_rs41.msgpos+2*i+1];
+
+    errors1 = rs_decode(cw1, err_pos1, err_val1);
+    errors2 = rs_decode(cw2, err_pos2, err_val2);
+
+    if (errors1 > 0 || errors2 > 0) {
+    ret = errors1+errors2;
     }
 
-    for (i = 0; i < rs_R; i++) {
-        codeword1[rs_N-1-i] = frame[cfg_rs41.parpos+     i];
-        codeword2[rs_N-1-i] = frame[cfg_rs41.parpos+rs_R+i];
-    }
-
-    errors1 = decode_rs_char(rs, codeword1, errpos1, 0);
-    errors2 = decode_rs_char(rs, codeword2, errpos2, 0);
-
-/*
-                printf("codeword1, ");
-                printf("errors: %d\n", errors1);
-                if (errors1 > 0) {
-                    printf("pos: ");
-                    for (i = 0; i < errors1; i++) printf(" %d", errpos1[i]);
-                    printf("\n");
-                }
-
-                printf("codeword2, ");
-                printf("errors: %d\n", errors2);
-                if (errors2 > 0) {
-                    printf("pos: ");
-                    for (i = 0; i < errors2; i++) printf(" %d", errpos2[i]);
-                    printf("\n");
-                }
-*/
-
+    // check CRC32
+    // CRC32 OK:
     //for (i = 0; i < cfg_rs41.hdrlen; i++) frame[i] = data[i];
     for (i = 0; i < rs_R; i++) {
-        frame[cfg_rs41.parpos+     i] = codeword1[rs_N-1-i];
-        frame[cfg_rs41.parpos+rs_R+i] = codeword2[rs_N-1-i];
+        frame[cfg_rs41.parpos+     i] = cw1[i];
+        frame[cfg_rs41.parpos+rs_R+i] = cw2[i];
     }
     for (i = 0; i < cfg_rs41.msglen; i++) {
-        frame[cfg_rs41.msgpos+  2*i] = codeword1[rs_K-1-i];
-        frame[cfg_rs41.msgpos+1+2*i] = codeword2[rs_K-1-i];
+        frame[cfg_rs41.msgpos+  2*i] = cw1[rs_R+i];
+        frame[cfg_rs41.msgpos+1+2*i] = cw2[rs_R+i];
+    }
+    if (leak) {
+    frame[cfg_rs41.msgpos+2*i] = cw1[rs_R+i];
     }
 
-    if (errors1 > 0 || errors2 > 0) ret = 1;
+    ret = errors1 + errors2;
     if (errors1 < 0 || errors2 < 0) ret = -1;
+
     return ret;
 }
 
@@ -991,6 +994,7 @@ void print_frame(int len) {
         }
         if (option_ecc) {
             if (ret >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+            //if (ret >  0) fprintf(stdout, " (%d)", ret);
         }
         fprintf(stdout, "\n");
 //        fprintf(stdout, "\n");
@@ -1077,7 +1081,7 @@ int main(int argc, char *argv[]) {
 
 
     if (option_ecc) {
-        rs = init_rs_char( 8, 0x11d, 0, 1, rs_R, 0);
+        rs_init_RS255();
     }
 
     while (!read_bits_fsk(fp, &bit, &len)) {
@@ -1163,5 +1167,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
 
