@@ -16,7 +16,7 @@
        bin.BCH(63, 51), t=2
        g(X) = (X^6+X+1)(X^6+X^4+X^2+X+1)
        g(a) = 0 fuer a = alpha^1,...,alpha^4
-   Es koennen 2 Fehler korrigiert werden; diese koennen auch direkt mit 
+   Es koennen 2 Fehler korrigiert werden; diese koennen auch direkt mit
        L(x) = 1 + L1 x + L2 x^2, L1=L1(S1), L2=L2(S1,S3)
    gefunden werden. Problem: 3 Fehler und mehr erkennen.
    Auch bei 3 Fehlern ist deg(Lambda)=2 und Lambda hat auch 2 Loesungen.
@@ -26,7 +26,7 @@
    Es werden
    - 54% der 3-Fehler-Bloecke erkannt
    - 39% der 3-Fehler-Bloecke werden durch Position/Parity erkannt
-   -  7% der 3-Fehler-Bloecke werden falsch korrigiert   
+   -  7% der 3-Fehler-Bloecke werden falsch korrigiert
 
  *
  */
@@ -84,7 +84,7 @@ typedef struct {
     ui8_t R;  // RS: R=2t, BCH: R<=mt
     ui8_t K;  // K=N-R
     ui8_t b;
-    ui8_t g[MAX_DEG+1];  // ohne g[] eventuell als init_return 
+    ui8_t g[MAX_DEG+1];  // ohne g[] eventuell als init_return
 } RS_t;
 
 
@@ -112,12 +112,12 @@ int GF_deg(ui32_t p) {
 }
 
 static
-ui8_t GF2m_mul(ui8_t a, ui8_t b) {  
+ui8_t GF2m_mul(ui8_t a, ui8_t b) {
     ui32_t aa = a;
     ui8_t ab = 0;
     int i, m = GF_deg(b);
 
-    if (b & 1) ab = a;                 
+    if (b & 1) ab = a;
 
     for (i = 0; i < m; i++) {
         aa = (aa << 1);  // a = a * X
@@ -160,46 +160,47 @@ int GF_genTab(GF_t gf, ui8_t expa[], ui8_t loga[]) {
 }
 
 /* --------------------------------------------------------------------------------------------- */
+/*
 
 static ui32_t f256  = 0x11D;
 static ui8_t  f256FF = 0x1D;
 
 static int gf256_deg(ui8_t p) {
-    int d = 7;  /* sizeof(p)*8 - 1 = 7 fuer ui8_t */
-    
-    if (p == 0) return -0xFF;  /* deg(0) = -infty */
+    int d = 7;  // sizeof(p)*8 - 1 = 7 fuer ui8_t
+
+    if (p == 0) return -0xFF;  // deg(0) = -infty
     else {
-        while (d && !(p & (1<<d)))  d--;  /* d<8, 1L = 1 */
+        while (d && !(p & (1<<d)))  d--;  // d<8, 1L = 1
     }
     return d;
 }
 
-static ui8_t gf256_mul(ui8_t p, ui8_t q) {  
+static ui8_t gf256_mul(ui8_t p, ui8_t q) {
     ui8_t h = 0;
     int i, m = gf256_deg(q);
-    if (q & 1) h = p;                 
+    if (q & 1) h = p;
     for (i = 0; i < m; i++) {
-        if (gf256_deg(p) == 7)  /* deg(f256)-1 = 7 */
-             p = (p << 1) ^ f256FF;   /* p = p * X - f256FF */
-        else p = (p << 1);            /* p = p * X          */
+        if (gf256_deg(p) == 7)        // deg(f256)-1 = 7
+             p = (p << 1) ^ f256FF;   // p = p * X - f256FF
+        else p = (p << 1);            // p = p * X
         q >>= 1;
-        if (q & 1) h ^= p;            /* q_{i+1} > 0 ? */
+        if (q & 1) h ^= p;            // q_{i+1} > 0 ?
     }
     return h;
 }
 
 static int gf256_divmod(ui8_t p, ui8_t q, ui8_t *s, ui8_t *r) {
-    int deg_p, deg_q = gf256_deg(q);           /* p = s*q + r */
+    int deg_p, deg_q = gf256_deg(q);           // p = s*q + r
     *s = 0;
 
-    if (q == 0) { *s = -1; *r = -1; return -1; /* DIV_BY_ZERO */ }
+    if (q == 0) { *s = -1; *r = -1; return -1;} // DIV_BY_ZERO
 
-    if (q == 1) { *s = p; *r = 0; } 
+    if (q == 1) { *s = p; *r = 0; }
     else {
         deg_p = gf256_deg(p);
         if (p == 0) {
-            p = f256FF;  /* (ui8_t) f256 = f256 & 0xFF = f256FF */
-            deg_p = 8;   /* deg(f256) = 8 */
+            p = f256FF;  // (ui8_t) f256 = f256 & 0xFF = f256FF
+            deg_p = 8;   // deg(f256) = 8
         }
         while (deg_p >= deg_q) {
             *s |= 1 << (deg_p-deg_q);
@@ -211,14 +212,14 @@ static int gf256_divmod(ui8_t p, ui8_t q, ui8_t *s, ui8_t *r) {
     return 0;
 }
 
-static ui8_t gf256_inv(ui8_t a) { /* 1 = x*a + y*f , ggT(a, f) = 1 */
+static ui8_t gf256_inv(ui8_t a) { // 1 = x*a + y*f , ggT(a, f) = 1
     ui8_t rem, rem1, rem2, aux, aux1, aux2, quo;
 
-    if (a == 0) return 0; /* nicht definiert; DIV_BY_ZERO */
+    if (a == 0) return 0; // nicht definiert; DIV_BY_ZERO
     if (a == 1) return 1;
 
     rem1 = a;
-    rem2 = 0;  /* = f256 */
+    rem2 = 0;  // = f256
     aux1 = 0x1;
     aux2 = 0x0;
     rem = rem1;
@@ -226,7 +227,7 @@ static ui8_t gf256_inv(ui8_t a) { /* 1 = x*a + y*f , ggT(a, f) = 1 */
 
     while (rem > 0x1) {
         gf256_divmod(rem2, rem1, &quo, &rem);
-        aux = gf256_mul(quo, aux1) ^ aux2;  /* aux = aux2 - quo*aux1 */
+        aux = gf256_mul(quo, aux1) ^ aux2;  // aux = aux2 - quo*aux1
         rem2 = rem1;
         rem1 = rem;
         aux2 = aux1;
@@ -234,8 +235,10 @@ static ui8_t gf256_inv(ui8_t a) { /* 1 = x*a + y*f , ggT(a, f) = 1 */
     }
     return aux;
 }
+*/
 
 /* --------------------------------------------------------------------------------------------- */
+/*
 
 // F2[X] mod X^8 + X^4 + X^3 + X + 1
 
@@ -324,7 +327,7 @@ static ui8_t exp64[64] = {  // 0x43: a^n , a = 0x02 = X
   0x13, 0x26, 0x0F, 0x1E, 0x3C, 0x3B, 0x35, 0x29, 0x11, 0x22, 0x07, 0x0E, 0x1C, 0x38, 0x33, 0x25,
   0x09, 0x12, 0x24, 0x0B, 0x16, 0x2C, 0x1B, 0x36, 0x2F, 0x1D, 0x3A, 0x37, 0x2D, 0x19, 0x32, 0x27,
   0x0D, 0x1A, 0x34, 0x2B, 0x15, 0x2A, 0x17, 0x2E, 0x1F, 0x3E, 0x3F, 0x3D, 0x39, 0x31, 0x21, 0x01};
- 
+
 static ui8_t log64[64] = {
   -00 , 0x00, 0x01, 0x06, 0x02, 0x0C, 0x07, 0x1A, 0x03, 0x20, 0x0D, 0x23, 0x08, 0x30, 0x1B, 0x12,
   0x04, 0x18, 0x21, 0x10, 0x0E, 0x34, 0x24, 0x36, 0x09, 0x2D, 0x31, 0x26, 0x1C, 0x29, 0x13, 0x38,
@@ -343,18 +346,19 @@ static ui8_t log16[16] = {
   -00, 0x0, 0x1, 0x4, 0x2, 0x8, 0x5, 0xA,
   0x3, 0xE, 0x9, 0x7, 0x6, 0xD, 0xB, 0xC};
 
+*/
 /* --------------------------------------------------------------------------------------------- */
 
 static ui8_t GF_mul(ui8_t p, ui8_t q) {
   ui32_t x;
-  if ((p == 0) || (q == 0)) return 0; 
+  if ((p == 0) || (q == 0)) return 0;
   x = (ui32_t)log_a[p] + log_a[q];
-  return exp_a[x % (GF.ord-1)];      /* a^(ord-1) = 1 */
+  return exp_a[x % (GF.ord-1)];     // a^(ord-1) = 1
 }
 
 static ui8_t GF_inv(ui8_t p) {
-  if (p == 0) return 0;          /* DIV_BY_ZERO */
-  return exp_a[GF.ord-1-log_a[p]];  /* a^(ord-1) = 1 */
+  if (p == 0) return 0;             // DIV_BY_ZERO
+  return exp_a[GF.ord-1-log_a[p]];  // a^(ord-1) = 1
 }
 
 /* --------------------------------------------------------------------------------------------- */
@@ -400,14 +404,14 @@ int poly_deg(ui8_t p[]) {
 
 static
 int poly_divmod(ui8_t p[], ui8_t q[], ui8_t *d, ui8_t *r) {
-  int deg_p, deg_q;            /* p(x) = q(x)d(x) + r(x) */
-  int i;                       /*        deg(r) < deg(q) */
+  int deg_p, deg_q;            // p(x) = q(x)d(x) + r(x)
+  int i;                       //        deg(r) < deg(q)
   ui8_t c;
 
   deg_p = poly_deg(p);
   deg_q = poly_deg(q);
 
-  if (deg_q < 0) return -1; /* DIV_BY_ZERO */
+  if (deg_q < 0) return -1;  // DIV_BY_ZERO
 
   for (i = 0; i <= MAX_DEG; i++) d[i] = 0;
   for (i = 0; i <= MAX_DEG; i++) r[i] = 0;
@@ -456,7 +460,7 @@ int poly_add(ui8_t a[], ui8_t b[], ui8_t *sum) {
     }
 
     for (i = 0; i <= MAX_DEG; i++) { sum[i] = c[i]; }
-    
+
     return 0;
 }
 
@@ -478,7 +482,7 @@ int poly_mul(ui8_t a[], ui8_t b[], ui8_t *ab) {
     }
 
     for (i = 0; i <= MAX_DEG; i++) { ab[i] = c[i]; }
-    
+
     return 0;
 }
 
@@ -689,7 +693,7 @@ int prn_GFpoly(ui32_t p) {
     if ( p & 1 ) {
       if (s) printf(" + ");
       printf("1");
-    }    
+    }
   }
   return 0;
 }
@@ -828,7 +832,7 @@ int rs_decode(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
             }
             if (n >= poly_deg(Lambda)) break;
         }
-    
+
         if (n < poly_deg(Lambda)) errors = -1; // uncorrectable errors
         else {
             errors = n;
@@ -917,6 +921,4 @@ int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
 
     return errors;
 }
-
-
 
