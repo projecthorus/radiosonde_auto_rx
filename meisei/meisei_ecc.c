@@ -92,7 +92,20 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_res = 0,      // genauere Bitmessung
     option1 = 0,
     option2 = 0,
+    option_ecc = 0,      // BCH(63,51)
     wavloaded = 0;
+
+/* -------------------------------------------------------------------------- */
+// Fehlerkorrektur (noch?) nicht sehr effektiv... (t zu klein)
+
+#include "bch_ecc.c"
+
+int   errors;
+ui8_t cw[63+1],  // BCH(63,51), t=2
+      err_pos[4],
+      err_val[4];
+ui8_t block_err[6];
+int block, check_err;
 
 /* -------------------------------------------------------------------------- */
 
@@ -315,54 +328,26 @@ int compare_subheader() {
 
 /* -------------------------------------------------------------------------- */
 
-
-int biphi_s0(char* frame_rawbits, char *frame_bits) {
-    int j = 0;
-    int byt, bytes[2];
-    int c = 0;
-
-    j = 0;
-    while (byt = frame_rawbits[j]) {
-        if ((byt >= 0x30) && (byt <= 0x31)) {
-            bytes[c] = byt;
-            c = !c;
-
-            if ((j > 0) && (c == 0)) {
-                if ( bytes[0] == bytes[1] ) { byt = '1'; }
-                else
-                if ( bytes[0] != bytes[1] ) { byt = '0'; }
-
-                frame_bits[j/2] = byt;
-            }
-            j++;
-
-        }
-    }
-    frame_bits[j/2] = '\0';
-    return j/2;
-}
-
-int biphi_s(char* frame_rawbits, char *frame_bits) {
+int biphi_s(char* frame_rawbits, ui8_t *frame_bits) {
     int j = 0;
     int byt;
 
     j = 0;
-    while ( (byt = frame_rawbits[2*j]) && frame_rawbits[2*j+1] ) {
+    while ((byt = frame_rawbits[2*j]) && frame_rawbits[2*j+1]) {
         if ((byt < 0x30) || (byt > 0x31)) break;
 
-        if ( frame_rawbits[2*j] == frame_rawbits[2*j+1] ) { byt = '1'; }
-        else                                              { byt = '0'; }
+        if ( frame_rawbits[2*j] == frame_rawbits[2*j+1] ) { byt = 1; }
+        else                                              { byt = 0; }
 
         frame_bits[j] = byt;
         j++;
-
     }
-    frame_bits[j] = '\0';
+    frame_bits[j] = 0;
     return j;
 }
 
 /* -------------------------------------------------------------------------- */
-
+/*
 ui32_t bitstr2val(char *bits, int len) {
     int j;
     ui8_t bit;
@@ -371,6 +356,20 @@ ui32_t bitstr2val(char *bits, int len) {
     val = 0;
     for (j = 0; j < len; j++) {
                 bit = bits[j] - 0x30;
+                val |= (bit << (len-1-j)); // big endian
+                //val |= (bit << j);      // little endian
+    }
+    return val;
+}
+*/
+ui32_t bits2val(ui8_t bits[], int len) {
+    int j;
+    ui8_t bit;
+    ui32_t val;
+    if ((len < 0) || (len > 32)) return -1;
+    val = 0;
+    for (j = 0; j < len; j++) {
+                bit = bits[j];
                 val |= (bit << (len-1-j)); // big endian
                 //val |= (bit << j);      // little endian
     }
@@ -405,6 +404,7 @@ int main(int argc, char **argv) {
 #endif
     setbuf(stdout, NULL);
 
+
     fpname = argv[0];
     ++argv;
     while ((*argv) && (!wavloaded)) {
@@ -417,11 +417,6 @@ int main(int argc, char **argv) {
             fprintf(stderr, "       -r, --raw\n");
             return 0;
         }
-/*
-        else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
-            option_verbose = 1;
-        }
-*/
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
@@ -434,6 +429,10 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "-1") == 0) ) {
             option1 = 1;
+        }
+        else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if ( (strcmp(*argv, "-v") == 0) ) {
+            option_verbose = 1;
         }
         else {
             if ((option1 == 1  && option2 == 1) || (!option_raw && option1 == 0  && option2 == 0)) goto help_out;
@@ -453,6 +452,10 @@ int main(int argc, char **argv) {
     if (i) {
         fclose(fp);
         return -1;
+    }
+
+    if (option_ecc) {
+        rs_init_BCH64();
     }
 
 
@@ -485,8 +488,8 @@ int main(int argc, char **argv) {
                 if (header_found) {
                     bit_count = 0;
                     for (j = 0; j < HEADLEN; j++) {
-                        if (header_found % 2 == 1) frame_bits[j] = header0x049DCEbits[j];
-                        else                       frame_bits[j] = header0xFB6230bits[j];
+                        if (header_found % 2 == 1) frame_bits[j] = header0x049DCEbits[j] - 0x30;
+                        else                       frame_bits[j] = header0xFB6230bits[j] - 0x30;
                     }
                 }
             }
@@ -499,21 +502,52 @@ int main(int argc, char **argv) {
 
                     biphi_s(frame_rawbits, frame_bits+HEADLEN);
 
+                    if (option_ecc) {
+                        for (block = 0; block < 6; block++) {
+
+                            // prepare block-codeword
+                            for (j =  0; j < 46; j++) cw[45-j] = frame_bits[HEADLEN + block*46+j];
+                            for (j = 46; j < 63; j++) cw[j] = 0;
+
+                            errors = rs_decode_bch_gf2t2(cw, err_pos, err_val);
+
+                            // check parity,padding
+                            if (errors >= 0) {
+                                check_err = 0;
+                                for (i = 46; i < 63; i++) { if (cw[i] != 0) check_err = 0x1; }
+                                par = 1;
+                                for (i = 13; i < 13+16; i++) par ^= cw[i];
+                                if (cw[12] != par) check_err |= 0x100;
+                                par = 1;
+                                for (i = 30; i < 30+16; i++) par ^= cw[i];
+                                if (cw[29] != par) check_err |= 0x10;
+                                if (check_err) errors = -3;
+                            }
+                            if (errors >= 0) {
+                                for (j = 0; j < 46; j++) frame_bits[HEADLEN + block*46+j] = cw[45-j];
+                            }
+
+                            if (errors < 0) block_err[block] = 0xE;
+                            else            block_err[block] = errors;
+
+                        }
+                    }
+
                     if (!option2 && !option_raw) {
 
                         if (header_found % 2 == 1) {
-                            val = bitstr2val(frame_bits+HEADLEN, 16);
+                            val = bits2val(frame_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
                             if (counter % 2 == 0) printf("\n");
                             //printf("[0x%04X = %d] ", counter, counter);
                             printf("[%d] ", counter);
 
                             if (counter % 2 == 1) {
-                                t2 = bitstr2val(frame_bits+HEADLEN+5*46  , 8);  // LSB
-                                t1 = bitstr2val(frame_bits+HEADLEN+5*46+8, 8);
+                                t2 = bits2val(frame_bits+HEADLEN+5*46  , 8);  // LSB
+                                t1 = bits2val(frame_bits+HEADLEN+5*46+8, 8);
                                 ms = (t1 << 8) | t2;
-                                std = bitstr2val(frame_bits+HEADLEN+5*46+17, 8);
-                                min = bitstr2val(frame_bits+HEADLEN+5*46+25, 8);
+                                std = bits2val(frame_bits+HEADLEN+5*46+17, 8);
+                                min = bits2val(frame_bits+HEADLEN+5*46+25, 8);
                                 printf("  ");
                                 printf("%02d:%02d:%06.3f ", std, min, (double)ms/1000.0);
                                 printf("  ");
@@ -523,17 +557,17 @@ int main(int argc, char **argv) {
                         }
 
                         if (header_found % 2 == 0) {
-                            val = bitstr2val(frame_bits+HEADLEN, 16);
+                            val = bits2val(frame_bits+HEADLEN, 16);
                             //printf("%04x ", val & 0xFFFF);
                             if ((counter % 2 == 0))  { //  (val & 0xFFFF) > 0)  {// == 0x8080
                                 //offset=24+16+1;
 
-                                lat1 = bitstr2val(frame_bits+HEADLEN+17, 16);
-                                lat2 = bitstr2val(frame_bits+HEADLEN+46, 16);
-                                lon1 = bitstr2val(frame_bits+HEADLEN+46+17, 16);
-                                lon2 = bitstr2val(frame_bits+HEADLEN+46+46, 16);
-                                alt1 = bitstr2val(frame_bits+HEADLEN+46+46+17, 16);
-                                alt2 = bitstr2val(frame_bits+HEADLEN+46+46+46, 16);
+                                lat1 = bits2val(frame_bits+HEADLEN+17, 16);
+                                lat2 = bits2val(frame_bits+HEADLEN+46, 16);
+                                lon1 = bits2val(frame_bits+HEADLEN+46+17, 16);
+                                lon2 = bits2val(frame_bits+HEADLEN+46+46, 16);
+                                alt1 = bits2val(frame_bits+HEADLEN+46+46+17, 16);
+                                alt2 = bits2val(frame_bits+HEADLEN+46+46+46, 16);
 
                                 lat = (lat1 << 16) | lat2;
                                 lon = (lon1 << 16) | lon2;
@@ -543,9 +577,9 @@ int main(int argc, char **argv) {
                                 printf("%.6f  %.6f  %.2f", (double)lat/1e7, (double)lon/1e7, (double)alt/1e2);
                                 printf("  ");
 
-                                jj = bitstr2val(frame_bits+HEADLEN+5*46+ 8, 8) + 0x0700;
-                                mm = bitstr2val(frame_bits+HEADLEN+5*46+17, 8);
-                                tt = bitstr2val(frame_bits+HEADLEN+5*46+25, 8);
+                                jj = bits2val(frame_bits+HEADLEN+5*46+ 8, 8) + 0x0700;
+                                mm = bits2val(frame_bits+HEADLEN+5*46+17, 8);
+                                tt = bits2val(frame_bits+HEADLEN+5*46+25, 8);
                                 printf("  ");
                                 printf("%4d-%02d-%02d ", jj, mm, tt);
                                 printf("  ");
@@ -558,18 +592,18 @@ int main(int argc, char **argv) {
                     else if (option2 && !option_raw) {
 
                         if (header_found % 2 == 1) {
-                            val = bitstr2val(frame_bits+HEADLEN, 16);
+                            val = bits2val(frame_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
                             if (counter % 2 == 0) printf("\n");
                             //printf("[0x%04X = %d] ", counter, counter);
                             printf("[%d] ", counter);
 
                             if (counter % 2 == 0) {
-                                t1 = bitstr2val(frame_bits+HEADLEN+5*46  , 8);  // MSB
-                                t2 = bitstr2val(frame_bits+HEADLEN+5*46+8, 8);
+                                t1 = bits2val(frame_bits+HEADLEN+5*46  , 8);  // MSB
+                                t2 = bits2val(frame_bits+HEADLEN+5*46+8, 8);
                                 ms = (t1 << 8) | t2;
-                                std = bitstr2val(frame_bits+HEADLEN+5*46+17, 8);
-                                min = bitstr2val(frame_bits+HEADLEN+5*46+25, 8);
+                                std = bits2val(frame_bits+HEADLEN+5*46+17, 8);
+                                min = bits2val(frame_bits+HEADLEN+5*46+25, 8);
                                 printf("  ");
                                 printf("%02d:%02d:%06.3f ", std, min, (double)ms/1000.0);
                                 printf("  ");
@@ -577,20 +611,20 @@ int main(int argc, char **argv) {
                         }
 
                         if (header_found % 2 == 0) {
-                            val = bitstr2val(frame_bits+HEADLEN, 16);
+                            val = bits2val(frame_bits+HEADLEN, 16);
                             //printf("%04x ", val & 0xFFFF);
                             if ((counter % 2 == 0))  { //  (val & 0xFFFF) > 0)  {// == 0x2390
                                 //offset=24+16+1;
 
-                                dat2 = bitstr2val(frame_bits+HEADLEN, 16);
+                                dat2 = bits2val(frame_bits+HEADLEN, 16);
                                 printf("%05u (?%02d-%02d-%02d) ", dat2, dat2/1000,(dat2/10)%100, (dat2%10)+10);
 
-                                lat1 = bitstr2val(frame_bits+HEADLEN+17, 16);
-                                lat2 = bitstr2val(frame_bits+HEADLEN+46, 16);
-                                lon1 = bitstr2val(frame_bits+HEADLEN+46+17, 16);
-                                lon2 = bitstr2val(frame_bits+HEADLEN+46+46, 16);
-                                alt1 = bitstr2val(frame_bits+HEADLEN+46+46+17, 16);
-                                alt2 = bitstr2val(frame_bits+HEADLEN+46+46+46,  8);
+                                lat1 = bits2val(frame_bits+HEADLEN+17, 16);
+                                lat2 = bits2val(frame_bits+HEADLEN+46, 16);
+                                lon1 = bits2val(frame_bits+HEADLEN+46+17, 16);
+                                lon2 = bits2val(frame_bits+HEADLEN+46+46, 16);
+                                alt1 = bits2val(frame_bits+HEADLEN+46+46+17, 16);
+                                alt2 = bits2val(frame_bits+HEADLEN+46+46+46,  8);
 
                                 lat = (lat1 << 16) | lat2;
                                 lon = (lon1 << 16) | lon2;
@@ -610,18 +644,18 @@ int main(int argc, char **argv) {
                     }
                     else { // raw
 
-                        val = bitstr2val(frame_bits, HEADLEN);
+                        val = bits2val(frame_bits, HEADLEN);
                         printf("%06X ", val & 0xFFFFFF);
                         printf("  ");
                         for (i = 0; i < 6; i++) {
 
-                            val = bitstr2val(frame_bits+HEADLEN+46*i   , 16);
+                            val = bits2val(frame_bits+HEADLEN+46*i   , 16);
                             printf("%04X ", val & 0xFFFF);
 
-                            val = bitstr2val(frame_bits+HEADLEN+46*i+17, 16);
+                            val = bits2val(frame_bits+HEADLEN+46*i+17, 16);
                             printf("%04X ", val & 0xFFFF);
 
-                            val = bitstr2val(frame_bits+HEADLEN+46*i+34, 12);
+                            val = bits2val(frame_bits+HEADLEN+46*i+34, 12);
                             //printf("%03X ", val & 0xFFF);
                             //printf(" ");
                         }
@@ -630,6 +664,12 @@ int main(int argc, char **argv) {
 
                     bit_count = 0;
                     header_found = 0;
+
+                    if (option_ecc && option_verbose) {
+                        printf("#");
+                        for (block = 0; block < 6; block++) printf("%X", block_err[block]);
+                        printf("#  ");
+                    }
                 }
             }
         }
