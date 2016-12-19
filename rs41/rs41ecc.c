@@ -906,9 +906,6 @@ int rs41_ecc(int msglen) {
     errors1 = rs_decode(cw1, err_pos1, err_val1);
     errors2 = rs_decode(cw2, err_pos2, err_val2);
 
-    if (errors1 > 0 || errors2 > 0) {
-    ret = errors1+errors2;
-    }
 
     // check CRC32
     // CRC32 OK:
@@ -924,6 +921,7 @@ int rs41_ecc(int msglen) {
     if (leak) {
     frame[cfg_rs41.msgpos+2*i] = cw1[rs_R+i];
     }
+
 
     ret = errors1 + errors2;
     if (errors1 < 0 || errors2 < 0) ret = -1;
