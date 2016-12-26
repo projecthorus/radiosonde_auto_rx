@@ -81,9 +81,9 @@ char header[] = "000010000110110101010011100010000100010001101001010010000001111
 char buf[HEADLEN+1] = "x";
 int bufpos = -1;
 
-#define NDATA_LEN 320
+#define NDATA_LEN 320                    // std framelen 320
 #define XDATA_LEN 198
-#define FRAME_LEN (NDATA_LEN+XDATA_LEN)
+#define FRAME_LEN (NDATA_LEN+XDATA_LEN)  // max framelen 518
 ui8_t //xframe[FRAME_LEN] = { 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8},    = xorbyte( frame)
          frame[FRAME_LEN] = { 0x86, 0x35, 0xf4, 0x40, 0x93, 0xdf, 0x1a, 0x60}; // = xorbyte(xframe)
 
@@ -882,7 +882,8 @@ unsigned char codeword1[rs_N], codeword2[rs_N];
 
 ui8_t cw1[rs_N], cw2[rs_N];
 
-int rs41_ecc(int msglen) {
+int rs41_ecc(int frmlen) {
+// richtige framelen wichtig fuer 0-padding
 
     int i, leak, ret = 0;
     int errors1, errors2;
@@ -890,12 +891,12 @@ int rs41_ecc(int msglen) {
           err_val1[rs_R], err_val2[rs_R];
 
 
-    if (msglen > FRAME_LEN) msglen = FRAME_LEN;
-    cfg_rs41.frmlen = msglen;
-    cfg_rs41.msglen = (msglen-56)/2; // msgpos=56;
-    leak = msglen % 2;
+    if (frmlen > FRAME_LEN) frmlen = FRAME_LEN;
+    cfg_rs41.frmlen = frmlen;
+    cfg_rs41.msglen = (frmlen-56)/2; // msgpos=56;
+    leak = frmlen % 2;
 
-    for (i = msglen; i < FRAME_LEN; i++) frame[i] = 0;  // FRAME_LEN-HDR = 510 = 2*255
+    for (i = frmlen; i < FRAME_LEN; i++) frame[i] = 0;  // FRAME_LEN-HDR = 510 = 2*255
 
 
     for (i = 0; i < rs_R; i++) cw1[i] = frame[cfg_rs41.parpos+i     ];
@@ -1014,7 +1015,8 @@ int main(int argc, char *argv[]) {
         byte_count = FRAMESTART,
         header_found = 0,
         byte, i;
-    int bit, len;
+    int bit, len,
+        frmlen = FRAME_LEN;
 
     int sumQ, bitQ;
     double ratioQ, ratioQ0;
@@ -1037,6 +1039,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       --avg        (moving average)\n");
             fprintf(stderr, "       -b           (alt. Demod.)\n");
             fprintf(stderr, "       --ecc        (Reed-Solomon)\n");
+            fprintf(stderr, "       --std        (std framelen)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -1057,6 +1060,7 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
         else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if   (strcmp(*argv, "--std") == 0) { frmlen = 320; }  // NDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -1114,10 +1118,10 @@ int main(int argc, char *argv[]) {
                     //xframe[byte_count] = byte;
                     frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
                     byte_count++;
-                    if (byte_count == FRAME_LEN) {
+                    if (byte_count == frmlen) {
                         byte_count = FRAMESTART;
                         header_found = 0;
-                        print_frame(FRAME_LEN);
+                        print_frame(frmlen);
                     }
                 }
             }
@@ -1128,7 +1132,7 @@ int main(int argc, char *argv[]) {
             sumQ = 0;
             ratioQ0 = 0;
 
-            while ( byte_count < FRAME_LEN ) {
+            while ( byte_count < frmlen ) {
                 bitQ = read_rawbit(fp, &bit);
                 if ( bitQ == EOF) break;
                 sumQ += bitQ;
