@@ -25,8 +25,9 @@
 #endif
 
 
-typedef unsigned char ui8_t;
-typedef unsigned int  ui32_t;
+typedef unsigned char  ui8_t;
+typedef unsigned short ui16_t;
+typedef unsigned int   ui32_t;
 typedef short i16_t;
 typedef int   i32_t;
 
@@ -710,7 +711,7 @@ int get_GPSkoord() {
     double X[3], lat, lon, alt;
     ui8_t gpsVel_bytes[2];
     short vel16; // 16bit
-    double V[3], phi, lam, alpha, dir;
+    double V[3], phi, lam, dir;
 
     int crclen;
     int crcdat;
@@ -762,12 +763,13 @@ int get_GPSkoord() {
 
     // NEU -> HorDirVer
     gpx.vH = sqrt(gpx.vN*gpx.vN+gpx.vE*gpx.vE);
-///*
+/*
+    double alpha;
     alpha = atan2(gpx.vN, gpx.vE)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
     dir = 90-alpha;                          // z=x+iy= -> i*conj(z)=y+ix=re(i(pi/2-t)), Achsen und Drehsinn vertauscht
     if (dir < 0) dir += 360;                 // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
     gpx.vD2 = dir;
-//*/
+*/
     dir = atan2(gpx.vE, gpx.vN) * 180 / M_PI;
     if (dir < 0) dir += 360;
     gpx.vD = dir;
@@ -812,6 +814,7 @@ int get_Cal() {
     unsigned byte;
     ui8_t calfr = 0;
     ui8_t burst = 0;
+    ui16_t fw = 0;
     int freq = 0, f0 = 0, f1 = 0;
     char sondetyp[9];
 
@@ -826,11 +829,19 @@ int get_Cal() {
             byte = framebyte(pos_CalData+1+i);
             fprintf(stdout, "%02x ", byte);
         }
+        if (check_CRC(pos_FRAME, pck_FRAME)>0) fprintf(stdout, "[OK]");
+        else                                   fprintf(stdout, "[NO]");
+        fprintf(stdout, " ");
+    }
+
+    if (calfr == 0x01  &&  option_verbose /*== 2*/) {
+        fw = framebyte(pos_CalData+6) | (framebyte(pos_CalData+7)<<8);
+        fprintf(stdout, ": fw 0x%04x ", fw);
     }
 
     if (calfr == 0x02  &&  option_verbose /*== 2*/) {
         byte = framebyte(pos_Calburst);
-        burst = byte;
+        burst = byte;   // fw >= 0x4ef5, BK irrelevant oder invers?
         fprintf(stdout, ": BK %02X ", burst);
     }
 
