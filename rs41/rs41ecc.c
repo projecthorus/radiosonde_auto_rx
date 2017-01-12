@@ -448,10 +448,10 @@ int check_CRC(ui32_t pos, ui32_t pck) {
     if (((pck>>8) & 0xFF) != frame[pos]) return -1;
     crclen = frame[pos+1];
     crcdat = u2(frame+pos+2+crclen);
-    if ( crcdat == crc16(pos+2, crclen) ) {
-        return 1;  // CRC OK
+    if ( crcdat != crc16(pos+2, crclen) ) {
+        return 1;  // CRC NO
     }
-    else return 0;
+    else return 0; // CRC OK
 }
 
 
@@ -557,13 +557,13 @@ int get_SatData() {
 
     fprintf(stdout, "CRC: ");
     fprintf(stdout, " %04X", pck_GPS1);
-    if (check_CRC(pos_GPS1, pck_GPS1)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    if (check_CRC(pos_GPS1, pck_GPS1)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
     //fprintf(stdout, "[%+d]", check_CRC(pos_GPS1, pck_GPS1));
     fprintf(stdout, " %04X", pck_GPS2);
-    if (check_CRC(pos_GPS2, pck_GPS2)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    if (check_CRC(pos_GPS2, pck_GPS2)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
     //fprintf(stdout, "[%+d]", check_CRC(pos_GPS2, pck_GPS2));
     fprintf(stdout, " %04X", pck_GPS3);
-    if (check_CRC(pos_GPS3, pck_GPS3)>0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    if (check_CRC(pos_GPS3, pck_GPS3)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
     //fprintf(stdout, "[%+d]", check_CRC(pos_GPS3, pck_GPS3));
 
     fprintf(stdout, "\n");
@@ -636,19 +636,6 @@ int get_GPStime() {
     int gpstime = 0, // 32bit
         day;
     int ms;
-    int crclen;
-    int crcdat;
-    int crcpos = pos_GPS1;
-
-    // xorbyte(crcpos) == (pck_GPS1>>8) & 0xFF ?
-    if ( option_crc ) {
-        crclen = framebyte(crcpos+1);
-        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16(crcpos+2, crclen) ) {
-            return -2; // CRC error
-        }
-    }
-
 
     for (i = 0; i < 4; i++) {
         byte = framebyte(pos_GPSiTOW + i);
@@ -674,6 +661,30 @@ int get_GPStime() {
     return 0;
 }
 
+int get_GPS1() {
+    int err;
+    int crclen;
+    int crcdat;
+    int crcpos = pos_GPS1;
+
+    // ((framebyte(pos_GPS1)<<8) | framebyte(pos_GPS1+1)) != pck_GPS1 ?
+    if ( framebyte(pos_GPS1) != ((pck_GPS1>>8) & 0xFF) ) {
+        return -1;
+    }
+    if ( option_crc ) {
+        crclen = framebyte(crcpos+1);
+        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
+        if ( crcdat != crc16(crcpos+2, crclen) ) {
+            return -2; // CRC error
+        }
+    }
+
+    err = 0;
+    err |= get_GPSweek();
+    err |= get_GPStime();
+
+    return err;
+}
 
 #define EARTH_a  6378137.0
 #define EARTH_b  6356752.31424518
@@ -713,18 +724,6 @@ int get_GPSkoord() {
     short vel16; // 16bit
     double V[3], phi, lam, dir;
 
-    int crclen;
-    int crcdat;
-    int crcpos = pos_GPS3;
-
-    // xorbyte(crcpos) == (pck_GPS3>>8) & 0xFF ?
-    if ( option_crc ) {
-        crclen = framebyte(crcpos+1);
-        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16(crcpos+2, crclen) ) {
-            return -2; // CRC error
-        }
-    }
 
     for (k = 0; k < 3; k++) {
 
@@ -750,7 +749,7 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.alt = alt;
-    if ((alt < -1000) || (alt > 80000)) return -1;
+    if ((alt < -1000) || (alt > 80000)) return -3;
 
 
     // ECEF-Velocities
@@ -775,6 +774,29 @@ int get_GPSkoord() {
     gpx.vD = dir;
 
     return 0;
+}
+
+int get_GPS3() {
+    int err;
+    int crclen;
+    int crcdat;
+    int crcpos = pos_GPS3;
+
+    // ((framebyte(pos_GPS3)<<8) | framebyte(pos_GPS3+1)) != pck_GPS3 ?
+    if ( framebyte(pos_GPS3) != ((pck_GPS3>>8) & 0xFF) ) {
+        return -1;
+    }
+    if ( option_crc ) {
+        crclen = framebyte(crcpos+1);
+        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
+        if ( crcdat != crc16(crcpos+2, crclen) ) {
+            return -2; // CRC error
+        }
+    }
+
+    err = get_GPSkoord();
+
+    return err;
 }
 
 int get_Aux() {
@@ -829,8 +851,8 @@ int get_Cal() {
             byte = framebyte(pos_CalData+1+i);
             fprintf(stdout, "%02x ", byte);
         }
-        if (check_CRC(pos_FRAME, pck_FRAME)>0) fprintf(stdout, "[OK]");
-        else                                   fprintf(stdout, "[NO]");
+        if (check_CRC(pos_FRAME, pck_FRAME)==0) fprintf(stdout, "[OK]");
+        else                                    fprintf(stdout, "[NO]");
         fprintf(stdout, " ");
     }
 
@@ -841,7 +863,7 @@ int get_Cal() {
 
     if (calfr == 0x02  &&  option_verbose /*== 2*/) {
         byte = framebyte(pos_Calburst);
-        burst = byte;   // fw >= 0x4ef5, BK irrelevant oder invers?
+        burst = byte;   // fw >= 0x4ef5, BK irrelevant? (killtimer in 0x31?)
         fprintf(stdout, ": BK %02X ", burst);
     }
 
@@ -918,6 +940,11 @@ int rs41_ecc(int frmlen) {
     errors1 = rs_decode(cw1, err_pos1, err_val1);
     errors2 = rs_decode(cw2, err_pos2, err_val2);
 
+    // Wenn Fehler im 00-padding korrigiert wurden,
+    // war entweder der frame zu kurz, oder
+    // Fehler wurden falsch korrigiert;
+    // allerdings ist bei t=12 die Wahrscheinlichkeit,
+    // dass falsch korrigiert wurde mit 1/t! sehr gering.
 
     // check CRC32
     // CRC32 OK:
@@ -926,12 +953,12 @@ int rs41_ecc(int frmlen) {
         frame[cfg_rs41.parpos+     i] = cw1[i];
         frame[cfg_rs41.parpos+rs_R+i] = cw2[i];
     }
-    for (i = 0; i < cfg_rs41.msglen; i++) {
+    for (i = 0; i < rs_K; i++) { // cfg_rs41.msglen <= rs_K
         frame[cfg_rs41.msgpos+  2*i] = cw1[rs_R+i];
         frame[cfg_rs41.msgpos+1+2*i] = cw2[rs_R+i];
     }
     if (leak) {
-    frame[cfg_rs41.msgpos+2*i] = cw1[rs_R+i];
+        frame[cfg_rs41.msgpos+2*i] = cw1[rs_R+i];
     }
 
 
@@ -945,23 +972,27 @@ int rs41_ecc(int frmlen) {
 
 
 int print_position() {
-    int err;
+    int err, err1, err3;
 
         err = 0;
         err |= get_FrameNb();
         err |= get_SondeID();
-        err |= get_GPSweek();
-        err |= get_GPStime();
-        err |= get_GPSkoord();
+
+        err1 = get_GPS1();
+        err3 = get_GPS3();
 
         if (!err) {
-            Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
+        }
+        if (!err1) {
+            Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             fprintf(stdout, "%s ", weekday[gpx.wday]);
             fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%06.3f",
                     gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek);
             if (option_verbose == 3) fprintf(stdout, " (W %d)", gpx.week);
+        }
+        if (!err3) {
             fprintf(stdout, " ");
             fprintf(stdout, " lat: %.5f ", gpx.lat);
             fprintf(stdout, " lon: %.5f ", gpx.lon);
@@ -971,24 +1002,27 @@ int print_position() {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
-            get_Cal();
-            if (option_verbose > 1) get_Aux();
-            fprintf(stdout, "\n");  // fflush(stdout);
         }
+        get_Cal();
+        if (option_verbose > 1) get_Aux();
 
-    return err;
+        if (err == 0  ||  (err1 && err3) == 0) fprintf(stdout, "\n");  // fflush(stdout);
+
+        err |=  err1 | err3;
+
+    return  err;
 }
 
 void print_frame(int len) {
     int i, ret = 0;
 
-    if (option_ecc) {
-        ret = rs41_ecc(len);
-    }
-
     for (i = len; i < FRAME_LEN; i++) {
         //xframe[i] = 0;
         frame[i] = 0;
+    }
+
+    if (option_ecc) {
+        ret = rs41_ecc(len);
     }
 
     if (option_raw) {
@@ -1004,7 +1038,7 @@ void print_frame(int len) {
         }
         if (option_ecc) {
             if (ret >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            //if (ret >  0) fprintf(stdout, " (%d)", ret);
+            if (option_ecc == 2 && ret >  0) fprintf(stdout, " (%d)", ret);
         }
         fprintf(stdout, "\n");
 //        fprintf(stdout, "\n");
@@ -1070,7 +1104,8 @@ int main(int argc, char *argv[]) {
             option_avg = 1;
         }
         else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
-        else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if   (strcmp(*argv, "--ecc" ) == 0) { option_ecc = 1; }
+        else if   (strcmp(*argv, "--ecc2") == 0) { option_ecc = 2; }
         else if   (strcmp(*argv, "--std") == 0) { frmlen = 320; }  // NDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else {
