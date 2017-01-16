@@ -963,7 +963,8 @@ int get_pseudorange() {
         for (i = 0; i < 3; i++) {
             pseudobytes[i] = frame[posGPS_DATA+8*j+4+i];
         }
-        memcpy(&deltabytes, pseudobytes, 3);
+        deltabytes = 0; // bzw. pseudobytes[3]=0 (24 bit);  deltabytes & (0xFF<<24) als
+        memcpy(&deltabytes, pseudobytes, 3); // gemeinsamer offset relevant in --vel1 !
 
         //if ( (prns[j] == 0) && (sat_status[j] & 0x0F) )  prns[j] = 32;
         range[prns[j]].tow = gpstime;
