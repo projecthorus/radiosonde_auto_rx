@@ -401,7 +401,7 @@ int crc16x(int start, int len) {
     int rem = 0xFFFF, i, j;
     int xbyte;
 
-    if (start+len >= FRAME_LEN) return -1;
+    if (start+len+2 > FRAME_LEN) return -1;
 
     for (i = 0; i < len; i++) {
         xbyte = xorbyte(start+i);
@@ -724,16 +724,16 @@ int get_Aux() {
     // 7Exx: xdata
     while ( pos7E < FRAME_LEN  &&  xorbyte(pos7E) == 0x7E ) {
 
-        auxlen = xorbyte(pos_AUX+1);
-        auxcrc = xorbyte(pos_AUX+2+auxlen) | (xorbyte(pos_AUX+2+auxlen+1)<<8);
+        auxlen = xorbyte(pos7E+1);
+        auxcrc = xorbyte(pos7E+2+auxlen) | (xorbyte(pos7E+2+auxlen+1)<<8);
 
         if (count7E == 0) fprintf(stdout, "\n # xdata = ");
         else              fprintf(stdout, " # ");
 
-        if ( auxcrc == crc16x(pos_AUX+2, auxlen) ) {
-            //fprintf(stdout, " # %02x : ", xorbyte(pos_AUX+2));
+        if ( auxcrc == crc16x(pos7E+2, auxlen) ) {
+            //fprintf(stdout, " # %02x : ", xorbyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
-                fprintf(stdout, "%c", xorbyte(pos_AUX+2+i));
+                fprintf(stdout, "%c", xorbyte(pos7E+2+i));
             }
             count7E++;
             pos7E += 2+auxlen+2;

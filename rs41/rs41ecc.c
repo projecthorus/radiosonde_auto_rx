@@ -401,7 +401,7 @@ int crc16x(int start, int len) {
     int rem = 0xFFFF, i, j;
     int xbyte;
 
-    if (start+len >= FRAME_LEN) return -1;
+    if (start+len+2 > FRAME_LEN) return -1;
 
     for (i = 0; i < len; i++) {
         xbyte = xorbyte(start+i);
@@ -424,7 +424,7 @@ int crc16(int start, int len) {
     int rem = 0xFFFF, i, j;
     int byte;
 
-    if (start+len >= FRAME_LEN) return -1;
+    if (start+len+2 > FRAME_LEN) return -1;
 
     for (i = 0; i < len; i++) {
         byte = framebyte(start+i);
@@ -447,6 +447,7 @@ int check_CRC(ui32_t pos, ui32_t pck) {
            crcdat = 0;
     if (((pck>>8) & 0xFF) != frame[pos]) return -1;
     crclen = frame[pos+1];
+    if (pos + crclen + 4 > FRAME_LEN) return -1;
     crcdat = u2(frame+pos+2+crclen);
     if ( crcdat != crc16(pos+2, crclen) ) {
         return 1;  // CRC NO
@@ -811,22 +812,24 @@ int get_Aux() {
     // 7Exx: xdata
     while ( pos7E < FRAME_LEN  &&  framebyte(pos7E) == 0x7E ) {
 
-        auxlen = framebyte(pos_AUX+1);
-        auxcrc = framebyte(pos_AUX+2+auxlen) | (framebyte(pos_AUX+2+auxlen+1)<<8);
+        auxlen = framebyte(pos7E+1);
+        auxcrc = framebyte(pos7E+2+auxlen) | (framebyte(pos7E+2+auxlen+1)<<8);
 
         if (count7E == 0) fprintf(stdout, "\n # xdata = ");
         else              fprintf(stdout, " # ");
 
-        if ( auxcrc == crc16(pos_AUX+2, auxlen) ) {
-            //fprintf(stdout, " # %02x : ", framebyte(pos_AUX+2));
+        if ( auxcrc == crc16(pos7E+2, auxlen) ) {
+            //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
-                fprintf(stdout, "%c", framebyte(pos_AUX+2+i));
+                fprintf(stdout, "%c", framebyte(pos7E+2+i));
             }
             count7E++;
             pos7E += 2+auxlen+2;
         }
         else pos7E = FRAME_LEN;
     }
+
+    i = check_CRC(pos7E, 0x7600);  // 0x76xx: 00-padding block
 
     return count7E;
 }
