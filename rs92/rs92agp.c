@@ -664,8 +664,7 @@ int prnbits_le(ui16_t byte16, ui8_t bits[64], int block) {
 }
 ui8_t prns[12], // PRNs in data
       sat_status[12];
-int prn32toggle = 0x1,
-    prn32n;
+int prn32toggle = 0x1, ind_prn32, prn32next;
 void prn12(ui8_t *prn_le, ui8_t prns[12]) {
     int i, j, d;
     for (i = 0; i < 12; i++) {
@@ -676,46 +675,49 @@ void prn12(ui8_t *prn_le, ui8_t prns[12]) {
           d <<= 1;
         }
     }
-    prn32n = 32;
+    ind_prn32 = 32;
     for (i = 0; i < 12; i++) {
         // PRN-32 overflow
         if ( (prns[i] == 0) && (sat_status[i] & 0x0F) ) {  // 5 bit: 0..31
             if (  ((i % 3 == 2) && (prn_le[60+i/3] & 1))       // Spalte 2
                || ((i % 3 != 2) && (prn_le[5*(i+1)] & 1)) ) {  // Spalte 0,1
-                prns[i] = 32; prn32n = i;
+                prns[i] = 32; ind_prn32 = i;
             }
         }
         else if ((sat_status[i] & 0x0F) == 0) {  // erste beiden bits: 0x03 ?
             prns[i] = 0;
         }
     }
-    if (prn32n < 12) {
+
+    prn32next = 0;
+    if (ind_prn32 < 12) {
         // PRN-32 overflow
-        if (prn32n % 3 != 2) { // -> prn32n<11                            // vorausgesetzt im Block folgt auf PRN-32
-            if ((sat_status[prn32n+1] & 0x0F)  &&  prns[prn32n+1] > 1) {  // entweder PRN-1 oder PRN-gerade
-                                            // &&  prns[prn32n+1] != 3 ?
-                for (j = 0; j < prn32n; j++) {
-                    if (prns[j] == (prns[prn32n+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
+        if (ind_prn32 % 3 != 2) { // -> ind_prn32<11                            // vorausgesetzt im Block folgt auf PRN-32
+            if ((sat_status[ind_prn32+1] & 0x0F)  &&  prns[ind_prn32+1] > 1) {  // entweder PRN-1 oder PRN-gerade
+                                               // &&  prns[ind_prn32+1] != 3 ?
+                for (j = 0; j < ind_prn32; j++) {
+                    if (prns[j] == (prns[ind_prn32+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
                 }
-                if (j < prn32n) { prn32toggle ^= 0x1; }
+                if (j < ind_prn32) { prn32toggle ^= 0x1; }
                 else {
-                    for (j = prn32n+2; j < 12; j++) {
-                        if (prns[j] == (prns[prn32n+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
+                    for (j = ind_prn32+2; j < 12; j++) {
+                        if (prns[j] == (prns[ind_prn32+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
                     }
                     if (j < 12) { prn32toggle ^= 0x1; }
                 }
-                prns[prn32n+1] ^= prn32toggle;
+                prns[ind_prn32+1] ^= prn32toggle;
                 /*
                   // nochmal testen
-                  for (j = 0; j < prn32n; j++) { if (prns[j] == prns[prn32n+1]) break; }
-                  if (j < prn32n) prns[prn32n+1] = 0;
+                  for (j = 0; j < ind_prn32; j++) { if (prns[j] == prns[ind_prn32+1]) break; }
+                  if (j < ind_prn32) prns[ind_prn32+1] = 0;
                   else {
-                      for (j = prn32n+2; j < 12; j++) { if (prns[j] == prns[prn32n+1]) break; }
-                      if (j < 12) prns[prn32n+1] = 0;
+                      for (j = ind_prn32+2; j < 12; j++) { if (prns[j] == prns[ind_prn32+1]) break; }
+                      if (j < 12) prns[ind_prn32+1] = 0;
                   }
-                  if (prns[prn32n+1] == 0) { prn32toggle ^= 0x1; }
+                  if (prns[ind_prn32+1] == 0) { prn32toggle ^= 0x1; }
                 */
             }
+            prn32next = prns[ind_prn32+1];  // ->  ind_prn32<11  &&  ind_prn32 % 3 != 2
         }
     }
 }
@@ -1192,6 +1194,7 @@ int get_GPSkoord(int N) {
                     }
                 }
                 if (exN >= 0) {
+                    if (prn[exN] == prn32next) prn32toggle ^= 0x1;
                     for (k = exN; k < N-1; k++) {
                         Sat_B[k] = Sat_B[k+1];
                         prn[k] = prn[k+1];
@@ -1205,9 +1208,11 @@ int get_GPSkoord(int N) {
                     }
                 }
             }
-            if (exN < 0  ||  (exN > 0 && prn[exN-1] == 32)) {
-                if (prn32n < 12  &&  (prn32n % 3 != 2)) prn32toggle ^= 0x1;
+/*
+            if (exN < 0  &&  prn32next > 0) {
+                //prn32next used in pre-fix? prn32toggle ^= 0x1;
             }
+*/
         }
 
         if (option_vel == 1) {
