@@ -1066,7 +1066,8 @@ int gps_satpos_alm(rs_data_t *rs_data, EPHEM_t alm[], double t, SAT_t *sat) {
         }
         if (j == 33) {
             // Sat not found
-            printf("[PRN %02d not found]\n", sat[i].prn);
+            // fprintf(stderr, "[SEM: PRN %02d not found]\n", sat[i].prn);
+            sat[i].prn = 0;
         }
 
             // Woche hat 604800 sec
@@ -1151,6 +1152,12 @@ int gps_satpos_rnx(rs_data_t *rs_data, EPHEM_t *eph, double t, SAT_t *sat) {
             sat[i].Z = Z;
             sat[i].clock_corr = cl_corr;
             sat[i].ephtime = eph[count0].toe;
+        }
+        // test: rnx_data(PRN) expired (> 4 hrs)
+        else {
+            // Sat not found
+            // fprintf(stdout, "[RNX: PRN %02d not found]\n", sat[i].prn);
+            sat[i].prn = 0;
         }
 
     }
