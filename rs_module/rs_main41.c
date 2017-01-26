@@ -56,11 +56,7 @@ int print_position(rs_data_t *rs_data) {
 void print_frame(rs_data_t *rs_data) {
     int i;
 
-    for (i = rs_data->pos; i < rs_data->frame_len; i++) {
-        rs_data->frame_bytes[i] = 0;
-    }
-
-    if (option_verbose) fprintf(stdout, "\n");  // fflush(stdout);
+    if (!option_raw && option_verbose) fprintf(stdout, "\n");  // fflush(stdout);
 
     (rs_data->rs_process)(rs_data, option_raw, option_verbose);
 
@@ -69,8 +65,8 @@ void print_frame(rs_data_t *rs_data) {
             fprintf(stdout, "%02x", rs_data->frame_bytes[i]);
         }
 
-            if (rs_data->ecc >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            if (rs_data->ecc >  0) fprintf(stdout, " (%d)", rs_data->ecc);
+        if (rs_data->ecc >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+        if (rs_data->ecc >  0) fprintf(stdout, " (%d)", rs_data->ecc);
 
         fprintf(stdout, "\n");
     }

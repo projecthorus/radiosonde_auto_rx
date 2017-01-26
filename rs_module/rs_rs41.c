@@ -334,7 +334,7 @@ static int rs41_get_Cal(rs_data_t *rs_data, int verbose) {
     crc = rs41_check_CRC(rs_data, pos_FRAME, pck_FRAME);
 
     if (crc==0  &&  strncmp(rs41_cal->SN, rs_data->SN, 8)!=0) {
-        memset(rs41_cal, 0, sizeof(rs41_cal));
+        memset(rs41_cal, 0, sizeof(*rs41_cal));
         strncpy(rs41_cal->SN, rs_data->SN, 9);
     }
 
@@ -751,13 +751,11 @@ static int rs41_framebits2bytes(rs_data_t *rs_data) {
 
     char  *rawframebits = rs_data->frame_rawbits;
     ui8_t *frame        = rs_data->frame_bytes;
+    ui32_t n;
 
-    ui32_t endpos = rs_data->pos;
-
-    for (rs_data->pos = 0; rs_data->pos < endpos; rs_data->pos++) {
-        frame[rs_data->pos] = rs_data->bits2byte(rs_data, rawframebits+(BITS*rs_data->pos));
+    for (n = 0; n < rs_data->pos; n++) {
+        frame[n] = rs_data->bits2byte(rs_data, rawframebits+(BITS*n));
     }
-    while (endpos < FRAME_LEN) frame[endpos++] = 0;
 
     return 0;
 }
@@ -766,9 +764,14 @@ static int rs41_framebits2bytes(rs_data_t *rs_data) {
 int rs41_process(void *data, int raw, int options) {
     rs_data_t *rs_data = data;
     int err=0, ret=0;
+    ui32_t n;
 
     if (rs_data->input < 8) {
         rs41_framebits2bytes(rs_data);
+    }
+
+    for (n = rs_data->pos; n < rs_data->frame_len; n++) {
+        rs_data->frame_bytes[n] = 0;
     }
 
     rs_data->ecc = rs41_ecc(rs_data);

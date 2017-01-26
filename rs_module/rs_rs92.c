@@ -225,7 +225,7 @@ static int rs92_get_Cal(rs_data_t *rs_data, int verbose) {
     // crc == rs_data->crc & crc_CFG ?
 
     if (crc==0  &&  strncmp(rs92_cal->SN, rs_data->SN, 8)!=0) {
-        memset(rs92_cal, 0, sizeof(rs92_cal));
+        memset(rs92_cal, 0, sizeof(*rs92_cal));
         strncpy(rs92_cal->SN, rs_data->SN, 9);
     }
 
@@ -351,7 +351,7 @@ static void rs92_prn12(ui8_t *prn_le, ui8_t prns[12]) {
         // PRN-32 overflow
         if (ind_prn32 % 3 != 2) { // -> ind_prn32<11                            // vorausgesetzt im Block folgt auf PRN-32
             if ((sat_status[ind_prn32+1] & 0x0F)  &&  prns[ind_prn32+1] > 1) {  // entweder PRN-1 oder PRN-gerade
-                                            // &&  prns[ind_prn32+1] != 3 ?
+                                               // &&  prns[ind_prn32+1] != 3 ?
                 for (j = 0; j < ind_prn32; j++) {
                     if (prns[j] == (prns[ind_prn32+1]^prn32toggle)  &&  (sat_status[j] & 0x0F)) break;
                 }
@@ -374,8 +374,8 @@ static void rs92_prn12(ui8_t *prn_le, ui8_t prns[12]) {
                   if (prns[ind_prn32+1] == 0) { prn32toggle ^= 0x1; }
                 */
             }
+            prn32next = prns[ind_prn32+1];  // ->  ind_prn32<11  &&  ind_prn32 % 3 != 2
         }
-        if (ind_prn32 < 11) prn32next = prns[ind_prn32+1];
     }
 }
 
@@ -525,7 +525,7 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
 
 
     // Sat mit schlechten Daten suchen
-    if (diter > d_err)
+    if (diter >= d_err)
     {
         if (N > 4) {  // N > 5
             for (n = 0; n < N; n++) {
@@ -552,8 +552,8 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
 
         if (exN >= 0) {
 
-            if ( (Sat_B[exN].prn == prn32next) && (ind_prn32 % 3 != 2) ) {
-                prn32toggle ^= 0x1;  // wenn zuvor mit prn32next valider Fix, dann eventuell nicht aendern;q
+            if (Sat_B[exN].prn == prn32next) {
+                prn32toggle ^= 0x1;  // wenn zuvor mit prn32next valider Fix, dann eventuell nicht aendern;
                                      // eventuell gleich testen
             }
 
@@ -637,15 +637,6 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
     }
 
 
-    (rs_data->GPS).lat = lat;
-    (rs_data->GPS).lon = lon;
-    (rs_data->GPS).alt = alt;
-
-    (rs_data->GPS).vH = vH;
-    (rs_data->GPS).vD = vD;
-    (rs_data->GPS).vU = vU;
-
-
     addData_Vaisala_t *rs92_add = rs_data->addData;
     int pDOP = -1;
     if (calc_DOPn(N, Sat_B, pos_ecef, DOP) == 0) {
@@ -657,6 +648,24 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
         (rs92_add->sat).prn[j]         = Sat_B[j].prn;
         (rs92_add->sat).pseudorange[j] = Sat_B[j].pseudorange;
         (rs92_add->sat).doppler[j]     = Sat_B[j].pseudorate;
+    }
+
+
+    if (diter < d_err) {
+
+        (rs_data->GPS).lat = lat;
+        (rs_data->GPS).lon = lon;
+        (rs_data->GPS).alt = alt;
+
+        (rs_data->GPS).vH = vH;
+        (rs_data->GPS).vD = vD;
+        (rs_data->GPS).vU = vU;
+
+    }
+    else {
+        (rs_data->GPS).lat = (rs_data->GPS).lon = (rs_data->GPS).alt = 0;
+        (rs_data->GPS).vH = (rs_data->GPS).vD = (rs_data->GPS).vU = 0;
+        N = 0;
     }
 
 
@@ -771,7 +780,9 @@ static int rs92_ecc(rs_data_t *rs_data) {
     int msgpos = cfg_rs92ecc.msgpos; // = 6
     int parpos = cfg_rs92ecc.parpos; // = 240-24
 
-    while (frmlen < rs_data->frame_len) frame[frmlen++] = 0;
+    while (frmlen < parpos) frmlen++;
+    while (frmlen < rs_data->frame_len) frame[frmlen++] = 0xFF; // besser bei 00-error-frames
+
     if (frmlen > rs_data->frame_len) frmlen = rs_data->frame_len;
 
     memset(cw, 0, rs_N);
@@ -814,13 +825,11 @@ static int rs92_framebits2bytes(rs_data_t *rs_data) {
 
     char  *rawframebits = rs_data->frame_rawbits;
     ui8_t *frame        = rs_data->frame_bytes;
+    ui32_t n;
 
-    ui32_t endpos = rs_data->pos;
-
-    for (rs_data->pos = 0; rs_data->pos < endpos; rs_data->pos++) {
-        frame[rs_data->pos] = rs_data->bits2byte(rs_data, rawframebits+(BITS*rs_data->pos));
+    for (n = 0; n < rs_data->pos; n++) {
+        frame[n] = rs_data->bits2byte(rs_data, rawframebits+(BITS*n));
     }
-    while (endpos < FRAME_LEN) frame[endpos++] = 0;
 
     return 0;
 }
@@ -829,9 +838,14 @@ static int rs92_framebits2bytes(rs_data_t *rs_data) {
 int rs92_process(void *data, int raw, int options) {
     rs_data_t *rs_data = data;
     int err=0, ret=0;
+    ui32_t n;
 
     if (rs_data->input < 8) {
         rs92_framebits2bytes(rs_data);
+    }
+
+    for (n = rs_data->pos; n < rs_data->frame_len; n++) {
+        rs_data->frame_bytes[n] = 0;
     }
 
     rs_data->ecc = rs92_ecc(rs_data);
@@ -874,8 +888,8 @@ int rs92_mbits2byte(void *data, char mbits[]) {
     int i, byte=0, d=1;
     int bit8[8];
 
-    if (manch(mbits+0) != 0) return 0x100;
-    for (i = 0; i < 8; i++) {
+    if (manch(mbits+0) != 0) return 0x100;     // hier error-00-frames mit pos==frame_len moeglich;
+    for (i = 0; i < 8; i++) {                  // eventuell hier reync, oder in demod
         bit8[i] = manch(mbits+2*(i+1));
     }
 
