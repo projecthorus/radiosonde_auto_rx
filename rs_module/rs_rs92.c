@@ -426,27 +426,34 @@ static int rs92_get_pseudorange(rs_data_t *rs_data) {
         Sat[j].prn = prns[j];
         Sat[j].status = sat_status[j];
 
-        // Pseudorange/chips
-        pseudobytes = frame+pos_GPS_DATA+8*j;
-        memcpy(&chipbytes, pseudobytes, 4);
-
-        // delta_pseudochips / 385
-        pseudobytes = frame+pos_GPS_DATA+8*j+4;
-        deltabytes = 0; // bzw. pseudobytes[3]=0 (24 bit);
-        memcpy(&deltabytes, pseudobytes, 3);
-
-        if ( chipbytes == 0x7FFFFFFF  ||  chipbytes == 0x55555555 )
-      //or ( chipbytes >  0x10000000  &&  chipbytes <  0xF0000000 )
-        {
-             chipbytes  = 0;
-             deltabytes = 0;
-             Sat[j].prn = 0;
+        if (pos_GPS_DATA+8*(j+1) > rs_data->pos) {
+            Sat[j].prn = 0;
         }
-                            //0x01400000 //0x013FB0A4
-        Sat[j].pseudorange = - chipbytes  * df;
-        Sat[j].pseudorate  = - deltabytes * df / dl;
+        else {
 
-        if ((Sat[j].status & 0x0F) != 0xF) Sat[j].prn = 0;
+            // Pseudorange/chips
+            pseudobytes = frame+pos_GPS_DATA+8*j;
+            memcpy(&chipbytes, pseudobytes, 4);
+
+            // delta_pseudochips / 385
+            pseudobytes = frame+pos_GPS_DATA+8*j+4;
+            deltabytes = 0; // bzw. pseudobytes[3]=0 (24 bit);
+            memcpy(&deltabytes, pseudobytes, 3);
+
+            // check deltabytes, status_deltabytes (24..31)
+            if ((         chipbytes == 0x7FFFFFFF  ||          chipbytes == 0x55555555 ) ||
+                ( (ui32_t)chipbytes  > 0x10000000  &&  (ui32_t)chipbytes  < 0xF0000000 ))
+            {
+                 chipbytes  = 0;
+                 deltabytes = 0;
+                 Sat[j].prn = 0;
+            }
+                                //0x01400000 //0x013FB0A4
+            Sat[j].pseudorange = - chipbytes  * df;
+            Sat[j].pseudorate  = - deltabytes * df / dl;
+
+            if ((Sat[j].status & 0x0F) != 0xF) Sat[j].prn = 0;
+        }
     }
 
 
@@ -566,6 +573,7 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
         }
         else {
             // 4er-Kombinationen probieren
+            gdop = 100.0;
             k = N;
             j0 = j1 = j2 = j3 = 0;
             for (i0=0;i0<k;i0++) { for (i1=i0+1;i1<k;i1++) { for (i2=i1+1;i2<k;i2++) { for (i3=i2+1;i3<k;i3++) {
@@ -598,8 +606,9 @@ static int rs92_get_GPSkoord(rs_data_t *rs_data, int opt_gg2) {
                     && (vH0 < 200.0 && vU0*vU0 < 200.0*200.0)  // validen Positionen vergleichen
                    ) {
 
-                    if ( diter0 < diter ) {
+                    if ( diter0 < diter  &&  gdop0 < gdop+2.0 ) {
                         diter = diter0;
+                        gdop = gdop0;
                         j0 = i0; j1 = i1; j2 = i2; j3 = i3;
                     }
                 }
