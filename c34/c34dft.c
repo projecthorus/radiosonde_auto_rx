@@ -109,7 +109,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) ret = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -131,7 +131,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 #define N      64 // 128  Vielfaches von 22 oder 10 unten
 #define WLEN   40 // (2*(48000/BAUDRATE))
 
-#define BITS (4+8)  // 1110 bbbbbbbb (oder: 10 bbbbbbbb 11)
+#define BITS (4+8)  // 1110 bbbbbbbb (oder: 0 bbbbbbbb 1 11) (8N1, 11-idle)
 #define LEN_BITFRAME  84  // 7*(4+8)
 #define HEADLEN 28
 
@@ -281,7 +281,7 @@ int bits2bytes(ui8_t bits[], ui8_t bytes[]) {
         /* for (i = 7; i >= 0; i--) { // big endian */
             if     (bits[BITS*j+i] == 1)   byteval += d;
             else /*(bits[BITS*j+i] == 0)*/ byteval += 0;
-            d <<= 1;      
+            d <<= 1;
         }
         bytes[j] = byteval;
     }
@@ -480,7 +480,7 @@ int main(int argc, char *argv[]) {
     ptr = -1; sample_count = -1;
     while ((sample=read_signed_sample(fp)) < EOF_INT) {
 
-        ptr++; 
+        ptr++;
         sample_count++;
         if (ptr == N) ptr = 0;
         buffer[ptr] = sample / (double)(1<<bits_sample);

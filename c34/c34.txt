@@ -7,7 +7,8 @@ Modulation AFSK 2400 baud
 bits : little endian -> byte
 bytes: big endian -> int-value
 
-bytes getrennt durch 4 bit 1110
+bytes getrennt durch 4 bit 1110:
+8N1: 0 bbbbbbbb 1(11)0 bb... , (11)-idle
 
 Datenpaket besteht aus 8 byte:
 header  2 byte  00FF
