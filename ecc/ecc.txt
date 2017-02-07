@@ -1,8 +1,24 @@
 
+In der Regel enthalten die einzelnen frames Checksummen oder CRC-Werte.
+Einige Radiosonden senden frames mit Codewoertern, die eine Fehlerkorrektur ermoeglichen.
+
+
+Graw
+====
+BCH/Hamming code (N, N-R) = (2^m - 1, N-m), d.h. R=mt mit t=1,
+korrigiert t=1 Fehler pro Codewort der Laenge N,
+die Codewoerter haben den Abstand d=3 (bei 2 Fehlern
+wird falsch dekodiert).
+Fuer die Sonden DFM-06/09 ist m=3, d.h. Hamming (7, 4),
+jedoch mit einem Paritaetsbit zu (8, 4) erweitert.
+Der erweiterte Hammingcode (8, 4) kann zudem 2 Fehler
+als nicht-korrigierbar erkennen (wird nicht falsch decodiert).
+
+
 Meisei
 ======
-BCH(63,51)-Code mit Generatorpolynom
-x^12+x^10+x^8+x^5+x^4+x^3+1.
+BCH(63,51)-Code (m=6, t=2) mit Generatorpolynom
+(x^6+x+1)(x^6+x^4+x^2+x+1)=x^12+x^10+x^8+x^5+x^4+x^3+1.
 gekuerzt auf (46,34), die letzten 12 bit sind die BCH-Kontrollbits.
 
 Das Generatorpolynom kann man finden, wenn man geeignete Codewoerter addiert (linearer Code),
@@ -19,7 +35,14 @@ um das kleinste Codewort ungleich 0 zu finden, z.B.:
 Die 34 Nachrichtenbit sind aufgeteilt in 16+1+16+1, d.h. nach einem 16 bit Block kommt ein Paritaetsbit,
 dass 1 ist, wenn die Anzahl 1en in den 16 bit davor gerade ist und sonst 0.
 
-Um nur zu pruefen, kann man Polynomdivision durchfuehren (CRC):
+Pro Codewort koennen t=2 Fehler korrigiert werden.
+Ist die Anzahl Fehler #E groesser t, dann ist fuer t < #E <= 2t die Wahrscheinlichkeit,
+dass Fehler falsch erkannt/decodiert werden, etwa 1/t!, somit fuer t=2 garnicht gering.
+Da hier gekuerzte Codewoerter und 2 zusaetzliche Paritaetsbits verwendet werden, sollte
+man bei decodierten Codewoertern pruefen, ob die Paritaetsbits stimmen und ob bei der
+Decodierung Werte im Null-padding veraendert wurden.
+
+Um nur die BCH-Codewoerter zu pruefen, kann man Polynomdivision durchfuehren (CRC):
 1)
 0000000000000000 1 0000000000000000 1 000010111011 : 0000 0000 0BB
 -> 0000000000000000100000000000000001000010111011
@@ -77,6 +100,8 @@ Um nur zu pruefen, kann man Polynomdivision durchfuehren (CRC):
                              0
 
 
+Decoder:
+bch_ecc.c
 
 
 Vaisala
@@ -93,7 +118,12 @@ Generatorpolynom fuer RS-Code:
 X^24 + 0x7A X^23 + 0x76 X^22 + 0xA9 X^21 + 0x46 X^20 + 0xB2 X^19 + 0xED X^18 + 0xD8 X^17 + 0x66 X^16 + 0x73 X^15 + 0x96 X^14 + 0xe5 X^13 + 0x49 X^12 
      + 0x82 X^11 + 0x48 X^10 + 0x3D X^9  + 0x2B X^8  + 0xCE X^7  + 0x01 X^6  + 0xED X^5  + 0xF7 X^4  + 0x7F X^3  + 0xD9 X^2  + 0x90 X    + 0x75
 
+Es koennen t=12 Fehler pro Codewort korrigiert werden.
+Fehler der Anzahl t < #E <= 2t werden zuverlaessig erkannt.
+
+
 Decoder:
+bch_ecc.c
 http://www.ka9q.net/code/fec/
 https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
 
@@ -151,7 +181,7 @@ DATA       264-462  (max 2*231=462)
 "interleaved"
 Die 2 Codewoerter setzen sich zusammen aus den DATA-Bytes an den geraden bzw. ungeraden Positionen und ersten bzw. zweiten RS-PARITY-Teil.
 
-                 RS(231,255)                                     RS(231,255)                                           L=40                                                                                CRC    L=42                                                                                    CRC    L=30                                                            CRC    L=89                                                                                                                                                                                  CRC    L=21                                          CRC    L=17                                  CRC 
+                 RS(255,231)                                     RS(255,231)                                           L=40                                                                                CRC    L=42                                                                                    CRC    L=30                                                            CRC    L=89                                                                                                                                                                                  CRC    L=21                                          CRC    L=17                                  CRC 
 8635f44093df1a60 2c87e0fa0521e8943d9cef4c7a67393f6d39fb546461f2111b6447ab79a746c80350cda5344157f8c0c12234f4690222 0f 7928 16174b313933303239331a00000300000a00002f0007322ce53e31991abf12dada3eb68468c16755 d51c 7a2a 15310216060245f302000d08a31607821e08bb210219060243f302000000000000000000000000000000 220d 7c1e 0807d03cdc071fd81ddb19d70a8d0eb602b60cb518d40692ff00ff00ff00 1c27 7d59 b8d83301ff0f881f0f38f4fe18b283038735ff000000003eb8ff4947201e6e3aff55415f13fc6e005440440cf100009e9f7406f85800832b631719d70010bebc172a8b00000000000000000000000000000000000000000000 a48b 7b15 366181193ef05d07e1245b1be0f721f801f6080410 7b0b 7611 0000000000000000000000000000000000 ecc7
 1)
 8635f44093df1a60 (HDR)
