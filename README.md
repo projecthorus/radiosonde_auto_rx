@@ -36,9 +36,10 @@ wird DFT verwendet). Je nach Empfangsgeraet oder SDR-Software kann das Signal in
   `RS/scan`: einfaches Beispiel, wie man mit rtl_sdr-tools automatisch scannen kann <br />
 
 
-* Videos:
+* Videos & Bilder:
 
   https://www.youtube.com/user/boulderplex  
+  https://www.flickr.com/photos/116298535@N06/albums/72157644377585863  
 
 
 * erläuternde Beiträge:
