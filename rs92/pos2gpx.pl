@@ -4,7 +4,12 @@ use warnings;
 
 my $filename = $ARGV[0];
 my $fh;
-open($fh, $filename) or die "Could not open $filename: $!";
+if (defined $filename) {
+  open($fh, "<", $filename) or die "Could not open $filename: $!";
+}
+else {
+  $fh = *STDIN;
+}
 
 print "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n";
 print "<gpx version=\"1.1\" creator=\"me\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.topografix.com/GPX/1/1\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">\n";

@@ -4,7 +4,12 @@ use warnings;
 
 my $filename = $ARGV[0];
 my $fh;
-open($fh, $filename) or die "Could not open $filename: $!";
+if (defined $filename) {
+  open($fh, "<", $filename) or die "Could not open $filename: $!";
+}
+else {
+  $fh = *STDIN;
+}
 
 print "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n";
 print "<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n";
