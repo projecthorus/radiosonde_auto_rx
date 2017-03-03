@@ -175,10 +175,10 @@ else {
             else { $inv = ''; }
             $rs = "";
             $WFM = "";
-            if (abs($ret) == 2) { $rs = "dfm";  $breite = "15k"; $dec = './dfm06 -v'; $filter = "lowpass 2000 highpass 20"; }
-            if (abs($ret) == 3) { $rs = "rs41"; $breite = "12k"; $dec = './rs41stdin -v'; $filter = "lowpass 2600"; }
-            if (abs($ret) == 4) { $rs = "rs92"; $breite = "12k"; $dec = './rs92gps -g -v -a almanac.txt'; $filter = "lowpass 2500 highpass 20"; }
-            if (abs($ret) == 5) { $rs = "m10";  $breite = "24k"; $dec = './m10x -v'; $filter = "highpass 20"; }
+            if (abs($ret) == 2) { $rs = "dfm";  $breite = "15k"; $dec = './dfm06 -vv --ecc'; $filter = "lowpass 2000 highpass 20"; }
+            if (abs($ret) == 3) { $rs = "rs41"; $breite = "12k"; $dec = './rs41ecc --ecc -v'; $filter = "lowpass 2600"; }
+            if (abs($ret) == 4) { $rs = "rs92"; $breite = "12k"; $dec = './rs92gps --vel2 -a almanac.txt'; $filter = "lowpass 2500 highpass 20"; }
+            if (abs($ret) == 5) { $rs = "m10";  $breite = "24k"; $dec = './m10x -vv'; $filter = "highpass 20"; }
             if (abs($ret) == 6) { $rs = "imet"; $breite = "40k"; $dec = './imet1ab -v'; $filter = "highpass 20";  $WFM = "-o 4"; }
             if ($inv) { print "-";} print uc($rs)," ($utc)\n";
             $utc = strftime('%Y%m%d_%H%M%S', gmtime);
