@@ -17,6 +17,7 @@ typedef unsigned int   ui32_t;
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
+    option_crc = 0,      // check CRC
     option_res = 0,      // genauere Bitmessung
     wavloaded = 0;
 
@@ -171,13 +172,13 @@ char sync[]   = "0010100111""0010100111""0010100111""0010100111"; // CA CA CA CA
 
 #define FRAMESTART 0
 
-#define FRAME_LEN       (960)   // max; min 36+3 GPS
+#define FRAME_LEN       (960+2)   // max; min 36+3 GPS
 #define BITFRAME_LEN    (FRAME_LEN*BITS)
 
 char buf[HEADLEN];
 int bufpos = -1;
 
-ui8_t frame_bytes[FRAME_LEN]; // = { 0x52, ... };
+ui8_t frame_bytes[FRAME_LEN] = { 0x24 }; // = { 0x24, 0x52, ... };
 char  frame_bits[BITFRAME_LEN+4];
 
 
@@ -267,6 +268,27 @@ frame_end:
 
 /* -------------------------------------------------------------------------- */
 
+int crc16_0(ui8_t frame[], int len) {
+    int crc16poly = 0x1021;
+    int rem = 0x0, i, j;
+    int byte;
+
+    for (i = 0; i < len; i++) {
+        byte = frame[i];
+        rem = rem ^ (byte << 8);
+        for (j = 0; j < 8; j++) {
+            if (rem & 0x8000) {
+                rem = (rem << 1) ^ crc16poly;
+            }
+            else {
+                rem = (rem << 1);
+            }
+            rem &= 0xFFFF;
+        }
+    }
+    return rem;
+}
+
 typedef struct {
     int frnr;
     ui8_t id[9];
@@ -283,7 +305,7 @@ typedef struct {
 gpx_t gpx;
 
 
-#define OFS 1
+#define OFS 2
 #define pos_SondeID  (OFS+0x02)  // ? 2 byte
 #define pos_FrameNb  (OFS+0x04)  // 2 byte
 //GPS Position
@@ -296,6 +318,21 @@ gpx_t gpx;
 #define pos_GPSvN  (OFS+0x1F)  // 3 byte
 #define pos_GPSvV  (OFS+0x22)  // 3 byte
 
+
+int check_CRC() {
+    ui32_t crclen = 0,
+           crcdat = 0;
+
+    if      (frame_bytes[OFS] == 0x4D) crclen = 67;
+    else if (frame_bytes[OFS] == 0x54) crclen = 172;
+    else return -1;
+
+    crcdat = (frame_bytes[crclen]<<8) | frame_bytes[crclen+1];
+    if ( crcdat != crc16_0(frame_bytes, crclen) ) {
+        return 1;  // CRC NO
+    }
+    else return 0; // CRC OK
+}
 
 int get_FrameNb() {
     int i;
@@ -481,16 +518,18 @@ int get_GPSvel24() {
 
 void print_frame(int len) {
 
-    int i, err = 0;
+    int i, crc_err = 0;
 
     for (i = len; i < BITFRAME_LEN; i++) frame_bits[i] = 0;  // oder: '0'
-    bits2bytes(frame_bits, frame_bytes);
+    bits2bytes(frame_bits, frame_bytes+1);
 
 
     if (option_raw) {
         for (i = 0; i < len/BITS; i++) printf("%02x ", frame_bytes[i]); printf("\n");
     }
-    else if (!err) {
+    else {
+
+        crc_err = check_CRC();
 
         if (frame_bytes[OFS] == 0x54  &&  len/BITS > pos_GPSalt+4) {
 
@@ -513,6 +552,10 @@ void print_frame(int len) {
             get_GPSvel24();
             printf("  vH: %.1fm/s  D: %.1f°  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vV);
             if (option_verbose == 2) printf("  (%.1f ,%.1f,%.1f) ", gpx.vE, gpx.vN, gpx.vU);
+
+            if (option_crc) {
+                if (crc_err==0) printf(" [OK]"); else printf(" [NO]");
+            }
 
             printf("\n");
         }
@@ -551,6 +594,7 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;
         }
+        else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else {
             fp = fopen(*argv, "rb");
