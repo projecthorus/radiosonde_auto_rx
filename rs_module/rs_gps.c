@@ -189,7 +189,7 @@ int read_SEMalmanac(FILE *fp, EPHEM_t *alm) {
 
 EPHEM_t *read_RNXpephs(FILE *fp) {
     int l, i, n;
-    char buffer[82];
+    char buffer[83];
     char buf[64], str[20];
     char *pbuf;
     unsigned ui;
