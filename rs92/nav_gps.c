@@ -169,7 +169,7 @@ int read_SEMalmanac(FILE *fp, EPHEM_t *alm) {
 int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
     int l, i;
     char buf[64], str[20];
-    char buf_header[82];
+    char buf_header[83];
        //buf_data[80];  // 3 + 4*19 = 79
     char *pbuf;
     unsigned ui;
@@ -286,7 +286,7 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
 
 EPHEM_t *read_RNXpephs(FILE *fp) {
     int l, i, n;
-    char buffer[82];
+    char buffer[83];
     char buf[64], str[20];
     char *pbuf;
     unsigned ui;
