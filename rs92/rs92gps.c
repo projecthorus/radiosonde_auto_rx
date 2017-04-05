@@ -1443,11 +1443,13 @@ int main(int argc, char *argv[]) {
             ++argv;
             if (*argv) fp_alm = fopen(*argv, "r"); // txt-mode
             else return -1;
+            if (fp_alm == NULL) fprintf(stderr, "[almanac] %s konnte nicht geoeffnet werden\n", *argv);
         }
         else if ( (strcmp(*argv, "-e") == 0) || (strncmp(*argv, "--ephem", 7) == 0) ) {
             ++argv;
-            if (*argv) fp_eph = fopen(*argv, "r"); // txt-mode
+            if (*argv) fp_eph = fopen(*argv, "rb"); // bin-mode
             else return -1;
+            if (fp_eph == NULL) fprintf(stderr, "[rinex] %s konnte nicht geoeffnet werden\n", *argv);
         }
         else if ( (strcmp(*argv, "--dop") == 0) ) {
             ++argv;
