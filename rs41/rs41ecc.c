@@ -57,6 +57,7 @@ typedef struct {
     double lat; double lon; double alt;
     double vN; double vE; double vU;
     double vH; double vD; double vD2;
+    ui32_t crc;
 } gpx_t;
 
 gpx_t gpx;
@@ -468,6 +469,7 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 0x12B: 7Exx   AUX-xdata
 */
 
+#define crc_FRAME    (1<<0)
 #define xor_FRAME    0x1713  // ^0x6E3B=0x7928
 #define pck_FRAME    0x7928
 #define pos_FRAME     0x039
@@ -480,9 +482,11 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pos_CalRSTyp  0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
         // weitere chars in calfr 0x22/0x23; weitere ID
 
+#define crc_PTU      (1<<1)
 #define pck_PTU      0x7A2A  // PTU
 #define pos_PTU       0x065
 
+#define crc_GPS1     (1<<2)
 #define xor_GPS1     0x9667  // ^0xEA79=0x7C1E
 #define pck_GPS1     0x7C1E  // RXM-RAW (0x02 0x10)
 #define pos_GPS1      0x093
@@ -490,12 +494,14 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pos_GPSiTOW   0x097  // 4 byte
 #define pos_satsN     0x09B  // 12x2 byte (1: SV, 1: quality,strength)
 
+#define crc_GPS2     (1<<3)
 #define pck_GPS2     0x7D59  // RXM-RAW (0x02 0x10)
 #define pos_GPS2      0x0B5
 #define pos_minPR     0x0B7  //        4 byte
 #define pos_FF        0x0BB  //        1 byte
 #define pos_dataSats  0x0BC  // 12x(4+3) byte (4: pseudorange, 3: doppler)
 
+#define crc_GPS3     (1<<4)
 #define xor_GPS3     0xB9FF  // ^0xC2EA=0x7B15
 #define pck_GPS3     0x7B15  // NAV-SOL (0x01 0x06)
 #define pos_GPS3      0x112
@@ -507,8 +513,12 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pos_sAcc      0x127  //   1 byte
 #define pos_pDOP      0x128  //   1 byte
 
+#define crc_AUX      (1<<5)
 #define pck_AUX      0x7E00  // LEN variable
 #define pos_AUX       0x12B
+
+#define crc_ZERO     (1<<6)  // LEN variable
+#define pck_ZERO     0x7600
 
 
 double c = 299.792458e6;
@@ -603,11 +613,38 @@ int get_SondeID() {
     }
 
     for (i = 0; i < 8; i++) {
-        gpx.id[i] = sondeid_bytes[i];
+        gpx.id[i] = ' ';
+        if (   (sondeid_bytes[i] >= '0' && sondeid_bytes[i] <= '9')
+            || (sondeid_bytes[i] >= 'A' && sondeid_bytes[i] <= 'Z')
+            || (sondeid_bytes[i] >= 'a' && sondeid_bytes[i] <= 'z') ) {
+            gpx.id[i] = sondeid_bytes[i];
+        }
     }
     gpx.id[8] = '\0';
 
     return 0;
+}
+
+int get_FrameConf() {
+    int err;
+
+    err = check_CRC(pos_FRAME, pck_FRAME);
+    if (err) gpx.crc |= crc_FRAME;
+
+    //err = 0;
+    err |= get_FrameNb();
+    err |= get_SondeID();
+
+    return err;
+}
+
+int get_PTU() {
+    int err=0;
+
+    err = check_CRC(pos_PTU, pck_PTU);
+    if (err) gpx.crc |= crc_PTU;
+
+    return err;
 }
 
 int get_GPSweek() {
@@ -663,26 +700,28 @@ int get_GPStime() {
 }
 
 int get_GPS1() {
-    int err;
-    int crclen;
-    int crcdat;
-    int crcpos = pos_GPS1;
+    int err=0;
 
     // ((framebyte(pos_GPS1)<<8) | framebyte(pos_GPS1+1)) != pck_GPS1 ?
     if ( framebyte(pos_GPS1) != ((pck_GPS1>>8) & 0xFF) ) {
         return -1;
     }
-    if ( option_crc ) {
-        crclen = framebyte(crcpos+1);
-        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16(crcpos+2, crclen) ) {
-            return -2; // CRC error
-        }
-    }
 
-    err = 0;
+    err = check_CRC(pos_GPS1, pck_GPS1);
+    if (err) gpx.crc |= crc_GPS1;
+
+    //err = 0;
     err |= get_GPSweek();
     err |= get_GPStime();
+
+    return err;
+}
+
+int get_GPS2() {
+    int err=0;
+
+    err = check_CRC(pos_GPS2, pck_GPS2);
+    if (err) gpx.crc |= crc_GPS2;
 
     return err;
 }
@@ -778,24 +817,17 @@ int get_GPSkoord() {
 }
 
 int get_GPS3() {
-    int err;
-    int crclen;
-    int crcdat;
-    int crcpos = pos_GPS3;
+    int err=0;
 
     // ((framebyte(pos_GPS3)<<8) | framebyte(pos_GPS3+1)) != pck_GPS3 ?
     if ( framebyte(pos_GPS3) != ((pck_GPS3>>8) & 0xFF) ) {
         return -1;
     }
-    if ( option_crc ) {
-        crclen = framebyte(crcpos+1);
-        crcdat = framebyte(crcpos+2+crclen) | (framebyte(crcpos+2+crclen+1)<<8);
-        if ( crcdat != crc16(crcpos+2, crclen) ) {
-            return -2; // CRC error
-        }
-    }
 
-    err = get_GPSkoord();
+    err = check_CRC(pos_GPS3, pck_GPS3);
+    if (err) gpx.crc |= crc_GPS3;
+
+    err |= get_GPSkoord();
 
     return err;
 }
@@ -826,15 +858,19 @@ int get_Aux() {
             count7E++;
             pos7E += 2+auxlen+2;
         }
-        else pos7E = FRAME_LEN;
+        else {
+            pos7E = FRAME_LEN;
+            gpx.crc |= crc_AUX;
+        }
     }
 
     i = check_CRC(pos7E, 0x7600);  // 0x76xx: 00-padding block
+    if (i) gpx.crc |= crc_ZERO;
 
     return count7E;
 }
 
-int get_Cal() {
+int get_Cal(int out) {
     int i;
     unsigned byte;
     ui8_t calfr = 0;
@@ -859,34 +895,37 @@ int get_Cal() {
         fprintf(stdout, " ");
     }
 
-    if (calfr == 0x01  &&  option_verbose /*== 2*/) {
-        fw = framebyte(pos_CalData+6) | (framebyte(pos_CalData+7)<<8);
-        fprintf(stdout, ": fw 0x%04x ", fw);
-    }
-
-    if (calfr == 0x02  &&  option_verbose /*== 2*/) {
-        byte = framebyte(pos_Calburst);
-        burst = byte;   // fw >= 0x4ef5, BK irrelevant? (killtimer in 0x31?)
-        fprintf(stdout, ": BK %02X ", burst);
-    }
-
-    if (calfr == 0x00  &&  option_verbose) {
-        byte = framebyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
-        f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
-        byte = framebyte(pos_Calfreq+1);
-        f1 = 40 * byte;
-        freq = 400000 + f1+f0; // kHz;
-        fprintf(stdout, ": fq %d ", freq);
-    }
-
-    if (calfr == 0x21  &&  option_verbose /*== 2*/) {  // eventuell noch zwei bytes in 0x22
-        for (i = 0; i < 9; i++) sondetyp[i] = 0;
-        for (i = 0; i < 8; i++) {
-            byte = framebyte(pos_CalRSTyp + i);
-            if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
-            else if (byte == 0x00) sondetyp[i] = '\0';
+    if (out)
+    {
+        if (calfr == 0x01  &&  option_verbose /*== 2*/) {
+            fw = framebyte(pos_CalData+6) | (framebyte(pos_CalData+7)<<8);
+            fprintf(stdout, ": fw 0x%04x ", fw);
         }
-        fprintf(stdout, ": %s ", sondetyp);
+
+        if (calfr == 0x02  &&  option_verbose /*== 2*/) {
+            byte = framebyte(pos_Calburst);
+            burst = byte;   // fw >= 0x4ef5, BK irrelevant? (killtimer in 0x31?)
+            fprintf(stdout, ": BK %02X ", burst);
+        }
+
+        if (calfr == 0x00  &&  option_verbose) {
+            byte = framebyte(pos_Calfreq) & 0xC0;  // erstmal nur oberste beiden bits
+            f0 = (byte * 10) / 64;  // 0x80 -> 1/2, 0x40 -> 1/4 ; dann mal 40
+            byte = framebyte(pos_Calfreq+1);
+            f1 = 40 * byte;
+            freq = 400000 + f1+f0; // kHz;
+            fprintf(stdout, ": fq %d ", freq);
+        }
+
+        if (calfr == 0x21  &&  option_verbose /*== 2*/) {  // eventuell noch zwei bytes in 0x22
+            for (i = 0; i < 9; i++) sondetyp[i] = 0;
+            for (i = 0; i < 8; i++) {
+                byte = framebyte(pos_CalRSTyp + i);
+                if ((byte >= 0x20) && (byte < 0x7F)) sondetyp[i] = byte;
+                else if (byte == 0x00) sondetyp[i] = '\0';
+            }
+            fprintf(stdout, ": %s ", sondetyp);
+        }
     }
 
     return 0;
@@ -975,13 +1014,15 @@ int rs41_ecc(int frmlen) {
 
 
 int print_position() {
-    int err, err1, err3;
+    int i;
+    int err, err1, err2, err3;
+    int output;
 
-        err = 0;
-        err |= get_FrameNb();
-        err |= get_SondeID();
+        err = get_FrameConf();
+        get_PTU();
 
         err1 = get_GPS1();
+        err2 = get_GPS2();
         err3 = get_GPS3();
 
         if (!err) {
@@ -1006,10 +1047,25 @@ int print_position() {
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
         }
-        get_Cal();
-        if (option_verbose > 1) get_Aux();
 
-        if (err == 0  ||  (err1 && err3) == 0) fprintf(stdout, "\n");  // fflush(stdout);
+        output = (!err || !err1 || !err3);
+
+        if (output)
+        {
+            if (option_crc) {
+                fprintf(stdout, " # [");
+                for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
+                fprintf(stdout, "]");
+            }
+        }
+
+        get_Cal(output);
+
+        if (output)
+        {
+            if (option_verbose > 1) get_Aux();
+            fprintf(stdout, "\n");  // fflush(stdout);
+        }
 
         err |=  err1 | err3;
 
@@ -1018,6 +1074,8 @@ int print_position() {
 
 void print_frame(int len) {
     int i, ret = 0;
+
+    gpx.crc = 0;
 
     for (i = len; i < FRAME_LEN; i++) {
         //xframe[i] = 0;
@@ -1066,7 +1124,7 @@ int main(int argc, char *argv[]) {
     int bit, len,
         frmlen = FRAME_LEN;
 
-    int sumQ, bitQ;
+    int sumQ, bitQ, Qerror_count;
     double ratioQ, ratioQ0;
 
 #ifdef CYGWIN
@@ -1109,7 +1167,8 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
         else if   (strcmp(*argv, "--ecc" ) == 0) { option_ecc = 1; }
         else if   (strcmp(*argv, "--ecc2") == 0) { option_ecc = 2; }
-        else if   (strcmp(*argv, "--std") == 0) { frmlen = 320; }  // NDATA_LEN
+        else if   (strcmp(*argv, "--std" ) == 0) { frmlen = 320; }  // NDATA_LEN
+        else if   (strcmp(*argv, "--std2") == 0) { frmlen = 518; }  // NDATA_LEN+XDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -1180,6 +1239,7 @@ int main(int argc, char *argv[]) {
             bitstart = 1;
             sumQ = 0;
             ratioQ0 = 0;
+            Qerror_count = 0;
 
             while ( byte_count < frmlen ) {
                 bitQ = read_rawbit(fp, &bit);
@@ -1199,11 +1259,16 @@ int main(int argc, char *argv[]) {
                     //printf("# %3d  sumQ: %d  sumQ/(samples/bit): %.1f\n", byte_count-1, sumQ, sumQ/samples_per_bit);
                     if (byte_count > NDATA_LEN) {
                         if (ratioQ > 0.7  && ratioQ0 > 0.7) {
-                            byte_count -= 2;
-                            break;
+                            Qerror_count += 1;
                         }
                     }
                     sumQ = 0;
+                }
+                if (Qerror_count > 4) {
+                    if (byte_count > NDATA_LEN  && byte_count < NDATA_LEN+XDATA_LEN-10) {
+                        byte_count = NDATA_LEN;
+                    }
+                    break;
                 }
             }
             header_found = 0;
