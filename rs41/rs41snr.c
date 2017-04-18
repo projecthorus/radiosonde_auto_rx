@@ -1241,11 +1241,14 @@ int main(int argc, char *argv[]) {
             Qerror_count = 0;
 
             while ( byte_count < frmlen ) {
+
                 bitQ = read_rawbit(fp, &bit); // return: zeroX/bit (oder alternativ Varianz/bit)
                 if ( bitQ == EOF) break;
-                sumQ += bitQ; // zeroX/byte
+                if (bitQ > 1) sumQ += bitQ-1; // zeroX/byte: zaehle zeroX/bit nur, wenn > 1
+                // oder: sumQ += bitQ; // mit ratioQ > 0.7,0.8
                 bitbuf[bit_count] = bit;
                 bit_count++;
+
                 if (bit_count == 8) {
                     bit_count = 0;
                     byte = bits2byte(bitbuf);
@@ -1255,19 +1258,21 @@ int main(int argc, char *argv[]) {
 
                     ratioQ = sumQ/samples_per_bit; // approx: bei Rauschen zeroX/byte leider nicht linear in sample_rate
                     if (byte_count > NDATA_LEN) { // Fehler erst ab minimaler framelen Zaehlen
-                        if (ratioQ > 0.7) {       // Schwelle, ab wann wahrscheinlich Rauschbit
+                        if (ratioQ > 0.5) {       // Schwelle, ab wann wahrscheinlich Rauschbit: 0.4,0.5
                             Qerror_count += 1;
                         }
                     }
                     sumQ = 0; // Fenster fuer zeroXcount: 8 bit
                 }
+
                 if (Qerror_count > 4) {   // ab byte 320 entscheiden, ob framelen = 320 oder 518
-                    if (byte_count > NDATA_LEN  && byte_count < NDATA_LEN+XDATA_LEN-10) {
+                    if (byte_count >= NDATA_LEN  && byte_count < NDATA_LEN+XDATA_LEN-10) {
                         byte_count = NDATA_LEN;
                     } // in print_frame() wird ab byte_count mit 00 aufgefuellt fuer Fehlerkorrektur
                     break;
                 }
             }
+
             header_found = 0;
             print_frame(byte_count);
             byte_count = FRAMESTART;
