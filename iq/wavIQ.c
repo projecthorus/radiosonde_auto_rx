@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
     unsigned char chIn = 0, chOut = 0;
     int option = 0, phi = 0, wavloaded = 0;
     int sample = 0, M = 0;
-    double t, s, f = 0, fm, b, omega;
+    double t, s, f = 0, fm, b, omega = 0;
     double complex  z = 0, z0 = 0, w = 0,
                     *buffer = NULL;
     double gain = 40.0;
@@ -379,6 +379,7 @@ int main(int argc, char *argv[]) {
 
         case FMMOD:
             b = 0.7;
+            omega = 0;
             while ( read_sample(fp, &s) != EOF ) {
                 // integrate phi'
                 omega += 2*PI * b*s ;  // mod 2*PI
