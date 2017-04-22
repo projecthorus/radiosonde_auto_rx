@@ -13,6 +13,9 @@
    ./wavIQ -l 6000 IQtransl2.wav > IQlowpass2.wav
    ./wavIQ -d1 IQlowpass2.wav > IQdemod2.wav
    sox IQdemod2.wav -r 48000 IQdemod48k2.wav
+
+   ./wavIQ -fm IQdemod48k1.wav > dfmIQ2.wav
+
 */
 
 
@@ -27,6 +30,7 @@
 #define  TRANSLATE  0x20
 #define  LOWPASS    0x30
 #define  DEMOD      0x40
+#define  FMMOD      0x50
 
 #define  PI  (3.1415926535897932384626433832795)
 
@@ -40,7 +44,8 @@ int findstr(char *buff, char *str, int pos) {
     }
     return i;
 }
-int read_IQwavheader(FILE *fp, int *sample_rate, int *bits_sample, unsigned char ch, FILE *fout) {
+int read_wavheader(FILE *fp, int *sample_rate, int *bits_sample,
+                             unsigned char chIn, unsigned char chOut, FILE *fout) {
     unsigned int channels = 0, size = 0;
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
@@ -51,7 +56,7 @@ int read_IQwavheader(FILE *fp, int *sample_rate, int *bits_sample, unsigned char
 
     if (fread(dat, 1, 4, fp) < 4) return -1;
     size = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24); //fprintf(stderr, "filesize: 0x%08x = %d\n", size+8, size+8);
-    if (ch == 1) size = (size+8-44)/2 + 44-8; 
+    size = ((size+8-44)*chOut)/chIn + 44-8;
     for (byte = 0; byte < 4; byte++) { dat[byte] = size & 0xFF; size >>= 8; }
     fwrite(dat, 1, 4, fout);
 
@@ -70,16 +75,30 @@ int read_IQwavheader(FILE *fp, int *sample_rate, int *bits_sample, unsigned char
     if (fread(dat, 1, 4, fp) < 4) return -1;  fwrite(dat, 1, 4, fout);
     if (fread(dat, 1, 2, fp) < 2) return -1;  fwrite(dat, 1, 2, fout);
 
+    // channels
     if (fread(dat, 1, 2, fp) < 2) return -1;
     channels = dat[0] + (dat[1] << 8);
-    dat[0] = ch; fwrite(dat, 1, 2, fout);
+    dat[0] = chOut; fwrite(dat, 1, 2, fout);
 
+    // sample_rate
     if (fread(dat, 1, 4, fp) < 4) return -1;  fwrite(dat, 1, 4, fout);
     *sample_rate = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24); //memcpy(&sr, dat, 4);
 
-    if (fread(dat, 1, 4, fp) < 4) return -1;  fwrite(dat, 1, 4, fout);
-    if (fread(dat, 1, 2, fp) < 2) return -1;  fwrite(dat, 1, 2, fout);
+    // bytes/sec
+    if (fread(dat, 1, 4, fp) < 4) return -1;
+    size = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+    size = (size*chOut)/chIn;
+    for (byte = 0; byte < 4; byte++) { dat[byte] = size & 0xFF; size >>= 8; }
+    fwrite(dat, 1, 4, fout);
 
+    // block align
+    if (fread(dat, 1, 2, fp) < 2) return -1;
+    size = dat[0] | (dat[1] << 8);
+    size = (size*chOut)/chIn;
+    for (byte = 0; byte < 2; byte++) { dat[byte] = size & 0xFF; size >>= 8; }
+    fwrite(dat, 1, 2, fout);
+
+    // bits/sample
     if (fread(dat, 1, 2, fp) < 2) return -1;  fwrite(dat, 1, 2, fout);
     *bits_sample = dat[0] + (dat[1] << 8);
     if ((*bits_sample != 8) && (*bits_sample != 16)) return -2;
@@ -93,11 +112,11 @@ int read_IQwavheader(FILE *fp, int *sample_rate, int *bits_sample, unsigned char
     }
     if (fread(dat, 1, 4, fp) < 4) return -1;
     size = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24); //fprintf(stderr, "datasize: 0x%08x = %d\n", size, size);
-    if (ch == 1) size = size/2; 
+    size = (size*chOut)/chIn;
     for (byte = 0; byte < 4; byte++) { dat[byte] = size & 0xFF; size >>= 8; }
     fwrite(dat, 1, 4, fout);
-    
-    if (channels != 2) return -3;  // I&Q
+
+    if (channels != chIn) return -3;  // I&Q: chIn=2
 /*
     fprintf(stderr, "sample_rate: %d\n", *sample_rate);
     fprintf(stderr, "bits       : %d\n", *bits_sample);
@@ -124,18 +143,36 @@ int read_csample(FILE *fp, double complex *z) {
 int write_csample(FILE *fp, double complex w) {
     int u, v;
 
-    if (bits_sample == 8) {
-        w += 128 + I*128;
-    }
+    if (bits_sample == 16) { w *= 256.0; }
 
     u = creal(w);
     v = cimag(w);
+
+    if (bits_sample == 8) {
+        u += 128;
+        v += 128;
+    }
                                         // 16 bit  (short)  ->  (int)
     fwrite( &u, bits_sample/8, 1, fp);  // +  0000 .. 7FFF  ->  0000 0000 .. 0000 7FFF
     fwrite( &v, bits_sample/8, 1, fp);  // -  8000 .. FFFF  ->  FFFF 8000 .. FFFF FFFF
 
     return 0;
 
+}
+
+int read_sample(FILE *fp, double *z) {  // channels == 1
+    short x = 0;
+
+    if (fread( &x, bits_sample/8, 1, fp) != 1) return EOF;
+
+    if (bits_sample == 8) {
+        x -= 128;
+    }
+
+    *z = x/128.0;
+    if (bits_sample == 16) { *z = x/256.0; }
+
+    return 0;
 }
 
 int write_sample(FILE *fp, double x) {
@@ -211,23 +248,25 @@ double complex lowpass(double complex buffer[], int sample, int M) {
 int main(int argc, char *argv[]) {
     FILE *fp = NULL, *fout = NULL;
     char *fpname = NULL;
-    unsigned char ch = 0;
-    int option = 0, phi = 0, wavloaded = 0;    
+    unsigned char chIn = 0, chOut = 0;
+    int option = 0, phi = 0, wavloaded = 0;
     int sample = 0, M = 0;
-    double t, f = 0, fm, gain;
+    double t, s, f = 0, fm, b, omega;
     double complex  z = 0, z0 = 0, w = 0,
                     *buffer = NULL;
+    double gain = 40.0;
 
     fpname = argv[0];
     ++argv;
     while ((*argv) && (!wavloaded)) {
         if      ( (strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0) ) {
-            fprintf(stderr, "%s <option> IQ.wav\n", fpname);
+            fprintf(stderr, "%s <option> file.wav\n", fpname);
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -s         (swap IQ)\n");
             fprintf(stderr, "       -t <freq>  (translate)\n");
             fprintf(stderr, "       -l <freq>  (lowpass)\n");
             fprintf(stderr, "       -d1,2      (demod fm)\n");
+            fprintf(stderr, "       -fm        (fm-mod)\n");
             return 0;
         }
         else if (strcmp(*argv, "-s") == 0) option = SWAPIQ;
@@ -251,6 +290,7 @@ int main(int argc, char *argv[]) {
         }
         else if (strcmp(*argv, "-d1") == 0) { option = DEMOD; phi = 1; }
         else if (strcmp(*argv, "-d2") == 0) { option = DEMOD; phi = 2; }
+        else if (strcmp(*argv, "-fm") == 0) { option = FMMOD; }
         else {
             if (!option) return 0;
             fp = fopen(*argv, "rb");
@@ -266,11 +306,21 @@ int main(int argc, char *argv[]) {
     if (!wavloaded) fp = stdin;
 
 
-    if ( (option & 0xF0) == (DEMOD & 0xF0) ) ch = 1;
-    else                   ch = 2;
+    if (     (option & 0xF0) == (DEMOD & 0xF0) ) {
+        chIn  = 2;
+        chOut = 1;
+    }
+    else if ((option & 0xF0) == (FMMOD & 0xF0) ) {
+        chIn  = 1;
+        chOut = 2;
+    }
+    else {
+        chIn  = 2;
+        chOut = 2;
+    }
 
     fout = stdout; //fopen("tmp_out.wav", "wb");
-    if (read_IQwavheader(fp, &sample_rate, &bits_sample, ch, fout) != 0) {
+    if (read_wavheader(fp, &sample_rate, &bits_sample, chIn, chOut, fout) != 0) {
         fprintf(stderr, "error: wav header\n");
         return -1;
     }
@@ -282,8 +332,8 @@ int main(int argc, char *argv[]) {
 
         case SWAPIQ:
             while ( read_csample(fp, &z) != EOF ) {
-            w = cimag(z) + I*creal(z);  // = cexp(I*PI/2) * conj(z) = I * conj(z);
-            write_csample(fout, w);
+                w = cimag(z) + I*creal(z);  // = cexp(I*PI/2) * conj(z) = I * conj(z);
+                write_csample(fout, w);
                 sample++;
             }
             break;
@@ -315,15 +365,25 @@ int main(int argc, char *argv[]) {
 
         case DEMOD:
             z0 = 0;
-            gain = 128.0;
             while ( read_csample(fp, &z) != EOF ) {
                 w = z * conj(z0);
                 switch ( phi ) {  // phi'-Algo
                   case 1: fm = carg(w); break; // = atan2( cimag(w) , creal(w) );
                   case 2: fm = cimag(w) / (cabs(z0)*cabs(z0)); break;
                 }         //fm3 = cimag(w); // FM: |z|=const
-                write_sample(fout, fm*gain/PI);
+                write_sample(fout, fm*gain);
                 z0 = z;
+                sample++;
+            }
+            break;
+
+        case FMMOD:
+            b = 0.7;
+            while ( read_sample(fp, &s) != EOF ) {
+                // integrate phi'
+                omega += 2*PI * b*s ;  // mod 2*PI
+                w = cexp(I*omega);
+                write_csample(fout, w*gain);
                 sample++;
             }
             break;
