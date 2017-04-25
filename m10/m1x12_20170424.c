@@ -1,9 +1,9 @@
 
 /* big endian forest
  *
- * gcc -o m1x12 m1x12.c -lm
- * 2016-07-04 Ury
- * M10 w/ G.top GPS (like pilotsonde)
+ * gcc m1x12_20170424.c -lm
+ * 2017-04-24 Ury
+ * M10 w/ G.top GPS ? (like pilotsonde)
  */
 
 
@@ -297,15 +297,15 @@ void psk_bpm(char* frame_rawbits, char *frame_bits) {
 
 /* -------------------------------------------------------------------------- */
 
-#define OFS           (0x02)
+#define OFS           (0x01)
 #define pos_GPSlat    (OFS+0x03)  // 4 byte
 #define pos_GPSlon    (OFS+0x07)  // 4 byte
-#define pos_GPSalt    (OFS+0x0B)  // 4 byte
-#define pos_GPSvE     (OFS+0x0F)  // 2 byte
-#define pos_GPSvN     (OFS+0x11)  // 2 byte
-#define pos_GPSvU     (OFS+0x13)  // 2 byte
-#define pos_GPStime   (OFS+0x15)  // 4 byte
-#define pos_GPSdate   (OFS+0x19)  // 4 byte
+#define pos_GPSalt    (OFS+0x0B)  // 3 byte
+#define pos_GPSvE     (OFS+0x0E)  // 2 byte
+#define pos_GPSvN     (OFS+0x10)  // 2 byte
+#define pos_GPSvU     (OFS+0x12)  // 2 byte
+#define pos_GPStime   (OFS+0x14)  // 3 byte
+#define pos_GPSdate   (OFS+0x17)  // 3 byte
 
 #define pos_SN     0x5D  // 2+3 byte
 #define pos_Check  0x63  // 2 byte
@@ -328,9 +328,9 @@ int get_GPSpos() {
     for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
     datum.lon = val;
 
-    for (i = 0; i < 4; i++)  bytes[i] = frame_bytes[pos_GPSalt + i];
+    for (i = 0; i < 3; i++)  bytes[i] = frame_bytes[pos_GPSalt + i];
     val = 0;
-    for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
+    for (i = 0; i < 3; i++)  val |= bytes[i] << (8*(2-i));
     datum.alt = val;
 
     return 0;
@@ -371,9 +371,9 @@ int get_GPStime() {
     ui8_t bytes[4];
     int val;
 
-    for (i = 0; i < 4; i++)  bytes[i] = frame_bytes[pos_GPStime + i];
+    for (i = 0; i < 3; i++)  bytes[i] = frame_bytes[pos_GPStime + i];
     val = 0;
-    for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
+    for (i = 0; i < 3; i++)  val |= bytes[i] << (8*(2-i));
     datum.time = val;
 
     return 0;
@@ -384,9 +384,9 @@ int get_GPSdate() {
     ui8_t bytes[4];
     int val;
 
-    for (i = 0; i < 4; i++)  bytes[i] = frame_bytes[pos_GPSdate + i];
+    for (i = 0; i < 3; i++)  bytes[i] = frame_bytes[pos_GPSdate + i];
     val = 0;
-    for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
+    for (i = 0; i < 3; i++)  val |= bytes[i] << (8*(2-i));
     datum.date = val;
 
     return 0;
@@ -490,7 +490,7 @@ int print_pos(int csOK) {
         //fprintf(stdout, " (%06d)", datum.date);
         fprintf(stdout, " %02d-%02d-%02d", datum.date/10000, (datum.date%10000)/100, datum.date%100);
         //fprintf(stdout, " (%09d)", datum.time);
-        fprintf(stdout, " %02d:%02d:%06.3f ", datum.time/10000000, (datum.time%10000000)/100000, (datum.time%100000)/1000.0);
+        fprintf(stdout, " %02d:%02d:%02d ", datum.time/10000, (datum.time%10000)/100, (datum.time%100)/1);
 
         fprintf(stdout, " lat: %.6f° ", datum.lat/1e6);
         fprintf(stdout, " lon: %.6f° ", datum.lon/1e6);
