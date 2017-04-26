@@ -331,6 +331,7 @@ int get_GPSpos() {
     for (i = 0; i < 3; i++)  bytes[i] = frame_bytes[pos_GPSalt + i];
     val = 0;
     for (i = 0; i < 3; i++)  val |= bytes[i] << (8*(2-i));
+    if (val & 0x800000) val -= 0x1000000; // alt: signed 24bit?
     datum.alt = val;
 
     return 0;
