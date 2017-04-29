@@ -7,6 +7,12 @@
 # The following binaries will need to be built and copied to this directory:
 # rs92/rs92gps
 # scan/rs_detect
+#
+# The following other packages are needed:
+# rtl-sdr (for the rtl_power and rtl_fm utilities)
+# sox
+
+
 
 import numpy as np
 import sys
@@ -250,7 +256,7 @@ if __name__ == "__main__":
         # Sort peaks by power.
         peak_powers = power[peak_indices]
         peak_freqs = freq[peak_indices]
-        peak_frequencies = np.flip(peak_freqs[np.argsort(peak_powers)],0)
+        peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
 
         # Quantize to nearest 5 kHz
         peak_frequencies = quantize_freq(peak_frequencies, FREQ_QUANTIZATION)
