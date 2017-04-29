@@ -1287,8 +1287,8 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
     }
 
     if (!err1) {
-        fprintf(stdout, "[%5d] ", gpx.frnr);
-        fprintf(stdout, "(%s) ", gpx.id);
+        fprintf(stdout, "%5d,", gpx.frnr);
+        fprintf(stdout, "%s,", gpx.id);
     }
 
     if (!err2) {
@@ -1297,20 +1297,21 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
             //fprintf(stdout, "(W %d) ", gpx.week);
             fprintf(stdout, "(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag);
         }
-        fprintf(stdout, "%s ", weekday[gpx.wday]);  // %04.1f: wenn sek >= 59.950, wird auf 60.0 gerundet
-        fprintf(stdout, "%02d:%02d:%06.3f", gpx.std, gpx.min, gpx.sek);
+        //fprintf(stdout, "%s ", weekday[gpx.wday]);  // %04.1f: wenn sek >= 59.950, wird auf 60.0 gerundet
+        fprintf(stdout, "%02d:%02d:%06.3f,", gpx.std, gpx.min, gpx.sek);
 
         if (n > 0) {
             fprintf(stdout, " ");
 
-            if (almanac) fprintf(stdout, " lat: %.4f  lon: %.4f  alt: %.1f ", gpx.lat, gpx.lon, gpx.alt);
-            else         fprintf(stdout, " lat: %.5f  lon: %.5f  alt: %.1f ", gpx.lat, gpx.lon, gpx.alt);
+            if (almanac) fprintf(stdout, "%.4f,%.4f,%.1f,", gpx.lat, gpx.lon, gpx.alt);
+            else         fprintf(stdout, "%.5f,%.5f,%.1f,", gpx.lat, gpx.lon, gpx.alt);
 
             if (option_verbose  &&  option_vergps != 8) {
                 fprintf(stdout, " (d:%.1f)", gpx.diter);
             }
             if (option_vel  /*&&  option_vergps >= 2*/) {
-                fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
+                fprintf(stdout,"%4.1f,%5.1f,%3.1f,", gpx.vH, gpx.vD, gpx.vU);
+                //fprintf(stdout," VEL: vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
             if (option_verbose) {
                 if (option_vergps != 2) {
