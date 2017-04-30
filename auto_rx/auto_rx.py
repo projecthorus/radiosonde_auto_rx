@@ -26,6 +26,7 @@
 # [ ] Better peak signal detection.
 # [ ] Habitat upload.
 # [ ] Move configuration parameters to a separate file.
+#   [ ] Allow use of custom object name instead of sonde ID.
 # [ ] Build file. 
 # [ ] RS41 support.
 
