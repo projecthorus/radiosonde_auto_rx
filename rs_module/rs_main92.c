@@ -17,6 +17,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_crc = 0,      // check CRC
     option_sat = 0,      // GPS sat data
     wavloaded = 0;
+    option_csv = 0;      // Print output as CSV
 
 
 ui8_t *frame = NULL;
@@ -56,6 +57,33 @@ if ( option_crc==0  || ( option_crc && (rs_data->crc & 0x7)==0 ) )
     return 0;
 }
 
+// VK5QI Addition - Print data as easily parseable CSV.
+int print_position_csv(rs_data_t *rs_data) {
+
+// option_crc: check block-crc
+
+if ( option_crc==0  || ( option_crc && (rs_data->crc & 0x7)==0 ) )
+{
+            fprintf(stdout, "%5d,", rs_data->frnr);
+            fprintf(stdout, "%s,", rs_data->SN);
+
+            //fprintf(stdout, "%s,", weekday[rs_data->wday]);
+            fprintf(stdout, "%04d-%02d-%02d,%02d:%02d:%06.3f,",
+                             rs_data->year, rs_data->month, rs_data->day,
+                             rs_data->hr, rs_data->min, rs_data->sec);
+            //if (option_verbose) fprintf(stdout, " (W %d)", (rs_data->GPS).week);
+            fprintf(stdout, "%.5f,", (rs_data->GPS).lat);
+            fprintf(stdout, "%.5f,", (rs_data->GPS).lon);
+            fprintf(stdout, "%.2f,", (rs_data->GPS).alt);
+            fprintf(stdout,"%4.1f,%5.1f,%3.1f,", (rs_data->GPS).vH, (rs_data->GPS).vD, (rs_data->GPS).vU);
+            if (rs_data->ecc >= 0) fprintf(stdout, "OK"); else fprintf(stdout, "FAIL");
+            //if (rs_data->ecc >  0) fprintf(stdout, " (%d)", rs_data->ecc);
+
+    fprintf(stdout, "\n");
+}
+    return 0;
+}
+
 void print_frame(rs_data_t *rs_data) {
     int i;
 
@@ -73,7 +101,9 @@ void print_frame(rs_data_t *rs_data) {
 
         fprintf(stdout, "\n");
     }
-    else {
+    else if (option_csv){
+        print_position_csv(rs_data);
+    }else{
         print_position(rs_data);
     }
 }
@@ -113,6 +143,7 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "-vx") == 0) { option_verbose |= 0x2; }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose |= 0x3; }
         else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
+        else if   (strcmp(*argv, "--csv") == 0) { option_csv = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
