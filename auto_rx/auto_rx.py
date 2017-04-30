@@ -11,6 +11,23 @@
 # The following other packages are needed:
 # rtl-sdr (for the rtl_power and rtl_fm utilities)
 # sox
+#
+# Instructions:
+# Modify config parameters below as required. Take note of the APRS_USER and APRS_PASS values.
+# Run with: python auto_rx.py
+# A log file will be written to log/<timestamp>.log
+#
+#
+# TODO:
+# [ ] Better handling of errors from the decoder sub-process.
+#       [ ] Handle no lat/long better.
+#       [ ] Option to filter by DOP data
+# [ ] Automatic downloading of ephemeris data, instead of almanac.
+# [ ] Better peak signal detection.
+# [ ] Habitat upload.
+# [ ] Move configuration parameters to a separate file.
+# [ ] Build file. 
+# [ ] RS41 support.
 
 
 
@@ -38,10 +55,10 @@ MIN_FREQ = 400.4e6          # Search start frequency (Hz)
 MAX_FREQ = 403.5e6          # Search stop frequency (Hz)
 SEARCH_STEP = 800           # Search step (Hz)
 FREQ_QUANTIZATION = 5000    # Quantize search results to 5 kHz steps.
-MIN_FREQ_DISTANCE = 1000   # Expect a minimum distance of 10 kHz between sondes.
+MIN_FREQ_DISTANCE = 1000    # Minimum distance between peaks.
 MIN_SNR = 10                # Only takes peaks that are a minimum of 10dB above the noise floor.
 SEARCH_ATTEMPTS = 5         # Number of attempts to search before giving up
-SEARCH_DELAY = 300          # Delay between search attempts (seconds)
+SEARCH_DELAY = 120          # Delay between search attempts (seconds)
 
 # Other Receiver Parameters
 MAX_RX_TIME = 3*60*60
@@ -49,14 +66,14 @@ MAX_RX_TIME = 3*60*60
 # APRS Output
 APRS_OUTPUT_ENABLED = True
 APRS_UPDATE_RATE = 30
-APRS_USER = "N0CALL"
-APRS_PASS = "000000"
+APRS_USER = "N0CALL"    # Replace with your callsign
+APRS_PASS = "000000"    # Replace with your APRS-IS passcode
 aprs_queue = Queue.Queue(1)
 
 
 
 def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20):
-    # Run rtl_power, with a timeout
+    """ Run rtl_power, with a timeout"""
     # rtl_power -f 400400000:403500000:800 -i20 -1 log_power.csv
     rtl_power_cmd = "timeout %d rtl_power -f %d:%d:%d -i %d -1 %s" % (dwell+10, start, stop, step, dwell, filename)
     logging.info("Running frequency scan.")
@@ -68,7 +85,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20):
         return True
 
 def read_rtl_power(filename):
-    ''' Read in frequency samples from a single-shot log file produced by rtl_power'''
+    """ Read in frequency samples from a single-shot log file produced by rtl_power """
 
     # Output buffers.
     freq = np.array([])
@@ -108,7 +125,9 @@ def read_rtl_power(filename):
     f.close()
     return (freq, power, freq_step)
 
+
 def quantize_freq(freq_list, quantize=5000):
+    """ Quantise a list of frequencies to steps of <quantize> Hz """
     return np.round(freq_list/quantize)*quantize
 
 def detect_sonde(frequency):
@@ -132,22 +151,8 @@ def detect_sonde(frequency):
         return None
 
 
-# $rs = "";
-# $WFM = "";
-# if (abs($ret) == 2) { $rs = "dfm";  $breite = "15k"; $dec = './dfm06 -vv --ecc'; $filter = "lowpass 2000 highpass 20"; }
-# if (abs($ret) == 3) { $rs = "rs41"; $breite = "12k"; $dec = './rs41ecc --ecc -v'; $filter = "lowpass 2600"; }
-# if (abs($ret) == 4) { $rs = "rs92"; $breite = "12k"; $dec = './rs92gps --vel2 -a almanac.txt'; $filter = "lowpass 2500 highpass 20"; }
-# if (abs($ret) == 5) { $rs = "m10";  $breite = "24k"; $dec = './m10x -vv'; $filter = "highpass 20"; }
-# if (abs($ret) == 6) { $rs = "imet"; $breite = "40k"; $dec = './imet1ab -v'; $filter = "highpass 20";  $WFM = "-o 4"; }
-# if ($inv) { print "-";} print uc($rs)," ($utc)\n";
-# $utc = strftime('%Y%m%d_%H%M%S', gmtime);
-# $wavfile = $rs."-".$utc."Z-".$freq."Hz.wav";
-# if ($rs) {
-#     system("timeout 30s rtl_fm -p $ppm -M fm $WFM -s $breite -f $freq 2>/dev/null |\ 
-#             sox -t raw -r $breite -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - $filter 2>/dev/null |\ 
-#             tee $log_dir/$wavfile | $dec $inv 2>/dev/null");
-
 def process_rs92_line(line):
+    """ Process a line of output from the rs92gps decoder, converting it to a dict """
     try:
 
         params = line.split(',')
@@ -209,6 +214,7 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None):
 
 
 def internet_push_thread():
+    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
     global aprs_queue, APRS_USER, APRS_PASS, APRS_UPDATE_RATE, APRS_OUTPUT_ENABLED
     print("Started thread.")
     while APRS_OUTPUT_ENABLED:                    
@@ -260,9 +266,9 @@ if __name__ == "__main__":
 
         # Quantize to nearest 5 kHz
         peak_frequencies = quantize_freq(peak_frequencies, FREQ_QUANTIZATION)
-
         logging.info("Peaks found at (MHz): %s" % str(peak_frequencies/1e6))
 
+        # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
             detected = detect_sonde(freq)
             if detected != None:
@@ -271,8 +277,10 @@ if __name__ == "__main__":
                 break
 
         if sonde_type != None:
+            # Found a sonde! Break out of the while loop and attempt to decode it.
             break
         else:
+            # No sondes found :-( Wait and try again.
             SEARCH_ATTEMPTS -= 1
             logging.warning("Search attempt failed, %d attempts remaining. Waiting %d seconds." % (SEARCH_ATTEMPTS, SEARCH_DELAY))
             time.sleep(SEARCH_DELAY)
@@ -283,9 +291,11 @@ if __name__ == "__main__":
 
     logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
 
+    # Start a thread to push data to the web.
     t = Thread(target=internet_push_thread)
     t.start()
 
+    # Start decoding the sonde!
     if sonde_type == "RS92":
         decode_rs92(sonde_freq, rx_queue=aprs_queue)
     elif sonde_type == "RS41":
@@ -293,6 +303,7 @@ if __name__ == "__main__":
     else:
         pass
 
+    # Stop the APRS output thread.
     APRS_OUTPUT_ENABLED = False
 
 
