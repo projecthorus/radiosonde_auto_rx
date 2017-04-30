@@ -23,12 +23,13 @@
 #       [x] Handle no lat/long better. [Decoder won't output data at all if CRC fails.]
 #       [-] Option to filter by DOP data
 # [ ] Automatic downloading of ephemeris data, instead of almanac.
-# [ ] Better peak signal detection.
-# [ ] Habitat upload.
+# [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
+# [ ] Habitat upload. 
 # [ ] Move configuration parameters to a separate file.
 #   [ ] Allow use of custom object name instead of sonde ID.
 # [x] Build file. 
 # [x] RS41 support.
+# [ ] Use FSK demod from codec2-dev ? 
 
 
 
