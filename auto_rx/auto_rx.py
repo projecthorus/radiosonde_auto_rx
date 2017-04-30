@@ -294,7 +294,13 @@ if __name__ == "__main__":
         run_rtl_power(MIN_FREQ, MAX_FREQ, SEARCH_STEP)
 
         # Read in result
-        (freq, power, step) = read_rtl_power('log_power.csv')
+        try:
+            (freq, power, step) = read_rtl_power('log_power.csv')
+        except Exception as e:
+            logging.debug("Failed to read log_power.csv. Attempting to run rtl_power again.")
+            SEARCH_ATTEMPTS -= 1
+            time.sleep(10)
+            continue
 
         # Rough approximation of the noise floor of the received power spectrum.
         power_nf = np.mean(power)
