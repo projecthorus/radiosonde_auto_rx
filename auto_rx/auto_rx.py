@@ -20,15 +20,15 @@
 #
 # TODO:
 # [ ] Better handling of errors from the decoder sub-process.
-#       [ ] Handle no lat/long better.
-#       [ ] Option to filter by DOP data
+#       [x] Handle no lat/long better. [Decoder won't output data at all if CRC fails.]
+#       [-] Option to filter by DOP data
 # [ ] Automatic downloading of ephemeris data, instead of almanac.
 # [ ] Better peak signal detection.
 # [ ] Habitat upload.
 # [ ] Move configuration parameters to a separate file.
 #   [ ] Allow use of custom object name instead of sonde ID.
-# [ ] Build file. 
-# [ ] RS41 support.
+# [x] Build file. 
+# [x] RS41 support.
 
 
 
@@ -152,42 +152,53 @@ def detect_sonde(frequency):
         return None
 
 
-def process_rs92_line(line):
+def process_rs_line(line):
     """ Process a line of output from the rs92gps decoder, converting it to a dict """
+    # Sample output:
+    #   0      1        2        3            4         5         6      7   8     9  10
+    # 106,M3553150,2017-04-30,05:44:40.460,-34.72471,138.69178,-263.83, 0.1,265.0,0.3,OK
     try:
 
         params = line.split(',')
-        if len(params) < 9:
+        if len(params) < 11:
             logging.error("Not enough parameters: %s" % line)
-            return
+            return None
 
         # Attempt to extract parameters.
-        rs92_frame = {}
-        rs92_frame['frame'] = int(params[0])
-        rs92_frame['id'] = str(params[1])
-        rs92_frame['time'] = str(params[2])
-        rs92_frame['lat'] = float(params[3])
-        rs92_frame['lon'] = float(params[4])
-        rs92_frame['alt'] = float(params[5])
-        rs92_frame['vel_h'] = float(params[6])
-        rs92_frame['heading'] = float(params[7])
-        rs92_frame['vel_v'] = float(params[8])
-        rs92_frame['ok'] = 'OK'
+        rs_frame = {}
+        rs_frame['frame'] = int(params[0])
+        rs_frame['id'] = str(params[1])
+        rs_frame['date'] = str(params[2])
+        rs_frame['time'] = str(params[3])
+        rs_frame['lat'] = float(params[4])
+        rs_frame['lon'] = float(params[5])
+        rs_frame['alt'] = float(params[6])
+        rs_frame['vel_h'] = float(params[7])
+        rs_frame['heading'] = float(params[8])
+        rs_frame['vel_v'] = float(params[9])
+        rs_frame['crc'] =  str(params[10])
 
-        logging.info("RS92: %s,%d,%s,%.5f,%.5f,%.1f" % (rs92_frame['id'], rs92_frame['frame'],rs92_frame['time'], rs92_frame['lat'], rs92_frame['lon'], rs92_frame['alt']))
+        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt']))
 
-        return rs92_frame
+        return rs_frame
 
     except:
         logging.error("Could not parse string: %s" % line)
+        traceback.print_exc()
         return None
 
-def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None):
+def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None, almanac="almanac.txt", ephemeris=None):
     """ Decode a RS92 sonde """
     decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (ppm, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
-    decode_cmd += "./rs92gps --vel2 --crc -a almanac.txt"
 
+    # Note: I've got the check-CRC option hardcoded in here as always on. 
+    # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
+
+    if ephemeris != None:
+        decode_cmd += "./rs92mod --crc --csv -e %s" % ephemeris
+    else:
+        decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
 
     rx_start_time = time.time()
 
@@ -197,7 +208,7 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None):
         try:
             line = rx.stdout.readline()
             if (line != None) and (line != ""):
-                data = process_rs92_line(line)
+                data = process_rs_line(line)
 
                 if data != None:
                     data['freq'] = "%.3f MHz" % (frequency/1e6)
@@ -213,6 +224,40 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None):
             rx.kill()
             return
 
+
+def decode_rs41(frequency, ppm=RX_PPM, rx_queue=None):
+    """ Decode a RS41 sonde """
+    decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (ppm, frequency)
+    decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
+
+    # Note: I've got the check-CRC option hardcoded in here as always on. 
+    # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
+
+    decode_cmd += "./rs41mod --crc --csv"
+
+    rx_start_time = time.time()
+
+    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
+
+    while True:
+        try:
+            line = rx.stdout.readline()
+            if (line != None) and (line != ""):
+                data = process_rs_line(line)
+
+                if data != None:
+                    data['freq'] = "%.3f MHz" % (frequency/1e6)
+
+                    if rx_queue != None:
+                        try:
+                            rx_queue.put_nowait(data)
+                        except:
+                            pass
+        except:
+            traceback.print_exc()
+            logging.error("Could not read from rxer stdout?")
+            rx.kill()
+            return
 
 def internet_push_thread():
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
@@ -300,7 +345,7 @@ if __name__ == "__main__":
     if sonde_type == "RS92":
         decode_rs92(sonde_freq, rx_queue=aprs_queue)
     elif sonde_type == "RS41":
-        logging.error("Not implemented.")
+        decode_rs41(sonde_freq, rx_queue=aprs_queue)
     else:
         pass
 

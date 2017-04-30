@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       --crc        (check CRC)\n");
             fprintf(stderr, "       --std        (std framelen)\n");
+            fprintf(stderr, "       --csv        (output as CSV)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
