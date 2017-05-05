@@ -4,9 +4,11 @@ from socket import *
 
 
 # Push a Radiosonde data packet to APRS as an object.
-def push_balloon_to_aprs(sonde_data, aprs_comment="BOM Balloon", aprsUser="N0CALL", aprsPass="00000", serverHost = 'rotate.aprs2.net', serverPort = 14580):
-	# Pad or limit the sonde ID to 9 characters.
-	object_name = sonde_data["id"].strip()
+def push_balloon_to_aprs(sonde_data, object_name="<id>", aprs_comment="BOM Balloon", aprsUser="N0CALL", aprsPass="00000", serverHost = 'rotate.aprs2.net', serverPort = 14580):
+	if object_name == "<id>":
+		object_name = sonde_data["id"].strip()
+	
+	# Pad or limit the object name to 9 characters.
 	if len(object_name) > 9:
 		object_name = object_name[:9]
 	elif len(object_name) < 9:
@@ -34,9 +36,19 @@ def push_balloon_to_aprs(sonde_data, aprs_comment="BOM Balloon", aprsUser="N0CAL
 	
 	# Convert Alt (in metres) to feet
 	alt = int(float(sonde_data["alt"])/0.3048)
+
+	# TODO: Process velocity/heading, if supplied.
+
+	# TODO: Limit comment length.
 	
 	# Produce the APRS object string.
-	out_str = ";%s*111111z%s/%sO000/000/A=%06d %s" % (object_name,lat_str,lon_str,alt,aprs_comment)
+
+	if ('heading' in sonde_data.keys()) and ('vel_h' in sonde_data.keys()):
+		course_speed = "%03d/%03d" % (int(sonde_data['heading']), int(sonde_data['vel_h']*1.944))
+	else:
+		course_speed = "000/000"
+
+	out_str = ";%s*111111z%s/%sO%s/A=%06d %s" % (object_name,lat_str,lon_str,course_speed,alt,aprs_comment)
 	
 	# Connect to an APRS-IS server, login, then push our object position in.
 	

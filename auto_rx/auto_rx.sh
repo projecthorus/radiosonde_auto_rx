@@ -12,13 +12,6 @@ cd ~/RS/auto_rx/
 
 # Clean up old files
 rm log_power.csv
-rm almanac.txt
-
-# Download latest almanac
-wget -O almanac.txt "https://www.navcen.uscg.gov/?pageName=currentAlmanac&format=sem"
 
 # Start auto_rx process with a 3 hour timeout.
 timeout 10800 python auto_rx.py 2>error.log
-
-# Clean up rtl_fm process.
-killall rtl_fm

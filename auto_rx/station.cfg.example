@@ -1,0 +1,73 @@
+#
+# Radiosonde Auto RX Station Configuration File
+#
+# Copy this file to station.cfg and modify as required. 
+#
+
+# Settings used when receiving data using a RTLSDR.
+[rtlsdr]
+# PPM Frequency Correction
+rtlsdr_ppm = 0
+# Gain setting to use. 0 = Auto Gain
+rtlsdr_gain = 0
+
+# Radiosonde Search Parameters
+[search_params]
+search_attempts = 5
+search_delay = 120
+
+# Minimum and maximum search frequencies, in MHz
+min_freq = 400.4
+max_freq = 404.0
+# Receive bin width, in Hz
+search_step = 800
+# Minimum SNR for a peak to be detected. The lower the number, the more peaks detected.
+min_snr = 10
+# Minimum distance between peaks
+min_distance = 1000
+# Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
+quantization = 10000
+
+
+# Internet upload settings.
+[upload]
+# Upload every x seconds
+upload_rate = 30
+enable_aprs = False
+enable_habitat = False
+
+# Settings for uploading to APRS-IS
+[aprs]
+# APRS-IS Login Information
+aprs_user = N0CALL
+aprs_pass = 00000
+
+# Object name to be used when uploading to APRS-IS (Max 9 chars)
+# Should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
+# or <id>, which will be replaced with the radiosondes serial number
+aprs_object_id = <id>
+
+# The APRS-IS beacon comment. The following fields can be included:
+# <freq> - Sonde Frequency, i.e. 401.520 MHz
+# <type> - Sonde Type (RS94/RS41)
+# <id> - Sonde Serial Number (i.e. M1234567)
+# <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
+aprs_custom_comment = Radiosonde Auto-RX <freq>
+
+# Settings for uploading to the Habitat HAB tracking database
+# Note that the habitat upload will use a fixed string format of:
+#`$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>*<CRC16>`
+# Where callsign is set below. Temp and Humidity values are currently fixed to 0, as the RS
+# code doesn't extract the PTU data at this time.
+# You will need to create an appropriate Habitat payload document for this data to appear on the habitat tracker.
+# 
+[habitat]
+# Payload callsign
+payload_callsign = RADIOSONDE
+# Uploader callsign, as shown above.
+uploader_callsign = SONDE_AUTO_RX
+# Uploader lat/long. Set to 0.0 if not used.
+uploader_lat = 0.0
+uploader_lon = 0.0
+
+

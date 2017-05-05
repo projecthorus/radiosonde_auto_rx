@@ -22,11 +22,11 @@
 # [ ] Better handling of errors from the decoder sub-process.
 #       [x] Handle no lat/long better. [Decoder won't output data at all if CRC fails.]
 #       [-] Option to filter by DOP data
-# [ ] Automatic downloading of ephemeris data, instead of almanac.
+# [x] Automatic downloading of ephemeris data, instead of almanac.
 # [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
 # [ ] Habitat upload. 
-# [ ] Move configuration parameters to a separate file.
-#   [ ] Allow use of custom object name instead of sonde ID.
+# [x] Move configuration parameters to a separate file.
+#   [x] Allow use of custom object name instead of sonde ID.
 # [x] Build file. 
 # [x] RS41 support.
 # [ ] Use FSK demod from codec2-dev ? 
@@ -35,9 +35,12 @@
 
 import numpy as np
 import sys
+import argparse
 import logging
 import datetime
 import time
+import os
+import signal
 import Queue
 import subprocess
 import traceback
@@ -45,32 +48,16 @@ from aprs_utils import *
 from threading import Thread
 from StringIO import StringIO
 from findpeaks import *
-from os import system
+from config_reader import *
+from gps_grabber import *
 
 
-# Receiver Parameters
-RX_PPM = 0
-RX_GAIN = 0 # 0 = Auto
+# Internet Push Globals
+APRS_OUTPUT_ENABLED = False
+HABITAT_OUTPUT_ENABLED = False
 
-# Sonde Search Configuration Parameters
-MIN_FREQ = 400.4e6          # Search start frequency (Hz)
-MAX_FREQ = 403.5e6          # Search stop frequency (Hz)
-SEARCH_STEP = 800           # Search step (Hz)
-FREQ_QUANTIZATION = 5000    # Quantize search results to 5 kHz steps.
-MIN_FREQ_DISTANCE = 1000    # Minimum distance between peaks.
-MIN_SNR = 10                # Only takes peaks that are a minimum of 10dB above the noise floor.
-SEARCH_ATTEMPTS = 5         # Number of attempts to search before giving up
-SEARCH_DELAY = 120          # Delay between search attempts (seconds)
-
-# Other Receiver Parameters
-MAX_RX_TIME = 3*60*60
-
-# APRS Output
-APRS_OUTPUT_ENABLED = True
-APRS_UPDATE_RATE = 30
-APRS_USER = "N0CALL"    # Replace with your callsign
-APRS_PASS = "000000"    # Replace with your APRS-IS passcode
-aprs_queue = Queue.Queue(1)
+INTERNET_PUSH_RUNNING = True
+internet_push_queue = Queue.Queue(1)
 
 
 
@@ -79,7 +66,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20):
     # rtl_power -f 400400000:403500000:800 -i20 -1 log_power.csv
     rtl_power_cmd = "timeout %d rtl_power -f %d:%d:%d -i %d -1 %s" % (dwell+10, start, stop, step, dwell, filename)
     logging.info("Running frequency scan.")
-    ret_code = system(rtl_power_cmd)
+    ret_code = os.system(rtl_power_cmd)
     if ret_code == 1:
         logging.critical("rtl_power call failed!")
         sys.exit(1)
@@ -132,14 +119,14 @@ def quantize_freq(freq_list, quantize=5000):
     """ Quantise a list of frequencies to steps of <quantize> Hz """
     return np.round(freq_list/quantize)*quantize
 
-def detect_sonde(frequency):
+def detect_sonde(frequency, ppm=0, gain=0):
     """ Receive some FM and attempt to detect the presence of a radiosonde. """
-    rx_test_command = "timeout 10s rtl_fm -p %d -M fm -s 15k -f %d 2>/dev/null |" % (RX_PPM, frequency) 
+    rx_test_command = "timeout 10s rtl_fm -p %d -M fm -s 15k -f %d 2>/dev/null |" % (ppm, frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += "./rs_detect -z -t 8 2>/dev/null"
 
     logging.info("Attempting sonde detection on %.3f MHz" % (frequency/1e6))
-    ret_code = system(rx_test_command)
+    ret_code = os.system(rx_test_command)
 
     ret_code = ret_code >> 8
 
@@ -178,6 +165,8 @@ def process_rs_line(line):
         rs_frame['heading'] = float(params[8])
         rs_frame['vel_v'] = float(params[9])
         rs_frame['crc'] =  str(params[10])
+        rs_frame['temp'] = 0.0
+        rs_frame['humidity'] = 0.0
 
         logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt']))
 
@@ -188,8 +177,26 @@ def process_rs_line(line):
         traceback.print_exc()
         return None
 
-def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None, almanac="almanac.txt", ephemeris=None):
+def decode_rs92(frequency, ppm=0, rx_queue=None, almanac=None, ephemeris=None):
     """ Decode a RS92 sonde """
+
+    # Before we get started, do we need to download GPS data?
+    if ephemeris == None:
+        # If no ephemeris data defined, attempt to download it.
+        # get_ephemeris will either return the saved file name, or None.
+        ephemeris = get_ephemeris(destination="ephemeris.dat")
+
+    # If ephemeris is still None, then we failed to download the ephemeris data.
+    # Try and grab the almanac data instead.
+    if ephemeris == None:
+        logging.error("Could not obtain ephemeris data, trying to download an almanac.")
+        almanac = get_almanac(destination="almanac.txt")
+        if almanac == None:
+            # We probably don't have an internet connection. Bomb out, since we can't do much with the sonde telemetry without an almanac!
+            logging.critical("Could not obtain GPS ephemeris or almanac data.")
+            return False
+
+
     decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (ppm, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 
@@ -198,12 +205,12 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None, almanac="almanac.txt", eph
 
     if ephemeris != None:
         decode_cmd += "./rs92mod --crc --csv -e %s" % ephemeris
-    else:
+    elif almanac != None:
         decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
 
     rx_start_time = time.time()
 
-    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
+    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid)
 
     while True:
         try:
@@ -212,7 +219,9 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None, almanac="almanac.txt", eph
                 data = process_rs_line(line)
 
                 if data != None:
+                    # Add in a few fields that don't come from the sonde telemetry.
                     data['freq'] = "%.3f MHz" % (frequency/1e6)
+                    data['type'] = "RS92"
 
                     if rx_queue != None:
                         try:
@@ -222,11 +231,11 @@ def decode_rs92(frequency, ppm=RX_PPM, rx_queue=None, almanac="almanac.txt", eph
         except:
             traceback.print_exc()
             logging.error("Could not read from rxer stdout?")
-            rx.kill()
+            os.killpg(os.getpgid(rx.pid), signal.SIGTERM)
             return
 
 
-def decode_rs41(frequency, ppm=RX_PPM, rx_queue=None):
+def decode_rs41(frequency, ppm=0, rx_queue=None):
     """ Decode a RS41 sonde """
     decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (ppm, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
@@ -238,7 +247,7 @@ def decode_rs41(frequency, ppm=RX_PPM, rx_queue=None):
 
     rx_start_time = time.time()
 
-    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
+    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid)
 
     while True:
         try:
@@ -247,7 +256,9 @@ def decode_rs41(frequency, ppm=RX_PPM, rx_queue=None):
                 data = process_rs_line(line)
 
                 if data != None:
+                    # Add in a few fields that don't come from the sonde telemetry.
                     data['freq'] = "%.3f MHz" % (frequency/1e6)
+                    data['type'] = "RS41"
 
                     if rx_queue != None:
                         try:
@@ -257,25 +268,38 @@ def decode_rs41(frequency, ppm=RX_PPM, rx_queue=None):
         except:
             traceback.print_exc()
             logging.error("Could not read from rxer stdout?")
-            rx.kill()
+            os.killpg(os.getpgid(rx.pid), signal.SIGTERM)
             return
 
-def internet_push_thread():
+def internet_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
-    global aprs_queue, APRS_USER, APRS_PASS, APRS_UPDATE_RATE, APRS_OUTPUT_ENABLED
-    print("Started thread.")
-    while APRS_OUTPUT_ENABLED:                    
+    global internet_push_queue, INTERNET_PUSH_RUNNING
+    print("Started Internet Push thread.")
+    while INTERNET_PUSH_RUNNING:                    
         try:
-            data = aprs_queue.get_nowait()
+            data = internet_push_queue.get_nowait()
         except:
             continue
 
-        aprs_comment = "Sonde Auto-RX Test %s" % data['freq']
-        if APRS_OUTPUT_ENABLED:
-            aprs_data = push_balloon_to_aprs(data,aprs_comment=aprs_comment,aprsUser=APRS_USER, aprsPass=APRS_PASS)
+        # APRS Upload
+        if station_config['enable_aprs']:
+            # Produce aprs comment, based on user config.
+            aprs_comment = station_config['aprs_custom_comment']
+            aprs_comment = aprs_comment.replace("<freq>", data['freq'])
+            aprs_comment = aprs_comment.replace("<id>", data['id'])
+            aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
+            aprs_comment = aprs_comment.replace("<type>", data['type'])
+
+            # Push data to APRS.
+            aprs_data = push_balloon_to_aprs(data,object_name=station_config['aprs_object_id'],aprs_comment=aprs_comment,aprsUser=station_config['aprs_user'], aprsPass=station_config['aprs_pass'])
             logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
 
-        time.sleep(APRS_UPDATE_RATE)
+        # Habitat Upload
+        if station_config['enable_habitat']:
+            # TODO: Habitat upload.
+            pass
+
+        time.sleep(config['upload_rate'])
 
     print("Closing thread.")
 
@@ -286,12 +310,30 @@ if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S.log"), level=logging.DEBUG)
     logging.getLogger().addHandler(logging.StreamHandler())
 
+    # Command line arguments. 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
+    parser.add_argument("-f", "--frequency", default=0.0, help="Sonde Frequency (MHz) (bypass scan step).")
+    args = parser.parse_args()
+
+    # Attempt to read in configuration file. Use default config if reading fails.
+    config = read_auto_rx_config(args.config)
+
+    # Pull some variables out of the config.
+    SEARCH_ATTEMPTS = config['search_attempts']
+
+
+    #
+    # STEP 1: Search for a sonde.
+    #
+
+    # Search variables.
     sonde_freq = 0.0
     sonde_type = None
 
     while SEARCH_ATTEMPTS>0:
         # Scan Band
-        run_rtl_power(MIN_FREQ, MAX_FREQ, SEARCH_STEP)
+        run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'])
 
         # Read in result
         try:
@@ -306,10 +348,12 @@ if __name__ == "__main__":
         power_nf = np.mean(power)
 
         # Detect peaks.
-        peak_indices = detect_peaks(power, mph=(power_nf+MIN_SNR), mpd=(MIN_FREQ_DISTANCE/step), show = False)
+        peak_indices = detect_peaks(power, mph=(power_nf+config['min_snr']), mpd=(config['min_distance']/step), show = False)
 
         if len(peak_indices) == 0:
-            logging.info("No peaks found!")
+            logging.info("No peaks found on this pass.")
+            SEARCH_ATTEMPTS -= 1
+            time.sleep(10)
             continue
 
         # Sort peaks by power.
@@ -317,13 +361,13 @@ if __name__ == "__main__":
         peak_freqs = freq[peak_indices]
         peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
 
-        # Quantize to nearest 5 kHz
-        peak_frequencies = quantize_freq(peak_frequencies, FREQ_QUANTIZATION)
+        # Quantize to nearest x kHz
+        peak_frequencies = quantize_freq(peak_frequencies, config['quantization'])
         logging.info("Peaks found at (MHz): %s" % str(peak_frequencies/1e6))
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
-            detected = detect_sonde(freq)
+            detected = detect_sonde(freq, ppm=config['rtlsdr_ppm'])
             if detected != None:
                 sonde_freq = freq
                 sonde_type = detected
@@ -335,8 +379,8 @@ if __name__ == "__main__":
         else:
             # No sondes found :-( Wait and try again.
             SEARCH_ATTEMPTS -= 1
-            logging.warning("Search attempt failed, %d attempts remaining. Waiting %d seconds." % (SEARCH_ATTEMPTS, SEARCH_DELAY))
-            time.sleep(SEARCH_DELAY)
+            logging.warning("Search attempt failed, %d attempts remaining. Waiting %d seconds." % (SEARCH_ATTEMPTS, config['search_delay']))
+            time.sleep(config['search_delay'])
 
     if SEARCH_ATTEMPTS == 0:
         logging.error("No sondes detcted, exiting.")
@@ -345,18 +389,18 @@ if __name__ == "__main__":
     logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
 
     # Start a thread to push data to the web.
-    t = Thread(target=internet_push_thread)
+    t = Thread(target=internet_push_thread, kwargs={'station_config':config})
     t.start()
 
     # Start decoding the sonde!
     if sonde_type == "RS92":
-        decode_rs92(sonde_freq, rx_queue=aprs_queue)
+        decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], rx_queue=internet_push_queue)
     elif sonde_type == "RS41":
-        decode_rs41(sonde_freq, rx_queue=aprs_queue)
+        decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], rx_queue=internet_push_queue)
     else:
         pass
 
     # Stop the APRS output thread.
-    APRS_OUTPUT_ENABLED = False
+    INTERNET_PUSH_RUNNING = False
 
 
