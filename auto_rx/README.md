@@ -16,7 +16,13 @@ Features:
  * APRS, with user-definable position comment.
  * Habitat (TODO)
 
-
+Dependencies
+------------
+* Currently runs on Python 2.7 (yeah, I know). Will probably work under Python 3.
+* Needs the following python packages (get them with `pip install <package>`)
+ * numpy
+ * crcmod
+ 
 Usage
 -----
 * Run `sh build.sh` to build needed binaries from elsewhere in this repository.
