@@ -1,6 +1,6 @@
 Radiosonde Auto-RX Utilities
 ============================
-T his fork of rs1279's excellent RS codebase is intended to produce a set of utilities to allow automatic
+This fork of rs1279's excellent RS codebase is intended to produce a set of utilities to allow automatic
 reception and uploading of radiosonde positions to APRS-IS and Habitat. 
 Eventually I hope to have an automatic receive station installed at a strategic location in the 
 Adelaide South Australia area, to better assist with gathering of RS41 radiosondes once they start being
@@ -22,7 +22,7 @@ Dependencies
 * Needs the following python packages (get them with `pip install <package>`)
  * numpy
  * crcmod
- 
+
 Usage
 -----
 * Run `sh build.sh` to build needed binaries from elsewhere in this repository.
