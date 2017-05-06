@@ -21,6 +21,7 @@ def read_auto_rx_config(filename):
 		'min_snr'		: 10,
 		'min_distance'	: 1000,
 		'quantization'	: 10000,
+		'rx_timeout'	: 120,
 		'upload_rate'	: 30,
 		'enable_aprs'	: False,
 		'enable_habitat': False,
@@ -48,6 +49,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['min_snr'] = config.getfloat('search_params', 'min_snr')
 		auto_rx_config['min_distance'] = config.getfloat('search_params', 'min_distance')
 		auto_rx_config['quantization'] = config.getint('search_params', 'quantization')
+		auto_rx_config['rx_timeout'] = config.getint('search_params', 'rx_timeout')
 		auto_rx_config['upload_rate'] = config.getint('upload', 'upload_rate')
 		auto_rx_config['enable_aprs'] = config.getboolean('upload', 'enable_aprs')
 		auto_rx_config['enable_habitat'] = config.getboolean('upload', 'enable_habitat')

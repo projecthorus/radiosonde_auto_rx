@@ -14,4 +14,4 @@ cd ~/RS/auto_rx/
 rm log_power.csv
 
 # Start auto_rx process with a 3 hour timeout.
-timeout 10800 python auto_rx.py 2>error.log
+timeout 14400 python auto_rx.py 2>error.log

@@ -13,7 +13,7 @@ rtlsdr_gain = 0
 
 # Radiosonde Search Parameters
 [search_params]
-search_attempts = 5
+search_attempts = 10
 search_delay = 120
 
 # Minimum and maximum search frequencies, in MHz
@@ -27,6 +27,8 @@ min_snr = 10
 min_distance = 1000
 # Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
 quantization = 10000
+# Timeout and re-scan after X seconds of no data.
+rx_timeout = 120
 
 
 # Internet upload settings.

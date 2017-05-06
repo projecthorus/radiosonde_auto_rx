@@ -22,6 +22,9 @@ Dependencies
 * Needs the following python packages (get them with `pip install <package>`)
  * numpy
  * crcmod
+* Also needs:
+ * rtl-sdr packages (i.e. rtl_fm, rtl_power)
+ * sox
 
 Usage
 -----
