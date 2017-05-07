@@ -133,15 +133,17 @@ int read_csample(FILE *fp, double complex *z) {
 
     *z = x + I*y;
 
-    if (bits_sample == 8) {
-        *z -= 128 + I*128;
-    }
+    if (bits_sample ==  8) { *z -= 128 + I*128; }
+    *z /= 128.0;
+    if (bits_sample == 16) { *z /= 256.0; }
 
     return 0;
 }
 
 int write_csample(FILE *fp, double complex w) {
     int u, v;
+
+    w *= 128.0;
 
     if (bits_sample == 16) { w *= 256.0; }
 
@@ -160,17 +162,15 @@ int write_csample(FILE *fp, double complex w) {
 
 }
 
-int read_sample(FILE *fp, double *z) {  // channels == 1
-    short x = 0;
+int read_sample(FILE *fp, double *x) {  // channels == 1
+    short b = 0;
 
-    if (fread( &x, bits_sample/8, 1, fp) != 1) return EOF;
+    if (fread( &b, bits_sample/8, 1, fp) != 1) return EOF;
 
-    if (bits_sample == 8) {
-        x -= 128;
-    }
+    if (bits_sample ==  8) { b -= 128; }
 
-    *z = x/128.0;
-    if (bits_sample == 16) { *z = x/256.0; }
+    *x = b/128.0;
+    if (bits_sample == 16) { *x /= 256.0; }
 
     return 0;
 }
@@ -178,12 +178,12 @@ int read_sample(FILE *fp, double *z) {  // channels == 1
 int write_sample(FILE *fp, double x) {
     int b;
 
-    if (bits_sample == 8) {
-        x = x + 128.0;
-    }
-    else x *= 256.0;
+    x *= 128.0;
 
-    b = (int)x;
+    if (bits_sample ==  8) { x += 128.0; }
+    if (bits_sample == 16) { x *= 256.0; }
+
+    b = (int)x; // -> short
                                         // 16 bit  (short)  ->  (int)
     fwrite( &b, bits_sample/8, 1, fp);  // +  0000 .. 7FFF  ->  0000 0000 .. 0000 7FFF
                                         // -  8000 .. FFFF  ->  FFFF 8000 .. FFFF FFFF
@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
     double t, s, f = 0, fm, b, omega = 0;
     double complex  z = 0, z0 = 0, w = 0,
                     *buffer = NULL;
-    double gain = 40.0;
+    double gain = 1.0;
 
     fpname = argv[0];
     ++argv;
@@ -365,6 +365,7 @@ int main(int argc, char *argv[]) {
 
         case DEMOD:
             z0 = 0;
+            gain = 2.0/PI;
             while ( read_csample(fp, &z) != EOF ) {
                 w = z * conj(z0);
                 switch ( phi ) {  // phi'-Algo
@@ -380,6 +381,7 @@ int main(int argc, char *argv[]) {
         case FMMOD:
             b = 0.7;
             omega = 0;
+            gain = 0.4;
             while ( read_sample(fp, &s) != EOF ) {
                 // integrate phi'
                 omega += 2*PI * b*s ;  // mod 2*PI
