@@ -26,8 +26,6 @@
 # [ ] Habitat upload. 
 # [ ] Use FSK demod from codec2-dev ? 
 
-
-
 import numpy as np
 import sys
 import argparse
@@ -53,7 +51,7 @@ APRS_OUTPUT_ENABLED = False
 HABITAT_OUTPUT_ENABLED = False
 
 INTERNET_PUSH_RUNNING = True
-internet_push_queue = Queue.Queue(1)
+internet_push_queue = Queue.Queue()
 
 # Latest sonde data. Used on exiting.
 latest_sonde_data = None
@@ -373,9 +371,12 @@ def internet_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
     global internet_push_queue, INTERNET_PUSH_RUNNING
     print("Started Internet Push thread.")
-    while INTERNET_PUSH_RUNNING:                    
+    while INTERNET_PUSH_RUNNING:
+        data = None
         try:
-            data = internet_push_queue.get_nowait()
+            # Read in entire contents of queue, and keep the most recent entry.
+            while not internet_push_queue.empty():
+                data = internet_push_queue.get_nowait()
         except:
             continue
 
@@ -469,6 +470,7 @@ if __name__ == "__main__":
 
         # Receiver has timed out. Reset sonde type and frequency variables and loop.
         logging.error("Receiver timed out. Re-starting scan.")
+        time.sleep(10)
         sonde_type = None
         sonde_freq = None
 
@@ -476,6 +478,7 @@ if __name__ == "__main__":
 
     # Write last known sonde position to file.
     if latest_sonde_data != None:
+        data = latest_sonde_data
         last_position_str = "%s,%s,%s,%s,%s,%.5f,%.5f,%.1f" % (data['date'], data['time'], data['type'], data['id'], data['freq'], data['lat'], data['lon'], data['alt'])
         logging.info("Last Position: %s" % (last_position_str))
 
