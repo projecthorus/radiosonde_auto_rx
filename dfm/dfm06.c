@@ -18,6 +18,9 @@
 #include <stdio.h>
 #include <string.h>
 
+//#include <math.h>
+#include <stdlib.h>
+
 #ifdef CYGWIN
   #include <fcntl.h>  // cygwin: _setmode()
   #include <io.h>
@@ -145,7 +148,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) sample = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -232,6 +235,81 @@ int read_rawbit(FILE *fp, int *bit) {
     return 0;
 }
 
+int read_rawbit2(FILE *fp, int *bit) {
+    int sample;
+    int n, sum;
+
+    sum = 0;
+    n = 0;
+
+    if (bitstart) {
+        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
+        bitgrenze = sample_count-1;
+        bitstart = 0;
+    }
+
+    bitgrenze += samples_per_bit;
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum += sample;
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    bitgrenze += samples_per_bit;
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum -= sample;
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 1;
+    else          *bit = 0;
+
+    if (option_inv) *bit ^= 1;
+
+    return 0;
+}
+
+float *wc = NULL;
+
+int read_rawbit3(FILE *fp, int *bit) {
+    int sample;
+    int n;
+    float sum;
+
+    sum = 0;
+    n = 0;
+
+    if (bitstart) {
+        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
+        bitgrenze = sample_count-1;
+        bitstart = 0;
+    }
+
+    bitgrenze += 2*samples_per_bit;
+    do {
+        sample = read_signed_sample(fp);
+        if (sample == EOF_INT) return EOF;
+        //sample_count++; // in read_signed_sample()
+        //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
+        sum += sample*wc[n];
+        n++;
+    } while (sample_count < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 1;
+    else          *bit = 0;
+
+    if (option_inv) *bit ^= 1;
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
 //#define BITS (2*8)  // 16
@@ -250,7 +328,6 @@ int bufpos = -1;
 
 char frame_rawbits[RAWBITFRAME_LEN+8] = "01100101011001101010010110101010"; //->"0100010111001111";
 char frame_bits[BITFRAME_LEN+4];
-
 
 
 void inc_bufpos() {
@@ -296,24 +373,23 @@ int compare2() {
 
 // manchester1 1->10,0->01: 1.bit
 // manchester2 0->10,1->01: 2.bit
-void manchester1(char* frame_rawbits, char *frame_bits) {
+void manchester1(char* frame_rawbits, char *frame_bits, int pos) {
     int i, c, out, buf;
     char bit, bits[2];
     c = 0;
 
-    for (i = 0; i < BITFRAME_LEN; i++) {  // -16
+    for (i = 0; i < pos/2; i++) {  // -16
         bits[0] = frame_rawbits[2*i];
         bits[1] = frame_rawbits[2*i+1];
 
         if ((bits[0] == '0') && (bits[1] == '1')) { bit = '0'; out = 1; }
         else
         if ((bits[0] == '1') && (bits[1] == '0')) { bit = '1'; out = 1; }
-        else { // 
+        else { //
             if (buf == 0) { c = !c; out = 0; buf = 1; }
             else { bit = 'x'; out = 1; buf = 0; }
         }
         if (out) frame_bits[i] = bit;
-
     }
 }
 
@@ -554,24 +630,22 @@ void print_gpx() {
           printf("[%3d] ", gpx.frnr);
           printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
           printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
-          printf(" ");
-          printf("lat: %.7f  ", gpx.lat);
-          printf("lon: %.7f  ", gpx.lon);
-          printf("alt: %.2f  ", gpx.alt);
-          if (option_verbose) {
-              printf(" vH: %5.2f ", gpx.horiV);
-              printf(" D: %5.1f ", gpx.dir);
-              printf(" vV: %5.2f ", gpx.vertV);
-              if (option_verbose == 2  &&  (gpx.sonde_typ & SNbit))
-              {
-                  if ((gpx.sonde_typ & 0xFF) == 6) {
-                      printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
-                  }
-                  if ((gpx.sonde_typ & 0xFF) == 9) {
-                      printf(" (ID%1d:%06d) ", gpx.sonde_typ & 0xF, gpx.SN9);
-                  }
-                  gpx.sonde_typ ^= SNbit;
+          printf("  ");
+          printf("lat: %.6f  ", gpx.lat);
+          printf("lon: %.6f  ", gpx.lon);
+          printf("alt: %.1f  ", gpx.alt);
+          printf(" vH: %5.2f ", gpx.horiV);
+          printf(" D: %5.1f ", gpx.dir);
+          printf(" vV: %5.2f ", gpx.vertV);
+          if (option_verbose  &&  (gpx.sonde_typ & SNbit))
+          {
+              if ((gpx.sonde_typ & 0xFF) == 6) {
+                  printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
               }
+              if ((gpx.sonde_typ & 0xFF) == 9) {
+                  printf(" (ID%1d:%06d) ", gpx.sonde_typ & 0xF, gpx.SN9);
+              }
+              gpx.sonde_typ ^= SNbit;
           }
       }
       printf("\n");
@@ -579,14 +653,15 @@ void print_gpx() {
   }
 }
 
-
 void print_frame() {
     int i;
     int nib = 0;
     int frid = -1;
     int ret0, ret1, ret2;
 
-    manchester1(frame_rawbits, frame_bits);
+    if (option_b < 2) {
+        manchester1(frame_rawbits, frame_bits, RAWBITFRAME_LEN);
+    }
 
     deinterleave(frame_bits+CONF,  7, hamming_conf);
     deinterleave(frame_bits+DAT1, 13, hamming_dat1);
@@ -707,7 +782,9 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--avg") == 0) ) {
             option_avg = 1;
         }
-        else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
+        else if   (strcmp(*argv, "-b" ) == 0) { option_b = 1; }
+        else if   (strcmp(*argv, "-b2") == 0) { option_b = 2; }
+        else if   (strcmp(*argv, "-b3") == 0) { option_b = 3; }
         else if ( (strcmp(*argv, "--ecc") == 0) ) {
             option_ecc = 1;
         }
@@ -728,6 +805,13 @@ int main(int argc, char **argv) {
     if (i) {
         fclose(fp);
         return -1;
+    }
+
+    if (option_b > 2) {
+        wc = (float*)calloc( 2*(int)(samples_per_bit+1), sizeof(float));
+        for (i = 0; i < 2*samples_per_bit; i++) wc[i] =  (i < samples_per_bit) ? 1 : -1; // wie -b2
+        //for (i = 0; i < 2*samples_per_bit; i++) wc[i] = sin(2*M_PI*i/(2*samples_per_bit));
+        //for (i = 0; i < 2*samples_per_bit; i++) wc[i] = cos(M_PI*i/(2*samples_per_bit));
     }
 
 
@@ -774,7 +858,7 @@ int main(int argc, char **argv) {
             }
 
         }
-        if (header_found && option_b) {
+        if (header_found && option_b==1) {
             bitstart = 1;
 
             while ( pos < RAWBITFRAME_LEN ) {
@@ -788,6 +872,34 @@ int main(int argc, char **argv) {
             header_found = 0;
             pos = FRAMESTART;
         }
+        if (header_found && option_b>=2) {
+            bitstart = 1;
+
+            if (pos%2) {
+                if (read_rawbit(fp, &bit) == EOF) break;
+                    frame_rawbits[pos] = 0x30 + bit;
+                    pos++;
+            }
+
+            manchester1(frame_rawbits, frame_bits, pos);
+            pos /= 2;
+
+            while ( pos < BITFRAME_LEN ) {
+                if (option_b==2) { if (read_rawbit2(fp, &bit) == EOF) break; }
+                else             { if (read_rawbit3(fp, &bit) == EOF) break; }
+                frame_bits[pos] = 0x30 + bit;
+                pos++;
+            }
+            frame_bits[pos] = '\0';
+            print_frame();//FRAME_LEN
+
+            header_found = 0;
+            pos = FRAMESTART;
+        }
+    }
+
+    if (option_b > 2) {
+        if (wc) free(wc); wc = NULL;
     }
 
     fclose(fp);
