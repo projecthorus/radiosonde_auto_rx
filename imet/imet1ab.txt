@@ -1,0 +1,43 @@
+
+iMet-1-AB
+
+GPS Chip:
+Trimble Lassen iQ
+ublox AMY-5M
+
+AFSK 2400 baud:
+
+   1200Hz-Schwingung: Pause bzw. In/Out
+1x 2400Hz-Schwingung: bit 0
+2x 4800Hz-Schwingung: bit 1
+
+8 bit begrenzt durch In/Out
+
+204 byte pro Frame
+Beginn:
+69 69 69 69 69
+Ende:
+96 96 96 96 96 96 96 96 96
+
+double B60B60 = 0xB60B60;  // 2^32/360 = 0xB60B60.xxx
+pos 0x8A 4byte: GPSTOW: sek (Trimble Lassen iQ), ms (ublox AMY-5M)
+pos 0x8E 4byte: GPSlat: /B60B60
+pos 0x92 4byte: GPSlon: /B60B60
+pos 0x96 4byte: GPSalt: Hoehe in mm
+
+//Velocity East-North-Up (ENU)
+pos 0x84 2byte: GPSvO /2e2
+pos 0x86 2byte: GPSvN /2e2
+pos 0x88 2byte: GPSvV /2e2
+
+
+Frame: <DLE><id><data_bytes><DLE><ETX>,
+       <DLE>=0x10, <ETX>=0x03; <id>=0xb9
+(.. 69) 10 b9 01 .. .. 10 03 cs (96 ..)
+8bit-xor-checksum:
+xorsum(<DLE><id><data_bytes><DLE><ETX>),
+wobei 0x10 innerhalb <DLE> doppelt gesendet werden,
+zweimal zaehlen, wobei 0x10^0x10=0x00
+
+
+
