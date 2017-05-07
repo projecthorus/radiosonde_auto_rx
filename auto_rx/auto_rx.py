@@ -374,10 +374,16 @@ def internet_push_thread(station_config):
     while INTERNET_PUSH_RUNNING:
         data = None
         try:
-            # Read in entire contents of queue, and keep the most recent entry.
-            while not internet_push_queue.empty():
-                data = internet_push_queue.get_nowait()
+            # Wait until there is somethign in the queue before trying to process.
+            if internet_push_queue.empty():
+                time.sleep(1)
+                continue
+            else:
+                # Read in entire contents of queue, and keep the most recent entry.
+                while not internet_push_queue.empty():
+                    data = internet_push_queue.get()
         except:
+            traceback.print_exc()
             continue
 
         # APRS Upload
@@ -444,7 +450,7 @@ if __name__ == "__main__":
         if args.frequency != 0.0:
             sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'])
             if sonde_type != None:
-                sonde_freq = sonde_type
+                sonde_freq = int(float(args.frequency)*1e6)
         # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
         if sonde_type == None:
             (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])
