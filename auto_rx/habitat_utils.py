@@ -29,8 +29,12 @@ def crc16_ccitt(data):
     return hex(crc16(data))[2:].upper().zfill(4)
 
 def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE"):
-    sentence = "$$%s,%d,%s,%.5f,%.5f,%d,%.1f,%.1f,%.1f" % (payload_callsign,sonde_data['frame'],sonde_data['short_time'],sonde_data['lat'],
-        sonde_data['lon'],int(sonde_data['alt']),sonde_data['speed'], sonde_data['temp'], sonde_data['humidity'])
+    # RS produces timestamps with microseconds on the end, we only want HH:MM:SS for uploading to habitat.
+    data_datetime = datetime.datetime.strptime(sonde_data['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
+    short_time = data_datetime.strftime("%H:%M:%S")
+
+    sentence = "$$%s,%d,%s,%.5f,%.5f,%d,%.1f,%.1f,%.1f" % (payload_callsign,sonde_data['frame'],short_time,sonde_data['lat'],
+        sonde_data['lon'],int(sonde_data['alt']),sonde_data['vel_h'], sonde_data['temp'], sonde_data['humidity'])
 
     checksum = crc16_ccitt(sentence[2:])
     output = sentence + "*" + checksum + "\n"
@@ -115,7 +119,7 @@ def fetchUuids():
             logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds.")
             time.sleep(10)
             continue
-            
+
         uuids.extend(data['uuids'])
         break;
 
