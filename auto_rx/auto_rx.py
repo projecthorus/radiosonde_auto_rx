@@ -278,11 +278,15 @@ def calculate_flight_statistics():
     # Calculate average ascent rate, based on data we have.
     # Wrap this in a try, in case we have time string parsing issues.
     try:
-        ascent_height = flight_stats['apogee']['alt'] - flight_stats['first']['alt']
-        start_time = datetime.datetime.strptime(flight_stats['first']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
-        apogee_time = datetime.datetime.strptime(flight_stats['apogee']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
-        ascent_time = (apogee_time - start_time).seconds
-        ascent_rate = ascent_height/float(ascent_time)
+        if flight_stats['first'] == flight_stats['apogee']:
+            # We have only caught a flight during descent. Don't calculate ascent rate.
+            ascent_rate = -1.0
+        else:
+            ascent_height = flight_stats['apogee']['alt'] - flight_stats['first']['alt']
+            start_time = datetime.datetime.strptime(flight_stats['first']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
+            apogee_time = datetime.datetime.strptime(flight_stats['apogee']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
+            ascent_time = (apogee_time - start_time).seconds
+            ascent_rate = ascent_height/float(ascent_time)
     except:
         ascent_rate = -1.0
 
@@ -441,26 +445,26 @@ def internet_push_thread(station_config):
             traceback.print_exc()
             continue
 
-        # APRS Upload
-        if station_config['enable_aprs']:
-            # Produce aprs comment, based on user config.
-            aprs_comment = station_config['aprs_custom_comment']
-            aprs_comment = aprs_comment.replace("<freq>", data['freq'])
-            aprs_comment = aprs_comment.replace("<id>", data['id'])
-            aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
-            aprs_comment = aprs_comment.replace("<type>", data['type'])
+        try:
+            # Wrap this entire section in a try/except, to catch any data parsing errors.
+            # APRS Upload
+            if station_config['enable_aprs']:
+                # Produce aprs comment, based on user config.
+                aprs_comment = station_config['aprs_custom_comment']
+                aprs_comment = aprs_comment.replace("<freq>", data['freq'])
+                aprs_comment = aprs_comment.replace("<id>", data['id'])
+                aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
+                aprs_comment = aprs_comment.replace("<type>", data['type'])
 
-            # Push data to APRS.
-            aprs_data = push_balloon_to_aprs(data,object_name=station_config['aprs_object_id'],aprs_comment=aprs_comment,aprsUser=station_config['aprs_user'], aprsPass=station_config['aprs_pass'])
-            logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
+                # Push data to APRS.
+                aprs_data = push_balloon_to_aprs(data,object_name=station_config['aprs_object_id'],aprs_comment=aprs_comment,aprsUser=station_config['aprs_user'], aprsPass=station_config['aprs_pass'])
+                logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
 
-        # Habitat Upload
-        if station_config['enable_habitat']:
-            try:
+            # Habitat Upload
+            if station_config['enable_habitat']:
                 habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
-            except:
-                traceback.print_exc()
-                logging.error("Habitat upload error. Code bug!")
+        except:
+            traceback.print_exc()
 
         time.sleep(config['upload_rate'])
 

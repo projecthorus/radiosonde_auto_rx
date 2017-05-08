@@ -38,7 +38,6 @@ def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE"):
 
     checksum = crc16_ccitt(sentence[2:])
     output = sentence + "*" + checksum + "\n"
-    print(output)
     return output
 
 def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL"):
