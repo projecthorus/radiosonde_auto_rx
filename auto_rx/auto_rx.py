@@ -25,6 +25,7 @@
 # [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
 # [ ] Habitat upload. 
 # [ ] Use FSK demod from codec2-dev ? 
+# [ ] Storage of flight information in some kind of database.
 
 import numpy as np
 import sys
@@ -38,6 +39,7 @@ import Queue
 import subprocess
 import traceback
 from aprs_utils import *
+from habitat_utils import *
 from threading import Thread
 from StringIO import StringIO
 from findpeaks import *
@@ -53,8 +55,14 @@ HABITAT_OUTPUT_ENABLED = False
 INTERNET_PUSH_RUNNING = True
 internet_push_queue = Queue.Queue()
 
-# Latest sonde data. Used on exiting.
-latest_sonde_data = None
+
+# Flight Statistics data
+# stores copies of the telemetry dictionary returned by process_rs_line.
+flight_stats = {
+    'first': None,
+    'apogee': None,
+    'last': None
+}
 
 
 def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20, ppm = 0, gain = 'automatic'):
@@ -219,6 +227,7 @@ def process_rs_line(line):
         rs_frame['id'] = str(params[1])
         rs_frame['date'] = str(params[2])
         rs_frame['time'] = str(params[3])
+        rs_frame['datetime_str'] = "%sT%s" % (rs_frame['date'], rs_frame['time'])
         rs_frame['lat'] = float(params[4])
         rs_frame['lon'] = float(params[5])
         rs_frame['alt'] = float(params[6])
@@ -226,6 +235,7 @@ def process_rs_line(line):
         rs_frame['heading'] = float(params[8])
         rs_frame['vel_v'] = float(params[9])
         rs_frame['crc'] =  str(params[10])
+        # Set these to 0 for now, in case the RS codebase eventually supports PTU data.
         rs_frame['temp'] = 0.0
         rs_frame['humidity'] = 0.0
 
@@ -237,6 +247,50 @@ def process_rs_line(line):
         logging.error("Could not parse string: %s" % line)
         traceback.print_exc()
         return None
+
+def update_flight_stats(data):
+    """ Maintain a record of flight statistics. """
+    global flight_stats
+
+    # Save the current frame into the 'last' frame storage
+    flight_stats['last'] = data
+
+    # Is this our first telemetry frame?
+    # If so, populate all fields in the flight stats dict with the current telemetry frame.
+    if flight_stats['first'] == None:
+        flight_stats['first'] = data
+        flight_stats['apogee'] = data
+
+    # Is the current altitude higher than the current peak altitude?
+    if data['alt'] > flight_stats['apogee']['alt']:
+        flight_stats['apogee'] = data
+
+def calculate_flight_statistics():
+    """ Produce a flight summary, for inclusion in the log file. """
+    global flight_stats
+
+    # Grab peak altitude.
+    peak_altitude = flight_stats['apogee']['alt']
+
+    # Grab last known descent rate
+    descent_rate = flight_stats['last']['vel_v']
+
+    # Calculate average ascent rate, based on data we have.
+    # Wrap this in a try, in case we have time string parsing issues.
+    try:
+        ascent_height = flight_stats['apogee']['alt'] - flight_stats['first']['alt']
+        start_time = datetime.datetime.strptime(flight_stats['first']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
+        apogee_time = datetime.datetime.strptime(flight_stats['apogee']['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
+        ascent_time = (apogee_time - start_time).seconds
+        ascent_rate = ascent_height/float(ascent_time)
+    except:
+        ascent_rate = -1.0
+
+    stats_str = "Acquired %s at %s on %s, at %d m altitude.\n" % (flight_stats['first']['type'], flight_stats['first']['datetime_str'], flight_stats['first']['freq'], int(flight_stats['first']['freq']))
+    stats_str += "Ascent Rate: %.1f m/s, Peak Altitude: %d, Descent Rate: %.1f m/s\n" % (ascent_rate, int(peak_altitude), descent_rate)
+    stats_str += "Last Position: %.5f, %.5f, %d m alt, at %s\n" % (flight_stats['last']['lat'], flight_stats['last']['lon'], int(flight_stats['last']['alt']), flight_stats['last']['datetime_str'])
+
+    return stats_str
 
 def decode_rs92(frequency, ppm=0, gain='automatic', rx_queue=None, almanac=None, ephemeris=None, timeout=120):
     """ Decode a RS92 sonde """
@@ -288,7 +342,7 @@ def decode_rs92(frequency, ppm=0, gain='automatic', rx_queue=None, almanac=None,
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS92"
 
-                        latest_sonde_data = data
+                        update_flight_stats(data)
 
                         if rx_queue != None:
                             try:
@@ -401,8 +455,10 @@ def internet_push_thread(station_config):
 
         # Habitat Upload
         if station_config['enable_habitat']:
-            # TODO: Habitat upload.
-            pass
+            try:
+                habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
+            except:
+                logging.error("Habitat upload error. Code bug!")
 
         time.sleep(config['upload_rate'])
 
@@ -441,6 +497,10 @@ if __name__ == "__main__":
     # Sonde Frequency & Type variables.
     sonde_freq = None
     sonde_type = None
+
+    # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
+    if config['enable_habitat'] and (config['uploader_lat'] != 0.0) and (config['uploader_lon'] != 0.0):
+        uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
 
 
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
@@ -482,14 +542,13 @@ if __name__ == "__main__":
 
     logging.info("Exceeded maximum receive time. Exiting.")
 
-    # Write last known sonde position to file.
-    if latest_sonde_data != None:
-        data = latest_sonde_data
-        last_position_str = "%s,%s,%s,%s,%s,%.5f,%.5f,%.1f" % (data['date'], data['time'], data['type'], data['id'], data['freq'], data['lat'], data['lon'], data['alt'])
-        logging.info("Last Position: %s" % (last_position_str))
+    # Write flight statistics to file.
+    if flight_stats['last'] != None:
+        stats_str = calculate_flight_statistics()
+        logging.info(stats_str)
 
         f = open("last_positions.txt", 'a')
-        f.write(last_position_str + "\n")
+        f.write(stats_str + "\n")
         f.close()
 
     # Stop the APRS output thread.

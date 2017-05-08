@@ -59,8 +59,8 @@ def read_auto_rx_config(filename):
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
 		auto_rx_config['payload_callsign'] = config.get('habitat', 'payload_callsign')
 		auto_rx_config['uploader_callsign'] = config.get('habitat', 'uploader_callsign')
-		auto_rx_config['uploader_lat'] = config.get('habitat', 'uploader_lat')
-		auto_rx_config['uploader_lon'] = config.get('habitat', 'uploader_lon')
+		auto_rx_config['uploader_lat'] = config.getfloat('habitat', 'uploader_lat')
+		auto_rx_config['uploader_lon'] = config.getfloat('habitat', 'uploader_lon')
 
 		return auto_rx_config
 

@@ -10,6 +10,7 @@ import urllib2
 import datetime
 import logging
 import time
+import traceback
 import json
 from base64 import b64encode
 from hashlib import sha256
@@ -66,9 +67,11 @@ def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE",
             )
 
         response = c.getresponse()
-        return (True,"OK")
+        logging.info("Telemetry uploaded to Habitat: %s" % sentence)
+        return
     except Exception as e:
-        return (False,"Failed to upload to Habitat: %s" % (str(e)))
+        logging.error("Failed to upload to Habitat: %s" % (str(e)))
+        return
 
 #
 # Functions for uploading a listener position to Habitat.
@@ -99,8 +102,6 @@ def postListenerData(doc):
             'Referer': url_habitat_db,
             }
 
-    logging.debug("Habitat Listener: Posting listener to Habitat.")
-
     req = urllib2.Request(url_habitat_db, data, headers)
     return urllib2.urlopen(req).read()
 
@@ -114,8 +115,7 @@ def fetchUuids():
             logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds.")
             time.sleep(10)
             continue
-
-        logging.debug("Habitat Listener: Received a set of uuids.")
+            
         uuids.extend(data['uuids'])
         break;
 
@@ -161,6 +161,7 @@ def uploadListenerPosition(callsign, lat, lon):
     try:
         postListenerData(doc)
     except urllib2.HTTPError, e:
+        traceback.print_exc()
         logging.error("Habitat Listener: Unable to upload listener information.")
         return
 
