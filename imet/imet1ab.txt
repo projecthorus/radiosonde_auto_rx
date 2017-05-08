@@ -26,7 +26,7 @@ pos 0x92 4byte: GPSlon: /B60B60
 pos 0x96 4byte: GPSalt: Hoehe in mm
 
 //Velocity East-North-Up (ENU)
-pos 0x84 2byte: GPSvO /2e2
+pos 0x84 2byte: GPSvO /2e2  // vielleicht 1.94e2 (m/s -> knots)?
 pos 0x86 2byte: GPSvN /2e2
 pos 0x88 2byte: GPSvV /2e2
 
