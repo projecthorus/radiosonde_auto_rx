@@ -290,7 +290,7 @@ def calculate_flight_statistics():
     except:
         ascent_rate = -1.0
 
-    stats_str = "Acquired %s at %s on %s, at %d m altitude.\n" % (flight_stats['first']['type'], flight_stats['first']['datetime_str'], flight_stats['first']['freq'], int(flight_stats['first']['freq']))
+    stats_str = "Acquired %s at %s on %s, at %d m altitude.\n" % (flight_stats['first']['type'], flight_stats['first']['datetime_str'], flight_stats['first']['freq'], int(flight_stats['first']['alt']))
     stats_str += "Ascent Rate: %.1f m/s, Peak Altitude: %d, Descent Rate: %.1f m/s\n" % (ascent_rate, int(peak_altitude), descent_rate)
     stats_str += "Last Position: %.5f, %.5f, %d m alt, at %s\n" % (flight_stats['last']['lat'], flight_stats['last']['lon'], int(flight_stats['last']['alt']), flight_stats['last']['datetime_str'])
     stats_str += "Flight Path: https://aprs.fi/#!call=%s&timerange=10800&tail=10800\n" % flight_stats['last']['id']
