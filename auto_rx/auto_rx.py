@@ -475,7 +475,10 @@ if __name__ == "__main__":
 
     # Setup logging.
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S.log"), level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler())
+    stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(stdout_format)
+    logging.getLogger().addHandler(stdout_handler)
 
     # Command line arguments. 
     parser = argparse.ArgumentParser()
