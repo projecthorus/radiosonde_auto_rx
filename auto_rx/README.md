@@ -13,18 +13,18 @@ Features:
 * Automatic downloading of GPS Ephemeris or Almanac data, if the sonde is a Vaisala RS92.
 * Scanning and detection of Vaisala RS92 and RS41 radiosondes over a user-definable frequency range, using the rs_detect, rs92mod and rs41mod utilities from the master repository. 
 * Uploading to:
- * APRS, with user-definable position comment.
- * Habitat
+  * APRS, with user-definable position comment.
+  * Habitat
 
 Dependencies
 ------------
 * Currently runs on Python 2.7 (yeah, I know). Will probably work under Python 3.
 * Needs the following python packages (get them with `pip install <package>`)
- * numpy
- * crcmod
+  * numpy
+  * crcmod
 * Also needs (grab from apt-get):
- * rtl-sdr
- * sox
+  * rtl-sdr
+  * sox
 
 Usage
 -----
@@ -42,6 +42,8 @@ Since sonde launches occur pretty much simultaneously worldwide, you can start t
 I suggest the following crontab entries, noting that you need to ensure the PATH env-vars are set for the script to find rtl_power and rtl_fm.
 
 `PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games`
+
 `15 11 * * * /home/<your_user>/RS/auto_rx/auto_rx.sh`
+
 `15 23 * * * /home/<your_user>/RS/auto_rx/auto_rx.sh`
 
