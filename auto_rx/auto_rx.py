@@ -23,9 +23,9 @@
 # TODO:
 # [ ] Fix user gain setting issues. (gain='automatic' = no decode?!)
 # [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
-# [ ] Habitat upload. 
 # [ ] Use FSK demod from codec2-dev ? 
 # [ ] Storage of flight information in some kind of database.
+# [ ] Local frequency blacklist, to speed up scan times.
 
 import numpy as np
 import sys
@@ -466,7 +466,20 @@ def internet_push_thread(station_config):
         except:
             traceback.print_exc()
 
-        time.sleep(config['upload_rate'])
+        if station_config['synchronous_upload']:
+            # Sleep for a second to ensure we don't double upload in the same slot (shouldn't' happen, but anyway...)
+            time.sleep(1)
+
+            # Wait until the next valid uplink timeslot.
+            # This is determined by waiting until the time since epoch modulus the upload rate is equal to zero.
+            # Note that this will result in some odd upload times, due to leap seconds and otherwise, but should
+            # result in multiple stations (assuming local timezones are the same, and the stations are synced to NTP)
+            # uploading at roughly the same time.
+            while int(time.time())%config['upload_rate'] != 0:
+                time.sleep(0.1)
+        else:
+            # Otherwise, just sleep.
+            time.sleep(config['upload_rate'])
 
     print("Closing thread.")
 

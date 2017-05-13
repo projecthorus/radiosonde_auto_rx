@@ -23,6 +23,7 @@ def read_auto_rx_config(filename):
 		'quantization'	: 10000,
 		'rx_timeout'	: 120,
 		'upload_rate'	: 30,
+		'synchronous_upload' : False,
 		'enable_aprs'	: False,
 		'enable_habitat': False,
 		'aprs_user'		: 'N0CALL',
@@ -51,6 +52,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['quantization'] = config.getint('search_params', 'quantization')
 		auto_rx_config['rx_timeout'] = config.getint('search_params', 'rx_timeout')
 		auto_rx_config['upload_rate'] = config.getint('upload', 'upload_rate')
+		auto_rx_config['synchronous_upload'] = config.getboolean('upload','synchronous_upload')
 		auto_rx_config['enable_aprs'] = config.getboolean('upload', 'enable_aprs')
 		auto_rx_config['enable_habitat'] = config.getboolean('upload', 'enable_habitat')
 		auto_rx_config['aprs_user'] = config.get('aprs', 'aprs_user')
