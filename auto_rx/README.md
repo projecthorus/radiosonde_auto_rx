@@ -13,23 +13,35 @@ Features:
 * Automatic downloading of GPS Ephemeris or Almanac data, if the sonde is a Vaisala RS92.
 * Scanning and detection of Vaisala RS92 and RS41 radiosondes over a user-definable frequency range, using the rs_detect, rs92mod and rs41mod utilities from the master repository. 
 * Uploading to:
-.* APRS, with user-definable position comment.
-.* Habitat
+ * APRS, with user-definable position comment.
+ * Habitat
 
 Dependencies
 ------------
 * Currently runs on Python 2.7 (yeah, I know). Will probably work under Python 3.
 * Needs the following python packages (get them with `pip install <package>`)
-.* numpy
-.* crcmod
-* Also needs:
-.* rtl-sdr packages (i.e. rtl_fm, rtl_power)
-.* sox
+ * numpy
+ * crcmod
+* Also needs (grab from apt-get):
+ * rtl-sdr
+ * sox
 
 Usage
 -----
 * Run `sh build.sh` to build needed binaries from elsewhere in this repository.
 * Make a copy of station.cfg.example as station.cfg, and edit as appropriate.
-* Run `python auto_rx.py -c station.cfg` to start the scan.
-* Wait. A log file will be written to log/<timestamp>.log detailing what's going on.
+* Run `python auto_rx.py` to start the scan.
+* Wait. Status will be printed to stdout, and also to a log file in log/<timestamp>.log
+* By default the script will exit after 180 minutes (as by this point we expect the sonde to have landed). You can adjust this with the -t command line option.
+
+
+Suggested Crontab Entries
+-------------------------
+Since sonde launches occur pretty much simultaneously worldwide, you can start the receiver script with crontab.
+
+I suggest the following crontab entries, noting that you need to ensure the PATH env-vars are set for the script to find rtl_power and rtl_fm.
+
+`PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games`
+`15 11 * * * /home/<your_user>/RS/auto_rx/auto_rx.sh`
+`15 23 * * * /home/<your_user>/RS/auto_rx/auto_rx.sh`
 
