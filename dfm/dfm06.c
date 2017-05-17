@@ -643,7 +643,7 @@ void print_gpx() {
                   printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
               }
               if ((gpx.sonde_typ & 0xFF) == 9) {
-                  printf(" (ID%1d:%06d) ", gpx.sonde_typ & 0xF, gpx.SN9);
+                  printf(" (ID%1d:%06u) ", gpx.sonde_typ & 0xF, gpx.SN9);
               }
               gpx.sonde_typ ^= SNbit;
           }
