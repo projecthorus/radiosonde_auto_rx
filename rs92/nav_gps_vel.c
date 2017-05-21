@@ -45,7 +45,7 @@ void ecef2elli(double X, double Y, double Z, double *lat, double *lon, double *a
 
     R = EARTH_a / sqrt( 1 - ea2*sin(phi)*sin(phi) );
     *alt = p / cos(phi) - R;
-    
+
     *lat = phi*180.0/PI;
     *lon = lam*180.0/PI;
 }
@@ -205,7 +205,7 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
 
         //memset(&ephem, 0, sizeof(ephem));
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;  sscanf(buf, "%d", &ui);   
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;  sscanf(buf, "%d", &ui);
         ephem.prn = ui;
 
 
@@ -234,21 +234,21 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.af2 = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iode = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crs = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.delta_n = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.M0 = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cuc = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.e = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cus = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.sqrta = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.toe = dbl;
                                                                                                                                     ephem.toc = ephem.toe;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cic = dbl;
@@ -256,28 +256,28 @@ int read_RNXephemeris(FILE *fp, EPHEM_t eph[][24]) {
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cis = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.i0 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crc = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.w = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.OmegaDot = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.idot = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.codeL2 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.gpsweek = (int)dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.sva = dbl;
-        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.svh = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.health = (ui8_t)(dbl+0.1);
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.tgd = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
         if ((c=fgetc(fp)) == EOF) break;
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.ttom = dbl;
         pbuf = fgets(buf_header, 82, fp);
      /* // die letzten beiden Felder (spare) sind manchmal leer (statt 0.00); manchmal fehlt sogar das drittletzte Feld
@@ -325,7 +325,7 @@ EPHEM_t *read_RNXpephs(FILE *fp) {
         if (ui < 33) count++;
         for (i = 1; i < 8; i++) {
             pbuf = fgets(buffer, 84, fp); if (pbuf == 0) break;
-        }       
+        }
     }
     //printf("Ephemerides: %d\n", count);
 
@@ -340,7 +340,7 @@ EPHEM_t *read_RNXpephs(FILE *fp) {
 
         //memset(&ephem, 0, sizeof(ephem));
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;  sscanf(buf, "%d", &ui);   
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;  sscanf(buf, "%d", &ui);
         ephem.prn = ui;
 
         for (i = 0; i < 16; i++) ephem.epoch[i] = '0';
@@ -365,21 +365,21 @@ EPHEM_t *read_RNXpephs(FILE *fp) {
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.af2 = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iode = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crs = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.delta_n = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.M0 = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cuc = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.e = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cus = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.sqrta = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.toe = dbl;
                                                                                                                                     ephem.toc = ephem.toe;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cic = dbl;
@@ -387,28 +387,28 @@ EPHEM_t *read_RNXpephs(FILE *fp) {
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.cis = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.i0 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.crc = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.w = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.OmegaDot = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.idot = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.codeL2 = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.gpsweek = (int)dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.sva = dbl;
-        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.svh = dbl;
+        l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.health = (ui8_t)(dbl+0.1);
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); ephem.tgd = dbl;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.iodc = dbl;
         while ((c=fgetc(fp)) != '\n') { if (c == EOF) break; }
 
-        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0; 
+        l = fread(buf,  3, 1, fp);    if (l != 1) break;  buf[ 3] = 0;
         l = fread(buf, 19, 1, fp);    if (l != 1) break;  if (buf[15] == 'D') buf[15] = 'E'; buf[19] = 0; sscanf(buf, "%lf", &dbl); //ephem.ttom = dbl;
         pbuf = fgets(buffer, 84, fp);
      /* // die letzten beiden Felder (spare) sind manchmal leer (statt 0.00); manchmal fehlt sogar das drittletzte Feld
@@ -443,23 +443,23 @@ EPHEM_t *read_RNXpephs(FILE *fp) {
 
 void GPS_SatelliteClockCorrection(
   const unsigned short transmission_gpsweek,   // GPS week when signal was transmit (0-1024+)            [weeks]
-  const double         transmission_gpstow,    // GPS time of week when signal was transmit              [s]  
+  const double         transmission_gpstow,    // GPS time of week when signal was transmit              [s]
   const unsigned short ephem_week,             // ephemeris: GPS week (0-1024+)                          [weeks]
   const double         toe,                    // ephemeris: time of week                                [s]
   const double         toc,                    // ephemeris: clock reference time of week                [s]
   const double         af0,                    // ephemeris: polynomial clock correction coefficient     [s],
   const double         af1,                    // ephemeris: polynomial clock correction coefficient     [s/s],
-  const double         af2,                    // ephemeris: polynomial clock correction coefficient     [s/s^2]  
+  const double         af2,                    // ephemeris: polynomial clock correction coefficient     [s/s^2]
   const double         ecc,                    // ephemeris: eccentricity of satellite orbit             []
   const double         sqrta,                  // ephemeris: square root of the semi-major axis of orbit [m^(1/2)]
   const double         delta_n,                // ephemeris: mean motion difference from computed value  [rad]
   const double         m0,                     // ephemeris: mean anomaly at reference time              [rad]
   const double         tgd,                    // ephemeris: group delay differential between L1 and L2  [s]
   double*  clock_correction )                  // ephemeris: satellite clock correction                  [m]
-{               
+{
     int j;
 
-    double tot;    // time of transmission (including gps week) [s] 
+    double tot;    // time of transmission (including gps week) [s]
     double tk;     // time from ephemeris reference epoch       [s]
     double tc;     // time from clock reference epoch           [s]
     double d_tr;   // relativistic correction term              [s]
@@ -467,9 +467,9 @@ void GPS_SatelliteClockCorrection(
     double a;      // semi-major axis of orbit                  [m]
     double n;      // corrected mean motion                     [rad/s]
     double M;      // mean anomaly,                             [rad]
-    double E;      // eccentric anomaly                         [rad]      
+    double E;      // eccentric anomaly                         [rad]
 
-    // compute the times from the reference epochs 
+    // compute the times from the reference epochs
     tot = transmission_gpsweek*SECONDS_IN_WEEK + transmission_gpstow;
     tk  = tot - (ephem_week*SECONDS_IN_WEEK + toe);
     tc  = tot - (ephem_week*SECONDS_IN_WEEK + toc);
@@ -478,21 +478,21 @@ void GPS_SatelliteClockCorrection(
     a = sqrta*sqrta;
     n = sqrt( GRAVITY_CONSTANT / (a*a*a) ); //  mean motion
     n += delta_n; // corrected mean motion
-  
+
     // Kepler-Gleichung  M = E - e sin(E)
     M = m0 + n*tk; // mean anomaly
     E = M;                         // f(E) = M + e sin(E)  hat Fixpunkt fuer e < 1,
     for( j = 0; j < 7; j++ ) {     // da |f'(E)|=|e cos(E)|<1.
-        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k) 
+        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k)
     }                              // konvergiert langsam gegen E_0 = f(E_0)
- 
+
     // relativistic correction
     d_tr = RELATIVISTIC_CLOCK_CORRECTION * ecc * sqrta * sin(E); // [s]
     d_tr *= LIGHTSPEED;
 
     // clock correction
     d_tsv = af0 + af1*tc + af2*tc*tc; // [s]
-        
+
     // L1 only
     d_tsv -= tgd; // [s]
 
@@ -501,9 +501,9 @@ void GPS_SatelliteClockCorrection(
 
 }
 
-void GPS_ComputeSatellitePosition( 
+void GPS_ComputeSatellitePosition(
   const unsigned short transmission_gpsweek,  // GPS week when signal was transmit (0-1024+)                            [weeks]
-  const double         transmission_gpstow,   // GPS time of week when signal was transmit                              [s]  
+  const double         transmission_gpstow,   // GPS time of week when signal was transmit                              [s]
   const unsigned short ephem_week,            // ephemeris: GPS week (0-1024+)                                          [weeks]
   const double         toe,                   // ephemeris: time of week                                                [s]
   const double         m0,                    // ephemeris: mean anomaly at reference time                              [rad]
@@ -523,16 +523,16 @@ void GPS_ComputeSatellitePosition(
   const double         cis,                   // ephemeris: sin harmonic correction term to the angle of inclination    [rad]
   double* x,                                  // satellite x            [m]
   double* y,                                  // satellite y            [m]
-  double* z )                                 // satellite z            [m] 
+  double* z )                                 // satellite z            [m]
 {
     int j;
 
-    double tot;        // time of transmission (including gps week) [s] 
+    double tot;        // time of transmission (including gps week) [s]
     double tk;         // time from ephemeris reference epoch       [s]
     double a;          // semi-major axis of orbit                  [m]
     double n;          // corrected mean motion                     [rad/s]
     double M;          // mean anomaly,                             [rad]
-    double E;          // eccentric anomaly                         [rad]      
+    double E;          // eccentric anomaly                         [rad]
     double v;          // true anomaly                              [rad]
     double u;          // argument of latitude, corrected           [rad]
     double r;          // radius in the orbital plane               [m]
@@ -553,33 +553,33 @@ void GPS_ComputeSatellitePosition(
     double sini;       // sin(i)
     double cosE;       // cos(E)
     double sinE;       // sin(E)
-         
 
-    // compute the times from the reference epochs 
+
+    // compute the times from the reference epochs
     tot = transmission_gpsweek*SECONDS_IN_WEEK + transmission_gpstow;
     tk  = tot - (ephem_week*SECONDS_IN_WEEK + toe);
-  
+
     // compute the corrected mean motion term
     a = sqrta*sqrta;
     n = sqrt( GRAVITY_CONSTANT / (a*a*a) ); // computed mean motion
     n += delta_n; // corrected mean motion
-  
+
     // Kepler-Gleichung  M = E - e sin(E)
     M = m0 + n*tk; // mean anomaly
     E = M;                         // f(E) = M + e sin(E)  hat Fixpunkt fuer e < 1,
     for( j = 0; j < 7; j++ ) {     // da |f'(E)|=|e cos(E)|<1.
-        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k) 
+        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k)
     }                              // konvergiert langsam gegen E_0 = f(E_0)
 
     cosE = cos(E);
     sinE = sin(E);
- 
+
     // true anomaly
     v = atan2( (sqrt(1.0 - ecc*ecc)*sinE),  (cosE - ecc) );
     // argument of latitude
     u = v + w;
     // radius in orbital plane
-    r = a * (1.0 - ecc * cos(E)); 
+    r = a * (1.0 - ecc * cos(E));
     // orbital inclination
     i = i0;
 
@@ -587,10 +587,10 @@ void GPS_ComputeSatellitePosition(
     //
     cos2u = cos(2.0*u);
     sin2u = sin(2.0*u);
-    // argument of latitude correction  
-    d_u = cuc * cos2u  +  cus * sin2u; 
-    // radius correction  
-    d_r = crc * cos2u  +  crs * sin2u; 
+    // argument of latitude correction
+    d_u = cuc * cos2u  +  cus * sin2u;
+    // radius correction
+    d_r = crc * cos2u  +  crs * sin2u;
     // correction to inclination
     d_i = cic * cos2u  +  cis * sin2u;
 
@@ -613,7 +613,7 @@ void GPS_ComputeSatellitePosition(
     // fuer GPS-Loesung (Sats in ECI) Erdrotation hinzuziehen:
     // rotZ(EARTH_ROTATION_RATE*0.072), 0.072s*299792458m/s=21585057m
 
-    // compute the WGS84 ECEF coordinates, 
+    // compute the WGS84 ECEF coordinates,
     // vector r with components x & y is now rotated using, R3(-omegak)*R1(-i)
     cos_omegak = cos(omegak);
     sin_omegak = sin(omegak);
@@ -651,7 +651,7 @@ void GPS_SatellitePosition_Ephem(
         ephem.delta_n, ephem.M0, ephem.tgd, clock_correction );
 
 
-    // adjust for week rollover  
+    // adjust for week rollover
     week = gpsweek;
     tow = gpstow + (*clock_correction)/LIGHTSPEED;
     if ( tow < 0.0 ) {
@@ -728,10 +728,10 @@ int NAV_ClosedFormSolution_FromPseudorange(
     typedef struct {
         double x;
         double y;
-        double z;    
+        double z;
     } struct_SOLN;
 
-    struct_SOLN s1; 
+    struct_SOLN s1;
     struct_SOLN s2;
 
     struct_SOLN stmp;
@@ -742,7 +742,7 @@ int NAV_ClosedFormSolution_FromPseudorange(
            lat2, lon2, alt2;
     double d2_1, d2_2;
 
-  
+
     x12 = x1 - x2;
     x13 = x1 - x3;
     x14 = x1 - x4;
@@ -750,7 +750,7 @@ int NAV_ClosedFormSolution_FromPseudorange(
     y12 = y1 - y2;
     y13 = y1 - y3;
     y14 = y1 - y4;
-  
+
     z12 = z1 - z2;
     z13 = z1 - z3;
     z14 = z1 - z4;
@@ -826,14 +826,14 @@ int NAV_ClosedFormSolution_FromPseudorange(
     tmp2 = sqrt( s2.x*s2.x + s2.y*s2.y + s2.z*s2.z );
 
     // choose the correct solution based
-    // on whichever solution is closest to 
+    // on whichever solution is closest to
     // the Earth's surface
     tmp1 = fabs( tmp1 - 6371000.0 );
     tmp2 = fabs( tmp2 - 6371000.0 );
 
     // nur (tmp2 < tmp1) geht manchmal schief
     if ( tmp2 < tmp1  &&  tmp1 >= 60000 ) {  // swap solutions
-        stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2; 
+        stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2;
         dtmp = d1; d1 = d2; d2 = dtmp;  // d1 = d2;
     }
     else if ( tmp2 < 60000 ) {   // interessant wenn tmp1<tmp2<60k oder tmp2<tmp1<60k,
@@ -841,7 +841,7 @@ int NAV_ClosedFormSolution_FromPseudorange(
         y0 = (y1+y2+y3+y4)/4.0;  // ungefaehre Position kann aus den Positionen
         z0 = (z1+z2+z3+z4)/4.0;  // der empfangenen Sats abgeleitet werden
         ecef2elli( x0, y0, z0, &latS, &lonS, &altS );
-    
+
         ecef2elli( s1.x, s1.y, s1.z, &lat1, &lon1, &alt1 );
         ecef2elli( s2.x, s2.y, s2.z, &lat2, &lon2, &alt2 );
 
@@ -849,7 +849,7 @@ int NAV_ClosedFormSolution_FromPseudorange(
         d2_2 = sqrt( (latS-lat2)*(latS-lat2) + (lonS-lon2)*(lonS-lon2) );
 
         if ( d2_2 < d2_1 ) {
-            stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2; 
+            stmp = s1; s1 = s2; s2 = stmp;  // s1 = s2;
             dtmp = d1; d1 = d2; d2 = dtmp;  // d1 = d2;
         }
     }
@@ -869,7 +869,7 @@ int NAV_ClosedFormSolution_FromPseudorange(
     if( *height < -1500.0 || *height > 50000.0 ) {
         return -2;
     }
-  
+
     return 0;
 }
 
@@ -922,7 +922,7 @@ int trace_invert(double mat[4][4], double trinv[4])  // trace-invert
     static double det;
     det = mat[0][0] * Det3_123_123
 	    - mat[0][1] * Det3_123_023
-	    + mat[0][2] * Det3_123_013 
+	    + mat[0][2] * Det3_123_013
 	    - mat[0][3] * Det3_123_012;
 
     // Very small determinants probably reflect floating-point fuzz near zero
@@ -1049,7 +1049,7 @@ int matrix_invert(double mat[4][4], double inv[4][4])
     static double det;
     det = mat[0][0] * Det3_123_123
 	    - mat[0][1] * Det3_123_023
-	    + mat[0][2] * Det3_123_013 
+	    + mat[0][2] * Det3_123_013
 	    - mat[0][3] * Det3_123_012;
 
     // Very small determinants probably reflect floating-point fuzz near zero
@@ -1400,13 +1400,13 @@ int NAV_bancroft3(int N, SAT_t sats[], double pos_ecef1[3], double *cc1 , double
 
 void GPS_SatelliteClockDriftCorrection(
   const unsigned short transmission_gpsweek,   // GPS week when signal was transmit (0-1024+)            [weeks]
-  const double         transmission_gpstow,    // GPS time of week when signal was transmit              [s]  
+  const double         transmission_gpstow,    // GPS time of week when signal was transmit              [s]
   const unsigned short ephem_week,             // ephemeris: GPS week (0-1024+)                          [weeks]
   const double         toe,                    // ephemeris: time of week                                [s]
   const double         toc,                    // ephemeris: clock reference time of week                [s]
   const double         af0,                    // ephemeris: polynomial clock correction coefficient     [s],
   const double         af1,                    // ephemeris: polynomial clock correction coefficient     [s/s],
-  const double         af2,                    // ephemeris: polynomial clock correction coefficient     [s/s^2]  
+  const double         af2,                    // ephemeris: polynomial clock correction coefficient     [s/s^2]
   const double         ecc,                    // ephemeris: eccentricity of satellite orbit             []
   const double         sqrta,                  // ephemeris: square root of the semi-major axis of orbit [m^(1/2)]
   const double         delta_n,                // ephemeris: mean motion difference from computed value  [rad]
@@ -1414,10 +1414,10 @@ void GPS_SatelliteClockDriftCorrection(
   const double         tgd,                    // ephemeris: group delay differential between L1 and L2  [s]
   double*  clock_correction,                   // ephemeris: satellite clock correction                  [m]
   double*  clock_drift )                       // ephemeris: satellite clock drift correction            [m/s]
-{               
+{
     int j;
 
-    double tot;    // time of transmission (including gps week) [s] 
+    double tot;    // time of transmission (including gps week) [s]
     double tk;     // time from ephemeris reference epoch       [s]
     double tc;     // time from clock reference epoch           [s]
     double d_tr;   // relativistic correction term              [s]
@@ -1425,9 +1425,9 @@ void GPS_SatelliteClockDriftCorrection(
     double a;      // semi-major axis of orbit                  [m]
     double n;      // corrected mean motion                     [rad/s]
     double M;      // mean anomaly,                             [rad]
-    double E;      // eccentric anomaly                         [rad]      
+    double E;      // eccentric anomaly                         [rad]
 
-    // compute the times from the reference epochs 
+    // compute the times from the reference epochs
     tot = transmission_gpsweek*SECONDS_IN_WEEK + transmission_gpstow;
     tk  = tot - (ephem_week*SECONDS_IN_WEEK + toe);
     tc  = tot - (ephem_week*SECONDS_IN_WEEK + toc);
@@ -1436,21 +1436,21 @@ void GPS_SatelliteClockDriftCorrection(
     a = sqrta*sqrta;
     n = sqrt( GRAVITY_CONSTANT / (a*a*a) ); //  mean motion
     n += delta_n; // corrected mean motion
-  
+
     // Kepler-Gleichung  M = E - e sin(E)
     M = m0 + n*tk; // mean anomaly
     E = M;                         // f(E) = M + e sin(E)  hat Fixpunkt fuer e < 1,
     for( j = 0; j < 7; j++ ) {     // da |f'(E)|=|e cos(E)|<1.
-        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k) 
+        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k)
     }                              // konvergiert langsam gegen E_0 = f(E_0)
- 
+
     // relativistic correction
     d_tr = RELATIVISTIC_CLOCK_CORRECTION * ecc * sqrta * sin(E); // [s]
     d_tr *= LIGHTSPEED;
 
-    // clock correction 
+    // clock correction
     d_tsv = af0 + af1*tc + af2*tc*tc; // [s]
-        
+
     // L1 only
     d_tsv -= tgd; // [s]
 
@@ -1462,9 +1462,9 @@ void GPS_SatelliteClockDriftCorrection(
 
 }
 
-void GPS_ComputeSatellitePositionVelocity( 
+void GPS_ComputeSatellitePositionVelocity(
   const unsigned short transmission_gpsweek,  // GPS week when signal was transmit (0-1024+)                            [weeks]
-  const double         transmission_gpstow,   // GPS time of week when signal was transmit                              [s]  
+  const double         transmission_gpstow,   // GPS time of week when signal was transmit                              [s]
   const unsigned short ephem_week,            // ephemeris: GPS week (0-1024+)                                          [weeks]
   const double         toe,                   // ephemeris: time of week                                                [s]
   const double         m0,                    // ephemeris: mean anomaly at reference time                              [rad]
@@ -1484,19 +1484,19 @@ void GPS_ComputeSatellitePositionVelocity(
   const double         cis,                   // ephemeris: sin harmonic correction term to the angle of inclination    [rad]
   double* x,                                  // satellite x            [m]
   double* y,                                  // satellite y            [m]
-  double* z,                                  // satellite z            [m] 
+  double* z,                                  // satellite z            [m]
   double* vx,                                 // satellite velocity x   [m/s]
   double* vy,                                 // satellite velocity y   [m/s]
   double* vz )                                // satellite velocity z   [m/s]
 {
     int j;
 
-    double tot;        // time of transmission (including gps week) [s] 
+    double tot;        // time of transmission (including gps week) [s]
     double tk;         // time from ephemeris reference epoch       [s]
     double a;          // semi-major axis of orbit                  [m]
     double n;          // corrected mean motion                     [rad/s]
     double M;          // mean anomaly,                             [rad]
-    double E;          // eccentric anomaly                         [rad]      
+    double E;          // eccentric anomaly                         [rad]
     double v;          // true anomaly                              [rad]
     double u;          // argument of latitude, corrected           [rad]
     double r;          // radius in the orbital plane               [m]
@@ -1517,33 +1517,33 @@ void GPS_ComputeSatellitePositionVelocity(
     double sini;       // sin(i)
     double cosE;       // cos(E)
     double sinE;       // sin(E)
-         
 
-    // compute the times from the reference epochs 
+
+    // compute the times from the reference epochs
     tot = transmission_gpsweek*SECONDS_IN_WEEK + transmission_gpstow;
     tk  = tot - (ephem_week*SECONDS_IN_WEEK + toe);
-  
+
     // compute the corrected mean motion term
     a = sqrta*sqrta;
     n = sqrt( GRAVITY_CONSTANT / (a*a*a) ); // computed mean motion
     n += delta_n; // corrected mean motion
-  
+
     // Kepler-Gleichung  M = E - e sin(E)
     M = m0 + n*tk; // mean anomaly
     E = M;                         // f(E) = M + e sin(E)  hat Fixpunkt fuer e < 1,
     for( j = 0; j < 7; j++ ) {     // da |f'(E)|=|e cos(E)|<1.
-        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k) 
+        E = M + ecc * sin(E);      // waehle Startwert E_1 = M, E_{k+1} = f(E_k)
     }                              // konvergiert langsam gegen E_0 = f(E_0)
 
     cosE = cos(E);
     sinE = sin(E);
- 
+
     // true anomaly
     v = atan2( (sqrt(1.0 - ecc*ecc)*sinE),  (cosE - ecc) );
     // argument of latitude
     u = v + w;
     // radius in orbital plane
-    r = a * (1.0 - ecc * cos(E)); 
+    r = a * (1.0 - ecc * cos(E));
     // orbital inclination
     i = i0;
 
@@ -1551,10 +1551,10 @@ void GPS_ComputeSatellitePositionVelocity(
     //
     cos2u = cos(2.0*u);
     sin2u = sin(2.0*u);
-    // argument of latitude correction  
-    d_u = cuc * cos2u  +  cus * sin2u; 
-    // radius correction  
-    d_r = crc * cos2u  +  crs * sin2u; 
+    // argument of latitude correction
+    d_u = cuc * cos2u  +  cus * sin2u;
+    // radius correction
+    d_r = crc * cos2u  +  crs * sin2u;
     // correction to inclination
     d_i = cic * cos2u  +  cis * sin2u;
 
@@ -1577,7 +1577,7 @@ void GPS_ComputeSatellitePositionVelocity(
     // fuer GPS-Loesung (Sats in ECI) Erdrotation hinzuziehen:
     // rotZ(EARTH_ROTATION_RATE*0.072), 0.072s*299792458m/s=21585057m
 
-    // compute the WGS84 ECEF coordinates, 
+    // compute the WGS84 ECEF coordinates,
     // vector r with components x & y is now rotated using, R3(-omegak)*R1(-i)
     cos_omegak = cos(omegak);
     sin_omegak = sin(omegak);
@@ -1591,15 +1591,15 @@ void GPS_ComputeSatellitePositionVelocity(
 
   // Satellite Velocity Computations are below
   // see Reference
-  // Remodi, B. M (2004). GPS Tool Box: Computing satellite velocities using the broadcast ephemeris. 
-  // GPS Solutions. Volume 8(3), 2004. pp. 181-183 
+  // Remodi, B. M (2004). GPS Tool Box: Computing satellite velocities using the broadcast ephemeris.
+  // GPS Solutions. Volume 8(3), 2004. pp. 181-183
   //
-  // example source code was available at [http://www.ngs.noaa.gov/gps-toolbox/bc_velo/bc_velo.c]  
+  // example source code was available at [http://www.ngs.noaa.gov/gps-toolbox/bc_velo/bc_velo.c]
 
   // recomputed the cos and sin of the corrected argument of latitude
 
   double omegadotk;  // corrected rate of right ascension         [rad/s]
-  double edot;       // edot = n/(1.0 - ecc*cos(E)),              [rad/s] 
+  double edot;       // edot = n/(1.0 - ecc*cos(E)),              [rad/s]
   double vdot;       // d/dt of true anomaly                      [rad/s]
   double udot;       // d/dt of argument of latitude              [rad/s]
   double idotdot;    // d/dt of the rate of the inclination angle [rad/s^2]
@@ -1611,26 +1611,26 @@ void GPS_ComputeSatellitePositionVelocity(
 
   cos2u = cos(2.0*u);
   sin2u = sin(2.0*u);
-    
+
   edot  = n / (1.0 - ecc*cosE);
-  vdot  = sinE*edot*(1.0 + ecc*cos(v)) / ( sin(v)*(1.0-ecc*cosE) );  
+  vdot  = sinE*edot*(1.0 + ecc*cos(v)) / ( sin(v)*(1.0-ecc*cosE) );
   udot  = vdot + 2.0*(cus*cos2u - cuc*sin2u)*vdot;
   rdot  = a*ecc*sinE*n/(1.0-ecc*cosE) + 2.0*(crs*cos2u - crc*sin2u)*vdot;
-  idotdot = idot + (cis*cos2u - cic*sin2u)*2.0*vdot;    
-    
+  idotdot = idot + (cis*cos2u - cic*sin2u)*2.0*vdot;
+
   vx_op = rdot*cosu - y_op*udot;
   vy_op = rdot*sinu + x_op*udot;
 
                                                // corrected rate of right ascension including similarily as above,
                                                //  for omegak, compensation for the Sagnac effect
   omegadotk =  omegadot - EARTH_ROTATION_RATE  /* - EARTH_ROTATION_RATE*RANGERATE_ESTIMATE/LIGHTSPEED */ ;
-  
-  tmpa = vx_op - y_op*cosi*omegadotk;  
+
+  tmpa = vx_op - y_op*cosi*omegadotk;
   tmpb = x_op*omegadotk + vy_op*cosi - y_op*sini*idotdot;
-    
-  *vx = tmpa * cos_omegak - tmpb * sin_omegak;  
-  *vy = tmpa * sin_omegak + tmpb * cos_omegak;  
-  *vz = vy_op*sini + y_op*cosi*idotdot;  
+
+  *vx = tmpa * cos_omegak - tmpb * sin_omegak;
+  *vy = tmpa * sin_omegak + tmpb * cos_omegak;
+  *vz = vy_op*sini + y_op*cosi*idotdot;
 }
 
 void GPS_SatellitePositionVelocity_Ephem(
@@ -1665,7 +1665,7 @@ void GPS_SatellitePositionVelocity_Ephem(
         ephem.delta_n, ephem.M0, ephem.tgd, clock_correction, clock_drift );
 
 
-    // adjust for week rollover  
+    // adjust for week rollover
     week = gpsweek;
     tow = gpstow + (*clock_correction)/LIGHTSPEED;
     if ( tow < 0.0 ) {
@@ -1774,7 +1774,7 @@ int NAV_LinP(int N, SAT_t satv[], double pos_ecef[3], double dt,
 
 
     for (i = 0; i < N; i++) {
-        obs_range = satv[i].pseudorange + satv[i].clock_corr; //satv[i].PR; 
+        obs_range = satv[i].pseudorange + satv[i].clock_corr; //satv[i].PR;
         prox_range = norm[i] - dt;
         a[i] = prox_range - obs_range;
     }
@@ -1789,7 +1789,7 @@ int NAV_LinP(int N, SAT_t satv[], double pos_ecef[3], double dt,
     dpos_ecef[0] = Ba[0];
     dpos_ecef[1] = Ba[1];
     dpos_ecef[2] = Ba[2];
-    
+
     *cc = Ba[3];
 
     return 0;
@@ -1884,7 +1884,7 @@ int NAV_LinV(int N, SAT_t satv[], double pos_ecef[3],
     dvel_ecef[0] = Ba[0];
     dvel_ecef[1] = Ba[1];
     dvel_ecef[2] = Ba[2];
-    
+
     *cc = Ba[3];
 
     return 0;

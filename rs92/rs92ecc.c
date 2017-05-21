@@ -742,7 +742,7 @@ int calc_satpos_alm(EPHEM_t alm[], double t, SAT_t *satp) {
     double cl_corr, cl_drift;
 
     for (j = 1; j < 33; j++) {
-        if (alm[j].prn > 0) {  // prn==j
+        if (alm[j].prn > 0 && alm[j].health == 0) {  // prn==j
 
             // Woche hat 604800 sec
             if      (t-alm[j].toa >  WEEKSEC/2) rollover = +1;
@@ -853,7 +853,7 @@ int calc_satpos_rnx2(EPHEM_t *eph, double t, SAT_t *satp) {
 
         while (eph[count].prn > 0) {
 
-            if (eph[count].prn == j) {
+            if (eph[count].prn == j && eph[count].health == 0) {
 
                 satfound += 1;
 
