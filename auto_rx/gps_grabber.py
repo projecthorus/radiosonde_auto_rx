@@ -13,7 +13,8 @@ import os
 def get_ephemeris(destination="ephemeris.dat"):
 	''' Download the latest GPS ephemeris file from the CDDIS's FTP server '''
 	try:
-		ftp = ftplib.FTP("cddis.gsfc.nasa.gov")
+		logging.info("Connecting to GSFC FTP Server...")
+		ftp = ftplib.FTP("cddis.gsfc.nasa.gov", timeout=10)
 		ftp.login("anonymous","anonymous")
 		ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
 		file_list= ftp.nlst()

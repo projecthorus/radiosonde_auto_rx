@@ -23,6 +23,7 @@
 # TODO:
 # [ ] Fix user gain setting issues. (gain='automatic' = no decode?!)
 # [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
+#   [ ] Figure out better quantization settings.
 # [ ] Use FSK demod from codec2-dev ? 
 # [ ] Storage of flight information in some kind of database.
 # [ ] Local frequency blacklist, to speed up scan times.
@@ -124,7 +125,7 @@ def quantize_freq(freq_list, quantize=5000):
     """ Quantise a list of frequencies to steps of <quantize> Hz """
     return np.round(freq_list/quantize)*quantize
 
-def detect_sonde(frequency, ppm=0, gain='automatic'):
+def detect_sonde(frequency, ppm=0, gain='automatic', bias=False):
     """ Receive some FM and attempt to detect the presence of a radiosonde. """
 
     rx_test_command = "timeout 10s rtl_fm -p %d -M fm -s 15k -f %d 2>/dev/null |" % (int(ppm), frequency) 
@@ -132,6 +133,11 @@ def detect_sonde(frequency, ppm=0, gain='automatic'):
     rx_test_command += "./rs_detect -z -t 8 2>/dev/null"
 
     logging.info("Attempting sonde detection on %.3f MHz" % (frequency/1e6))
+
+    # Enable Bias-Tee if required.
+    if bias:
+        os.system('rtl_biast -b 1')
+
     ret_code = os.system(rx_test_command)
 
     ret_code = ret_code >> 8
@@ -154,6 +160,11 @@ def sonde_search(config, attempts = 5):
     sonde_type = None
 
     while search_attempts > 0:
+
+        # Enable Bias-Tee if required.
+        if config['rtlsdr_bias']:
+            os.system('rtl_biast -b 1')
+
         # Scan Band
         run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'], ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'])
 
@@ -190,7 +201,7 @@ def sonde_search(config, attempts = 5):
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
-            detected = detect_sonde(freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'])
+            detected = detect_sonde(freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
             if detected != None:
                 sonde_freq = freq
                 sonde_type = detected
@@ -297,7 +308,7 @@ def calculate_flight_statistics():
 
     return stats_str
 
-def decode_rs92(frequency, ppm=0, gain='automatic', rx_queue=None, almanac=None, ephemeris=None, timeout=120):
+def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120):
     """ Decode a RS92 sonde """
     global latest_sonde_data
 
@@ -329,6 +340,10 @@ def decode_rs92(frequency, ppm=0, gain='automatic', rx_queue=None, almanac=None,
         decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
 
     rx_last_line = time.time()
+
+    # Enable Bias-Tee if required.
+    if bias:
+        os.system('rtl_biast -b 1')
 
     # Receiver subprocess. Discard stderr, and feed stdout into an asynchronous read class.
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
@@ -372,7 +387,7 @@ def decode_rs92(frequency, ppm=0, gain='automatic', rx_queue=None, almanac=None,
     return
 
 
-def decode_rs41(frequency, ppm=0, gain='automatic', rx_queue=None, timeout=120):
+def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, timeout=120):
     """ Decode a RS41 sonde """
     global latest_sonde_data
     decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (int(ppm), frequency)
@@ -384,6 +399,10 @@ def decode_rs41(frequency, ppm=0, gain='automatic', rx_queue=None, timeout=120):
     decode_cmd += "./rs41mod --crc --csv"
 
     rx_last_line = time.time()
+
+    # Enable Bias-Tee if required.
+    if bias:
+        os.system('rtl_biast -b 1')
 
     # Receiver subprocess. Discard stderr, and feed stdout into an asynchronous read class.
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
@@ -530,7 +549,7 @@ if __name__ == "__main__":
 
         # Attempt to detect a sonde on a supplied frequency.
         if args.frequency != 0.0:
-            sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'])
+            sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
             if sonde_type != None:
                 sonde_freq = int(float(args.frequency)*1e6)
         # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
@@ -550,9 +569,9 @@ if __name__ == "__main__":
 
         # Start decoding the sonde!
         if sonde_type == "RS92":
-            decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+            decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
         elif sonde_type == "RS41":
-            decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+            decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
         else:
             pass
 

@@ -10,6 +10,9 @@
 rtlsdr_ppm = 0
 # Gain setting to use. 0 = Auto Gain
 rtlsdr_gain = 0
+# Enable RTLSDR Bias Tee (for v3 Dongles)
+# Requires rtl_biast be installed.
+rtlsdr_bias = False
 
 # Radiosonde Search Parameters
 [search_params]

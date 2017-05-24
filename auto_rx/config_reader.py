@@ -13,6 +13,7 @@ def read_auto_rx_config(filename):
 	auto_rx_config = {
 		'rtlsdr_ppm'	:	0,
 		'rtlsdr_gain'	:	0,
+		'rtlsdr_bias'	: False,
 		'search_attempts':	5,
 		'search_delay'	: 120,
 		'min_freq'		: 400.4,
@@ -42,6 +43,7 @@ def read_auto_rx_config(filename):
 
 		auto_rx_config['rtlsdr_ppm'] = config.getint('rtlsdr', 'rtlsdr_ppm')
 		auto_rx_config['rtlsdr_gain'] = config.getint('rtlsdr', 'rtlsdr_gain')
+		auto_rx_config['rtlsdr_bias'] = config.getboolean('rtlsdr', 'rtlsdr_bias')
 		auto_rx_config['search_attempts'] = config.getint('search_params', 'search_attempts')
 		auto_rx_config['search_delay'] = config.getint('search_params', 'search_delay')
 		auto_rx_config['min_freq'] = config.getfloat('search_params', 'min_freq')
