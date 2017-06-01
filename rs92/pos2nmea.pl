@@ -84,6 +84,11 @@ print STDERR $line;
         printf $fpo "\$$str*%02X\n", $cs;
 
     }
+    elsif ($line =~ / # xdata = (.*)/) {
+        if ($1) {
+            print STDERR $line;
+        }
+    }
 }
 
 close $fpi;
