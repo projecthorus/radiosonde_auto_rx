@@ -185,7 +185,6 @@ int read_wav_header(FILE *fp) {
 #define LEN_movAvg 3
 int movAvg[LEN_movAvg];
 unsigned long sample_count = 0;
-double bitgrenze = 0;
 
 int read_signed_sample(FILE *fp) {  // int = i32_t
     int byte, i, sample, s=0;       // EOF -> 0x1000000
@@ -256,20 +255,21 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 }
 
 int bitstart = 0;
+double bitgrenze = 0;
+unsigned long scount = 0;
 int read_rawbit(FILE *fp, int *bit) {
     int sample;
-    int n, sum;
+    int sum;
     int sample0, pars;
 
     sum = 0;
-    n = 0;
 
     sample0 = 0;
     pars = 0;
 
     if (bitstart) {
-        //n = 1;    // d.h. bitgrenze = sample_count-1 (?)
-        bitgrenze = sample_count-1;
+        scount = 1;    // (sample_count overflow/wrap-around)
+        bitgrenze = 0; // d.h. bitgrenze = sample_count-1 (?)
         bitstart = 0;
     }
     bitgrenze += samples_per_bit;
@@ -284,8 +284,8 @@ int read_rawbit(FILE *fp, int *bit) {
         if (sample * sample0 < 0) pars++;   // wenn sample[0..n-1]=0 ...
         sample0 = sample;
 
-        n++;
-    } while (sample_count < bitgrenze);  // n < samples_per_bit
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
 
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
