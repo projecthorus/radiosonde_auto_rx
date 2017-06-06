@@ -138,7 +138,6 @@ int read_wav_header(FILE *fp) {
 #define LEN_movAvg 3
 int movAvg[LEN_movAvg];
 unsigned long sample_count = 0;
-double bitgrenze = 0;
 
 int read_signed_sample(FILE *fp) {  // int = i32_t
     int byte, i, sample, s=0;       // EOF -> 0x1000000
@@ -204,16 +203,17 @@ int read_bits_fsk(FILE *fp, int *bit, int *len) {
 }
 
 int bitstart = 0;
+double bitgrenze = 0;
+unsigned long scount = 0;
 int read_rawbit(FILE *fp, int *bit) {
     int sample;
-    int n, sum;
+    int sum;
 
     sum = 0;
-    n = 0;
 
     if (bitstart) {
-        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
-        bitgrenze = sample_count;
+        scount = 0;    // eigentlich scount = 1
+        bitgrenze = 0; //   oder bitgrenze = -1
         bitstart = 0;
     }
     bitgrenze += samples_per_bit;
@@ -224,8 +224,8 @@ int read_rawbit(FILE *fp, int *bit) {
         //sample_count++; // in read_signed_sample()
         //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         sum += sample;
-        n++;
-    } while (sample_count < bitgrenze);  // n < samples_per_bit
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
 
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
@@ -237,14 +237,13 @@ int read_rawbit(FILE *fp, int *bit) {
 
 int read_rawbit2(FILE *fp, int *bit) {
     int sample;
-    int n, sum;
+    int sum;
 
     sum = 0;
-    n = 0;
 
     if (bitstart) {
-        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
-        bitgrenze = sample_count-1;
+        scount = 0;    // eigentlich scount = 1
+        bitgrenze = 0; //   oder bitgrenze = -1
         bitstart = 0;
     }
 
@@ -255,8 +254,8 @@ int read_rawbit2(FILE *fp, int *bit) {
         //sample_count++; // in read_signed_sample()
         //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         sum += sample;
-        n++;
-    } while (sample_count < bitgrenze);  // n < samples_per_bit
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
 
     bitgrenze += samples_per_bit;
     do {
@@ -265,8 +264,8 @@ int read_rawbit2(FILE *fp, int *bit) {
         //sample_count++; // in read_signed_sample()
         //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         sum -= sample;
-        n++;
-    } while (sample_count < bitgrenze);  // n < samples_per_bit
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
 
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
@@ -287,8 +286,9 @@ int read_rawbit3(FILE *fp, int *bit) {
     n = 0;
 
     if (bitstart) {
-        n = 1;    // d.h. bitgrenze = sample_count-1 (?)
-        bitgrenze = sample_count-1;
+        n = 1;         // sample*wc[0] ?
+        scount = 1;    // (sample_count overflow/wrap-around)
+        bitgrenze = 0; // d.h. bitgrenze = sample_count-1 (?)
         bitstart = 0;
     }
 
@@ -300,7 +300,8 @@ int read_rawbit3(FILE *fp, int *bit) {
         //par =  (sample >= 0) ? 1 : -1;    // 8bit: 0..127,128..255 (-128..-1,0..127)
         sum += sample*wc[n];
         n++;
-    } while (sample_count < bitgrenze);  // n < samples_per_bit
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
 
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
