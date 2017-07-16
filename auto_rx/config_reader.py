@@ -34,7 +34,10 @@ def read_auto_rx_config(filename):
 		'payload_callsign': 'RADIOSONDE',
 		'uploader_callsign': 'SONDE_AUTO_RX',
 		'uploader_lat' 	: 0.0,
-		'uploader_lon'	: 0.0
+		'uploader_lon'	: 0.0,
+		'ozi_enabled'	: False,
+		'ozi_update_rate': 5,
+		'ozi_hostname'	: '127.0.0.1'
 	}
 
 	try:
@@ -65,6 +68,9 @@ def read_auto_rx_config(filename):
 		auto_rx_config['uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['uploader_lat'] = config.getfloat('habitat', 'uploader_lat')
 		auto_rx_config['uploader_lon'] = config.getfloat('habitat', 'uploader_lon')
+		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
+		auto_rx_config['ozi_update_rate'] = config.getint('oziplotter', 'ozi_update_rate')
+		auto_rx_config['ozi_hostname'] = config.get('oziplotter', 'ozi_hostname')
 
 		return auto_rx_config
 

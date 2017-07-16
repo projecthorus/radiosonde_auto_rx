@@ -15,6 +15,7 @@ Features:
 * Uploading to:
   * APRS, with user-definable position comment.
   * Habitat
+  * OziPlotter (Project Horus Offline Mapping)
 
 Dependencies
 ------------
@@ -23,8 +24,8 @@ Dependencies
   * numpy
   * crcmod
 * Also needs (grab from apt-get):
-  * rtl-sdr
   * sox
+* If you wish to use an RTLSDR with a bias tee, you will need a version of rtl-sdr which is newer than 2017-06-11. This may me having to grab the latest git version from: https://github.com/osmocom/rtl-sdr
 
 Usage
 -----

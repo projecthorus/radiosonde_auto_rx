@@ -22,8 +22,6 @@
 #
 # TODO:
 # [ ] Fix user gain setting issues. (gain='automatic' = no decode?!)
-# [ ] Better peak signal detection. (Maybe convolve known spectral masks over power data?)
-#   [ ] Figure out better quantization settings.
 # [ ] Use FSK demod from codec2-dev ? 
 # [ ] Storage of flight information in some kind of database.
 # [ ] Local frequency blacklist, to speed up scan times.
@@ -41,6 +39,7 @@ import subprocess
 import traceback
 from aprs_utils import *
 from habitat_utils import *
+from ozi_utils import *
 from threading import Thread
 from StringIO import StringIO
 from findpeaks import *
@@ -56,6 +55,10 @@ HABITAT_OUTPUT_ENABLED = False
 INTERNET_PUSH_RUNNING = True
 internet_push_queue = Queue.Queue()
 
+# Second Queue for OziPlotter outputs, since we want this to run at a faster rate.
+OZI_PUSH_RUNNING = True
+ozi_push_queue = Queue.Queue()
+
 
 # Flight Statistics data
 # stores copies of the telemetry dictionary returned by process_rs_line.
@@ -66,16 +69,20 @@ flight_stats = {
 }
 
 
-def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20, ppm = 0, gain = 'automatic'):
+def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20, ppm = 0, gain = 'automatic', bias = False):
     """ Run rtl_power, with a timeout"""
     # rtl_power -f 400400000:403500000:800 -i20 -1 log_power.csv
 
-    rtl_power_cmd = "timeout %d rtl_power -f %d:%d:%d -i %d -1 -p %d %s" % (dwell+10, start, stop, step, dwell, int(ppm), filename)
+    # Add a -T option if bias is enabled
+    bias_option = "-T " if bias else ""
+
+    # Added -k 5 option, to SIGKILL rtl_power 5 seconds after the regular timeout expires. 
+    rtl_power_cmd = "timeout -k 5 %d rtl_power %s-f %d:%d:%d -i %d -1 -c 20%% -p %d %s" % (dwell+10, bias_option, start, stop, step, dwell, int(ppm), filename)
     logging.info("Running frequency scan.")
     ret_code = os.system(rtl_power_cmd)
     if ret_code == 1:
         logging.critical("rtl_power call failed!")
-        sys.exit(1)
+        return False
     else:
         return True
 
@@ -110,14 +117,19 @@ def read_rtl_power(filename):
         freq_step = float(fields[4])
         n_samples = int(fields[5])
 
-        freq_range = np.arange(start_freq,stop_freq,freq_step)
+        #freq_range = np.arange(start_freq,stop_freq,freq_step)
         samples = np.loadtxt(StringIO(",".join(fields[6:])),delimiter=',')
+        freq_range = np.linspace(start_freq,stop_freq,len(samples))
 
         # Add frequency range and samples to output buffers.
         freq = np.append(freq, freq_range)
         power = np.append(power, samples)
 
     f.close()
+
+    # Sanitize power values, to remove the nan's that rtl_power puts in there occasionally.
+    power = np.nan_to_num(power)
+
     return (freq, power, freq_step)
 
 
@@ -128,15 +140,14 @@ def quantize_freq(freq_list, quantize=5000):
 def detect_sonde(frequency, ppm=0, gain='automatic', bias=False):
     """ Receive some FM and attempt to detect the presence of a radiosonde. """
 
-    rx_test_command = "timeout 10s rtl_fm -p %d -M fm -s 15k -f %d 2>/dev/null |" % (int(ppm), frequency) 
+    # Add a -T option if bias is enabled
+    bias_option = "-T " if bias else ""
+
+    rx_test_command = "timeout 10s rtl_fm %s-p %d -M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += "./rs_detect -z -t 8 2>/dev/null"
 
     logging.info("Attempting sonde detection on %.3f MHz" % (frequency/1e6))
-
-    # Enable Bias-Tee if required.
-    if bias:
-        os.system('rtl_biast -b 1')
 
     ret_code = os.system(rx_test_command)
 
@@ -151,6 +162,30 @@ def detect_sonde(frequency, ppm=0, gain='automatic', bias=False):
     else:
         return None
 
+def reset_rtlsdr():
+    """ Attempt to perform a USB Reset on all attached RTLSDRs. This uses the usb_reset binary from ../scan"""
+    lsusb_output = subprocess.check_output(['lsusb'])
+    try:
+        devices = lsusb_output.split('\n')
+        for device in devices:
+            if 'RTL2838' in device:
+                # Found an rtlsdr! Attempt to extract bus and device number.
+                # Expecting something like: 'Bus 001 Device 005: ID 0bda:2838 Realtek Semiconductor Corp. RTL2838 DVB-T'
+                device_fields = device.split(' ')
+                # Attempt to cast fields to integers, to give some surety that we have the correct data.
+                device_bus = int(device_fields[1])
+                device_number = int(device_fields[3][:-1])
+                # Construct device address
+                reset_argument = '/dev/bus/usb/%03d/%03d' % (device_bus, device_number)
+                # Attempt to reset the device.
+                logging.info("Resetting device: %s" % reset_argument)
+                ret_code = subprocess.call(['./reset_usb', reset_argument])
+                logging.debug("Got return code: %s" % ret_code)
+            else:
+                continue
+    except:
+        logging.error("Errors occured while attempting to reset USB device.")
+
 
 def sonde_search(config, attempts = 5):
     """ Perform a frequency scan across the defined range, and test each frequency for a radiosonde's presence. """
@@ -161,19 +196,19 @@ def sonde_search(config, attempts = 5):
 
     while search_attempts > 0:
 
-        # Enable Bias-Tee if required.
-        if config['rtlsdr_bias']:
-            os.system('rtl_biast -b 1')
-
         # Scan Band
-        run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'], ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'])
+        run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'], ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
 
         # Read in result
         try:
             (freq, power, step) = read_rtl_power('log_power.csv')
         except Exception as e:
             traceback.print_exc()
-            logging.debug("Failed to read log_power.csv. Attempting to run rtl_power again.")
+            logging.error("Failed to read log_power.csv. Resetting RTLSDRs and attempting to run rtl_power again.")
+            # no log_power.csv usually means that rtl_power has locked up and had to be SIGKILL'd. 
+            # This occurs when it can't get samples from the RTLSDR, because it's locked up for some reason.
+            # Issuing a USB Reset to the rtlsdr can sometimes solve this. 
+            reset_rtlsdr()
             search_attempts -= 1
             time.sleep(10)
             continue
@@ -238,6 +273,13 @@ def process_rs_line(line):
         rs_frame['id'] = str(params[1])
         rs_frame['date'] = str(params[2])
         rs_frame['time'] = str(params[3])
+        # Provide a clipped time field, without the milliseconds components.
+        # Do this just by splitting off everything before the '.', if it exists.
+        if '.' in rs_frame['time']:
+            rs_frame['short_time'] = rs_frame['time'].split('.')[0]
+        else:
+            rs_frame['short_time'] = rs_frame['time']
+
         rs_frame['datetime_str'] = "%sT%s" % (rs_frame['date'], rs_frame['time'])
         rs_frame['lat'] = float(params[4])
         rs_frame['lon'] = float(params[5])
@@ -250,7 +292,7 @@ def process_rs_line(line):
         rs_frame['temp'] = 0.0
         rs_frame['humidity'] = 0.0
 
-        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt']))
+        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
 
         return rs_frame
 
@@ -275,6 +317,8 @@ def update_flight_stats(data):
     # Is the current altitude higher than the current peak altitude?
     if data['alt'] > flight_stats['apogee']['alt']:
         flight_stats['apogee'] = data
+
+
 
 def calculate_flight_statistics():
     """ Produce a flight summary, for inclusion in the log file. """
@@ -310,7 +354,7 @@ def calculate_flight_statistics():
 
 def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120):
     """ Decode a RS92 sonde """
-    global latest_sonde_data
+    global latest_sonde_data, internet_push_queue, ozi_push_queue
 
     # Before we get started, do we need to download GPS data?
     if ephemeris == None:
@@ -328,7 +372,10 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
             logging.critical("Could not obtain GPS ephemeris or almanac data.")
             return False
 
-    decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (int(ppm), frequency)
+    # Add a -T option if bias is enabled
+    bias_option = "-T " if bias else ""
+
+    decode_cmd = "rtl_fm %s-p %d -M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
@@ -340,10 +387,6 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
         decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
 
     rx_last_line = time.time()
-
-    # Enable Bias-Tee if required.
-    if bias:
-        os.system('rtl_biast -b 1')
 
     # Receiver subprocess. Discard stderr, and feed stdout into an asynchronous read class.
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
@@ -366,7 +409,8 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
 
                         if rx_queue != None:
                             try:
-                                rx_queue.put_nowait(data)
+                                internet_push_queue.put_nowait(data)
+                                ozi_push_queue.put_nowait(data)
                             except:
                                 pass
                 except:
@@ -389,8 +433,11 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
 
 def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, timeout=120):
     """ Decode a RS41 sonde """
-    global latest_sonde_data
-    decode_cmd = "rtl_fm -p %d -M fm -s 12k -f %d 2>/dev/null |" % (int(ppm), frequency)
+    global latest_sonde_data, internet_push_queue, ozi_push_queue
+    # Add a -T option if bias is enabled
+    bias_option = "-T " if bias else ""
+
+    decode_cmd = "rtl_fm %s-p %d -M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
@@ -399,10 +446,6 @@ def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, t
     decode_cmd += "./rs41mod --crc --csv"
 
     rx_last_line = time.time()
-
-    # Enable Bias-Tee if required.
-    if bias:
-        os.system('rtl_biast -b 1')
 
     # Receiver subprocess. Discard stderr, and feed stdout into an asynchronous read class.
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
@@ -421,11 +464,14 @@ def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, t
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS41"
 
+                        update_flight_stats(data)
+
                         latest_sonde_data = data
 
                         if rx_queue != None:
                             try:
-                                rx_queue.put_nowait(data)
+                                internet_push_queue.put_nowait(data)
+                                ozi_push_queue.put_nowait(data)
                             except:
                                 pass
                 except:
@@ -494,11 +540,40 @@ def internet_push_thread(station_config):
             # Note that this will result in some odd upload times, due to leap seconds and otherwise, but should
             # result in multiple stations (assuming local timezones are the same, and the stations are synced to NTP)
             # uploading at roughly the same time.
-            while int(time.time())%config['upload_rate'] != 0:
+            while int(time.time())%station_config['upload_rate'] != 0:
                 time.sleep(0.1)
         else:
             # Otherwise, just sleep.
-            time.sleep(config['upload_rate'])
+            time.sleep(station_config['upload_rate'])
+
+    print("Closing thread.")
+
+def ozi_push_thread(station_config):
+    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
+    global ozi_push_queue, OZI_PUSH_RUNNING
+    print("Started OziPlotter Push thread.")
+    while OZI_PUSH_RUNNING:
+        data = None
+        try:
+            # Wait until there is somethign in the queue before trying to process.
+            if ozi_push_queue.empty():
+                time.sleep(1)
+                continue
+            else:
+                # Read in entire contents of queue, and keep the most recent entry.
+                while not ozi_push_queue.empty():
+                    data = ozi_push_queue.get()
+        except:
+            traceback.print_exc()
+            continue
+
+        try:
+            if station_config['ozi_enabled']:
+                push_telemetry_to_ozi(data,hostname=station_config['ozi_hostname'])
+        except:
+            traceback.print_exc()
+
+        time.sleep(station_config['ozi_update_rate'])
 
     print("Closing thread.")
 
@@ -533,7 +608,8 @@ if __name__ == "__main__":
     timeout_time = time.time() + int(args.timeout)*60
 
     # Internet push thread object.
-    push_thread = None
+    push_thread_1 = None
+    push_thread_2 = None
 
     # Sonde Frequency & Type variables.
     sonde_freq = None
@@ -562,10 +638,14 @@ if __name__ == "__main__":
 
         logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
 
-        # Start a thread to push data to the web, if it isn't started already.
-        if push_thread == None:
-            push_thread = Thread(target=internet_push_thread, kwargs={'station_config':config})
-            push_thread.start()
+        # Start both of our internet/ozi push threads.
+        if push_thread_1 == None:
+            push_thread_1 = Thread(target=internet_push_thread, kwargs={'station_config':config})
+            push_thread_1.start()
+
+        if push_thread_2 == None:
+            push_thread_2 = Thread(target=ozi_push_thread, kwargs={'station_config':config})
+            push_thread_2.start()
 
         # Start decoding the sonde!
         if sonde_type == "RS92":

@@ -41,7 +41,7 @@ upload_rate = 30
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
 # Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
 # however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
-synchronous_upload = False
+synchronous_upload = True
 # Enable upload to various services.
 enable_aprs = False
 enable_habitat = False
@@ -80,4 +80,9 @@ uploader_callsign = SONDE_AUTO_RX
 uploader_lat = 0.0
 uploader_lon = 0.0
 
-
+# Settings for pushing data into OziPlotter
+# Oziplotter receives data via a basic CSV format, via UDP.
+[oziplotter]
+ozi_enabled = False
+ozi_update_rate = 5
+ozi_hostname = 127.0.0.1
