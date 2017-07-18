@@ -77,7 +77,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20, ppm 
     bias_option = "-T " if bias else ""
 
     # Added -k 5 option, to SIGKILL rtl_power 5 seconds after the regular timeout expires. 
-    rtl_power_cmd = "timeout -k 5 %d rtl_power %s-f %d:%d:%d -i %d -1 -c 20%% -p %d %s" % (dwell+10, bias_option, start, stop, step, dwell, int(ppm), filename)
+    rtl_power_cmd = "timeout -k 30 %d rtl_power %s-f %d:%d:%d -i %d -1 -c 20%% -p %d %s" % (dwell+10, bias_option, start, stop, step, dwell, int(ppm), filename)
     logging.info("Running frequency scan.")
     ret_code = os.system(rtl_power_cmd)
     if ret_code == 1:
@@ -202,6 +202,10 @@ def sonde_search(config, attempts = 5):
         # Read in result
         try:
             (freq, power, step) = read_rtl_power('log_power.csv')
+            # Sanity check results.
+            if step == 0 or len(freq)==0 or len(power)==0:
+                raise Exception("Invalid file.")
+            
         except Exception as e:
             traceback.print_exc()
             logging.error("Failed to read log_power.csv. Resetting RTLSDRs and attempting to run rtl_power again.")
@@ -212,6 +216,7 @@ def sonde_search(config, attempts = 5):
             search_attempts -= 1
             time.sleep(10)
             continue
+
 
         # Rough approximation of the noise floor of the received power spectrum.
         power_nf = np.mean(power)
