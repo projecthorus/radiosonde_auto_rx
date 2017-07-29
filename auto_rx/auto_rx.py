@@ -297,9 +297,13 @@ def process_rs_line(line):
         rs_frame['temp'] = 0.0
         rs_frame['humidity'] = 0.0
 
+
         logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
 
-        return rs_frame
+        if rs_frame['crc'] != 'OK':
+            return None
+        else:
+            return rs_frame
 
     except:
         logging.error("Could not parse string: %s" % line)
@@ -442,8 +446,8 @@ def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, t
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
 
-    decode_cmd = "rtl_fm %s-p %d -M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
-    decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
+    decode_cmd = "rtl_fm %s-p %d -M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
+    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
