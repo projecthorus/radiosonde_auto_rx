@@ -41,6 +41,7 @@ typedef struct {
     double lat; double lon; double alt;
     double dir; double horiV; double vertV;
     float meas[5];
+    float status[2];
 } gpx_t;
 
 gpx_t gpx;
@@ -609,7 +610,7 @@ float get_Temp() {
     float b = 3260.0;       // B/Kelvin, fit -55C..+40C
     float t0 = 25 + 273.15; // R0=R25=5k , R/R0=(f0-f3)/f4*40.0 ?
     float t = -273.15;      // T/Kelvin
-    float g = 40.0;         // gain?  Ohm -> Volt -> ADC
+    float g = 40.0;
     float c = (gpx.meas[0]-gpx.meas[3])/gpx.meas[4] * g;
     if (c > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(c));
     return t;
@@ -669,6 +670,17 @@ int conf_out(ui8_t *conf_bits) {
         }
     }
 
+    if ((gpx.sonde_typ & 0xFF) == 9) { // DFM-09 (STM32)
+        if (conf_id == 0x5) { // voltage
+            val = bits2val(conf_bits+8, 4*4);
+            gpx.status[0] = val/1000.0;
+        }
+        if (conf_id == 0x6) { // T-intern (STM32)
+            val = bits2val(conf_bits+8, 4*4);
+            gpx.status[1] = val/100.0;
+        }
+    }
+
     return ret;
 }
 
@@ -699,12 +711,16 @@ void print_gpx() {
           printf(" vV: %5.2f ", gpx.vertV);
           if (option_ptu) {
               float t = get_Temp();
-              if (t > -270.0) printf("  T=%.1f ", t);
+              if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
                   printf(" f0: %.4f ", gpx.meas[0]);
                   printf(" f3: %.4f ", gpx.meas[3]);
                   printf(" f4: %.4f ", gpx.meas[4]);
               }
+          }
+          if (option_verbose == 2  &&  (gpx.sonde_typ & 0xFF) == 9) {
+              printf("  U: %.2fV ", gpx.status[0]);
+              printf("  Ti: %.2fK ", gpx.status[1]);
           }
           if (option_verbose  &&  (gpx.sonde_typ & SNbit))
           {
