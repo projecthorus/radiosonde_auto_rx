@@ -40,7 +40,7 @@ typedef struct {
     int std; int min; float sek;
     double lat; double lon; double alt;
     double dir; double horiV; double vertV;
-    float meas[5];
+    float meas24[5];
     float status[2];
 } gpx_t;
 
@@ -570,7 +570,7 @@ int dat_out(ui8_t *dat_bits) {
     return ret;
 }
 
-// DFM-06 (NXP)
+// DFM-06 (NXP8)
 float fl20(int d) {  // float20
     int val, p;
     float f;
@@ -601,7 +601,7 @@ float fl24(int d) {  // float24
 }
 
 // temperature approximation
-float get_Temp() {
+float get_Temp(float *meas) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // R/T No 8402
 // B0/100=3450
@@ -611,9 +611,11 @@ float get_Temp() {
     float t0 = 25 + 273.15; // R0=R25=5k , R/R0=(f0-f3)/f4*40.0 ?
     float t = -273.15;      // T/Kelvin
     float g = 40.0;
-    float c = (gpx.meas[0]-gpx.meas[3])/gpx.meas[4] * g;
+    float c = (meas[0]-meas[3])/meas[4] * g; // meas[0,3,4] > 0 ?
     if (c > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(c));
     return t;
+//  DFM-06: meas20 * 16 = meas24
+//      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
 }
 
 
@@ -660,16 +662,17 @@ int conf_out(ui8_t *conf_bits) {
     }
 
     if (conf_id >= 0 && conf_id <= 4) {
-        if ((gpx.sonde_typ & 0xFF) == 6) { // DFM-06 (NXP)
-            val = bits2val(conf_bits+4, 4*5);
-            gpx.meas[conf_id] = fl20(val);
-        }
-        if ((gpx.sonde_typ & 0xFF) == 9) { // DFM-09 (STM32)
-            val = bits2val(conf_bits+4, 4*6);
-            gpx.meas[conf_id] = fl24(val);
-        }
+        val = bits2val(conf_bits+4, 4*6);
+        gpx.meas24[conf_id] = fl24(val);
+        // DFM-09 (STM32): 24bit 0exxxxx
+        // DFM-06 (NXP8):  20bit 0exxxx0
+        //   fl20(bits2val(conf_bits+4, 4*5))
+        //       = fl20(exxxx)
+        //       = fl24(exxxx0)/2^4
+        //   meas20 * 16 = meas24
     }
 
+    // STM32-status: Bat, MCU-Temp
     if ((gpx.sonde_typ & 0xFF) == 9) { // DFM-09 (STM32)
         if (conf_id == 0x5) { // voltage
             val = bits2val(conf_bits+8, 4*4);
@@ -710,12 +713,12 @@ void print_gpx() {
           printf(" D: %5.1f ", gpx.dir);
           printf(" vV: %5.2f ", gpx.vertV);
           if (option_ptu) {
-              float t = get_Temp();
+              float t = get_Temp(gpx.meas24);
               if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
-                  printf(" f0: %.4f ", gpx.meas[0]);
-                  printf(" f3: %.4f ", gpx.meas[3]);
-                  printf(" f4: %.4f ", gpx.meas[4]);
+                  printf(" f0: %.4f ", gpx.meas24[0]);
+                  printf(" f3: %.4f ", gpx.meas24[3]);
+                  printf(" f4: %.4f ", gpx.meas24[4]);
               }
           }
           if (option_verbose == 2  &&  (gpx.sonde_typ & 0xFF) == 9) {
