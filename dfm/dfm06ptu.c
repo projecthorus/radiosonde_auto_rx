@@ -603,14 +603,17 @@ float fl24(int d) {  // float24
 // temperature approximation
 float get_Temp(float *meas) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
-// R/T No 8402
+// R/T No 8402, R25=Ro=5k
 // B0/100=3450
 // 1/T = 1/To + 1/B log(c) , c=R/Ro
 // GRAW calibration data -80C..+40C on EEPROM ?
+// meas0 = R + Rs
+// meas3 = Rs (dfm6:10k,dfm9:20k)
+// meas4 = 220k
     float b = 3260.0;       // B/Kelvin, fit -55C..+40C
-    float t0 = 25 + 273.15; // R0=R25=5k , R/R0=(f0-f3)/f4*40.0 ?
+    float t0 = 25 + 273.15; // T0=25C, R0=R25=5k
     float t = -273.15;      // T/Kelvin
-    float g = 40.0;
+    float g = 220.0/5.0;    // 220k/R0
     float c = (meas[0]-meas[3])/meas[4] * g; // meas[0,3,4] > 0 ?
     if (c > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(c));
     return t;
