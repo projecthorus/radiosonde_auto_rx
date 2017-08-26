@@ -841,6 +841,7 @@ int get_GPS1() {
 
     // ((framebyte(pos_GPS1)<<8) | framebyte(pos_GPS1+1)) != pck_GPS1 ?
     if ( framebyte(pos_GPS1) != ((pck_GPS1>>8) & 0xFF) ) {
+        gpx.crc |= crc_GPS1;
         return -1;
     }
 
@@ -958,6 +959,7 @@ int get_GPS3() {
 
     // ((framebyte(pos_GPS3)<<8) | framebyte(pos_GPS3+1)) != pck_GPS3 ?
     if ( framebyte(pos_GPS3) != ((pck_GPS3>>8) & 0xFF) ) {
+        gpx.crc |= crc_GPS3;
         return -1;
     }
 
