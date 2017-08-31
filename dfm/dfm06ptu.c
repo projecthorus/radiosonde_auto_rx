@@ -605,20 +605,64 @@ float get_Temp(float *meas) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // R/T No 8402, R25=Ro=5k
 // B0/100=3450
-// 1/T = 1/To + 1/B log(c) , c=R/Ro
+// 1/T = 1/To + 1/B log(r) , r=R/Ro
 // GRAW calibration data -80C..+40C on EEPROM ?
-// meas0 = R + Rs
-// meas3 = Rs (dfm6:10k,dfm9:20k)
-// meas4 = 220k
+// meas0 = g*(R + Rs)
+// meas3 = g*Rs , Rs: dfm6:10k, dfm9:20k
+// meas4 = g*Rf , Rf=220k
     float b = 3260.0;       // B/Kelvin, fit -55C..+40C
-    float t0 = 25 + 273.15; // T0=25C, R0=R25=5k
-    float t = -273.15;      // T/Kelvin
-    float g = 220.0/5.0;    // 220k/R0
-    float c = (meas[0]-meas[3])/meas[4] * g; // meas[0,3,4] > 0 ?
-    if (c > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(c));
+    float t0 = 25 + 273.15; // T0=25C
+    float R0 = 5.0;         // R0=R25=5k
+    float Rf = 220.0;       // Rf = 220k
+    float g = meas[4]/Rf;
+    float R = (meas[0]-meas[3]) / g; // meas[0,3,4] > 0 ?
+    float t = -273.15;               // T/Kelvin
+    if (R > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(R/R0));
     return t;
 //  DFM-06: meas20 * 16 = meas24
 //      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
+}
+
+// temperature approximation
+float get_Temp2(float *meas) { // meas[0..4]
+// NTC-Thermistor EPCOS B57540G0502
+// R/T No 8402, R25=Ro=5k
+// B0/100=3450
+// 1/T = 1/To + 1/B log(r) , r=R/Ro
+// GRAW calibration data -80C..+40C on EEPROM ?
+// meas0 = g*(R+Rs)+ofs
+// meas3 = g*Rs+ofs , Rs: dfm6:10k, dfm9:20k
+// meas4 = g*Rf+ofs , Rf=220k
+    float f  = meas[0],
+          f1 = meas[3],
+          f2 = meas[4];
+    float b = 3260.0;       // B/Kelvin, fit -55C..+40C
+    float t0 = 25 + 273.15; // T0=25C
+    float R0 = 5.0;         // R0=R25=5k
+    float Rf2 = 220.0;      // Rf2 = Rf = 220k
+    float g_o = f2/Rf2;     // approx gain
+    float Rs_o = f1/g_o;    // = Rf2 * f1/f2;
+    float Rf1 = Rs_o;       // Rf1 = Rs: dfm6:10k, dfm9:20k
+    float g = g_o;          // gain
+    float Rb = 0.0;         // offset
+    float R = 0;            // thermistor
+    float t = -273.15;      // T/Kelvin
+
+    if       ( 8.0 < Rs_o && Rs_o < 12.0) Rf1 = 10.0;  // dfm6
+    else if  (18.0 < Rs_o && Rs_o < 22.0) Rf1 = 20.0;  // dfm9
+    g = (f2 - f1) / (Rf2 - Rf1);
+    Rb = (f1*Rf2-f2*Rf1)/(f2-f1); // ofs/g
+
+    R = (f-f1)/g;                    // meas[0,3,4] > 0 ?
+    if (R > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(R/R0));
+
+    if (option_ptu && option_verbose == 2) {
+        printf("  (Rso: %.1f , Rb: %.1f)", Rs_o, Rb);
+        //printf(" (dg: %.2f , f1/g: %.2f , f2/g: %.2f)", f2/Rf2-g, f1/g, f2/g);
+    }
+
+    return t;
+//  DFM-06: meas20 * 16 = meas24
 }
 
 
@@ -719,6 +763,8 @@ void print_gpx() {
               float t = get_Temp(gpx.meas24);
               if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
+                  float t2 = get_Temp2(gpx.meas24);
+                  if (t > -270.0) printf("  T2=%.1fC  ", t2);
                   printf(" f0: %.4f ", gpx.meas24[0]);
                   printf(" f3: %.4f ", gpx.meas24[3]);
                   printf(" f4: %.4f ", gpx.meas24[4]);
