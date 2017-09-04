@@ -610,15 +610,15 @@ float get_Temp(float *meas) { // meas[0..4]
 // meas0 = g*(R + Rs)
 // meas3 = g*Rs , Rs: dfm6:10k, dfm9:20k
 // meas4 = g*Rf , Rf=220k
-    float b = 3260.0;       // B/Kelvin, fit -55C..+40C
-    float t0 = 25 + 273.15; // T0=25C
-    float R0 = 5.0;         // R0=R25=5k
-    float Rf = 220.0;       // Rf = 220k
+    float B0 = 3260.0;       // B/Kelvin, fit -55C..+40C
+    float T0 = 25 + 273.15;  // t0=25C
+    float R0 = 5.0e3;        // R0=R25=5k
+    float Rf = 220e3;        // Rf = 220k
     float g = meas[4]/Rf;
     float R = (meas[0]-meas[3]) / g; // meas[0,3,4] > 0 ?
-    float t = -273.15;               // T/Kelvin
-    if (R > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(R/R0));
-    return t;
+    float T = 0;                     // T/Kelvin
+    if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
+    return  T - 273.15; // Celsius
 //  DFM-06: meas20 * 16 = meas24
 //      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
 }
@@ -636,32 +636,31 @@ float get_Temp2(float *meas) { // meas[0..4]
     float f  = meas[0],
           f1 = meas[3],
           f2 = meas[4];
-    float b = 3260.0;       // B/Kelvin, fit -55C..+40C
-    float t0 = 25 + 273.15; // T0=25C
-    float R0 = 5.0;         // R0=R25=5k
-    float Rf2 = 220.0;      // Rf2 = Rf = 220k
+    float B0 = 3260.0;      // B/Kelvin, fit -55C..+40C
+    float T0 = 25 + 273.15; // t0=25C
+    float R0 = 5.0e3;       // R0=R25=5k
+    float Rf2 = 220e3;      // Rf2 = Rf = 220k
     float g_o = f2/Rf2;     // approx gain
     float Rs_o = f1/g_o;    // = Rf2 * f1/f2;
     float Rf1 = Rs_o;       // Rf1 = Rs: dfm6:10k, dfm9:20k
     float g = g_o;          // gain
     float Rb = 0.0;         // offset
     float R = 0;            // thermistor
-    float t = -273.15;      // T/Kelvin
+    float T = 0;            // T/Kelvin
 
-    if       ( 8.0 < Rs_o && Rs_o < 12.0) Rf1 = 10.0;  // dfm6
-    else if  (18.0 < Rs_o && Rs_o < 22.0) Rf1 = 20.0;  // dfm9
+    if       ( 8e3 < Rs_o && Rs_o < 12e3) Rf1 = 10e3;  // dfm6
+    else if  (18e3 < Rs_o && Rs_o < 22e3) Rf1 = 20e3;  // dfm9
     g = (f2 - f1) / (Rf2 - Rf1);
     Rb = (f1*Rf2-f2*Rf1)/(f2-f1); // ofs/g
 
     R = (f-f1)/g;                    // meas[0,3,4] > 0 ?
-    if (R > 0)  t = -273.15 + 1/(1/t0 + 1/b * log(R/R0));
+    if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
 
     if (option_ptu && option_verbose == 2) {
-        printf("  (Rso: %.1f , Rb: %.1f)", Rs_o, Rb);
-        //printf(" (dg: %.2f , f1/g: %.2f , f2/g: %.2f)", f2/Rf2-g, f1/g, f2/g);
+        printf("  (Rso: %.1f , Rb: %.1f)", Rs_o/1e3, Rb/1e3);
     }
 
-    return t;
+    return  T - 273.15;
 //  DFM-06: meas20 * 16 = meas24
 }
 
@@ -764,7 +763,7 @@ void print_gpx() {
               if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
                   float t2 = get_Temp2(gpx.meas24);
-                  if (t > -270.0) printf("  T2=%.1fC  ", t2);
+                  if (t2 > -270.0) printf("  T2=%.1fC  ", t2);
                   printf(" f0: %.4f ", gpx.meas24[0]);
                   printf(" f3: %.4f ", gpx.meas24[3]);
                   printf(" f4: %.4f ", gpx.meas24[4]);
