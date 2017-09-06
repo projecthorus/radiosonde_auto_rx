@@ -622,8 +622,6 @@ float get_Temp(float *meas) { // meas[0..4]
 //  DFM-06: meas20 * 16 = meas24
 //      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
 }
-
-// temperature approximation
 float get_Temp2(float *meas) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // R/T No 8402, R25=Ro=5k
@@ -662,6 +660,44 @@ float get_Temp2(float *meas) { // meas[0..4]
 
     return  T - 273.15;
 //  DFM-06: meas20 * 16 = meas24
+}
+float get_Temp4(float *meas) { // meas[0..4]
+// NTC-Thermistor EPCOS B57540G0502
+// [  T/C  ,   R/R25   , alpha ] :
+// [ -55.0 ,  51.991   ,   6.4 ]
+// [ -50.0 ,  37.989   ,   6.2 ]
+// [ -45.0 ,  28.07    ,   5.9 ]
+// [ -40.0 ,  20.96    ,   5.7 ]
+// [ -35.0 ,  15.809   ,   5.5 ]
+// [ -30.0 ,  12.037   ,   5.4 ]
+// [ -25.0 ,   9.2484  ,   5.2 ]
+// [ -20.0 ,   7.1668  ,   5.0 ]
+// [ -15.0 ,   5.5993  ,   4.9 ]
+// [ -10.0 ,   4.4087  ,   4.7 ]
+// [  -5.0 ,   3.4971  ,   4.6 ]
+// [   0.0 ,   2.7936  ,   4.4 ]
+// [   5.0 ,   2.2468  ,   4.3 ]
+// [  10.0 ,   1.8187  ,   4.2 ]
+// [  15.0 ,   1.4813  ,   4.0 ]
+// [  20.0 ,   1.2136  ,   3.9 ]
+// [  25.0 ,   1.0000  ,   3.8 ]
+// [  30.0 ,   0.82845 ,   3.7 ]
+// [  35.0 ,   0.68991 ,   3.6 ]
+// [  40.0 ,   0.57742 ,   3.5 ]
+// -> Steinhart–Hart coefficients (polyfit):
+    float p0 = 1.09698417e-03,
+          p1 = 2.39564629e-04,
+          p2 = 2.48821437e-06,
+          p3 = 5.84354921e-08;
+// T/K = 1/( p0 + p1*ln(R) + p2*ln(R)^2 + p3*ln(R)^3 )
+    float Rf = 220e3;    // Rf = 220k
+    float g = meas[4]/Rf;
+    float R = (meas[0]-meas[3]) / g; // meas[0,3,4] > 0 ?
+    float T = 0; // T/Kelvin
+    if (R > 0)  T = 1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
+    return  T - 273.15; // Celsius
+//  DFM-06: meas20 * 16 = meas24
+//      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
 }
 
 
@@ -763,15 +799,17 @@ void print_gpx() {
               if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
                   float t2 = get_Temp2(gpx.meas24);
-                  if (t2 > -270.0) printf("  T2=%.1fC  ", t2);
-                  printf(" f0: %.4f ", gpx.meas24[0]);
-                  printf(" f3: %.4f ", gpx.meas24[3]);
-                  printf(" f4: %.4f ", gpx.meas24[4]);
+                  float t4 = get_Temp4(gpx.meas24);
+                  if (t2 > -270.0) printf("  T2=%.1fC ", t2);
+                  if (t4 > -270.0) printf(" T4=%.1fC  ", t4);
+                  printf(" f0: %.2f ", gpx.meas24[0]);
+                  printf(" f3: %.2f ", gpx.meas24[3]);
+                  printf(" f4: %.2f ", gpx.meas24[4]);
               }
           }
           if (option_verbose == 2  &&  (gpx.sonde_typ & 0xFF) == 9) {
               printf("  U: %.2fV ", gpx.status[0]);
-              printf("  Ti: %.2fK ", gpx.status[1]);
+              printf("  Ti: %.1fK ", gpx.status[1]);
           }
           if (option_verbose  &&  (gpx.sonde_typ & SNbit))
           {
