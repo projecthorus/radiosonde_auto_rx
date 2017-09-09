@@ -292,7 +292,7 @@ def process_rs_line(line):
         rs_frame['vel_h'] = float(params[7])
         rs_frame['heading'] = float(params[8])
         rs_frame['vel_v'] = float(params[9])
-        rs_frame['crc'] =  str(params[10])
+        rs_frame['crc'] =  str(params[10]).strip()
         # Set these to 0 for now, in case the RS codebase eventually supports PTU data.
         rs_frame['temp'] = 0.0
         rs_frame['humidity'] = 0.0
@@ -300,7 +300,7 @@ def process_rs_line(line):
 
         logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
 
-        if rs_frame['crc'] != 'OK':
+        if 'OK' not in rs_frame['crc']:
             return None
         else:
             return rs_frame
@@ -578,7 +578,10 @@ def ozi_push_thread(station_config):
 
         try:
             if station_config['ozi_enabled']:
-                push_telemetry_to_ozi(data,hostname=station_config['ozi_hostname'])
+                push_telemetry_to_ozi(data,hostname=station_config['ozi_hostname'], udp_port=station_config['ozi_port'])
+
+            if station_config['payload_summary_enabled']:
+                push_payload_summary(data, udp_port=station_config['payload_summary_port'])
         except:
             traceback.print_exc()
 
@@ -605,6 +608,8 @@ if __name__ == "__main__":
 
     # Attempt to read in configuration file. Use default config if reading fails.
     config = read_auto_rx_config(args.config)
+
+    print(config)
 
     # Clean up gain value.
     if config['rtlsdr_gain'] == '0' or config['rtlsdr_gain'] == 0:

@@ -86,3 +86,7 @@ uploader_lon = 0.0
 ozi_enabled = False
 ozi_update_rate = 5
 ozi_hostname = 127.0.0.1
+ozi_port = 8942
+# Payload summary output, which can be used by a few of the Horus Ground Station tools
+payload_summary_enabled = False
+payload_summary_port = 55672
