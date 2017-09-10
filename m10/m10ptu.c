@@ -165,7 +165,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) sample = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -341,7 +341,7 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
 
         byteval = 0;
         d = 1;
-        for (i = 0; i < BITS; i++) { 
+        for (i = 0; i < BITS; i++) {
             //bit=*(bitstr+bitpos+i); /* little endian */
             bit=*(bitstr+bitpos+7-i);  /* big endian */
             // bit == 'x' ?
@@ -351,7 +351,7 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
         }
         bitpos += BITS;
         bytes[bytepos++] = byteval & 0xFF;
-        
+
     }
 
     //while (bytepos < FRAME_LEN) bytes[bytepos++] = 0;
@@ -719,7 +719,7 @@ float get_Temp(int csOK) {
 
     float adc_max = 4095.0; // ADC12
     float x, R;
-    float T = 0;     // T/Kelvin
+    float T = 0;    // T/Kelvin
 
     scT     =  frame_bytes[0x3E]; // adr_0455h
     ADC_RT  = (frame_bytes[0x40] << 8) | frame_bytes[0x3F];
@@ -733,20 +733,64 @@ float get_Temp(int csOK) {
 
     if (R > 0)  T =  1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
 
-    if (option_verbose >= 3 && csOK) {
-        ui16_t valADC_Ref = (frame_bytes[0x56] << 8) | frame_bytes[0x55];
-        ui16_t val2       = (frame_bytes[0x58] << 8) | frame_bytes[0x57];
-        ui16_t valADC_RT2 = (frame_bytes[0x5A] << 8) | frame_bytes[0x59]; // approx Rs = 2*22.1e3
-        ui8_t  val4       =  frame_bytes[0x5B];
-        fprintf(stdout, " ( ");
-        fprintf(stdout, " %7.1f ; ", datum.alt);
-        fprintf(stdout, " %1d ; %5d ; ", scT, ADC_RT);
-        fprintf(stdout, " %5d ; %5d ; ", Tcal[0], Tcal[1]);
-        fprintf(stdout, " %5d ; %3d ; %5d ; %3d ", valADC_Ref, val2, valADC_RT2, val4);
-        fprintf(stdout, " ) ");
+    if (option_verbose >= 3 && csOK) { // on-chip temperature
+        ui16_t ADC_Ti_raw = (frame_bytes[0x49] << 8) | frame_bytes[0x48]; // int.temp.diode, ref: 4095->1.5V
+        float vti, ti;
+        // INCH1A (temp.diode), slau144
+        vti = ADC_Ti_raw/4095.0 * 1.5; // V_REF+ = 1.5V, no calibration
+        ti = (vti-0.986)/0.00355;      // 0.986/0.00355=277.75, 1.5/4095/0.00355=0.1032
+        fprintf(stdout, "  (Ti:%.1fC)", ti);
+        // SegmentA-Calibration:
+        //ui16_t T30 = adr_10e2h; // CAL_ADC_15T30
+        //ui16_t T85 = adr_10e4h; // CAL_ADC_15T85
+        //float  tic = (ADC_Ti_raw-T30)*(85.0-30.0)/(T85-T30) + 30.0;
+        //fprintf(stdout, "  (Tic:%.1fC)", tic);
     }
 
     return  T - 273.15; // Celsius
+
+/*
+frame[0x32]: adr_1074h
+frame[0x33]: adr_1075h
+frame[0x34]: adr_1076h
+
+frame[0x35..0x37]: TBCCR1 ; relHumCap-freq
+
+frame[0x38]: adr_1078h
+frame[0x39]: adr_1079h
+frame[0x3A]: adr_1077h
+frame[0x3B]: adr_100Ch
+frame[0x3C..3D]: 0
+
+
+frame[0x3E]: scale_index ; scale/range-index
+frame[0x3F..40] = ADC12_A7 | 0xA000, V_R+=AVcc ; Thermistor
+
+frame[0x41]: adr_1000h[scale_index*4]
+frame[0x42]: adr_1000h[scale_index*4+1]
+frame[0x43]: adr_1000h[scale_index*4+2]
+frame[0x44]: adr_1000h[scale_index*4+3]
+
+frame[0x45..46]: ADC12_A5/4, V_R+=2.5V
+frame[0x47]: ADC12_A2/16 , V_R+=2.5V
+frame[0x48..49]: ADC12_iT, V_R+=1.5V (int.Temp.diode)
+frame[0x4C..4D]: ADC12_A6, V_R+=2.5V
+frame[0x4E..4F]: ADC12_A3, V_R+=AVcc
+frame[0x50..54]: 0;
+frame[0x55..56]: ADC12_A1, V_R+=AVcc
+frame[0x57..58]: ADC12_A0, V_R+=AVcc
+frame[0x59..5A]: ADC12_A4, V_R+=AVcc  // approx Rs = 2*22.1e3
+
+frame[0x5B]:
+frame[0x5C]: adr_108Eh
+
+
+frame[0x5D]: adr_1082h (SN)
+frame[0x5E]: adr_1083h (SN)
+frame[0x5F]: adr_1084h (SN)
+frame[0x60]: adr_1080h (SN)
+frame[0x61]: adr_1081h (SN)
+*/
 }
 
 /* -------------------------------------------------------------------------- */
@@ -769,7 +813,7 @@ int print_pos(int csOK) {
             printf(col_TXT);
             printf(" (W "col_GPSweek"%d"col_TXT") ", datum.week);
             printf(col_GPSTOW"%s"col_TXT" ", weekday[datum.wday]);
-            printf(col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOW"%02d:%02d:%02d"col_TXT") ", 
+            printf(col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOW"%02d:%02d:%02d"col_TXT") ",
                    datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
             printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
@@ -790,12 +834,16 @@ int print_pos(int csOK) {
                     else      fprintf(stdout, " "col_CSno"[NO]"col_TXT);
                 }
             }
+            if (option_ptu) {
+                float t = get_Temp(csOK);
+                if (t > -270.0) printf("  T=%.1fC ", t);
+            }
             printf(ANSI_COLOR_RESET"");
         }
         else {
             printf(" (W %d) ", datum.week);
             printf("%s ", weekday[datum.wday]);
-            printf("%04d-%02d-%02d (%02d:%02d:%02d) ", 
+            printf("%04d-%02d-%02d (%02d:%02d:%02d) ",
                     datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
             printf(" lat: %.6f ", datum.lat);
             printf(" lon: %.6f ", datum.lon);
@@ -991,7 +1039,7 @@ int main(int argc, char **argv) {
             else {
                 frame_rawbits[pos] = 0x30 + bit;  // Ascii
                 pos++;
-            
+
                 if (pos == RAWBITFRAME_LEN) {
                     frame_rawbits[pos] = '\0';
                     print_frame(pos);//FRAME_LEN
