@@ -779,7 +779,7 @@ frame[0x4E..4F]: ADC12_A3, V_R+=AVcc
 frame[0x50..54]: 0;
 frame[0x55..56]: ADC12_A1, V_R+=AVcc
 frame[0x57..58]: ADC12_A0, V_R+=AVcc
-frame[0x59..5A]: ADC12_A4, V_R+=AVcc  // approx Rs = 2*22.1e3
+frame[0x59..5A]: ADC12_A4, V_R+=AVcc  // ntc2: R(25C)=2.2k, Rs=22.1e3 (relHumCap-Temp)
 
 frame[0x5B]:
 frame[0x5C]: adr_108Eh
@@ -791,6 +791,29 @@ frame[0x5F]: adr_1084h (SN)
 frame[0x60]: adr_1080h (SN)
 frame[0x61]: adr_1081h (SN)
 */
+}
+float get_Tntc2(int csOK) {
+    float Rs = 22.1e3;          // P5.6=Vcc
+//  float R25 = 2.2e3;
+//  float b = 3650.0;           // B/Kelvin
+//  float T25 = 25.0 + 273.15;  // T0=25C, R0=R25=5k
+// -> Steinhart–Hart coefficients (polyfit):
+    float p0 =  4.42606809e-03,
+          p1 = -6.58184309e-04,
+          p2 =  8.95735557e-05,
+          p3 = -2.84347503e-06;
+    float T = 0.0;              // T/Kelvin
+    ui16_t ADC_ntc2;            // ADC12 P6.4(A4)
+    float x, R;
+    if (csOK)
+    {
+        ADC_ntc2  = (frame_bytes[0x5A] << 8) | frame_bytes[0x59];
+        x = (4095.0 - ADC_ntc2)/ADC_ntc2;  // (Vcc-Vout)/Vout
+        R = Rs / x;
+        //if (R > 0)  T = 1/(1/T25 + 1/b * log(R/R25));
+        if (R > 0)  T =  1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
+    }
+    return T - 273.15;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -837,6 +860,10 @@ int print_pos(int csOK) {
             if (option_ptu) {
                 float t = get_Temp(csOK);
                 if (t > -270.0) printf("  T=%.1fC ", t);
+                if (option_verbose >= 3) {
+                    float t2 = get_Tntc2(csOK);
+                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) ", t2);
+                }
             }
             printf(ANSI_COLOR_RESET"");
         }
@@ -866,6 +893,10 @@ int print_pos(int csOK) {
             if (option_ptu) {
                 float t = get_Temp(csOK);
                 if (t > -270.0) printf("  T=%.1fC ", t);
+                if (option_verbose >= 3) {
+                    float t2 = get_Tntc2(csOK);
+                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) ", t2);
+                }
             }
         }
         printf("\n");
