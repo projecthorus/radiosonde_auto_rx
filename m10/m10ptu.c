@@ -15,8 +15,9 @@
   #include <io.h>
 #endif
 
-typedef unsigned char ui8_t;
+typedef unsigned char  ui8_t;
 typedef unsigned short ui16_t;
+typedef unsigned int   ui32_t;
 
 typedef struct {
     int week; int gpssec;
@@ -676,9 +677,10 @@ int checkM10(ui8_t *msg, int len) {
 /* -------------------------------------------------------------------------- */
 
 // Temperatur Sensor
+// NTC-Thermistor Shibaura PB5-41E
 //
 float get_Temp(int csOK) {
-// NTC-Thermistor PB5-41E
+// NTC-Thermistor Shibaura PB5-41E
 // T00 = 273.15 +  0.0 , R00 = 15e3
 // T25 = 273.15 + 25.0 , R25 = 5.369e3
 // B00 = 3450.0 Kelvin // 0C..100C, poor fit low temps
@@ -748,7 +750,7 @@ float get_Temp(int csOK) {
     }
 
     return  T - 273.15; // Celsius
-
+}
 /*
 frame[0x32]: adr_1074h
 frame[0x33]: adr_1075h
@@ -791,8 +793,8 @@ frame[0x5F]: adr_1084h (SN)
 frame[0x60]: adr_1080h (SN)
 frame[0x61]: adr_1081h (SN)
 */
-}
 float get_Tntc2(int csOK) {
+// SMD ntc
     float Rs = 22.1e3;          // P5.6=Vcc
 //  float R25 = 2.2e3;
 //  float b = 3650.0;           // B/Kelvin
@@ -816,6 +818,40 @@ float get_Tntc2(int csOK) {
     return T - 273.15;
 }
 
+// Humidity Sensor
+// U.P.S.I.
+//
+#define FREQ_CAPCLK (8e6/2)      // 8 MHz XT2 crystal, InputDivider IDx=01 (/2)
+#define LN2         0.693147181
+#define ADR_108A    1000.0       // 0x3E8=1000
+
+float get_count_RH() {  // capture 1000 rising edges
+    ui32_t TBCCR1_1000 = frame_bytes[0x35] | (frame_bytes[0x36]<<8) | (frame_bytes[0x37]<<16);
+    return TBCCR1_1000 / ADR_108A;
+}
+float get_TLC555freq() {
+    return FREQ_CAPCLK / get_count_RH();
+}
+/*
+double get_C_RH() {  // TLC555 astable: R_A=3.65k, R_B=338k
+    double R_B = 338e3;
+    double R_A = 3.65e3;
+    double C_RH = 1/get_TLC555freq() / (LN2 * (R_A + 2*R_B));
+    return C_RH;
+}
+double get_RH(int csOK) {
+// U.P.S.I.
+// C_RH/C_55 = 0.8955 + 0.002*RH , T=20C
+// C_RH = C_RH(RH,T) , RH = RH(C_RH,T)
+// C_RH/C_55 approx.eq. count_RH/count_ref
+// c55=270pF? diff=C_55-c55, T=20C
+    ui32_t c = frame_bytes[0x32] | (frame_bytes[0x33]<<8) | (frame_bytes[0x34]<<16); // CalRef 55%RH , T=20C ?
+    double count_ref = c / ADR_108A; // CalRef 55%RH , T=20C ?
+    double C_RH = get_C_RH();
+    double T = get_Tntc2(csOK);
+    return 0;
+}
+*/
 /* -------------------------------------------------------------------------- */
 
 int print_pos(int csOK) {
@@ -833,23 +869,23 @@ int print_pos(int csOK) {
         Gps2Date(datum.week, datum.gpssec, &datum.jahr, &datum.monat, &datum.tag);
 
         if (option_color) {
-            printf(col_TXT);
-            printf(" (W "col_GPSweek"%d"col_TXT") ", datum.week);
-            printf(col_GPSTOW"%s"col_TXT" ", weekday[datum.wday]);
-            printf(col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOW"%02d:%02d:%02d"col_TXT") ",
-                   datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
-            printf(" lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
-            printf(" lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
-            printf(" alt: "col_GPSalt"%.2f"col_TXT" ", datum.alt);
+            fprintf(stdout, col_TXT);
+            fprintf(stdout, " (W "col_GPSweek"%d"col_TXT") ", datum.week);
+            fprintf(stdout, col_GPSTOW"%s"col_TXT" ", weekday[datum.wday]);
+            fprintf(stdout, col_GPSdate"%04d-%02d-%02d"col_TXT" ("col_GPSTOW"%02d:%02d:%02d"col_TXT") ",
+                    datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
+            fprintf(stdout, " lat: "col_GPSlat"%.6f"col_TXT" ", datum.lat);
+            fprintf(stdout, " lon: "col_GPSlon"%.6f"col_TXT" ", datum.lon);
+            fprintf(stdout, " alt: "col_GPSalt"%.2f"col_TXT" ", datum.alt);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    //if (option_verbose == 2) printf("  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
-                    printf("  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
+                    //if (option_verbose == 2) fprintf(stdout, "  "col_GPSvel"(%.1f , %.1f : %.1f°)"col_TXT" ", datum.vx, datum.vy, datum.vD2);
+                    fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f°"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", datum.vH, datum.vD, datum.vV);
                 }
                 if (option_verbose >= 2) {
                     get_SN();
-                    printf("  SN: "col_SN"%s"col_TXT, datum.SN);
+                    fprintf(stdout, "  SN: "col_SN"%s"col_TXT, datum.SN);
                 }
                 if (option_verbose >= 2) {
                     fprintf(stdout, "  # ");
@@ -859,31 +895,32 @@ int print_pos(int csOK) {
             }
             if (option_ptu) {
                 float t = get_Temp(csOK);
-                if (t > -270.0) printf("  T=%.1fC ", t);
+                if (t > -270.0) fprintf(stdout, "  T=%.1fC ", t);
                 if (option_verbose >= 3) {
                     float t2 = get_Tntc2(csOK);
-                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) ", t2);
+                    float fq555 = get_TLC555freq();
+                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) (%.3fkHz) ", t2, fq555/1e3);
                 }
             }
-            printf(ANSI_COLOR_RESET"");
+            fprintf(stdout, ANSI_COLOR_RESET"");
         }
         else {
-            printf(" (W %d) ", datum.week);
-            printf("%s ", weekday[datum.wday]);
-            printf("%04d-%02d-%02d (%02d:%02d:%02d) ",
+            fprintf(stdout, " (W %d) ", datum.week);
+            fprintf(stdout, "%s ", weekday[datum.wday]);
+            fprintf(stdout, "%04d-%02d-%02d (%02d:%02d:%02d) ",
                     datum.jahr, datum.monat, datum.tag, datum.std, datum.min, datum.sek);
-            printf(" lat: %.6f ", datum.lat);
-            printf(" lon: %.6f ", datum.lon);
-            printf(" alt: %.2f ", datum.alt);
+            fprintf(stdout, " lat: %.6f ", datum.lat);
+            fprintf(stdout, " lon: %.6f ", datum.lon);
+            fprintf(stdout, " alt: %.2f ", datum.alt);
             if (option_verbose) {
                 err |= get_GPSvel();
                 if (!err) {
-                    //if (option_verbose == 2) printf("  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
-                    printf("  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
+                    //if (option_verbose == 2) fprintf(stdout, "  (%.1f , %.1f : %.1f°) ", datum.vx, datum.vy, datum.vD2);
+                    fprintf(stdout, "  vH: %.1f  D: %.1f°  vV: %.1f ", datum.vH, datum.vD, datum.vV);
                 }
                 if (option_verbose >= 2) {
                     get_SN();
-                    printf("  SN: %s", datum.SN);
+                    fprintf(stdout, "  SN: %s", datum.SN);
                 }
                 if (option_verbose >= 2) {
                     fprintf(stdout, "  # ");
@@ -892,14 +929,15 @@ int print_pos(int csOK) {
             }
             if (option_ptu) {
                 float t = get_Temp(csOK);
-                if (t > -270.0) printf("  T=%.1fC ", t);
+                if (t > -270.0) fprintf(stdout, "  T=%.1fC ", t);
                 if (option_verbose >= 3) {
                     float t2 = get_Tntc2(csOK);
-                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) ", t2);
+                    float fq555 = get_TLC555freq();
+                    if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) (%.3fkHz) ", t2, fq555/1e3);
                 }
             }
         }
-        printf("\n");
+        fprintf(stdout, "\n");
 
     }
 
@@ -918,7 +956,7 @@ void print_frame(int pos) {
     cs2 = checkM10(frame_bytes, pos_Check);
 
     if (option_rawbits == 1) {
-        printf("%s\n", frame_rawbits);
+        fprintf(stdout, "%s\n", frame_rawbits);
     }
     else
     if (option_raw) {
@@ -1095,7 +1133,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("\n");
+    fprintf(stdout, "\n");
 
     fclose(fp);
 
