@@ -488,70 +488,13 @@ int poly_mul(ui8_t a[], ui8_t b[], ui8_t *ab) {
 
 
 static
-int poly_eggT(int deg, ui8_t a[], ui8_t b[],  // in
-              ui8_t *u, ui8_t *v, ui8_t *ggt  // out
-             ) {
-// deg = 0:
-// a(x)u(x)+b(x)v(x) = ggt(x)
-// RS:
-// deg=t, a(x)=S(x), b(a)=x^2t
-
-    int i;
-    ui8_t r0[MAX_DEG+1], r1[MAX_DEG+1], r2[MAX_DEG+1],
-          s0[MAX_DEG+1], s1[MAX_DEG+1], s2[MAX_DEG+1],
-          t0[MAX_DEG+1], t1[MAX_DEG+1], t2[MAX_DEG+1],
-          quo[MAX_DEG+1];
-
-    for (i = 0; i <= MAX_DEG; i++) { u[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { v[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { ggt[i] = 0; }
-
-    for (i = 0; i <= MAX_DEG; i++) { r0[i] = a[i]; }
-    for (i = 0; i <= MAX_DEG; i++) { r1[i] = b[i]; }
-    s0[0] = 1; for (i = 1; i <= MAX_DEG; i++) { s0[i] = 0; }
-    s1[0] = 0; for (i = 1; i <= MAX_DEG; i++) { s1[i] = 0; }
-    t0[0] = 0; for (i = 1; i <= MAX_DEG; i++) { t0[i] = 0; }
-    t1[0] = 1; for (i = 1; i <= MAX_DEG; i++) { t1[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { r2[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { s2[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { t2[i] = 0; }
-
-    while ( poly_deg(r1) >= deg ) {
-        poly_divmod(r0, r1, quo, r2);
-        for (i = 0; i <= MAX_DEG; i++) { r0[i] = r1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { r1[i] = r2[i]; }
-        poly_mul(quo, s1, s2);
-        poly_add(s0, s2, s2);
-        for (i = 0; i <= MAX_DEG; i++) { s0[i] = s1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { s1[i] = s2[i]; }
-        poly_mul(quo, t1, t2);
-        poly_add(t0, t2, t2);
-        for (i = 0; i <= MAX_DEG; i++) { t0[i] = t1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { t1[i] = t2[i]; }
-    }
-
-    if (deg > 0) {
-        for (i = 0; i <= MAX_DEG; i++) { ggt[i] = r1[i]; } // deg=0: r0
-        for (i = 0; i <= MAX_DEG; i++) { u[i] = s1[i]; }   // deg=0: s0
-        for (i = 0; i <= MAX_DEG; i++) { v[i] = t1[i]; }
-    }
-    else {
-        for (i = 0; i <= MAX_DEG; i++) { ggt[i] = r0[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { u[i] = s0[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { v[i] = t0[i]; }
-    }
-
-    return 0;
-}
-
-static
 int polyGF_eggT(int deg, ui8_t a[], ui8_t b[],  // in
                 ui8_t *u, ui8_t *v, ui8_t *ggt  // out
                ) {
 // deg = 0:
 // a(x)u(x)+b(x)v(x) = ggt(x)
 // RS:
-// deg=t, a(x)=S(x), b(a)=x^2t
+// deg=t, a(x)=S(x), b(x)=x^2t
 
     int i;
     ui8_t r0[MAX_DEG+1], r1[MAX_DEG+1], r2[MAX_DEG+1],
