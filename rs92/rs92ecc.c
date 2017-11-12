@@ -19,31 +19,27 @@
  */
 
 /*
-    gcc rs92gps.c -lm -o rs92gps
+    gcc rs92ecc.c -lm -o rs92ecc
     (includes nav_gps_vel.c)
 
     examples:
 
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs92gps -e brdc3050.15n
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | ./rs92ecc -e brdc3050.15n
 
-    ./rs92gps -r 2015_11_01.wav > raw1.out
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -r > raw2.out
-    ./rs92gps --dop 5 -gg -e brdc3050.15n --rawin1 raw.out
+    ./rs92ecc -r 2015_11_01.wav > raw1.out
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92ecc -r > raw2.out
+    ./rs92ecc --dop 5 -gg -e brdc3050.15n --rawin1 raw.out
 
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | tee audio.wav | ./rs92gps -e brdc3050.15n
-    ./rs92gps -g1 -e brdc3050.15n 2015_11_01-14.wav | tee out1.txt
-    ./rs92gps -g2 -e brdc3050.15n 2015_11_01-14.wav | tee out2.txt
-    sox 2015_11_01.wav -t wav - lowpass 2600 2>/dev/null | ./rs92gps -gg -e brdc3050.15n | tee out3.txt
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | tee audio.wav | ./rs92ecc -e brdc3050.15n
+    ./rs92ecc -g1 -e brdc3050.15n 2015_11_01-14.wav | tee out1.txt
+    ./rs92ecc -g2 -e brdc3050.15n 2015_11_01-14.wav | tee out2.txt
+    sox 2015_11_01.wav -t wav - lowpass 2600 2>/dev/null | ./rs92ecc -gg -e brdc3050.15n | tee out3.txt
 
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n > out1.txt
-    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92gps -e brdc3050.15n | tee out2.txt
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92ecc -e brdc3050.15n > out1.txt
+    sox -t oss /dev/dsp -t wav - lowpass 2600 2>/dev/null | stdbuf -oL ./rs92ecc -e brdc3050.15n | tee out2.txt
 
-*/
-/* (uses fec-lib by KA9Q)
-   ka9q-fec:
-      gcc -c init_rs_char.c
-      gcc -c decode_rs_char.c
-   gcc init_rs_char.o decode_rs_char.o rs92ecc.c -lm -o rs92ecc
+    --ecc: error correction
+    sox -t oss /dev/dsp -t wav - lowpass 6000 2>/dev/null | ./rs92ecc -b --ecc --crc -e brdc3050.15n
 */
 
 #include <stdio.h>
@@ -57,14 +53,18 @@
 #endif
 
 
-#include "fec.h"
+typedef unsigned char  ui8_t;
+typedef unsigned short ui16_t;
+typedef unsigned int   ui32_t;
+
+
+#include "bch_ecc.c"  // RS/ecc/
 
 #define rs_N 255
 #define rs_R 24
 #define rs_K (rs_N-rs_R)
 
-void *rs;
-unsigned char codeword[rs_N];
+ui8_t cw[rs_N];
 
 typedef struct {
     int typ;
@@ -77,10 +77,6 @@ typedef struct {
 
 rscfg_t cfg_rs92 = { 92, 240-6-24, 6, 240-24, 6, 240};
 
-
-typedef unsigned char  ui8_t;
-typedef unsigned short ui16_t;
-typedef unsigned int   ui32_t;
 
 typedef struct {
     int frnr;
@@ -601,8 +597,9 @@ int get_Cal() {
     unsigned byte;
     ui8_t calfr = 0;
     //ui8_t burst = 0;
+    ui8_t bytes[2];
     int freq = 0;
-    ui8_t freq_bytes[2];
+    unsigned int killtime = 0;
 
     byte = framebyte(pos_CalData);
     calfr = byte;
@@ -636,14 +633,20 @@ int get_Cal() {
 
     if (calfr == 0x00) {
         for (i = 0; i < 2; i++) {
-            byte = framebyte(pos_Calfreq + i);
-            freq_bytes[i] = byte;
+            bytes[i] = framebyte(pos_Calfreq + i);
         }
-        byte = freq_bytes[0] + (freq_bytes[1] << 8);
+        byte = bytes[0] + (bytes[1] << 8);
         //fprintf(stdout, ":%04x ", byte);
         freq = 400000 + 10*byte; // kHz;
         gpx.freq = freq;
         fprintf(stdout, " : fq %d kHz", freq);
+        for (i = 0; i < 2; i++) {
+            bytes[i] = framebyte(pos_Calfreq + 2 + i);
+        }
+        killtime = bytes[0] + (bytes[1] << 8);
+        if (killtime < 0xFFFF && option_verbose == 4) {
+            fprintf(stdout, " ; KT:%ds", killtime);
+        }
     }
 
     return 0;
@@ -1297,30 +1300,21 @@ int get_GPSkoord(int N) {
 int rs92_ecc(int msglen) {
 
     int i, ret = 0;
-    int errors, errpos[rs_R];
+    int errors;
+    ui8_t err_pos[rs_R], err_val[rs_R];
 
     if (msglen > FRAME_LEN) msglen = FRAME_LEN;
-    for (i = msglen; i < FRAME_LEN; i++) frame[i] = 0;
+    for (i = msglen; i < FRAME_LEN; i++) frame[i] = 0;//xFF;
 
 
-    for (i = 0; i < cfg_rs92.msglen; i++) codeword[rs_K-1-i] = frame[cfg_rs92.msgpos+i];
-    for (i = 0; i < rs_R           ; i++) codeword[rs_N-1-i] = frame[cfg_rs92.parpos+i];
+    for (i = 0; i < rs_R;            i++) cw[i]      = frame[cfg_rs92.parpos+i];
+    for (i = 0; i < cfg_rs92.msglen; i++) cw[rs_R+i] = frame[cfg_rs92.msgpos+i];
 
-    errors = decode_rs_char(rs, codeword, errpos, 0);
-
-/*
-                fprintf(stdout, "codeword, ");
-                fprintf(stdout, "errors: %d\n", errors);
-                if (errors > 0) {
-                    fprintf(stdout, "pos: ");
-                    for (i = 0; i < errors; i++) fprintf(stdout, " %d", errpos[i]);
-                    fprintf(stdout, "\n");
-                }
-*/
+    errors = rs_decode(cw, err_pos, err_val);
 
     //for (i = 0; i < cfg_rs92.hdrlen; i++) frame[i] = data[i];
-    for (i = 0; i < cfg_rs92.msglen; i++) frame[cfg_rs92.msgpos+i] = codeword[rs_K-1-i];
-    for (i = 0; i < rs_R           ; i++) frame[cfg_rs92.parpos+i] = codeword[rs_N-1-i];
+    for (i = 0; i < rs_R;            i++) frame[cfg_rs92.parpos+i] = cw[i];
+    for (i = 0; i < cfg_rs92.msglen; i++) frame[cfg_rs92.msgpos+i] = cw[rs_R+i];
 
     ret = errors;
 
@@ -1606,7 +1600,7 @@ int main(int argc, char *argv[]) {
 
 
     if (option_ecc) {
-        rs = init_rs_char( 8, 0x11d, 0, 1, rs_R, 0);
+        rs_init_RS255();
     }
 
 
@@ -1649,6 +1643,7 @@ int main(int argc, char *argv[]) {
                     if (bit_count == BITS) {
                         bit_count = 0;
                         byte = bits2byte(bitbuf);
+                        if (byte > 0xFF) byte = 0xFF;
                         frame[byte_count] = byte;
                         byte_count++;
                         if (byte_count == FRAME_LEN) {
@@ -1671,6 +1666,7 @@ int main(int argc, char *argv[]) {
                     if (bit_count == BITS) {
                         bit_count = 0;
                         byte = bits2byte(bitbuf);
+                        if (byte > 0xFF) byte = 0xFF;
                         frame[byte_count] = byte;
                         byte_count++;
                     }
