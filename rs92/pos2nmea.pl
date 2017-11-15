@@ -51,9 +51,12 @@ else {
 my $geoid = 50.0;  ## GPS ueber Ellipsoid; Geoid-Hoehe in Europa ca 40-50m
 
 while ($line = <$fpi>) {
+
+    print STDERR $line; ## entweder: alle Zeilen ausgeben
+
     if ($line =~ /(\d\d):(\d\d):(\d\d\.?\d?\d?\d?).*\ +lat:\ *(-?\d*)(\.\d*)\ +lon:\ *(-?\d*)(\.\d*)\ +alt:\ *(-?\d*\.\d*).*/) {
 
-print STDERR $line;
+    #print STDERR $line; ## oder: nur Zeile mit Koordinaten ausgeben
 
         $hms = $1*10000+$2*100+$3;
         $lat = $4*100+$5*60;
