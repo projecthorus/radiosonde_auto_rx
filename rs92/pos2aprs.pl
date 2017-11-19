@@ -42,6 +42,8 @@ my $course = 0.00;
 
 my $callsign;
 
+my $temp;
+
 print $fpo "user $mycallsign pass $passcode vers \"RS decoder\"\n";
 
 while ($line = <$fpi>) {
@@ -74,7 +76,14 @@ while ($line = <$fpi>) {
 	    $callsign = $1;
 	}
 
-	$str = sprintf("$mycallsign>APRS,TCPIP*:;%-9s*%06dh%07.2f$NS/%08.2f${EW}O%03d/%03d/A=%06d$comment", $callsign, $hms, $lat, $lon, $course, $speed, $alt);
+	if ($line =~ /T=([\d.]+)C/) {
+	     $temp = " T=$1C";
+	}
+	else {
+	     $temp = "";
+	}
+
+	$str = sprintf("$mycallsign>APRS,TCPIP*:;%-9s*%06dh%07.2f$NS/%08.2f${EW}O%03d/%03d/A=%06d$comment$temp", $callsign, $hms, $lat, $lon, $course, $speed, $alt);
 	print $fpo "$str\n";
 
     }
