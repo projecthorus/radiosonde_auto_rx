@@ -34,6 +34,7 @@ my $line;
 
 my $hms;
 my $lat; my $lon; my $alt;
+my $sign;
 my $NS; my $EW;
 my $cs;
 my $str;
@@ -59,12 +60,12 @@ while ($line = <$fpi>) {
     #print STDERR $line; ## oder: nur Zeile mit Koordinaten ausgeben
 
         $hms = $1*10000+$2*100+$3;
-        $lat = $4*100+$5*60;
-        if ($4 < 0) { $NS="S"; $lat *= -1; }
-        else        { $NS="N"; }
-        $lon = $6*100+$7*60;
-        if ($6 < 0) { $EW="W"; $lon *= -1; }
-        else        { $EW="E"; }
+        if ($4 < 0) { $NS="S"; $sign *= -1; }
+        else        { $NS="N"; $sign = 1}
+	$lat = $sign*$4*100+$5*60;
+        if ($6 < 0) { $EW="W"; $sign = -1; }
+        else        { $EW="E"; $sign = 1; }
+	$lon = $sign*$6*100+$7*60;
         $alt = $8;
 
         if ($line =~ /(\d\d\d\d)-(\d\d)-(\d\d).*/) {
