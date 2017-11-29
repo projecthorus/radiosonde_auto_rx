@@ -3,19 +3,20 @@
  * radiosondes RS41-SG(P)
  * author: zilog80
  * usage:
- *     ./rs41ecc [options] audio.wav
+ *     ./rs41ptu [options] audio.wav
  *       options:
  *            -v, -vx, -vv  (info, aux, info/conf)
  *            -r, --raw
  *            -i, --invert
- *            --crc        (check CRC)
- *            --avg        (moving average)
  *            -b           (alt. Demod.)
+ *            --crc        (check CRC)
  *            --ecc        (Reed-Solomon)
+ *            --ptu        (temperature)
  */
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -73,6 +74,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_ecc = 0,      // Reed-Solomon ECC
     option_sat = 0,      // GPS sat data
     option_ptu = 0,
+    option_len = 0,
     wavloaded = 0;
 
 
@@ -106,6 +108,14 @@ ui8_t mask[MASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
  * ________________3205590EF944C6262160C2EA795D6DA15469470CDCE85CF1
  * F776827F0799A22C937C3063F5102E61D0BCB4B606AAF423786E3BAEBF7B4CC196833E51B1490898
  */
+
+/* ------------------------------------------------------------------------------------ */
+
+int Nvar = 0;
+float *bufvar = NULL;
+float xsum = 0,
+      qsum = 0;
+float mu, bvar[FRAME_LEN];
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -190,6 +200,7 @@ unsigned long sample_count = 0;
 
 int read_signed_sample(FILE *fp) {  // int = i32_t
     int byte, i, sample, s=0;       // EOF -> 0x1000000
+    float x=0, x0=0;
 
     for (i = 0; i < channels; i++) {
                            // i = 0: links bzw. mono
@@ -207,6 +218,16 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
 
     if (bits_sample ==  8)  s = sample-128;   // 8bit: 00..FF, centerpoint 0x80=128
     if (bits_sample == 16)  s = (short)sample;
+
+    if (option_b)
+    {
+        x = s/128.0;
+        if (bits_sample == 16) { x /= 256.0; }
+        bufvar[sample_count % Nvar] = x;
+        x0 = bufvar[(sample_count+1) % Nvar];
+        xsum = xsum - x0 + x;
+        qsum = qsum - x0*x0 + x*x;
+    }
 
     if (option_avg) {
         movAvg[sample_count % LEN_movAvg] = s;
@@ -754,7 +775,7 @@ int get_PTU() {
         }
         gpx.T = Tc;
 
-        if (option_verbose == 3)
+        if (option_verbose == 4)
         {
             printf("  h: %8.2f   # ", gpx.alt); // crc_GPS3 ?
 
@@ -1158,11 +1179,12 @@ int print_position() {
     int output, out_mask;
 
     err = get_FrameConf();
-    err0 = get_PTU();
 
     err1 = get_GPS1();
     err2 = get_GPS2();
     err3 = get_GPS3();
+
+    err0 = get_PTU();
 
     out_mask = crc_FRAME|crc_GPS1|crc_GPS3;
     output = ((gpx.crc & out_mask) != out_mask);  // (!err || !err1 || !err3);
@@ -1287,11 +1309,14 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       -v, -vx, -vv  (info, aux, info/conf)\n");
             fprintf(stderr, "       -r, --raw\n");
             fprintf(stderr, "       -i, --invert\n");
-            fprintf(stderr, "       --crc        (check CRC)\n");
-            fprintf(stderr, "       --avg        (moving average)\n");
+            //fprintf(stderr, "       --avg        (moving average)\n");
             fprintf(stderr, "       -b           (alt. Demod.)\n");
+            fprintf(stderr, "       --crc        (check CRC)\n");
             fprintf(stderr, "       --ecc        (Reed-Solomon)\n");
-            fprintf(stderr, "       --std        (std framelen)\n");
+            fprintf(stderr, "       --std        (std  framelen 320)\n");
+            fprintf(stderr, "       --std2       (full framelen 518)\n");
+            fprintf(stderr, "       --sat        (GPS Sat data)\n");
+            fprintf(stderr, "       --ptu        (temperature)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -1299,6 +1324,7 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "-vx") == 0) { option_verbose = 2; }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 3; }
+        else if   (strcmp(*argv, "-vvv") == 0) { option_verbose = 4; }
         else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
@@ -1313,8 +1339,8 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "-b") == 0) { option_b = 1; }
         else if   (strcmp(*argv, "--ecc" ) == 0) { option_ecc = 1; }
         else if   (strcmp(*argv, "--ecc2") == 0) { option_ecc = 2; }
-        else if   (strcmp(*argv, "--std" ) == 0) { frmlen = 320; }  // NDATA_LEN
-        else if   (strcmp(*argv, "--std2") == 0) { frmlen = 518; }  // NDATA_LEN+XDATA_LEN
+        else if   (strcmp(*argv, "--std" ) == 0) { option_len = 1; frmlen = 320; }  // NDATA_LEN
+        else if   (strcmp(*argv, "--std2") == 0) { option_len = 2; frmlen = 518; }  // NDATA_LEN+XDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { option_ptu = 1; }
         else {
@@ -1336,9 +1362,15 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-
     if (option_ecc) {
         rs_init_RS255();
+    }
+
+    if (option_b)
+    {
+        Nvar = 32*samples_per_bit;
+        bufvar  = (float *)calloc( Nvar+1, sizeof(float)); if (bufvar  == NULL) return -1;
+        for (i = 0; i < Nvar; i++) bufvar[i] = 0;
     }
 
     while (!read_bits_fsk(fp, &bit, &len)) {
@@ -1398,17 +1430,22 @@ int main(int argc, char *argv[]) {
                     byte = bits2byte(bitbuf);
                     //xframe[byte_count] = byte;
                     frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
-                    byte_count++;
 
-                    ratioQ = sumQ/samples_per_bit; // approx: bei Rauschen zeroX/byte leider nicht linear in sample_rate
-                    if (byte_count > NDATA_LEN) { // Fehler erst ab minimaler framelen Zaehlen
-                        if (ratioQ > 0.7) {       // Schwelle, ab wann wahrscheinlich Rauschbit
+                    mu = xsum/(float)Nvar;
+                    bvar[byte_count] = qsum/(float)Nvar - mu*mu;
+
+                    if (byte_count > NDATA_LEN) {  // Fehler erst ab minimaler framelen Zaehlen
+                        //ratioQ = sumQ/samples_per_bit; // approx: bei Rauschen zeroX/byte leider nicht linear in sample_rate
+                        //if (ratioQ > 0.7) {            // sr=48k: 0.7, Schwelle, ab wann wahrscheinlich Rauschbit
+                        if (bvar[byte_count]*2 > bvar[byte_count-300]*3) { // Var(frame)/Var(noise) ca. 1:2
                             Qerror_count += 1;
                         }
                     }
                     sumQ = 0; // Fenster fuer zeroXcount: 8 bit
+
+                    byte_count++;
                 }
-                if (Qerror_count > 4) {   // ab byte 320 entscheiden, ob framelen = 320 oder 518
+                if (Qerror_count > 4 && option_len == 0) { // ab byte 320 entscheiden, ob framelen = 320 oder 518
                     if (byte_count > NDATA_LEN  && byte_count < NDATA_LEN+XDATA_LEN-10) {
                         byte_count = NDATA_LEN;
                     } // in print_frame() wird ab byte_count mit 00 aufgefuellt fuer Fehlerkorrektur
@@ -1421,6 +1458,11 @@ int main(int argc, char *argv[]) {
 
         }
 
+    }
+
+    if (option_b)
+    {
+        if (bufvar)  { free(bufvar); bufvar = NULL; }
     }
 
     fclose(fp);
