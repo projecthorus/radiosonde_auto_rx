@@ -391,7 +391,7 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
     if ephemeris != None:
-        decode_cmd += "./rs92mod --crc --csv -e %s" % ephemeris
+        decode_cmd += "./rs92mod -v -vx -vv -r --sat --crc --csv -e %s" % ephemeris
     elif almanac != None:
         decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
 
@@ -602,8 +602,8 @@ if __name__ == "__main__":
     # Command line arguments. 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
-    parser.add_argument("-f", "--frequency", default=0.0, help="Sonde Frequency (MHz) (bypass scan step).")
-    parser.add_argument("-t", "--timeout", default=180, help="Stop receiving after X minutes.")
+    parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step).")
+    parser.add_argument("-t", "--timeout", type=int, default=180, help="Stop receiving after X minutes.")
     args = parser.parse_args()
 
     # Attempt to read in configuration file. Use default config if reading fails.
@@ -635,8 +635,8 @@ if __name__ == "__main__":
 
 
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
-    while time.time() < timeout_time:
 
+    while time.time() < timeout_time or args.timeout == 0:
         # Attempt to detect a sonde on a supplied frequency.
         if args.frequency != 0.0:
             sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
