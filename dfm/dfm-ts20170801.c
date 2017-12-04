@@ -13,6 +13,9 @@
  *   -b       alternative Demodulation
  *   --avg    moving average
  *   --ecc    Hamming Error Correction
+ *
+ *  2017-08-01:
+ *  Test/Pilotsonde? Kanaele 0..C
  */
 
 #include <stdio.h>
@@ -35,11 +38,15 @@ typedef struct {
     int sonde_typ;
     ui32_t SN6;
     ui32_t SN9;
+    ui32_t SNC;
     int week; int gpssec;
     int jahr; int monat; int tag;
-    int std; int min; float sek;
-    double lat; double lon; double alt;
-    double dir; double horiV; double vertV;
+    int std; int min;
+    float sek;
+    double lat1; double lon1; double alt1;
+    double dir1; double horiV1; double vertV1;
+    double lat2; double lon2; double alt2;
+    double dir2; double horiV2; double vertV2;
 } gpx_t;
 
 gpx_t gpx;
@@ -515,44 +522,53 @@ int dat_out(ui8_t *dat_bits) {
 
     if (fr_id == 0) {
         start = 1;
+        msek = bits2val(dat_bits, 16);
+        gpx.sek = msek/1000.0;
+        // bits2val(dat_bits+16, 8); ?
         frnr = bits2val(dat_bits+24, 8);
         gpx.frnr = frnr;
+        dvv = (short)bits2val(dat_bits+32, 16);  // (short)? zusammen mit dir sollte unsigned sein
+        gpx.horiV1 = dvv/1e2;
     }
 
     if (fr_id == 1) {
-        // 00..31: ? GPS-Sats in Sicht?
-        msek = bits2val(dat_bits+32, 16);
-        gpx.sek = msek/1000.0;
+        lat = bits2val(dat_bits, 32);
+        gpx.lat1 = lat/1e7;
+        dvv = bits2val(dat_bits+32, 16) & 0xFFFF;  // unsigned
+        gpx.dir1 = dvv/1e2;
     }
 
     if (fr_id == 2) {
-        lat = bits2val(dat_bits, 32);
-        gpx.lat = lat/1e7;
-        dvv = (short)bits2val(dat_bits+32, 16);  // (short)? zusammen mit dir sollte unsigned sein
-        gpx.horiV = dvv/1e2;
+        lon = bits2val(dat_bits, 32);
+        gpx.lon1 = lon/1e7;
+        dvv = (short)bits2val(dat_bits+32, 16);  // signed
+        gpx.vertV1 = dvv/1e2;
     }
 
     if (fr_id == 3) {
-        lon = bits2val(dat_bits, 32);
-        gpx.lon = lon/1e7;
-        dvv = bits2val(dat_bits+32, 16) & 0xFFFF;  // unsigned
-        gpx.dir = dvv/1e2;
-    }
-
-    if (fr_id == 4) {
         alt = bits2val(dat_bits, 32);
-        gpx.alt = alt/1e2;
-        dvv = (short)bits2val(dat_bits+32, 16);  // signed
-        gpx.vertV = dvv/1e2;
+        gpx.alt1 = alt/1e2;
     }
 
     if (fr_id == 5) {
+        lat = bits2val(dat_bits, 32);
+        gpx.lat2 = lat/1e7;
+        dvv = (short)bits2val(dat_bits+32, 16);  // (short)? zusammen mit dir sollte unsigned sein
+        gpx.horiV2 = dvv/1e2;
     }
 
     if (fr_id == 6) {
+        lon = bits2val(dat_bits, 32);
+        gpx.lon2 = lon/1e7;
+        dvv = bits2val(dat_bits+32, 16) & 0xFFFF;  // unsigned
+        gpx.dir2 = dvv/1e2;
     }
 
     if (fr_id == 7) {
+        alt = bits2val(dat_bits, 32);
+        gpx.alt2 = alt/1e2;
+        dvv = (short)bits2val(dat_bits+32, 16);  // signed
+        gpx.vertV2 = dvv/1e2;
     }
 
     if (fr_id == 8) {
@@ -572,40 +588,27 @@ int conf_out(ui8_t *conf_bits) {
     int conf_id;
     int ret = 0;
     int val, hl;
-    static int chAbit, chA[2];
-    ui32_t SN6, SN9;
+    static int chCbit, chC[2];
+    ui32_t SN6, SN9, SNC;
 
     conf_id = bits2val(conf_bits, 4);
 
-    //if (conf_id > 6) gpx.SN6 = 0;  //// gpx.sonde_typ & 0xF = 9; // SNbit?
-
-    if ((gpx.sonde_typ & 0xFF) < 9  &&  conf_id == 6) {
-        SN6 = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
-        if ( SN6 == gpx.SN6 ) {            // nur Nibble-Werte 0..9
-            gpx.sonde_typ = SNbit | 6;
-            ret = 6;
-        }
-        else {
-            gpx.sonde_typ = 0;
-        }
-        gpx.SN6 = SN6;
-    }
-    if (conf_id == 0xA) {  // 0xACxxxxy
+    if (conf_id == 0xC) {  // 0xCCxxxxy
         val = bits2val(conf_bits+8, 4*5);
         hl =  (val & 1) == 0;
-        chA[hl] = (val >> 4) & 0xFFFF;
-        chAbit |= 1 << hl;
-        if (chAbit == 3) {  // DFM-09: Kanal A
-            SN9 = (chA[1] << 16) | chA[0];
-            if ( SN9 == gpx.SN9 ) {
-                gpx.sonde_typ = SNbit | 9;
+        chC[hl] = (val >> 4) & 0xFFFF;
+        chCbit |= 1 << hl;
+        if (chCbit == 3) {
+            SNC = (chC[1] << 16) | chC[0];
+            if ( SNC == gpx.SNC ) {
+                gpx.sonde_typ = SNbit | 0xC;
                 ret = 9;
             }
             else {
                 gpx.sonde_typ = 0;
             }
-            gpx.SN9 = SN9;
-            chAbit = 0;
+            gpx.SNC = SNC;
+            chCbit = 0;
         }
     }
 
@@ -632,19 +635,35 @@ void print_gpx() {
           printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
           printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
           printf("  ");
-          printf("lat: %.6f  ", gpx.lat);
-          printf("lon: %.6f  ", gpx.lon);
-          printf("alt: %.1f  ", gpx.alt);
-          printf(" vH: %5.2f ", gpx.horiV);
-          printf(" D: %5.1f ", gpx.dir);
-          printf(" vV: %5.2f ", gpx.vertV);
+          printf("lat: %.6f  ", gpx.lat1);
+          printf("lon: %.6f  ", gpx.lon1);
+          printf("alt: %.1f  ", gpx.alt1);
+          printf(" vH: %5.2f ", gpx.horiV1);
+          printf(" D: %5.1f ", gpx.dir1);
+          printf(" vV: %5.2f ", gpx.vertV1);
+          printf("\n");
+          printf("      ");
+          printf("           ");
+          printf("           ");
+          printf("  ");
+          printf("lat: %.6f  ", gpx.lat2);
+          printf("lon: %.6f  ", gpx.lon2);
+          printf("alt: %.1f  ", gpx.alt2);
+          printf(" vH: %5.2f ", gpx.horiV2);
+          printf(" D: %5.1f ", gpx.dir2);
+          printf(" vV: %5.2f ", gpx.vertV2);
           if (option_verbose  &&  (gpx.sonde_typ & SNbit))
           {
+          /*
               if ((gpx.sonde_typ & 0xFF) == 6) {
                   printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
               }
               if ((gpx.sonde_typ & 0xFF) == 9) {
                   printf(" (ID%1d:%06u) ", gpx.sonde_typ & 0xF, gpx.SN9);
+              }
+          */
+              if ((gpx.sonde_typ & 0xFF) == 0xC) {
+                  printf(" (ID%1x:%06u) ", gpx.sonde_typ & 0xF, gpx.SNC);
               }
               gpx.sonde_typ ^= SNbit;
           }

@@ -47,6 +47,7 @@ int rs_init_RS255(void);
 int rs_init_BCH64(void);
 int rs_encode(ui8_t cw[]);
 int rs_decode(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val);
+int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[], ui8_t *err_pos, ui8_t *err_val);
 int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val);
 
 // ---
@@ -411,7 +412,7 @@ int poly_divmod(ui8_t p[], ui8_t q[], ui8_t *d, ui8_t *r) {
   deg_p = poly_deg(p);
   deg_q = poly_deg(q);
 
-  if (deg_q < 0) return -1;  // DIV_BY_ZERO
+  if (deg_q < 0) return -1;  // q=0: DIV_BY_ZERO
 
   for (i = 0; i <= MAX_DEG; i++) d[i] = 0;
   for (i = 0; i <= MAX_DEG; i++) r[i] = 0;
@@ -423,13 +424,12 @@ int poly_divmod(ui8_t p[], ui8_t q[], ui8_t *d, ui8_t *r) {
       for (i = 0; i <= deg_p;   i++) d[i] = GF_mul(p[i], c);
       for (i = 0; i <= MAX_DEG; i++) r[i] = 0;
   }
-  else if (deg_p == 0) {
+  else if (deg_p < 0) {  // p=0
       for (i = 0; i <= MAX_DEG; i++) {
           d[i] = 0;
           r[i] = 0;
       }
   }
-
   else if (deg_p < deg_q) {
       for (i = 0; i <= MAX_DEG; i++) d[i] = 0;
       for (i = 0; i <= deg_p; i++) r[i] = p[i]; // r(x)=p(x), deg(r)<deg(q)
@@ -488,70 +488,13 @@ int poly_mul(ui8_t a[], ui8_t b[], ui8_t *ab) {
 
 
 static
-int poly_eggT(int deg, ui8_t a[], ui8_t b[],  // in
-              ui8_t *u, ui8_t *v, ui8_t *ggt  // out
-             ) {
-// deg = 0:
-// a(x)u(x)+b(x)v(x) = ggt(x)
-// RS:
-// deg=t, a(x)=S(x), b(a)=x^2t
-
-    int i;
-    ui8_t r0[MAX_DEG+1], r1[MAX_DEG+1], r2[MAX_DEG+1],
-          s0[MAX_DEG+1], s1[MAX_DEG+1], s2[MAX_DEG+1],
-          t0[MAX_DEG+1], t1[MAX_DEG+1], t2[MAX_DEG+1],
-          quo[MAX_DEG+1];
-
-    for (i = 0; i <= MAX_DEG; i++) { u[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { v[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { ggt[i] = 0; }
-
-    for (i = 0; i <= MAX_DEG; i++) { r0[i] = a[i]; }
-    for (i = 0; i <= MAX_DEG; i++) { r1[i] = b[i]; }
-    s0[0] = 1; for (i = 1; i <= MAX_DEG; i++) { s0[i] = 0; }
-    s1[0] = 0; for (i = 1; i <= MAX_DEG; i++) { s1[i] = 0; }
-    t0[0] = 0; for (i = 1; i <= MAX_DEG; i++) { t0[i] = 0; }
-    t1[0] = 1; for (i = 1; i <= MAX_DEG; i++) { t1[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { r2[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { s2[i] = 0; }
-    for (i = 0; i <= MAX_DEG; i++) { t2[i] = 0; }
-
-    while ( poly_deg(r1) >= deg ) {
-        poly_divmod(r0, r1, quo, r2);
-        for (i = 0; i <= MAX_DEG; i++) { r0[i] = r1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { r1[i] = r2[i]; }
-        poly_mul(quo, s1, s2);
-        poly_add(s0, s2, s2);
-        for (i = 0; i <= MAX_DEG; i++) { s0[i] = s1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { s1[i] = s2[i]; }
-        poly_mul(quo, t1, t2);
-        poly_add(t0, t2, t2);
-        for (i = 0; i <= MAX_DEG; i++) { t0[i] = t1[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { t1[i] = t2[i]; }
-    }
-
-    if (deg > 0) {
-        for (i = 0; i <= MAX_DEG; i++) { ggt[i] = r1[i]; } // deg=0: r0
-        for (i = 0; i <= MAX_DEG; i++) { u[i] = s1[i]; }   // deg=0: s0
-        for (i = 0; i <= MAX_DEG; i++) { v[i] = t1[i]; }
-    }
-    else {
-        for (i = 0; i <= MAX_DEG; i++) { ggt[i] = r0[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { u[i] = s0[i]; }
-        for (i = 0; i <= MAX_DEG; i++) { v[i] = t0[i]; }
-    }
-
-    return 0;
-}
-
-static
 int polyGF_eggT(int deg, ui8_t a[], ui8_t b[],  // in
                 ui8_t *u, ui8_t *v, ui8_t *ggt  // out
                ) {
 // deg = 0:
 // a(x)u(x)+b(x)v(x) = ggt(x)
 // RS:
-// deg=t, a(x)=S(x), b(a)=x^2t
+// deg=t, a(x)=S(x), b(x)=x^2t
 
     int i;
     ui8_t r0[MAX_DEG+1], r1[MAX_DEG+1], r2[MAX_DEG+1],
@@ -565,10 +508,10 @@ int polyGF_eggT(int deg, ui8_t a[], ui8_t b[],  // in
 
     for (i = 0; i <= MAX_DEG; i++) { r0[i] = a[i]; }
     for (i = 0; i <= MAX_DEG; i++) { r1[i] = b[i]; }
-    s0[0] = 1; for (i = 1; i <= MAX_DEG; i++) { s0[i] = 0; }
-    s1[0] = 0; for (i = 1; i <= MAX_DEG; i++) { s1[i] = 0; }
-    t0[0] = 0; for (i = 1; i <= MAX_DEG; i++) { t0[i] = 0; }
-    t1[0] = 1; for (i = 1; i <= MAX_DEG; i++) { t1[i] = 0; }
+    s0[0] = 1; for (i = 1; i <= MAX_DEG; i++) { s0[i] = 0; } // s0 = 1
+    s1[0] = 0; for (i = 1; i <= MAX_DEG; i++) { s1[i] = 0; } // s1 = 0
+    t0[0] = 0; for (i = 1; i <= MAX_DEG; i++) { t0[i] = 0; } // t0 = 0
+    t1[0] = 1; for (i = 1; i <= MAX_DEG; i++) { t1[i] = 0; } // t1 = 1
     for (i = 0; i <= MAX_DEG; i++) { r2[i] = 0; }
     for (i = 0; i <= MAX_DEG; i++) { s2[i] = 0; }
     for (i = 0; i <= MAX_DEG; i++) { t2[i] = 0; }
@@ -602,10 +545,10 @@ int polyGF_eggT(int deg, ui8_t a[], ui8_t b[],  // in
 }
 
 static
-int polyGF_lfsr(int deg, ui8_t S[],
+int polyGF_lfsr(int deg, int x2t, ui8_t S[],
                 ui8_t *Lambda, ui8_t *Omega ) {
-// BCH/RS/LFSR: deg=t,
-// S(x)Lambda(x) = Omega(x) mod x^(2t)
+// BCH/RS/LFSR: deg=t+e/2, e=#erasures
+// S(x)Lambda(x) = Omega(x) mod x^2t
     int i;
     ui8_t r0[MAX_DEG+1], r1[MAX_DEG+1], r2[MAX_DEG+1],
           s0[MAX_DEG+1], s1[MAX_DEG+1], s2[MAX_DEG+1],
@@ -615,13 +558,13 @@ int polyGF_lfsr(int deg, ui8_t S[],
     for (i = 0; i <= MAX_DEG; i++) { Omega[i] = 0; }
 
     for (i = 0; i <= MAX_DEG; i++) { r0[i] = S[i]; }
-    for (i = 0; i <= MAX_DEG; i++) { r1[i] = 0; } r1[2*deg] = 1; //x^2t
+    for (i = 0; i <= MAX_DEG; i++) { r1[i] = 0; } r1[x2t] = 1; //x^2t
     s0[0] = 1; for (i = 1; i <= MAX_DEG; i++) { s0[i] = 0; }
     s1[0] = 0; for (i = 1; i <= MAX_DEG; i++) { s1[i] = 0; }
     for (i = 0; i <= MAX_DEG; i++) { r2[i] = 0; }
     for (i = 0; i <= MAX_DEG; i++) { s2[i] = 0; }
 
-    while ( poly_deg(r1) >= deg ) {
+    while ( poly_deg(r1) >= deg ) { // deg=t+e/2
         poly_divmod(r0, r1, quo, r2);
         for (i = 0; i <= MAX_DEG; i++) { r0[i] = r1[i]; }
         for (i = 0; i <= MAX_DEG; i++) { r1[i] = r2[i]; }
@@ -659,7 +602,7 @@ ui8_t forney(ui8_t x, ui8_t Omega[], ui8_t Lambda[]) {
                            //            Y = X^(1-b) * Omega(X^(-1))/Lambda'(X^(-1))
     poly_D(Lambda, DLam);
     w = poly_eval(Omega, x);
-    z = poly_eval(DLam, x);
+    z = poly_eval(DLam, x); if (z == 0) { return -00; }
     Y = GF_mul(w, GF_inv(z));
     if (RS.b == 0) Y = GF_mul(GF_inv(x), Y);
     else if (RS.b > 1) {
@@ -668,6 +611,44 @@ ui8_t forney(ui8_t x, ui8_t Omega[], ui8_t Lambda[]) {
     }
 
     return Y;
+}
+
+static
+int era_sigma(int n, ui8_t era_pos[], ui8_t *sigma) {
+    int i;
+    ui8_t Xa[MAX_DEG+1], sig[MAX_DEG+1];
+    ui8_t a_i;
+
+    for (i = 0; i <= MAX_DEG; i++) sig[i] = 0;
+    for (i = 0; i <= MAX_DEG; i++) Xa[i] = 0;
+
+    // sigma(X)=(1 - alpha^j1 X)...(1 - alpha^jn X)
+    // j_{i+1} = era_pos[i]
+    sig[0] = 1;
+    Xa[0] = 1;
+    for (i = 0; i < n; i++) { // n <= 2*RS.t
+        a_i = exp_a[era_pos[i] % (GF.ord-1)];
+        Xa[1] = a_i;  // Xalp[0..1]: (1-alpha^(j_)X)
+        poly_mul(sig, Xa, sig);
+    }
+
+    for (i = 0; i <= MAX_DEG; i++) sigma[i] = sig[i];
+
+    return 0;
+}
+
+static
+int syndromes(ui8_t cw[], ui8_t *S) {
+    int i, errors = 0;
+    ui8_t a_i;
+
+    // syndromes: e_j=S(alpha^(b+i))
+    for (i = 0; i < 2*RS.t; i++) {
+        a_i = exp_a[(RS.b+i) % (GF.ord-1)];  // alpha^(b+i)
+        S[i] = poly_eval(cw, a_i);
+        if (S[i]) errors = 1;
+    }
+    return errors;
 }
 
 
@@ -697,7 +678,6 @@ int prn_GFpoly(ui32_t p) {
   }
   return 0;
 }
-
 
 static
 void prn_table(void) {
@@ -729,6 +709,7 @@ void prn_table(void) {
     }
     printf("\n");
 }
+
 
 int rs_init_RS255() {
     int i, check_gen;
@@ -768,81 +749,105 @@ int rs_init_BCH64() {
     return check_gen;
 }
 
-static
-int syndromes(ui8_t cw[], ui8_t *S) {
-    int i, errors = 0;
-    ui8_t a_i;
-
-    // syndromes: e_j=S(alpha^(b+i))
-    for (i = 0; i < 2*RS.t; i++) {
-        a_i = exp_a[(RS.b+i) % (GF.ord-1)];  // alpha^(b+i)
-        S[i] = poly_eval(cw, a_i);
-        if (S[i]) errors = 1;
-    }
-    return errors;
-}
-
 int rs_encode(ui8_t cw[]) {
     int j;
     ui8_t parity[MAX_DEG+1],
           d[MAX_DEG+1];
     for (j = 0; j < RS.R; j++) cw[j] = 0;
-    for (j = 0; j <=MAX_DEG; j++) parity[j] = 0;
+    for (j = 0; j <= MAX_DEG; j++) parity[j] = 0;
     poly_divmod(cw, RS.g, d, parity);
     //if (poly_deg(parity) >= RS.R) return -1;
     for (j = 0; j <= poly_deg(parity); j++) cw[j] = parity[j];
     return 0;
 }
 
-int rs_decode(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
-    ui8_t x, gamma,
-          S[MAX_DEG+1],
+// 2*Errors + Erasure <= 2*RS.t
+int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
+                     ui8_t *err_pos, ui8_t *err_val) {
+    ui8_t x, gamma;
+    ui8_t S[MAX_DEG+1],
           Lambda[MAX_DEG+1],
-          Omega[MAX_DEG+1];
-    int i, n, errors = 0;
+          Omega[MAX_DEG+1],
+          sigma[MAX_DEG+1],
+          sigLam[MAX_DEG+1];
+    int deg_sigLam, deg_Lambda, deg_Omega;
+    int i, nerr, errera = 0;
 
-    for (i = 0; i < RS.t; i++) { err_pos[i] = 0; }
-    for (i = 0; i < RS.t; i++) { err_val[i] = 0; }
+    if (nera > 2*RS.t) { return -4; }
+
+    for (i = 0; i < 2*RS.t; i++) { err_pos[i] = 0; }
+    for (i = 0; i < 2*RS.t; i++) { err_val[i] = 0; }
+
+    // IF: erasures set 0
+    //    for (i = 0; i < nera; i++) cw[era_pos[i]] = 0x00; // erasures
+    // THEN: restore cw[era_pos[i]], if errera < 0
 
     for (i = 0; i <= MAX_DEG; i++) { S[i] = 0; }
-    errors = syndromes(cw, S);
+    errera = syndromes(cw, S);
     // wenn  S(x)=0 ,  dann poly_divmod(cw, RS.g, d, rem): rem=0
 
-    if (errors) {
-        polyGF_lfsr(RS.t, S, Lambda, Omega);
+    for (i = 0; i <= MAX_DEG; i++) { sigma[i] = 0; }
+    sigma[0] = 1;
+
+
+    if (nera > 0) {
+        era_sigma(nera, era_pos, sigma);
+        poly_mul(sigma, S, S);
+        for (i = 2*RS.t; i <= MAX_DEG; i++) S[i] = 0; // S = sig*S mod x^12
+    }
+
+    if (errera)
+    {
+        polyGF_lfsr(RS.t+nera/2, 2*RS.t, S, Lambda, Omega);
+
+        deg_Lambda = poly_deg(Lambda);
+        deg_Omega  = poly_deg(Omega);
+        if (deg_Omega >= deg_Lambda + nera) {
+            errera = -3;
+            return errera;
+        }
         gamma = Lambda[0];
         if (gamma) {
-            for (i = poly_deg(Lambda); i >= 0; i--) Lambda[i] = GF_mul(Lambda[i], GF_inv(gamma));
-            for (i = poly_deg(Omega) ; i >= 0; i--)  Omega[i] = GF_mul( Omega[i], GF_inv(gamma));
+            for (i = deg_Lambda; i >= 0; i--) Lambda[i] = GF_mul(Lambda[i], GF_inv(gamma));
+            for (i = deg_Omega ; i >= 0; i--)  Omega[i] = GF_mul( Omega[i], GF_inv(gamma));
+            poly_mul(sigma, Lambda, sigLam);
+            deg_sigLam = poly_deg(sigLam);
         }
         else {
-            errors = -2;
-            //return errors;
+            errera = -2;
+            return errera;
         }
 
-        n = 0;
+        nerr = 0; // Errors + Erasures (erasure-pos bereits bekannt)
         for (i = 1; i < GF.ord ; i++) { // Lambda(0)=1
             x = (ui8_t)i;    // roll-over
-            if (poly_eval(Lambda, x) == 0) {
+            if (poly_eval(sigLam, x) == 0) { // Lambda(x)=0 fuer x in erasures[] moeglich
                 // error location index
-                err_pos[n] = log_a[GF_inv(x)];
+                err_pos[nerr] = log_a[GF_inv(x)];
                 // error value;   bin-BCH: err_val=1
-                err_val[n] = forney(x, Omega, Lambda);
-                n++;
+                err_val[nerr] = forney(x, Omega, sigLam);
+                //err_val[nerr] == 0, wenn era_val[pos]=0, d.h. cw[pos] schon korrekt
+                nerr++;
             }
-            if (n >= poly_deg(Lambda)) break;
+            if (nerr >= deg_sigLam) break;
         }
 
-        if (n < poly_deg(Lambda)) errors = -1; // uncorrectable errors
+        // 2*Errors + Erasure <= 2*RS.t
+        if (nerr < deg_sigLam) errera = -1; // uncorrectable errors
         else {
-            errors = n;
-            for (i = 0; i < errors; i++) cw[err_pos[i]] ^= err_val[i];
+            errera = nerr;
+            for (i = 0; i < errera; i++) cw[err_pos[i]] ^= err_val[i];
         }
     }
 
-    return errors;
+    return errera;
 }
 
+// Errors <= RS.t
+int rs_decode(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
+    ui8_t tmp[1] = {0};
+    return rs_decode_ErrEra(cw, 0, tmp, err_pos, err_val);
+}
 
 int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
 // binary 2-error correcting BCH
@@ -852,7 +857,6 @@ int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
           L[MAX_DEG+1], L2,
           Lambda[MAX_DEG+1],
           Omega[MAX_DEG+1];
-
     int i, n, errors = 0;
 
 
@@ -864,7 +868,7 @@ int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
     // wenn  S(x)=0 ,  dann poly_divmod(cw, RS.g, d, rem): rem=0
 
     if (errors) {
-        polyGF_lfsr(RS.t, S, Lambda, Omega);
+        polyGF_lfsr(RS.t, 2*RS.t, S, Lambda, Omega);
         gamma = Lambda[0];
         if (gamma) {
             for (i = poly_deg(Lambda); i >= 0; i--) Lambda[i] = GF_mul(Lambda[i], GF_inv(gamma));

@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
-//#include <math.h>
+#include <math.h>
 #include <stdlib.h>
 
 #ifdef CYGWIN
@@ -40,6 +40,8 @@ typedef struct {
     int std; int min; float sek;
     double lat; double lon; double alt;
     double dir; double horiV; double vertV;
+    float meas24[5];
+    float status[2];
 } gpx_t;
 
 gpx_t gpx;
@@ -54,6 +56,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_avg = 0,      // moving average
     option_b = 0,
     option_ecc = 0,
+    option_ptu = 0,
     wavloaded = 0;
 
 int start = 0;
@@ -567,6 +570,137 @@ int dat_out(ui8_t *dat_bits) {
     return ret;
 }
 
+// DFM-06 (NXP8)
+float fl20(int d) {  // float20
+    int val, p;
+    float f;
+    p = (d>>16) & 0xF;
+    val = d & 0xFFFF;
+    f = val/(float)(1<<p);
+    return  f;
+}
+/*
+float flo20(int d) {
+    int m, e;
+    float f1, f;
+    m = d & 0xFFFF;
+    e = (d >> 16) & 0xF;
+    f =  m / pow(2,e);
+    return  f;
+}
+*/
+
+// DFM-09 (STM32)
+float fl24(int d) {  // float24
+    int val, p;
+    float f;
+    p = (d>>20) & 0xF;
+    val = d & 0xFFFFF;
+    f = val/(float)(1<<p);
+    return  f;
+}
+
+// temperature approximation
+float get_Temp(float *meas) { // meas[0..4]
+// NTC-Thermistor EPCOS B57540G0502
+// R/T No 8402, R25=Ro=5k
+// B0/100=3450
+// 1/T = 1/To + 1/B log(r) , r=R/Ro
+// GRAW calibration data -80C..+40C on EEPROM ?
+// meas0 = g*(R + Rs)
+// meas3 = g*Rs , Rs: dfm6:10k, dfm9:20k
+// meas4 = g*Rf , Rf=220k
+    float B0 = 3260.0;       // B/Kelvin, fit -55C..+40C
+    float T0 = 25 + 273.15;  // t0=25C
+    float R0 = 5.0e3;        // R0=R25=5k
+    float Rf = 220e3;        // Rf = 220k
+    float g = meas[4]/Rf;
+    float R = (meas[0]-meas[3]) / g; // meas[0,3,4] > 0 ?
+    float T = 0;                     // T/Kelvin
+    if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
+    return  T - 273.15; // Celsius
+//  DFM-06: meas20 * 16 = meas24
+//      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
+}
+float get_Temp2(float *meas) { // meas[0..4]
+// NTC-Thermistor EPCOS B57540G0502
+// R/T No 8402, R25=Ro=5k
+// B0/100=3450
+// 1/T = 1/To + 1/B log(r) , r=R/Ro
+// GRAW calibration data -80C..+40C on EEPROM ?
+// meas0 = g*(R+Rs)+ofs
+// meas3 = g*Rs+ofs , Rs: dfm6:10k, dfm9:20k
+// meas4 = g*Rf+ofs , Rf=220k
+    float f  = meas[0],
+          f1 = meas[3],
+          f2 = meas[4];
+    float B0 = 3260.0;      // B/Kelvin, fit -55C..+40C
+    float T0 = 25 + 273.15; // t0=25C
+    float R0 = 5.0e3;       // R0=R25=5k
+    float Rf2 = 220e3;      // Rf2 = Rf = 220k
+    float g_o = f2/Rf2;     // approx gain
+    float Rs_o = f1/g_o;    // = Rf2 * f1/f2;
+    float Rf1 = Rs_o;       // Rf1 = Rs: dfm6:10k, dfm9:20k
+    float g = g_o;          // gain
+    float Rb = 0.0;         // offset
+    float R = 0;            // thermistor
+    float T = 0;            // T/Kelvin
+
+    if       ( 8e3 < Rs_o && Rs_o < 12e3) Rf1 = 10e3;  // dfm6
+    else if  (18e3 < Rs_o && Rs_o < 22e3) Rf1 = 20e3;  // dfm9
+    g = (f2 - f1) / (Rf2 - Rf1);
+    Rb = (f1*Rf2-f2*Rf1)/(f2-f1); // ofs/g
+
+    R = (f-f1)/g;                    // meas[0,3,4] > 0 ?
+    if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
+
+    if (option_ptu && option_verbose == 2) {
+        printf("  (Rso: %.1f , Rb: %.1f)", Rs_o/1e3, Rb/1e3);
+    }
+
+    return  T - 273.15;
+//  DFM-06: meas20 * 16 = meas24
+}
+float get_Temp4(float *meas) { // meas[0..4]
+// NTC-Thermistor EPCOS B57540G0502
+// [  T/C  ,   R/R25   , alpha ] :
+// [ -55.0 ,  51.991   ,   6.4 ]
+// [ -50.0 ,  37.989   ,   6.2 ]
+// [ -45.0 ,  28.07    ,   5.9 ]
+// [ -40.0 ,  20.96    ,   5.7 ]
+// [ -35.0 ,  15.809   ,   5.5 ]
+// [ -30.0 ,  12.037   ,   5.4 ]
+// [ -25.0 ,   9.2484  ,   5.2 ]
+// [ -20.0 ,   7.1668  ,   5.0 ]
+// [ -15.0 ,   5.5993  ,   4.9 ]
+// [ -10.0 ,   4.4087  ,   4.7 ]
+// [  -5.0 ,   3.4971  ,   4.6 ]
+// [   0.0 ,   2.7936  ,   4.4 ]
+// [   5.0 ,   2.2468  ,   4.3 ]
+// [  10.0 ,   1.8187  ,   4.2 ]
+// [  15.0 ,   1.4813  ,   4.0 ]
+// [  20.0 ,   1.2136  ,   3.9 ]
+// [  25.0 ,   1.0000  ,   3.8 ]
+// [  30.0 ,   0.82845 ,   3.7 ]
+// [  35.0 ,   0.68991 ,   3.6 ]
+// [  40.0 ,   0.57742 ,   3.5 ]
+// -> Steinhart–Hart coefficients (polyfit):
+    float p0 = 1.09698417e-03,
+          p1 = 2.39564629e-04,
+          p2 = 2.48821437e-06,
+          p3 = 5.84354921e-08;
+// T/K = 1/( p0 + p1*ln(R) + p2*ln(R)^2 + p3*ln(R)^3 )
+    float Rf = 220e3;    // Rf = 220k
+    float g = meas[4]/Rf;
+    float R = (meas[0]-meas[3]) / g; // meas[0,3,4] > 0 ?
+    float T = 0; // T/Kelvin
+    if (R > 0)  T = 1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
+    return  T - 273.15; // Celsius
+//  DFM-06: meas20 * 16 = meas24
+//      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
+}
+
+
 #define SNbit 0x0100
 int conf_out(ui8_t *conf_bits) {
     int conf_id;
@@ -609,9 +743,31 @@ int conf_out(ui8_t *conf_bits) {
         }
     }
 
+    if (conf_id >= 0 && conf_id <= 4) {
+        val = bits2val(conf_bits+4, 4*6);
+        gpx.meas24[conf_id] = fl24(val);
+        // DFM-09 (STM32): 24bit 0exxxxx
+        // DFM-06 (NXP8):  20bit 0exxxx0
+        //   fl20(bits2val(conf_bits+4, 4*5))
+        //       = fl20(exxxx)
+        //       = fl24(exxxx0)/2^4
+        //   meas20 * 16 = meas24
+    }
+
+    // STM32-status: Bat, MCU-Temp
+    if ((gpx.sonde_typ & 0xFF) == 9) { // DFM-09 (STM32)
+        if (conf_id == 0x5) { // voltage
+            val = bits2val(conf_bits+8, 4*4);
+            gpx.status[0] = val/1000.0;
+        }
+        if (conf_id == 0x6) { // T-intern (STM32)
+            val = bits2val(conf_bits+8, 4*4);
+            gpx.status[1] = val/100.0;
+        }
+    }
+
     return ret;
 }
-
 
 void print_gpx() {
   int i, j;
@@ -638,6 +794,23 @@ void print_gpx() {
           printf(" vH: %5.2f ", gpx.horiV);
           printf(" D: %5.1f ", gpx.dir);
           printf(" vV: %5.2f ", gpx.vertV);
+          if (option_ptu) {
+              float t = get_Temp(gpx.meas24);
+              if (t > -270.0) printf("  T=%.1fC ", t);
+              if (option_verbose == 2) {
+                  float t2 = get_Temp2(gpx.meas24);
+                  float t4 = get_Temp4(gpx.meas24);
+                  if (t2 > -270.0) printf("  T2=%.1fC ", t2);
+                  if (t4 > -270.0) printf(" T4=%.1fC  ", t4);
+                  printf(" f0: %.2f ", gpx.meas24[0]);
+                  printf(" f3: %.2f ", gpx.meas24[3]);
+                  printf(" f4: %.2f ", gpx.meas24[4]);
+              }
+          }
+          if (option_verbose == 2  &&  (gpx.sonde_typ & 0xFF) == 9) {
+              printf("  U: %.2fV ", gpx.status[0]);
+              printf("  Ti: %.1fK ", gpx.status[1]);
+          }
           if (option_verbose  &&  (gpx.sonde_typ & SNbit))
           {
               if ((gpx.sonde_typ & 0xFF) == 6) {
@@ -788,6 +961,9 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "-b3") == 0) { option_b = 3; }
         else if ( (strcmp(*argv, "--ecc") == 0) ) {
             option_ecc = 1;
+        }
+        else if ( (strcmp(*argv, "--ptu") == 0) ) {
+            option_ptu = 1;
         }
         else {
             fp = fopen(*argv, "rb");

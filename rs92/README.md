@@ -5,7 +5,8 @@ Tools for decoding RS92-SGP and RS92-AGP radiosonde signals.
 
 ### Files
 
-* `nav_gps_vel.c` - include-file for `rs92gps.c`, `rs92gps_2dfix.c`, `rs92ecc.c`, `rs92agp.c`
+* `nav_gps_vel.c` - include-file for `rs92gps.c`, `rs92gps_2dfix.c`, `rs92ecc.c`, `rs92agp.c`;
+  `RS/ecc/bch_ecc.c`
 
 * `rs92gps.c` - RS92-SGP decoder (includes `nav_gps_vel.c`)
 
@@ -68,22 +69,22 @@ Tools for decoding RS92-SGP and RS92-AGP radiosonde signals.
     `<alt>` is the (estimated) altitude of the radiosonde in meters above ellipsoid.
     Default (without `--2dalt <alt>`) is 0m.
 
-
-* `rs92ecc.c` - RS92-SGP decoder with Reed-Solomon error correction (uses fec-lib by KA9Q)
-
-  #### Compile
+<!-- (commit 342) Reed-Solomon error correction (uses fec-lib by KA9Q)
   * ka9q-fec (fec-3.0.1): <br />
       `gcc -c init_rs_char.c` <br />
       `gcc -c decode_rs_char.c` <br />
   * `gcc init_rs_char.o decode_rs_char.o rs92ecc.c -lm -o rs92ecc` <br />
     (includes also `fec.h` from fec-3.0.1)
+  Will be replaced by Reed-Solomon-Decoder in `RS/ecc/bch_ecc.c` (cf. `RS/rs41/rs41ecc.c`).
+-->
+* `rs92ecc.c` - RS92-SGP decoder with Reed-Solomon error correction (includes `nav_gps_vel.c`, `bch_ecc.c`)
+
+  #### Compile
+  * `gcc rs92ecc.c -lm -o rs92ecc` &nbsp;&nbsp; (copy `RS/ecc/bch_ecc.c`)
 
   #### Usage
   Same as `rs92gps`.
   Additional option `--ecc`.
-
-  Will be replaced by Reed-Solom-Decoder in `RS/ecc/bch_ecc.c` (cf. `RS/rs41/rs41ecc.c`).
-
 
 * `rs92agp.c` - RS92-AGP, RS92-BGP decoder
 
