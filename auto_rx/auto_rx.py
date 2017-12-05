@@ -267,43 +267,18 @@ def process_rs_line(line):
     # 106,M3553150,2017-04-30,05:44:40.460,-34.72471,138.69178,-263.83, 0.1,265.0,0.3,OK
     try:
 
-        params = line.split(',')
-        if len(params) < 11:
-            logging.error("Not enough parameters: %s" % line)
+        if line[0] != "{":
             return None
 
-        # Attempt to extract parameters.
-        rs_frame = {}
-        rs_frame['frame'] = int(params[0])
-        rs_frame['id'] = str(params[1])
-        rs_frame['date'] = str(params[2])
-        rs_frame['time'] = str(params[3])
-        # Provide a clipped time field, without the milliseconds components.
-        # Do this just by splitting off everything before the '.', if it exists.
-        if '.' in rs_frame['time']:
-            rs_frame['short_time'] = rs_frame['time'].split('.')[0]
-        else:
-            rs_frame['short_time'] = rs_frame['time']
-
-        rs_frame['datetime_str'] = "%sT%s" % (rs_frame['date'], rs_frame['time'])
-        rs_frame['lat'] = float(params[4])
-        rs_frame['lon'] = float(params[5])
-        rs_frame['alt'] = float(params[6])
-        rs_frame['vel_h'] = float(params[7])
-        rs_frame['heading'] = float(params[8])
-        rs_frame['vel_v'] = float(params[9])
-        rs_frame['crc'] =  str(params[10]).strip()
-        # Set these to 0 for now, in case the RS codebase eventually supports PTU data.
-        rs_frame['temp'] = 0.0
+        rs_frame = json.loads(line)
+        rs_frame['crc'] = True # the rs92ecc only reports frames that match crc so we can lie here
+        rs_frame['temp'] = 0.0 #we don't have this yet
         rs_frame['humidity'] = 0.0
+        rs_frame['datetime_str'] = rs_frame['datetime'].replace("Z","") #python datetime sucks
 
+        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
 
-        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['time'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
-
-        if 'OK' not in rs_frame['crc']:
-            return None
-        else:
-            return rs_frame
+        return rs_frame
 
     except:
         logging.error("Could not parse string: %s" % line)
@@ -391,9 +366,9 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
     if ephemeris != None:
-        decode_cmd += "./rs92mod -v -vx -vv -r --sat --crc --csv -e %s" % ephemeris
+        decode_cmd += "./rs92ecc -v --crc --ecc --vel -e %s" % ephemeris
     elif almanac != None:
-        decode_cmd += "./rs92mod --crc --csv -a %s" % almanac
+        decode_cmd += "./rs92ecc -v --crc --ecc --vel -a %s" % almanac
 
     rx_last_line = time.time()
 
