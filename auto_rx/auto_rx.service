@@ -1,0 +1,15 @@
+[Unit]
+Description=auto_rx
+After=syslog.target
+
+[Service]
+ExecStart=/usr/bin/python /root/RS/auto_rx/auto_rx.py -t 0
+Restart=always
+RestartSec=3
+WorkingDirectory=/root/RS/auto_rx/
+User=root
+
+[Install]
+WantedBy=multi-user.target
+
+
