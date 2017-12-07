@@ -593,16 +593,16 @@ int main(int argc, char **argv) {
     int bitpos = 0;
     int bitQ;
     int pos;
-    int herrs;
+    int herrs, herr1;
     int headerlen = 0;
-    int frm = 0, nfrms = 4; // nfrms=1,2,4,8
+    int frm = 0, nfrms = 8; // nfrms=1,2,4,8
 
     float mv;
     unsigned int mv_pos, mv0_pos;
 
     float thres = 0.6;
 
-    int bitofs = 0;
+    int bitofs = 0, dif = 0;
 
 
 #ifdef CYGWIN
@@ -666,8 +666,8 @@ int main(int argc, char **argv) {
 
 
     headerlen = strlen(rawheader);
-    bitofs = 0; // -1 .. +1
-    if (init_buffers(rawheader, headerlen, bitofs, 1) < 0) { // shape=1
+    bitofs = 2; // +1 .. +2
+    if (init_buffers(rawheader, headerlen, 0) < 0) { // shape=0 (alt. shape=1)
         fprintf(stderr, "error: init buffers\n");
         return -1;
     };
@@ -678,13 +678,21 @@ int main(int argc, char **argv) {
     while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
 
         mv0_pos = mv_pos;
-        getmaxCorr(&mv, &mv_pos, headerlen+headerlen/2);
+        dif = getmaxCorr(&mv, &mv_pos, headerlen+headerlen/2);
 
         if (mv > thres) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(2, rawheader, headerlen, bitofs); // symlen=2
+                herrs = headcmp(2, rawheader, headerlen, mv_pos); // symlen=2
+                herr1 = 0;
+                if (herrs <= 3 && herrs > 0) {
+                    herr1 = headcmp(2, rawheader, headerlen, mv_pos+1);
+                    if (herr1 < herrs) {
+                        herrs = herr1;
+                        herr1 = 1;
+                    }
+                }
                 if (herrs <= 1) header_found = 1; // herrs <= 1 bitfehler in header
 
                 if (header_found) {
@@ -694,11 +702,11 @@ int main(int argc, char **argv) {
                     pos /= 2;
 
                     frm = 0;
-                    while ( frm < nfrms ) { // nfrms=1,4,8
+                    while ( frm < nfrms ) { // nfrms=1,2,4,8
                         while ( pos < BITFRAME_LEN ) {
                             header_found = !(frm==nfrms-1 && pos>=BITFRAME_LEN-10);
-                            bitQ = read_sbit(fp, 2, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
-                            //bitQ = read_sbit(fp, 2, &bit, option_inv, bitofs, bitpos==0, 0); // symlen=2, return: zeroX/bit
+                            bitQ = read_sbit(fp, 2, &bit, option_inv, dif+bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
+                            //bitQ = read_sbit(fp, 2, &bit, option_inv, dif+bitofs, bitpos==0, 0); // symlen=2, return: zeroX/bit
                             if (bitQ == EOF) { frm = nfrms; break; }
                             frame_bits[pos] = 0x30 + bit;
                             pos++;

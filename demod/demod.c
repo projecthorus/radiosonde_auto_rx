@@ -141,7 +141,8 @@ int getmaxCorr(float *maxv, unsigned int *maxvpos, int len) {
 // Maximum im Intervall [sample_out-slen, sample_out-1]
 // Randwerte zaehlen nicht als Extremwerte;
 // nur neu berechnen, wenn neue Werte groesser als altes Max
-    int slen, pos, mpos;
+    int slen, pos;
+    unsigned int mpos=0;
     float m, s0, s, s1;
 
     int posIn = 0; // -1..0..1; // rs41:0
@@ -171,7 +172,7 @@ int getmaxCorr(float *maxv, unsigned int *maxvpos, int len) {
         *maxvpos = mpos;
     }
 
-    return 0;
+    return mpos-sample_out;
 }
 
 int f32buf_sample(FILE *fp, int inv, int cm) {
@@ -192,7 +193,7 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
 
 	if (cm) {
 	    if (sample_in > sample_in0+1 || sample_in <= sample_in0) {
-	        for (i = 0; i < M; i++) corrbuf[i] = 0.0;
+	        for (i = 0; i < M; i++) corrbuf[i] = 0.0; // -1.0
 	    }
 		norm = 0.0;
 	//	for (i = 0; i < N; i++) {
@@ -218,7 +219,7 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
     return 0;
 }
 
-static int read_bufbit(int symlen, char *bits, int ofs, int reset) {
+static int read_bufbit(int symlen, char *bits, unsigned int mvp, int reset) {
 // symlen==2: manchester2 0->10,1->01->1: 2.bit
 
     static unsigned int rcount;
@@ -227,21 +228,21 @@ static int read_bufbit(int symlen, char *bits, int ofs, int reset) {
     double sum = 0.0;
 
     if (reset) {
-        rcount = 0;     // eigentlich scount = 1
-        rbitgrenze = 0; //   oder bitgrenze = -1
+        rcount = 0;
+        rbitgrenze = 0;
     }
 
 
     rbitgrenze += samples_per_bit;
     do {
-        sum += bufs[(sample_out+rcount + 2*M +ofs) % M];
+        sum += bufs[(rcount + mvp + M) % M];
         rcount++;
     } while (rcount < rbitgrenze);  // n < samples_per_bit
 
     if (symlen == 2) {
         rbitgrenze += samples_per_bit;
         do {
-            sum -= bufs[(sample_out+rcount + 2*M +ofs) % M];
+            sum -= bufs[(rcount + mvp + M) % M];
             rcount++;
         } while (rcount < rbitgrenze);  // n < samples_per_bit
     }
@@ -259,14 +260,14 @@ static int read_bufbit(int symlen, char *bits, int ofs, int reset) {
     return 0;
 }
 
-int headcmp(int symlen, char *hdr, int len, int ofs) {
+int headcmp(int symlen, char *hdr, int len, unsigned int mvp) {
     int errs = 0;
     int pos;
     int step = 1;
     if (symlen != 1) step = 2;
 
     for (pos = 0; pos < len; pos += step) {
-        read_bufbit(symlen, rawbits+pos, len*samples_per_bit+ofs, pos==0);
+        read_bufbit(symlen, rawbits+pos, mvp+1-(int)(len*samples_per_bit), pos==0);
     }
     rawbits[pos] = '\0';
 
@@ -344,7 +345,7 @@ static double norm2_match() {
     return y;
 }
 
-int init_buffers(char hdr[], int hLen, int bitofs, int shape) {
+int init_buffers(char hdr[], int hLen, int shape) {
     //hLen = strlen(header) = HEADLEN;
 
     int i, pos;
@@ -380,7 +381,7 @@ int init_buffers(char hdr[], int hLen, int bitofs, int shape) {
             || ( pos >  0     &&  hdr[pos-1]!=hdr[pos]  &&  x < 0.0 ) )  // x=0: a=sqalp
         {
             switch (shape) {
-                case  1: if ( fabs(x) > 0.5 ) a *= (1 - fabs(x))/0.5;
+                case  1: if ( fabs(x) > 0.6 ) a *= (1 - fabs(x))/0.6;
                          break;
                 case  2: a = sqalp * exp(-alpha*x*x);
                          break;
@@ -388,7 +389,7 @@ int init_buffers(char hdr[], int hLen, int bitofs, int shape) {
                          break;
                 default: a = sqalp;
                          if (i-pos*samples_per_bit < 2 ||
-                             i-pos*samples_per_bit > samples_per_bit-2) a = 0.9*sqalp;
+                             i-pos*samples_per_bit > samples_per_bit-2) a = 0.8*sqalp;
             }
         }
 

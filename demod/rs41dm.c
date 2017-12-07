@@ -1064,7 +1064,7 @@ int main(int argc, char *argv[]) {
     int bit, byte;
     int frmlen = FRAME_LEN;
     int headerlen;
-    int herrs;
+    int herrs, herr1;
     int bitQ, Qerror_count;
 
     float mv;
@@ -1072,7 +1072,7 @@ int main(int argc, char *argv[]) {
 
     float thres = 0.7;
 
-    int bitofs = 0;
+    int bitofs = 0, dif = 0;
 
 
 #ifdef CYGWIN
@@ -1146,8 +1146,8 @@ int main(int argc, char *argv[]) {
     }
 
     headerlen = strlen(header);
-    bitofs = +1; // -1 .. +1
-    if (init_buffers(header, headerlen, bitofs, 2) < 0) { // shape=2
+    bitofs = 2; // +1 .. +2
+    if (init_buffers(header, headerlen, 2) < 0) { // shape=2
         fprintf(stderr, "error: init buffers\n");
         return -1;
     };
@@ -1158,13 +1158,21 @@ int main(int argc, char *argv[]) {
     while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
 
         mv0_pos = mv_pos;
-        getmaxCorr(&mv, &mv_pos, headerlen+headerlen/2);
+        dif = getmaxCorr(&mv, &mv_pos, headerlen+headerlen/2);
 
         if (mv > thres) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(1, header, headerlen, bitofs); // symlen=1
+                herrs = headcmp(1, header, headerlen, mv_pos); // symlen=1
+                herr1 = 0;
+                if (herrs <= 3 && herrs > 0) {
+                    herr1 = headcmp(2, header, headerlen, mv_pos+1);
+                    if (herr1 < herrs) {
+                        herrs = herr1;
+                        herr1 = 1;
+                    }
+                }
                 if (herrs <= 2) header_found = 1; // herrs <= 2 bitfehler in header
 
                 if (header_found) {
@@ -1176,7 +1184,7 @@ int main(int argc, char *argv[]) {
                     Qerror_count = 0;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, 1, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, 1, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
@@ -1207,7 +1215,7 @@ int main(int argc, char *argv[]) {
                     print_frame(byte_count);
 
                     while ( bit_count < BITS*FRAME_LEN ) {
-                        bitQ = read_sbit(fp, 1, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, 1, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count++;
                     }
