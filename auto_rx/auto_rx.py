@@ -427,7 +427,7 @@ def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, t
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
-    decode_cmd += "./rs41mod --crc --csv"
+    decode_cmd += "./rs41ecc --crc --ecc " # if this doesn't work try -i at the end
 
     rx_last_line = time.time()
 
