@@ -37,7 +37,7 @@ static int findstr(char *buff, char *str, int pos) {
     return i;
 }
 
-int read_wav_header(FILE *fp, float baudrate) {
+float read_wav_header(FILE *fp, float baudrate) {
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
     int byte, p=0;
@@ -91,7 +91,7 @@ int read_wav_header(FILE *fp, float baudrate) {
 
     fprintf(stderr, "samples/bit: %.2f\n", samples_per_bit);
 
-    return 0;
+    return samples_per_bit;
 }
 
 

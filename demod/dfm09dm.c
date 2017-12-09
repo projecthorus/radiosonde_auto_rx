@@ -586,6 +586,7 @@ int main(int argc, char **argv) {
 
     FILE *fp = NULL;
     char *fpname = NULL;
+    float spb = 0.0;
     int header_found = 0;
     int ret = 0;
 
@@ -658,10 +659,14 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
-    if ( read_wav_header(fp, (float)BAUD_RATE) != 0 ) {
+    spb = read_wav_header(fp, (float)BAUD_RATE);
+    if ( spb < 0 ) {
         fclose(fp);
         fprintf(stderr, "error: wav header\n");
         return -1;
+    }
+    if ( spb < 8 ) {
+        fprintf(stderr, "note: sample rate low\n");
     }
 
 

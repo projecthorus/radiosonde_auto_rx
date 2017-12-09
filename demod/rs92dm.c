@@ -93,16 +93,16 @@ int exSat = -1;
 
 /* --- RS92-SGP: 8N1 manchester --- */
 #define BITS (1+8+1)  // 10
-#define HEADLEN 60
+//#define HEADLEN 60
 
-#define FRAMESTART ((HEADLEN)/BITS)
+#define FRAMESTART  6  //((HEADLEN)/BITS)
 
-/*                   2A                  10*/
-char rawheader[] =  "10100110011001101001"
-                    "10100110011001101001"
-                    "10100110011001101001"
-                    "10100110011001101001"
-                    "1010011001100110100110101010100110101001";
+/*                    2A                  10*/
+char rawheader[] = //"10100110011001101001"
+                   //"10100110011001101001"
+                     "10100110011001101001"
+                     "10100110011001101001"
+                     "1010011001100110100110101010100110101001";
 
 #define FRAME_LEN 240
 ui8_t frame[FRAME_LEN] = { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10};
@@ -1207,6 +1207,7 @@ int main(int argc, char *argv[]) {
 
     FILE *fp, *fp_alm = NULL, *fp_eph = NULL;
     char *fpname = NULL;
+    float spb = 0.0;
     char bitbuf[BITS];
     int bit_count = 0,
         bitpos = 0,
@@ -1366,10 +1367,14 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if ( read_wav_header(fp, (float)BAUD_RATE) != 0 ) {
+    spb = read_wav_header(fp, (float)BAUD_RATE);
+    if ( spb < 0 ) {
         fclose(fp);
         fprintf(stderr, "error: wav header\n");
         return -1;
+    }
+    if ( spb < 8 ) {
+        fprintf(stderr, "note: sample rate low\n");
     }
 
 
