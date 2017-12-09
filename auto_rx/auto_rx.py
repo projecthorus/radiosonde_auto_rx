@@ -275,6 +275,7 @@ def process_rs_line(line):
         rs_frame['temp'] = 0.0 #we don't have this yet
         rs_frame['humidity'] = 0.0
         rs_frame['datetime_str'] = rs_frame['datetime'].replace("Z","") #python datetime sucks
+        rs_frame['short_time'] = rs_frame['datetime'].split(".")[0].split("T")[1]
 
         logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
 
