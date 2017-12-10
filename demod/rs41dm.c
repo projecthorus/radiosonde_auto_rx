@@ -1074,6 +1074,7 @@ int main(int argc, char *argv[]) {
     float thres = 0.7;
 
     int bitofs = 0, dif = 0;
+    int symlen = 1;
 
 
 #ifdef CYGWIN
@@ -1150,6 +1151,8 @@ int main(int argc, char *argv[]) {
         rs_init_RS255();
     }
 
+
+    symlen = 1;
     headerlen = strlen(header);
     bitofs = 2; // +1 .. +2
     if (init_buffers(header, headerlen, 2) < 0) { // shape=2
@@ -1169,10 +1172,10 @@ int main(int argc, char *argv[]) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(1, header, headerlen, mv_pos); // symlen=1
+                herrs = headcmp(symlen, header, headerlen, mv_pos); // symlen=1
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(2, header, headerlen, mv_pos+1);
+                    herr1 = headcmp(symlen, header, headerlen, mv_pos+1);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;
@@ -1189,7 +1192,7 @@ int main(int argc, char *argv[]) {
                     Qerror_count = 0;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, 1, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
@@ -1220,7 +1223,7 @@ int main(int argc, char *argv[]) {
                     print_frame(byte_count);
 
                     while ( bit_count < BITS*FRAME_LEN ) {
-                        bitQ = read_sbit(fp, 1, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count++;
                     }

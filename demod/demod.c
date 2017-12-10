@@ -196,8 +196,8 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
 	        for (i = 0; i < M; i++) corrbuf[i] = 0.0; // -1.0
 	    }
 		norm = 0.0;
-	//	for (i = 0; i < N; i++) {
-	    for (i = 1; i < N-1; i++) {
+        //for (i = 0; i < N; i++) {
+        for (i = 1; i < N-1; i++) {
 		    x = bufs[(sample_in+M -(N-1) + i) % M];
 		    corr += match[i]*x;
 		    norm += x*x;
@@ -357,7 +357,7 @@ int init_buffers(char hdr[], int hLen, int shape) {
 
     N = hLen * samples_per_bit;
     M = 2*N; // >= N
-    Nvar = 32 * samples_per_bit;
+    Nvar = N/2;
 
     bufs  = (float *)calloc( M+1, sizeof(float)); if (bufs  == NULL) return -100;
     match = (float *)calloc( N+1, sizeof(float)); if (match == NULL) return -100;

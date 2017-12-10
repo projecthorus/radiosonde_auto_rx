@@ -1224,6 +1224,7 @@ int main(int argc, char *argv[]) {
     float thres = 0.7;
 
     int bitofs = 0, dif = 0;
+    int symlen = 2;
 
 
 #ifdef CYGWIN
@@ -1383,6 +1384,7 @@ int main(int argc, char *argv[]) {
     }
 
 
+    symlen = 2;
     headerlen = strlen(rawheader);
     bitofs = 2; // +1 .. +2
     if (init_buffers(rawheader, headerlen, 2) < 0) { // shape=2
@@ -1401,10 +1403,10 @@ int main(int argc, char *argv[]) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(2, rawheader, headerlen, mv_pos); // symlen=2
+                herrs = headcmp(symlen, rawheader, headerlen, mv_pos); // symlen=2
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(2, rawheader, headerlen, mv_pos+1);
+                    herr1 = headcmp(symlen, rawheader, headerlen, mv_pos+1);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;
@@ -1420,7 +1422,7 @@ int main(int argc, char *argv[]) {
 
                     while ( byte_count < FRAME_LEN ) {
                         header_found = !(byte_count>=FRAME_LEN-2);
-                        bitQ = read_sbit(fp, 2, &bit, option_inv, dif+bitofs, bit_count==0, !header_found); // symlen=2, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, !header_found); // symlen=2, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
