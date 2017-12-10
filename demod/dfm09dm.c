@@ -712,8 +712,7 @@ int main(int argc, char **argv) {
                     while ( frm < nfrms ) { // nfrms=1,2,4,8
                         while ( pos < BITFRAME_LEN ) {
                             header_found = !(frm==nfrms-1 && pos>=BITFRAME_LEN-10);
-                            bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
-                            //bitQ = read_sbit(fp, 2, &bit, option_inv, dif+bitofs, bitpos==0, 0); // symlen=2, return: zeroX/bit
+                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
                             if (bitQ == EOF) { frm = nfrms; break; }
                             frame_bits[pos] = 0x30 + bit;
                             pos++;

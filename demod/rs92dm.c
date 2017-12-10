@@ -1422,7 +1422,7 @@ int main(int argc, char *argv[]) {
 
                     while ( byte_count < FRAME_LEN ) {
                         header_found = !(byte_count>=FRAME_LEN-2);
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, !header_found); // symlen=2, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, !header_found); // symlen=2, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;

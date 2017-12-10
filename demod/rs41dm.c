@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[]) {
                     Qerror_count = 0;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
@@ -1202,7 +1202,7 @@ int main(int argc, char *argv[]) {
                             byte = bits2byte(bitbuf);
                             frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
 
-                            byteQ[byte_count] = get_var();
+                            byteQ[byte_count] = get_bufvar(0);
 
                             if (byte_count > NDATA_LEN) { // Fehler erst ab minimaler framelen Zaehlen
                                 if (byteQ[byte_count]*2 > byteQ[byte_count-300]*3) { // Var(frame)/Var(noise) ca. 1:2
@@ -1223,7 +1223,7 @@ int main(int argc, char *argv[]) {
                     print_frame(byte_count);
 
                     while ( bit_count < BITS*FRAME_LEN ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, dif+bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count++;
                     }

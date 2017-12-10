@@ -23,6 +23,24 @@ typedef int   i32_t;
 
 //#include "demod.h"
 
+
+static unsigned int sample_in, sample_out, delay;
+static int buffered = 0;
+
+static int N, M;
+
+static float *match = NULL,
+             *bufs  = NULL,
+             *corrbuf = NULL;
+
+static char *rawbits = NULL;
+
+static int Nvar = 0; // < M
+static double xsum=0, qsum=0;
+static float *xs = NULL,
+             *qs = NULL;
+
+
 /* ------------------------------------------------------------------------------------ */
 
 
@@ -94,7 +112,6 @@ float read_wav_header(FILE *fp, float baudrate) {
     return samples_per_bit;
 }
 
-
 static int f32read_sample(FILE *fp, float *s) {
     int i;
     short b = 0;
@@ -116,23 +133,10 @@ static int f32read_sample(FILE *fp, float *s) {
     return 0;
 }
 
-
-static unsigned int sample_in, sample_out, delay;
-
-static int N, M;
-
-static float *match = NULL,
-             *bufs  = NULL,
-             *corrbuf = NULL;
-
-static char *rawbits = NULL;
-
-static int Nvar = 0; // < M
-static double xsum=0, samples_mu=0,
-              qsum=0, samples_var=0;
-
-float get_var() {
-    return (float)samples_var;
+float get_bufvar(int ofs) {
+    float mu  = xs[(sample_out+M + ofs) % M]/Nvar;
+    float var = qs[(sample_out+M + ofs) % M]/Nvar - mu*mu;
+    return var;
 }
 
 int getmaxCorr(float *maxv, unsigned int *maxvpos, int len) {
@@ -172,16 +176,18 @@ int getmaxCorr(float *maxv, unsigned int *maxvpos, int len) {
         *maxvpos = mpos;
     }
 
-    return mpos-sample_out;
+    buffered = sample_out-mpos;
+
+    return -buffered;
 }
 
 int f32buf_sample(FILE *fp, int inv, int cm) {
     static unsigned int sample_in0;
     int i;
     float s = 0.0;
-    float x, xneu, xalt,
-          corr = 0.0,
-          norm = 0.0;
+    float xneu, xalt,
+          corr  = 0.0,
+          norm2 = 0.0;
 
 
     if (f32read_sample(fp, &s) == EOF) return EOF;
@@ -189,30 +195,30 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
     if (inv) s = -s;
     bufs[sample_in % M] = s;
 
-    sample_out = sample_in - delay;
+    xneu = bufs[(sample_in  ) % M];
+    xalt = bufs[(sample_in+M - Nvar) % M];
+    xsum +=  xneu - xalt;                 // + xneu - xalt
+    qsum += (xneu - xalt)*(xneu + xalt);  // + xneu*xneu - xalt*xalt
+    xs[sample_in % M] = xsum;
+    qs[sample_in % M] = qsum;
+
 
 	if (cm) {
 	    if (sample_in > sample_in0+1 || sample_in <= sample_in0) {
 	        for (i = 0; i < M; i++) corrbuf[i] = 0.0; // -1.0
 	    }
-		norm = 0.0;
-        //for (i = 0; i < N; i++) {
-        for (i = 1; i < N-1; i++) {
-		    x = bufs[(sample_in+M -(N-1) + i) % M];
-		    corr += match[i]*x;
-		    norm += x*x;
+        for (i = 0; i < N; i++) {
+		    corr += match[i]*bufs[(sample_in+M -(N-1) + i) % M];
 		}
-		corr = corr/sqrt(norm);
-		corrbuf[sample_in % M] = corr;
+		norm2 = qsum; //=qs[(sample_in) % M]; // N=Nvar ;  N>Nvar, approx: norm2 *= N/(float)Nvar
+		    //norm2 = qs[(sample_in+M - Nvar) % M] + qs[(sample_in) % M]; // N=2*Nvar
+		    //for (i = 0; i < N; i+=Nvar) norm2 += qs[(sample_in+M - i) % M]; // N=k*Nvar
+		corrbuf[sample_in % M] = corr/sqrt(norm2);
 		sample_in0 = sample_in;
     }
 
-    xneu = bufs[(sample_out+M +1) % M];
-    xalt = bufs[(sample_out+M -Nvar-1) % M];
-    xsum = xsum - xalt + xneu;
-    qsum = qsum - xalt*xalt + xneu*xneu;
-    samples_mu  = xsum/Nvar;
-    samples_var = qsum/Nvar - samples_mu*samples_mu;
+
+    sample_out = sample_in - delay;
 
     sample_in += 1;
 
@@ -287,13 +293,9 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     static double bitgrenze;
     static unsigned long scount;
 
-    float sample, sample0;
-    int pars;
+    float sample;
 
     double sum = 0.0;
-
-    sample0 = 0;
-    pars = 0;
 
     if (reset) {
         scount = 0;
@@ -303,12 +305,11 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     if (symlen == 2) {
         bitgrenze += samples_per_bit;
         do {
-            if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
-            sample = bufs[(sample_out+ofs + M) % M];
-            sum -= sample;
+            if (buffered > 0) buffered -= 1;
+            else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
 
-            if (sample * sample0 < 0) pars++;   // wenn sample[0..n-1]=0 ...
-            sample0 = sample;
+            sample = bufs[(sample_out-buffered + ofs + M) % M];
+            sum -= sample;
 
             scount++;
         } while (scount < bitgrenze);  // n < samples_per_bit
@@ -316,12 +317,11 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
 
     bitgrenze += samples_per_bit;
     do {
-        if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
-        sample = bufs[(sample_out+ofs + M) % M];
-        sum += sample;
+        if (buffered > 0) buffered -= 1;
+        else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
 
-        if (sample * sample0 < 0) pars++;   // wenn sample[0..n-1]=0 ...
-        sample0 = sample;
+        sample = bufs[(sample_out-buffered + ofs + M) % M];
+        sum += sample;
 
         scount++;
     } while (scount < bitgrenze);  // n < samples_per_bit
@@ -329,9 +329,8 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
 
-    return pars;
+    return 0;
 }
-
 
 /* -------------------------------------------------------------------------- */
 
@@ -357,11 +356,15 @@ int init_buffers(char hdr[], int hLen, int shape) {
 
     N = hLen * samples_per_bit;
     M = 2*N; // >= N
-    Nvar = N/2;
+    Nvar = N; //N/2; // = N/k
 
     bufs  = (float *)calloc( M+1, sizeof(float)); if (bufs  == NULL) return -100;
     match = (float *)calloc( N+1, sizeof(float)); if (match == NULL) return -100;
     corrbuf = (float *)calloc( M+1, sizeof(float)); if (corrbuf == NULL) return -100;
+
+    xs = (float *)calloc( M+1, sizeof(float)); if (xs == NULL) return -100;
+    qs = (float *)calloc( M+1, sizeof(float)); if (qs == NULL) return -100;
+
 
     rawbits = (char *)calloc( N+1, sizeof(char)); if (rawbits == NULL) return -100;
 
@@ -411,11 +414,12 @@ int init_buffers(char hdr[], int hLen, int shape) {
     return 0;
 }
 
-
 int free_buffers() {
 
     if (match) { free(match); match = NULL; }
     if (bufs)  { free(bufs);  bufs  = NULL; }
+    if (xs)  { free(xs);  xs  = NULL; }
+    if (qs)  { free(qs);  qs  = NULL; }
     if (corrbuf) { free(corrbuf); corrbuf = NULL; }
     if (rawbits) { free(rawbits); rawbits = NULL; }
 
