@@ -203,18 +203,18 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
     qs[sample_in % M] = qsum;
 
 
-	if (cm) {
-	    if (sample_in > sample_in0+1 || sample_in <= sample_in0) {
-	        for (i = 0; i < M; i++) corrbuf[i] = 0.0; // -1.0
-	    }
+    if (cm) {
+        if (sample_in > sample_in0+1 || sample_in <= sample_in0) {
+            for (i = 0; i < M; i++) corrbuf[i] = 0.0; // -1.0
+        }
         for (i = 0; i < N; i++) {
-		    corr += match[i]*bufs[(sample_in+M -(N-1) + i) % M];
-		}
-		norm2 = qsum; //=qs[(sample_in) % M]; // N=Nvar ;  N>Nvar, approx: norm2 *= N/(float)Nvar
-		    //norm2 = qs[(sample_in+M - Nvar) % M] + qs[(sample_in) % M]; // N=2*Nvar
-		    //for (i = 0; i < N; i+=Nvar) norm2 += qs[(sample_in+M - i) % M]; // N=k*Nvar
-		corrbuf[sample_in % M] = corr/sqrt(norm2);
-		sample_in0 = sample_in;
+            corr += match[i]*bufs[(sample_in+M -(N-1) + i) % M];
+        }
+        norm2 = qsum; //=qs[(sample_in) % M]; // N=Nvar ;  N>Nvar, approx: norm2 *= N/(float)Nvar
+            //norm2 = qs[(sample_in+M - Nvar) % M] + qs[(sample_in) % M]; // N=2*Nvar
+            //for (i = 0; i < N; i+=Nvar) norm2 += qs[(sample_in+M - i) % M]; // N=k*Nvar
+        corrbuf[sample_in % M] = corr/sqrt(norm2);
+        sample_in0 = sample_in;
     }
 
 
