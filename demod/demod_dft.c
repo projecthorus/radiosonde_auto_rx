@@ -142,7 +142,7 @@ int getCorrDFT(int K, unsigned int pos, float *maxv, unsigned int *maxvpos) {
     *maxv = mx;
     *maxvpos = mpos;
 
-    buffered = sample_out-mpos;
+    if (pos == sample_out) buffered = sample_out-mpos;
 
     return mp;
 }
