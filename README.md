@@ -11,6 +11,54 @@ launched.
 The key changes from the RS master codebase are:
 * Modification of rs92gps and rs41 for easier output parsing
 * Addition of the auto_rx folder, containing automatic RX scripts
+
+## Installing on a pi
+
+Below are assuming running as root and installing to /root/radiosonde_auto_rx
+
+### Build auto_rx and deps
+```
+apt-get update
+apt-get install python-numpy python-crcmod sox rtl-sdr
+git clone https://github.com/projecthorus/radiosonde_auto_rx.git /root/radiosonde_auto_rx
+cd radiosonde_auto_rx/auto_rx
+./build.sh
+```
+
+### Configure auto_rx
+```
+cp station.cfg.example station.cfg
+nano station.cfg
+```
+
+### Blacklist Kernel Drivers
+```
+cat << EOF > /etc/modprobe.d/rtl-sdr-blacklist.conf 
+blacklist dvb_usb_rtl28xxu
+blacklist e4000
+blacklist rtl2832
+blacklist dvb_usb_rtl2832u
+blacklist dvb_usb
+EOF
+```
+
+### Setup Systemd service file
+```
+cp auto_rx.service /etc/systemd/system/auto_rx.service
+systemctl enable auto_rx
+systemctl start auto_rx
+```
+
+### Watching the log
+```
+journalctl -u auto_rx.service -f -n 100
+```
+
+### Restarting or stopping the service
+```
+systemctl stop auto_rx
+systemctl start auto_rx
+```
   
 #### Wetterballon-Radiosonden  400-406 MHz  
 
