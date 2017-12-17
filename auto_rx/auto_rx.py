@@ -23,6 +23,7 @@ import traceback
 from aprs_utils import *
 from habitat_utils import *
 from ozi_utils import *
+from rotator_utils import *
 from threading import Thread
 from StringIO import StringIO
 from findpeaks import *
@@ -44,8 +45,6 @@ internet_push_queue = Queue.Queue()
 OZI_PUSH_RUNNING = True
 ozi_push_queue = Queue.Queue()
 
-# Rotator control object
-rotctld = None
 
 # Flight Statistics data
 # stores copies of the telemetry dictionary returned by process_rs_line.
@@ -547,7 +546,11 @@ def internet_push_thread(station_config):
                 aprs_comment = aprs_comment.replace("<type>", data['type'])
 
                 # Push data to APRS.
-                aprs_data = push_balloon_to_aprs(data,object_name=station_config['aprs_object_id'],aprs_comment=aprs_comment,aprsUser=station_config['aprs_user'], aprsPass=station_config['aprs_pass'])
+                aprs_data = push_balloon_to_aprs(data,
+                                                object_name=station_config['aprs_object_id'],
+                                                aprs_comment=aprs_comment,
+                                                aprsUser=station_config['aprs_user'],
+                                                aprsPass=station_config['aprs_pass'])
                 logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
 
             # Habitat Upload
@@ -555,10 +558,18 @@ def internet_push_thread(station_config):
                 habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
                 logging.debug("Data pushed to Habitat.")
 
-            # Rotator Update.
-            if rotctld != None:
+            # Update Rotator positon, if configured.
+            if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
+                # Calculate Azimuth & Elevation to Radiosonde.
+                rel_position = position_info((config['station_lat'], config['station_lon'], config['station_alt']),
+                    (data['lat'], data['lon'], data['alt']))
+
                 # Update the rotator with the current sonde position.
-                pass
+                update_rotctld(hostname=config['rotator_hostname'], 
+                            port=config['rotator_port'],
+                            azimuth=rel_position['bearing'],
+                            elevation=rel_position['elevation'])
+
 
         except:
             traceback.print_exc()
@@ -648,11 +659,6 @@ if __name__ == "__main__":
     if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
         uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
 
-    # If rotator control has been enabled, and we have sensible-looking lat/lon coords, attemt to start up comms with rotctld.
-    if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
-        # Attempt to connect to a rotctld instance.
-        pass
-
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
     while time.time() < timeout_time or args.timeout == 0:
@@ -664,6 +670,14 @@ if __name__ == "__main__":
             else:
                 logging.info("No sonde found. Exiting.")
                 sys.exit(1)
+
+        # If we have a rotator configured, attempt to point the rotator to the home location
+        if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['rotator_homing_enabled']:
+            update_rotctld(hostname=config['rotator_hostname'], 
+                        port=config['rotator_port'], 
+                        azimuth=config['rotator_home_azimuth'], 
+                        elevation=config['rotator_home_elevation'])
+
         # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
         if sonde_type == None:
             (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])

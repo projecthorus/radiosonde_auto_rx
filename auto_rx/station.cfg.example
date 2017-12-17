@@ -45,7 +45,7 @@ quantization = 10000
 rx_timeout = 120
 
 
-# Station Location. Used by the Habitat Uploader, and by Rotator Control
+# Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
 [location]
 station_lat = 0.0
 station_lon = 0.0
@@ -95,7 +95,7 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 payload_callsign = RADIOSONDE
 # Uploader callsign, as shown above.
 uploader_callsign = SONDE_AUTO_RX
-# Upload listener position to Habitat?
+# Upload listener position to Habitat? (So you show up on the map)
 upload_listener_position = False
 
 # Rotator Settings

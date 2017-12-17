@@ -85,7 +85,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['enable_rotator'] = config.getboolean('rotator','enable_rotator')
 		auto_rx_config['rotator_hostname'] = config.get('rotator', 'rotator_hostname')
-		auto_rx_config['rotator_port'] = config.get('rotator', 'rotator_port')
+		auto_rx_config['rotator_port'] = config.getint('rotator', 'rotator_port')
 		auto_rx_config['rotator_homing_enabled'] = config.getboolean('rotator', 'rotator_homing_enabled')
 		auto_rx_config['rotator_home_azimuth'] = config.getfloat('rotator', 'rotator_home_azimuth')
 		auto_rx_config['rotator_home_elevation'] = config.getfloat('rotator', 'rotator_home_elevation')
