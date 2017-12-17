@@ -517,7 +517,7 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
 
 def internet_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat), and also to a rotator (if configured) """
-    global internet_push_queue, INTERNET_PUSH_RUNNING, rotctld
+    global internet_push_queue, INTERNET_PUSH_RUNNING
     logging.info("Started Internet Push thread.")
     while INTERNET_PUSH_RUNNING:
         data = None
@@ -570,9 +570,8 @@ def internet_push_thread(station_config):
                             azimuth=rel_position['bearing'],
                             elevation=rel_position['elevation'])
 
-
         except:
-            traceback.print_exc()
+            logging.error("Error while uploading data: %s" % traceback.format_exc())
 
         if station_config['synchronous_upload']:
             # Sleep for a second to ensure we don't double upload in the same slot (shouldn't' happen, but anyway...)
