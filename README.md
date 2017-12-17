@@ -1,4 +1,4 @@
-### Automatic Radiosonde RX Station Extensions ###
+#Automatic Radiosonde Receiver Utilities#
 This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set of utilities ('auto_rx') to allow automatic reception and uploading of radiosonde positions to multiple services, including:
 * The [Habitat High-Altitude Balloon Tracker](https://tracker.habhub.org)
 * APRS-IS (for display on sites such as [aprs.fi](https://aprs.fi)
@@ -14,3 +14,9 @@ The key changes from the RS master codebase are:
 * Modifications to the rs92ecc and rs41ecc decoders, to provide telemetry output in JSON format.
 
 Refer to the wiki for [installation and setup instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
+
+### Contacts
+* [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
+* [Michael Wheeler](https://github.com/TheSkorm) - git@mwheeler.org
+
+You can often find us in the #highaltitude IRC Channel on [Freenode](https://webchat.freenode.net/).
