@@ -12,7 +12,7 @@ def read_auto_rx_config(filename):
 	# Configuration Defaults:
 	auto_rx_config = {
 		'rtlsdr_ppm'	:	0,
-		'rtlsdr_gain'	:	0,
+		'rtlsdr_gain'	:	-1,
 		'rtlsdr_bias'	: False,
 		'search_attempts':	5,
 		'search_delay'	: 120,
@@ -21,6 +21,7 @@ def read_auto_rx_config(filename):
 		'search_step'	: 800,
 		'min_snr'		: 10,
 		'min_distance'	: 1000,
+		'dwell_time'	: 10,
 		'quantization'	: 10000,
 		'rx_timeout'	: 120,
 		'upload_rate'	: 30,
@@ -47,8 +48,8 @@ def read_auto_rx_config(filename):
 		config = ConfigParser.RawConfigParser()
 		config.read(filename)
 
-		auto_rx_config['rtlsdr_ppm'] = config.getint('rtlsdr', 'rtlsdr_ppm')
-		auto_rx_config['rtlsdr_gain'] = config.getint('rtlsdr', 'rtlsdr_gain')
+		auto_rx_config['rtlsdr_ppm'] = int(config.getfloat('rtlsdr', 'rtlsdr_ppm'))
+		auto_rx_config['rtlsdr_gain'] = config.getfloat('rtlsdr', 'rtlsdr_gain')
 		auto_rx_config['rtlsdr_bias'] = config.getboolean('rtlsdr', 'rtlsdr_bias')
 		auto_rx_config['search_attempts'] = config.getint('search_params', 'search_attempts')
 		auto_rx_config['search_delay'] = config.getint('search_params', 'search_delay')
@@ -57,6 +58,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['search_step'] = config.getfloat('search_params', 'search_step')
 		auto_rx_config['min_snr'] = config.getfloat('search_params', 'min_snr')
 		auto_rx_config['min_distance'] = config.getfloat('search_params', 'min_distance')
+		auto_rx_config['dwell_time'] = config.getint('search_params', 'dwell_time')
 		auto_rx_config['quantization'] = config.getint('search_params', 'quantization')
 		auto_rx_config['rx_timeout'] = config.getint('search_params', 'rx_timeout')
 		auto_rx_config['upload_rate'] = config.getint('upload', 'upload_rate')

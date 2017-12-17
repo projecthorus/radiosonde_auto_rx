@@ -4,27 +4,9 @@
 #
 # 2017-04 Mark Jessop <vk5qi@rfhead.net>
 #
-# Use the build.sh script in this directory to build the required binaries and move them to this directory.
+# Refer github page for instructions on setup and usage.
+# https://github.com/projecthorus/radiosonde_auto_rx/
 #
-# The following other packages are needed:
-# rtl-sdr (for the rtl_power and rtl_fm utilities)
-# sox
-#
-# The following Python packages are needed:
-# - numpy
-# - crcmod
-#
-# Instructions:
-# Modify config parameters below as required. Take note of the APRS_USER and APRS_PASS values.
-# Run with: python auto_rx.py
-# A log file will be written to log/<timestamp>.log
-#
-#
-# TODO:
-# [ ] Fix user gain setting issues. (gain='automatic' = no decode?!)
-# [ ] Use FSK demod from codec2-dev ? 
-# [ ] Storage of flight information in some kind of database.
-# [ ] Local frequency blacklist, to speed up scan times.
 
 import numpy as np
 import sys
@@ -33,6 +15,7 @@ import logging
 import datetime
 import time
 import os
+import platform
 import signal
 import Queue
 import subprocess
@@ -47,6 +30,8 @@ from config_reader import *
 from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
+# Logging level
+logging_level = logging.INFO
 
 # Internet Push Globals
 APRS_OUTPUT_ENABLED = False
@@ -69,16 +54,30 @@ flight_stats = {
 }
 
 
-def run_rtl_power(start, stop, step, filename="log_power.csv",  dwell = 20, ppm = 0, gain = 'automatic', bias = False):
+def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, ppm = 0, gain = -1, bias = False):
     """ Run rtl_power, with a timeout"""
-    # rtl_power -f 400400000:403500000:800 -i20 -1 log_power.csv
+    # Example: rtl_power -T -f 400400000:403500000:800 -i20 -1 -c 20% -p 0 log_power.csv
 
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
 
-    # Added -k 30 option, to SIGKILL rtl_power 5 seconds after the regular timeout expires. 
-    rtl_power_cmd = "timeout -k 30 %d rtl_power %s-f %d:%d:%d -i %d -1 -c 20%% -p %d %s" % (dwell+10, bias_option, start, stop, step, dwell, int(ppm), filename)
+    # Add a gain parameter if we have been provided one.
+    if gain != -1:
+        gain_param = '-g %.1f ' % gain
+    else:
+        gain_param = ''
+
+    # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
+    # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
+    # which is provided with OSX (Darwin).
+    if 'Darwin' in platform.platform():
+        timeout_kill = ''
+    else:
+        timeout_kill = '-k 30 '
+
+    rtl_power_cmd = "timeout %s%d rtl_power %s-f %d:%d:%d -i %d -1 -c 20%% -p %d %s%s" % (timeout_kill, dwell+10, bias_option, start, stop, step, dwell, int(ppm), gain_param, filename)
     logging.info("Running frequency scan.")
+    logging.debug("Running command: %s" % rtl_power_cmd)
     ret_code = os.system(rtl_power_cmd)
     if ret_code == 1:
         logging.critical("rtl_power call failed!")
@@ -137,17 +136,27 @@ def quantize_freq(freq_list, quantize=5000):
     """ Quantise a list of frequencies to steps of <quantize> Hz """
     return np.round(freq_list/quantize)*quantize
 
-def detect_sonde(frequency, ppm=0, gain='automatic', bias=False):
+def detect_sonde(frequency, ppm=0, gain=-1, bias=False, dwell_time=10):
     """ Receive some FM and attempt to detect the presence of a radiosonde. """
+
+    # Example command (for command-line testing):
+    # rtl_fm -T -p 0 -M fm -s 15k -f 401500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 | ./rs_detect -z -t 8
 
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
 
-    rx_test_command = "timeout 10s rtl_fm %s-p %d -M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency) 
+    # Add a gain parameter if we have been provided one.
+    if gain != -1:
+        gain_param = '-g %.1f ' % gain
+    else:
+        gain_param = ''
+
+    rx_test_command = "timeout %ds rtl_fm %s-p %d %s-M fm -s 15k -f %d 2>/dev/null |" % (dwell_time, bias_option, int(ppm), gain_param, frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += "./rs_detect -z -t 8 2>/dev/null"
 
     logging.info("Attempting sonde detection on %.3f MHz" % (frequency/1e6))
+    logging.debug("Running command: %s" % rx_test_command)
 
     ret_code = os.system(rx_test_command)
 
@@ -159,6 +168,15 @@ def detect_sonde(frequency, ppm=0, gain='automatic', bias=False):
     elif ret_code == 4:
         logging.info("Detected a RS92!")
         return "RS92"
+    elif ret_code == 2:
+        logging.info("Detected a DFM Sonde! (Unsupported)")
+        return "DFM"
+    elif ret_code == 5:
+        logging.info("Detected a M10 Sonde! (Unsupported)")
+        return "M10"
+    elif ret_code == 6:
+        logging.info("Detected a iMet Sonde! (Unsupported)")
+        return "iMet"
     else:
         return None
 
@@ -241,7 +259,11 @@ def sonde_search(config, attempts = 5):
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
-            detected = detect_sonde(freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
+            detected = detect_sonde(freq, 
+                ppm=config['rtlsdr_ppm'], 
+                gain=config['rtlsdr_gain'], 
+                bias=config['rtlsdr_bias'], 
+                dwell_time=config['dwell_time'])
             if detected != None:
                 sonde_freq = freq
                 sonde_type = detected
@@ -337,7 +359,7 @@ def calculate_flight_statistics():
 
     return stats_str
 
-def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120):
+def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120):
     """ Decode a RS92 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
 
@@ -360,7 +382,13 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
 
-    decode_cmd = "rtl_fm %s-p %d -M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
+    # Add a gain parameter if we have been provided one.
+    if gain != -1:
+        gain_param = '-g %.1f ' % gain
+    else:
+        gain_param = ''
+
+    decode_cmd = "rtl_fm %s-p %d %s-M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
@@ -370,6 +398,8 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
         decode_cmd += "./rs92ecc -v --crc --ecc --vel -e %s" % ephemeris
     elif almanac != None:
         decode_cmd += "./rs92ecc -v --crc --ecc --vel -a %s" % almanac
+
+    logging.debug("Running command: %s" % decode_cmd)
 
     rx_last_line = time.time()
 
@@ -416,19 +446,27 @@ def decode_rs92(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, a
     return
 
 
-def decode_rs41(frequency, ppm=0, gain='automatic', bias=False, rx_queue=None, timeout=120):
+def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=120):
     """ Decode a RS41 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
 
-    decode_cmd = "rtl_fm %s-p %d -M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), frequency)
+    # Add a gain parameter if we have been provided one.
+    if gain != -1:
+        gain_param = '-g %.1f ' % gain
+    else:
+        gain_param = ''
+
+    decode_cmd = "rtl_fm %s-p %d %s-M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
     decode_cmd += "./rs41ecc --crc --ecc " # if this doesn't work try -i at the end
+
+    logging.debug("Running command: %s" % decode_cmd)
 
     rx_last_line = time.time()
 
@@ -513,6 +551,7 @@ def internet_push_thread(station_config):
             # Habitat Upload
             if station_config['enable_habitat']:
                 habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
+                logging.debug("Data pushed to Habitat.")
         except:
             traceback.print_exc()
 
@@ -569,7 +608,7 @@ def ozi_push_thread(station_config):
 if __name__ == "__main__":
 
     # Setup logging.
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S.log"), level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)
@@ -578,22 +617,14 @@ if __name__ == "__main__":
     # Command line arguments. 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
-    parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step).")
+    parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step, and quit if no sonde found).")
     parser.add_argument("-t", "--timeout", type=int, default=180, help="Stop receiving after X minutes.")
     args = parser.parse_args()
 
     # Attempt to read in configuration file. Use default config if reading fails.
     config = read_auto_rx_config(args.config)
 
-    print(config)
-
-    # Clean up gain value.
-    if config['rtlsdr_gain'] == '0' or config['rtlsdr_gain'] == 0:
-        config['rtlsdr_gain'] = 'automatic'
-    elif type(config['rtlsdr_gain']) == int:
-        config['rtlsdr_gain'] = str(config['rtlsdr_gain'])
-    else:
-        config['rtlsdr_gain'] = 'automatic'
+    logging.debug("Using Configuration: %s" % str(config))
 
     timeout_time = time.time() + int(args.timeout)*60
 
@@ -618,6 +649,9 @@ if __name__ == "__main__":
             sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
             if sonde_type != None:
                 sonde_freq = int(float(args.frequency)*1e6)
+            else:
+                logging.info("No sonde found. Exiting.")
+                sys.exit(1)
         # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
         if sonde_type == None:
             (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])
