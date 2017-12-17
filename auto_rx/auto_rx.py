@@ -551,7 +551,7 @@ def internet_push_thread(station_config):
                                                 aprs_comment=aprs_comment,
                                                 aprsUser=station_config['aprs_user'],
                                                 aprsPass=station_config['aprs_pass'])
-                logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
+                logging.info("Data pushed to APRS-IS: %s" % aprs_data)
 
             # Habitat Upload
             if station_config['enable_habitat']:
@@ -656,7 +656,7 @@ if __name__ == "__main__":
 
     # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
     if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
-        uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
+        uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
 
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
@@ -689,7 +689,7 @@ if __name__ == "__main__":
 
         # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
         if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
-            uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
+            uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
 
         # Start both of our internet/ozi push threads, even if we're not going to use them.
         if push_thread_1 == None:
