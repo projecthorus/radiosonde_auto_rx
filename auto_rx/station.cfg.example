@@ -6,28 +6,38 @@
 
 # Settings used when receiving data using a RTLSDR.
 [rtlsdr]
-# PPM Frequency Correction
+# PPM Frequency Correction (ppm offset)
+# Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
 rtlsdr_ppm = 0
-# Gain setting to use. 0 = Auto Gain
-rtlsdr_gain = 0
+# RTLSDR Gain Setting
+# Gain settings can generally range between 0dB and 30dB depending on the tuner in use.
+# Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
+# Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
+rtlsdr_gain = -1
 # Enable RTLSDR Bias Tee (for v3 Dongles)
-# Requires rtl_biast be installed.
+# Requires a recent version of rtl-sdr to be installed (needs the -T option)
 rtlsdr_bias = False
 
 # Radiosonde Search Parameters
 [search_params]
+# Number of times to scan before quitting (Deprecated?)
 search_attempts = 10
-search_delay = 120
+# Wait time between failed scans.
+search_delay = 10
 
-# Minimum and maximum search frequencies, in MHz
+# Minimum and maximum search frequencies, in MHz.
+# Australia: Use 400.4 - 404 MHz
+# Europe: Use 400.5 - 406 MHz
 min_freq = 400.4
 max_freq = 404.0
-# Receive bin width, in Hz
+# Receive bin width (Hz)
 search_step = 800
 # Minimum SNR for a peak to be detected. The lower the number, the more peaks detected.
 min_snr = 10
-# Minimum distance between peaks
+# Minimum distance between peaks (Hz)
 min_distance = 1000
+# Dwell time - How long to wait for a sonde detection on each peak.
+dwell_time = 10
 # Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
 quantization = 10000
 # Timeout and re-scan after X seconds of no data.
