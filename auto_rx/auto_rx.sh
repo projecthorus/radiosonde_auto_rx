@@ -8,7 +8,7 @@
 #
 
 # change into appropriate directory
-cd ~/RS/auto_rx/
+cd /home/pi/radiosonde_auto_rx/auto_rx/
 
 # Clean up old files
 rm log_power.csv
