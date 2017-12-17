@@ -30,6 +30,7 @@ search_delay = 10
 # Europe: Use 400.5 - 406 MHz
 min_freq = 400.4
 max_freq = 404.0
+
 # Receive bin width (Hz)
 search_step = 800
 # Minimum SNR for a peak to be detected. The lower the number, the more peaks detected.
@@ -44,17 +45,25 @@ quantization = 10000
 rx_timeout = 120
 
 
-# Internet upload settings.
+# Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
+[location]
+station_lat = 0.0
+station_lon = 0.0
+station_alt = 0.0
+
+# Upload settings. Used by both the internet upload threads, and the rotator updater.
 [upload]
-# Upload every x seconds
+# Upload/update every x seconds
 upload_rate = 30
+
+# Enable upload to various services.
+enable_aprs = False
+enable_habitat = False
+
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
 # Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
 # however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
 synchronous_upload = True
-# Enable upload to various services.
-enable_aprs = False
-enable_habitat = False
 
 # Settings for uploading to APRS-IS
 [aprs]
@@ -86,9 +95,23 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 payload_callsign = RADIOSONDE
 # Uploader callsign, as shown above.
 uploader_callsign = SONDE_AUTO_RX
-# Uploader lat/long. Set to 0.0 if not used.
-uploader_lat = 0.0
-uploader_lon = 0.0
+# Upload listener position to Habitat? (So you show up on the map)
+upload_listener_position = False
+
+# Rotator Settings
+# auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
+# The update rate is tied to the upload_rate setting above, though internet upload does not need to be enabled
+# for the rotator to be updated.
+[rotator]
+enable_rotator = False
+# Hostname / Port of the rotctld instance.
+rotator_hostname = 127.0.0.1
+rotator_port = 4533
+# Rotator Homing.
+# If enabled, turn to this location when scanning for sondes.
+rotator_homing_enabled = False
+rotator_home_azimuth = 0
+rotator_home_elevation = 0
 
 # Settings for pushing data into OziPlotter
 # Oziplotter receives data via a basic CSV format, via UDP.
@@ -96,7 +119,7 @@ uploader_lon = 0.0
 ozi_enabled = False
 ozi_update_rate = 5
 ozi_hostname = 127.0.0.1
-ozi_port = 8942
+ozi_port = 55681
 # Payload summary output, which can be used by a few of the Horus Ground Station tools
 payload_summary_enabled = False
 payload_summary_port = 55672

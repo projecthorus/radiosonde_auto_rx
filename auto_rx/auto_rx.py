@@ -23,6 +23,7 @@ import traceback
 from aprs_utils import *
 from habitat_utils import *
 from ozi_utils import *
+from rotator_utils import *
 from threading import Thread
 from StringIO import StringIO
 from findpeaks import *
@@ -515,9 +516,9 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     return
 
 def internet_push_thread(station_config):
-    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
+    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat), and also to a rotator (if configured) """
     global internet_push_queue, INTERNET_PUSH_RUNNING
-    print("Started Internet Push thread.")
+    logging.info("Started Internet Push thread.")
     while INTERNET_PUSH_RUNNING:
         data = None
         try:
@@ -545,15 +546,32 @@ def internet_push_thread(station_config):
                 aprs_comment = aprs_comment.replace("<type>", data['type'])
 
                 # Push data to APRS.
-                aprs_data = push_balloon_to_aprs(data,object_name=station_config['aprs_object_id'],aprs_comment=aprs_comment,aprsUser=station_config['aprs_user'], aprsPass=station_config['aprs_pass'])
-                logging.debug("Data pushed to APRS-IS: %s" % aprs_data)
+                aprs_data = push_balloon_to_aprs(data,
+                                                object_name=station_config['aprs_object_id'],
+                                                aprs_comment=aprs_comment,
+                                                aprsUser=station_config['aprs_user'],
+                                                aprsPass=station_config['aprs_pass'])
+                logging.info("Data pushed to APRS-IS: %s" % aprs_data)
 
             # Habitat Upload
             if station_config['enable_habitat']:
                 habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
                 logging.debug("Data pushed to Habitat.")
+
+            # Update Rotator positon, if configured.
+            if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
+                # Calculate Azimuth & Elevation to Radiosonde.
+                rel_position = position_info((config['station_lat'], config['station_lon'], config['station_alt']),
+                    (data['lat'], data['lon'], data['alt']))
+
+                # Update the rotator with the current sonde position.
+                update_rotctld(hostname=config['rotator_hostname'], 
+                            port=config['rotator_port'],
+                            azimuth=rel_position['bearing'],
+                            elevation=rel_position['elevation'])
+
         except:
-            traceback.print_exc()
+            logging.error("Error while uploading data: %s" % traceback.format_exc())
 
         if station_config['synchronous_upload']:
             # Sleep for a second to ensure we don't double upload in the same slot (shouldn't' happen, but anyway...)
@@ -570,12 +588,12 @@ def internet_push_thread(station_config):
             # Otherwise, just sleep.
             time.sleep(station_config['upload_rate'])
 
-    print("Closing thread.")
+    logging.debug("Closing internet push thread.")
 
 def ozi_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
     global ozi_push_queue, OZI_PUSH_RUNNING
-    print("Started OziPlotter Push thread.")
+    logging.info("Started OziPlotter Push thread.")
     while OZI_PUSH_RUNNING:
         data = None
         try:
@@ -602,7 +620,7 @@ def ozi_push_thread(station_config):
 
         time.sleep(station_config['ozi_update_rate'])
 
-    print("Closing thread.")
+    logging.debug("Closing thread.")
 
 
 if __name__ == "__main__":
@@ -637,9 +655,8 @@ if __name__ == "__main__":
     sonde_type = None
 
     # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
-    if config['enable_habitat'] and (config['uploader_lat'] != 0.0) and (config['uploader_lon'] != 0.0):
-        uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
-
+    if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
+        uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
 
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
@@ -652,6 +669,14 @@ if __name__ == "__main__":
             else:
                 logging.info("No sonde found. Exiting.")
                 sys.exit(1)
+
+        # If we have a rotator configured, attempt to point the rotator to the home location
+        if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['rotator_homing_enabled']:
+            update_rotctld(hostname=config['rotator_hostname'], 
+                        port=config['rotator_port'], 
+                        azimuth=config['rotator_home_azimuth'], 
+                        elevation=config['rotator_home_elevation'])
+
         # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
         if sonde_type == None:
             (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])
@@ -662,7 +687,11 @@ if __name__ == "__main__":
 
         logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
 
-        # Start both of our internet/ozi push threads.
+        # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
+        if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
+            uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
+
+        # Start both of our internet/ozi push threads, even if we're not going to use them.
         if push_thread_1 == None:
             push_thread_1 = Thread(target=internet_push_thread, kwargs={'station_config':config})
             push_thread_1.start()
@@ -681,9 +710,11 @@ if __name__ == "__main__":
 
         # Receiver has timed out. Reset sonde type and frequency variables and loop.
         logging.error("Receiver timed out. Re-starting scan.")
-        time.sleep(10)
+        time.sleep(config['search_delay'])
         sonde_type = None
         sonde_freq = None
+
+    # Note that if we are running as a service, we won't ever get here.
 
     logging.info("Exceeded maximum receive time. Exiting.")
 
