@@ -44,6 +44,8 @@ internet_push_queue = Queue.Queue()
 OZI_PUSH_RUNNING = True
 ozi_push_queue = Queue.Queue()
 
+# Rotator control object
+rotctld = None
 
 # Flight Statistics data
 # stores copies of the telemetry dictionary returned by process_rs_line.
@@ -515,9 +517,9 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     return
 
 def internet_push_thread(station_config):
-    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
-    global internet_push_queue, INTERNET_PUSH_RUNNING
-    print("Started Internet Push thread.")
+    """ Push a frame of sonde data into various internet services (APRS-IS, Habitat), and also to a rotator (if configured) """
+    global internet_push_queue, INTERNET_PUSH_RUNNING, rotctld
+    logging.info("Started Internet Push thread.")
     while INTERNET_PUSH_RUNNING:
         data = None
         try:
@@ -552,6 +554,12 @@ def internet_push_thread(station_config):
             if station_config['enable_habitat']:
                 habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
                 logging.debug("Data pushed to Habitat.")
+
+            # Rotator Update.
+            if rotctld != None:
+                # Update the rotator with the current sonde position.
+                pass
+
         except:
             traceback.print_exc()
 
@@ -570,12 +578,12 @@ def internet_push_thread(station_config):
             # Otherwise, just sleep.
             time.sleep(station_config['upload_rate'])
 
-    print("Closing thread.")
+    logging.debug("Closing internet push thread.")
 
 def ozi_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat) """
     global ozi_push_queue, OZI_PUSH_RUNNING
-    print("Started OziPlotter Push thread.")
+    logging.info("Started OziPlotter Push thread.")
     while OZI_PUSH_RUNNING:
         data = None
         try:
@@ -602,7 +610,7 @@ def ozi_push_thread(station_config):
 
         time.sleep(station_config['ozi_update_rate'])
 
-    print("Closing thread.")
+    logging.debug("Closing thread.")
 
 
 if __name__ == "__main__":
@@ -637,9 +645,13 @@ if __name__ == "__main__":
     sonde_type = None
 
     # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
-    if config['enable_habitat'] and (config['uploader_lat'] != 0.0) and (config['uploader_lon'] != 0.0):
+    if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
         uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
 
+    # If rotator control has been enabled, and we have sensible-looking lat/lon coords, attemt to start up comms with rotctld.
+    if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
+        # Attempt to connect to a rotctld instance.
+        pass
 
     # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
@@ -662,7 +674,11 @@ if __name__ == "__main__":
 
         logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
 
-        # Start both of our internet/ozi push threads.
+        # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
+        if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
+            uploadListenerPosition(config['uploader_callsign'], config['uploader_lat'], config['uploader_lon'])
+
+        # Start both of our internet/ozi push threads, even if we're not going to use them.
         if push_thread_1 == None:
             push_thread_1 = Thread(target=internet_push_thread, kwargs={'station_config':config})
             push_thread_1.start()
@@ -681,9 +697,11 @@ if __name__ == "__main__":
 
         # Receiver has timed out. Reset sonde type and frequency variables and loop.
         logging.error("Receiver timed out. Re-starting scan.")
-        time.sleep(10)
+        time.sleep(config['search_delay'])
         sonde_type = None
         sonde_freq = None
+
+    # Note that if we are running as a service, we won't ever get here.
 
     logging.info("Exceeded maximum receive time. Exiting.")
 

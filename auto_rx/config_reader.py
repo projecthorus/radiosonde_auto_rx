@@ -15,7 +15,7 @@ def read_auto_rx_config(filename):
 		'rtlsdr_gain'	:	-1,
 		'rtlsdr_bias'	: False,
 		'search_attempts':	5,
-		'search_delay'	: 120,
+		'search_delay'	: 10,
 		'min_freq'		: 400.4,
 		'max_freq'		: 404.0,
 		'search_step'	: 800,
@@ -24,6 +24,9 @@ def read_auto_rx_config(filename):
 		'dwell_time'	: 10,
 		'quantization'	: 10000,
 		'rx_timeout'	: 120,
+		'station_lat'	: 0.0,
+		'station_lon'	: 0.0,
+		'station_alt'	: 0.0,
 		'upload_rate'	: 30,
 		'synchronous_upload' : False,
 		'enable_aprs'	: False,
@@ -34,12 +37,17 @@ def read_auto_rx_config(filename):
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
 		'payload_callsign': 'RADIOSONDE',
 		'uploader_callsign': 'SONDE_AUTO_RX',
-		'uploader_lat' 	: 0.0,
-		'uploader_lon'	: 0.0,
+		'upload_listener_position': False,
+		'enable_rotator': False,
+		'rotator_hostname': '127.0.0.1',
+		'rotator_port'	: 4533,
+		'rotator_homing_enabled': False,
+		'rotator_home_azimuth': 0,
+		'rotator_home_elevation': 0,
 		'ozi_enabled'	: False,
 		'ozi_update_rate': 5,
 		'ozi_hostname'	: '127.0.0.1',
-		'ozi_port'		: 8942,
+		'ozi_port'		: 55681,
 		'payload_summary_enabled': False,
 		'payload_summary_port' : 55672
 	}
@@ -61,6 +69,9 @@ def read_auto_rx_config(filename):
 		auto_rx_config['dwell_time'] = config.getint('search_params', 'dwell_time')
 		auto_rx_config['quantization'] = config.getint('search_params', 'quantization')
 		auto_rx_config['rx_timeout'] = config.getint('search_params', 'rx_timeout')
+		auto_rx_config['station_lat'] = config.getfloat('location', 'station_lat')
+		auto_rx_config['station_lon'] = config.getfloat('location', 'station_lon')
+		auto_rx_config['station_alt'] = config.getfloat('location', 'station_alt')
 		auto_rx_config['upload_rate'] = config.getint('upload', 'upload_rate')
 		auto_rx_config['synchronous_upload'] = config.getboolean('upload','synchronous_upload')
 		auto_rx_config['enable_aprs'] = config.getboolean('upload', 'enable_aprs')
@@ -71,8 +82,13 @@ def read_auto_rx_config(filename):
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
 		auto_rx_config['payload_callsign'] = config.get('habitat', 'payload_callsign')
 		auto_rx_config['uploader_callsign'] = config.get('habitat', 'uploader_callsign')
-		auto_rx_config['uploader_lat'] = config.getfloat('habitat', 'uploader_lat')
-		auto_rx_config['uploader_lon'] = config.getfloat('habitat', 'uploader_lon')
+		auto_rx_config['upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
+		auto_rx_config['enable_rotator'] = config.getboolean('rotator','enable_rotator')
+		auto_rx_config['rotator_hostname'] = config.get('rotator', 'rotator_hostname')
+		auto_rx_config['rotator_port'] = config.get('rotator', 'rotator_port')
+		auto_rx_config['rotator_homing_enabled'] = config.getboolean('rotator', 'rotator_homing_enabled')
+		auto_rx_config['rotator_home_azimuth'] = config.getfloat('rotator', 'rotator_home_azimuth')
+		auto_rx_config['rotator_home_elevation'] = config.getfloat('rotator', 'rotator_home_elevation')
 		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
 		auto_rx_config['ozi_update_rate'] = config.getint('oziplotter', 'ozi_update_rate')
 		auto_rx_config['ozi_hostname'] = config.get('oziplotter', 'ozi_hostname')
