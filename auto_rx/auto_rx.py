@@ -57,7 +57,7 @@ flight_stats = {
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, ppm = 0, gain = -1, bias = False):
     """ Run rtl_power, with a timeout"""
-    # Example: rtl_power -T -f 400400000:403500000:800 -i20 -1 -c 20% -p 0 log_power.csv
+    # Example: rtl_power -T -f 400400000:403500000:800 -i20 -1 -c 20% -p 0 -g 26.0 log_power.csv
 
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
@@ -141,7 +141,7 @@ def detect_sonde(frequency, ppm=0, gain=-1, bias=False, dwell_time=10):
     """ Receive some FM and attempt to detect the presence of a radiosonde. """
 
     # Example command (for command-line testing):
-    # rtl_fm -T -p 0 -M fm -s 15k -f 401500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 | ./rs_detect -z -t 8
+    # rtl_fm -T -p 0 -M fm -g 26.0 -s 15k -f 401500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 | ./rs_detect -z -t 8
 
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
@@ -152,7 +152,7 @@ def detect_sonde(frequency, ppm=0, gain=-1, bias=False, dwell_time=10):
     else:
         gain_param = ''
 
-    rx_test_command = "timeout %ds rtl_fm %s-p %d %s-M fm -s 15k -f %d 2>/dev/null |" % (dwell_time, bias_option, int(ppm), gain_param, frequency) 
+    rx_test_command = "timeout %ds rtl_fm %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, bias_option, int(ppm), gain_param, frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += "./rs_detect -z -t 8 2>/dev/null"
 
@@ -389,7 +389,7 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
     else:
         gain_param = ''
 
-    decode_cmd = "rtl_fm %s-p %d %s-M fm -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
+    decode_cmd = "rtl_fm %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
@@ -459,8 +459,8 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     else:
         gain_param = ''
 
-    decode_cmd = "rtl_fm %s-p %d %s-M fm -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
-    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+    decode_cmd = "rtl_fm %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
+    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2600 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
