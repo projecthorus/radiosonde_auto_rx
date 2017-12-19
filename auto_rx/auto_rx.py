@@ -15,6 +15,7 @@ import logging
 import datetime
 import time
 import os
+import shutil
 import platform
 import signal
 import Queue
@@ -32,7 +33,13 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # Logging level
+# INFO = Basic status messages
+# DEBUG = Adds information on each command run by subprocess.
 logging_level = logging.INFO
+
+# Set this to true to enable dumping of all the rtl_power output to files in ./log/
+# Note that this can result in a LOT of log files being generated depending on your scanning settings.
+uber_debug = False
 
 # Internet Push Globals
 APRS_OUTPUT_ENABLED = False
@@ -225,6 +232,11 @@ def sonde_search(config, attempts = 5):
             if step == 0 or len(freq)==0 or len(power)==0:
                 raise Exception("Invalid file.")
 
+            if uber_debug:
+                # Copy log_power.csv to log directory, for later debugging.
+                shutil.copy('log_power.csv', './log/log_power_%s.csv'%datetime.datetime.utcnow().strftime('%Y-%m-%d_%H%M%S'))
+
+
         except Exception as e:
             traceback.print_exc()
             logging.error("Failed to read log_power.csv. Resetting RTLSDRs and attempting to run rtl_power again.")
@@ -256,7 +268,10 @@ def sonde_search(config, attempts = 5):
 
         # Quantize to nearest x kHz
         peak_frequencies = quantize_freq(peak_frequencies, config['quantization'])
-        logging.info("Peaks found at (MHz): %s" % str(peak_frequencies/1e6))
+        # Remove any duplicate entries after quantization, but preserve order.
+        _, peak_idx = np.unique(peak_frequencies, return_index=True)
+        peak_frequencies = peak_frequencies[np.sort(peak_idx)]
+        logging.info("Found %d peak(s) at (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
