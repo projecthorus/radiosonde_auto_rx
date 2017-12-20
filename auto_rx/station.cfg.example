@@ -26,10 +26,10 @@ search_attempts = 10
 search_delay = 10
 
 # Minimum and maximum search frequencies, in MHz.
-# Australia: Use 400.4 - 404 MHz
-# Europe: Use 400.5 - 406 MHz
-min_freq = 400.4
-max_freq = 404.0
+# Australia: Use 400.05 - 403 MHz
+# Europe: Use 400.05 - 406 MHz
+min_freq = 400.05
+max_freq = 403.0
 
 # Receive bin width (Hz)
 search_step = 800
@@ -38,12 +38,25 @@ min_snr = 10
 # Minimum distance between peaks (Hz)
 min_distance = 1000
 # Dwell time - How long to wait for a sonde detection on each peak.
-dwell_time = 10
+dwell_time = 5
 # Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
 quantization = 10000
 # Timeout and re-scan after X seconds of no data.
 rx_timeout = 120
 
+# Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
+
+# White-List - Add values to this list to *only* scan on these frequencies.
+# This is for when you only want to monitor a small set of launch frequencies.
+whitelist = []
+
+# Black-List - Any values added to this list will be removed from the list of detected peaks.
+# This is used to remove known spurs or other interferers from the scan list, potentially speeding up detection of a sonde.
+blacklist = []
+
+# Grey-List - Any values in this list will be added to every scan run.
+# This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
+greylist = []
 
 # Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
 [location]
