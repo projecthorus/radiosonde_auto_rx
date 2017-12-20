@@ -12,6 +12,7 @@ import json
 def read_auto_rx_config(filename):
 	# Configuration Defaults:
 	auto_rx_config = {
+		'per_sonde_log' : True,
 		'rtlsdr_ppm'	:	0,
 		'rtlsdr_gain'	:	-1,
 		'rtlsdr_bias'	: False,
@@ -53,13 +54,14 @@ def read_auto_rx_config(filename):
 		'payload_summary_port' : 55672,
 		'whitelist'	: [],
 		'blacklist'	: [],
-		'greylist'		: []
+		'greylist'	: []
 	}
 
 	try:
 		config = ConfigParser.RawConfigParser()
 		config.read(filename)
 
+		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
 		auto_rx_config['rtlsdr_ppm'] = int(config.getfloat('rtlsdr', 'rtlsdr_ppm'))
 		auto_rx_config['rtlsdr_gain'] = config.getfloat('rtlsdr', 'rtlsdr_gain')
 		auto_rx_config['rtlsdr_bias'] = config.getboolean('rtlsdr', 'rtlsdr_bias')
