@@ -325,6 +325,8 @@ def process_rs_line(line):
             return None
 
         rs_frame = json.loads(line)
+        # Note: We expect the following fields available within the JSON blob:
+        # id, frame, datetime, lat, lon, alt, crc
         rs_frame['crc'] = True # the rs92ecc only reports frames that match crc so we can lie here
         rs_frame['temp'] = 0.0 #we don't have this yet
         rs_frame['humidity'] = 0.0
@@ -391,7 +393,7 @@ def calculate_flight_statistics():
 
     return stats_str
 
-def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120):
+def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120, save_log=False):
     """ Decode a RS92 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
 
@@ -441,6 +443,8 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
     rx_stdout = AsynchronousFileReader(rx.stdout, autostart=True)
 
+    _log_file = None
+
     while not rx_stdout.eof():
         for line in rx_stdout.readlines():
             if (line != None) and (line != ""):
@@ -453,6 +457,33 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                         # Add in a few fields that don't come from the sonde telemetry.
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS92"
+
+                        # Per-Sonde Logging
+                        if save_log:
+                            if _log_file is None:
+                                _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                                    data['id'],
+                                    data['type'],
+                                    int(frequency/1e3))
+
+                                _log_file = open(_log_file_name,'wb')
+
+                            # Write a log line
+                            # datetime,id,frame_no,lat,lon,alt,type,frequency
+                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%s,%.3f\n" % (
+                                data['datetime_str'],
+                                data['id'],
+                                data['frame'],
+                                data['lat'],
+                                data['lon'],
+                                data['alt'],
+                                data['type'],
+                                frequency/1e6)
+
+                            _log_file.write(_log_line)
+                            _log_file.flush()
+
 
                         update_flight_stats(data)
 
@@ -473,6 +504,11 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
         # Sleep for a short time.
         time.sleep(0.1)
 
+    # If we were writing a log, close the file.
+    if _log_file != None:
+        _log_file.flush()
+        _log_file.close()
+
     logging.error("Closing RX Thread.")
     os.killpg(os.getpgid(rx.pid), signal.SIGTERM)
     rx_stdout.stop()
@@ -480,7 +516,7 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
     return
 
 
-def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=120):
+def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=120, save_log=False):
     """ Decode a RS41 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
     # Add a -T option if bias is enabled
@@ -509,6 +545,8 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
     rx_stdout = AsynchronousFileReader(rx.stdout, autostart=True)
 
+    _log_file = None
+
     while not rx_stdout.eof():
         for line in rx_stdout.readlines():
             if (line != None) and (line != ""):
@@ -521,6 +559,32 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
                         # Add in a few fields that don't come from the sonde telemetry.
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS41"
+
+                        # Per-Sonde Logging
+                        if save_log:
+                            if _log_file is None:
+                                _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                                    data['id'],
+                                    data['type'],
+                                    int(frequency/1e3))
+
+                                _log_file = open(_log_file_name,'wb')
+
+                            # Write a log line
+                            # datetime,id,frame_no,lat,lon,alt,type,frequency
+                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%s,%.3f\n" % (
+                                data['datetime_str'],
+                                data['id'],
+                                data['frame'],
+                                data['lat'],
+                                data['lon'],
+                                data['alt'],
+                                data['type'],
+                                frequency/1e6)
+
+                            _log_file.write(_log_line)
+                            _log_file.flush()
 
                         update_flight_stats(data)
 
@@ -542,6 +606,11 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
             break
         # Sleep for a short time.
         time.sleep(0.1)
+
+    # If we were writing a log, close the file.
+    if _log_file != None:
+        _log_file.flush()
+        _log_file.close()
 
     logging.error("Closing RX Thread.")
     os.killpg(os.getpgid(rx.pid), signal.SIGTERM)
@@ -670,14 +739,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step, and quit if no sonde found).")
-    parser.add_argument("-t", "--timeout", type=int, default=180, help="Stop receiving after X minutes.")
+    parser.add_argument("-t", "--timeout", type=int, default=180, help="Stop receiving after X minutes. Set to 0 to run continuously with no timeout.")
+    parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file.")
     args = parser.parse_args()
+
+    # If we haven't been given an ephemeris file, set the ephemeris variable to None, so that we download one.
+    ephemeris = args.ephemeris
+    if ephemeris == "None":
+        ephemeris = None
+    else:
+        logging.info("Using provided ephemeris file: %s" % ephemeris)
 
     # Attempt to read in configuration file. Use default config if reading fails.
     config = read_auto_rx_config(args.config)
 
     logging.debug("Using Configuration: %s" % str(config))
 
+    # Set the timeout
     timeout_time = time.time() + int(args.timeout)*60
 
     # Internet push thread object.
@@ -737,9 +815,22 @@ if __name__ == "__main__":
 
             # Start decoding the sonde!
             if sonde_type == "RS92":
-                decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+                decode_rs92(sonde_freq, 
+                            ppm=config['rtlsdr_ppm'], 
+                            gain=config['rtlsdr_gain'], 
+                            bias=config['rtlsdr_bias'], 
+                            rx_queue=internet_push_queue, 
+                            timeout=config['rx_timeout'], 
+                            save_log=config['per_sonde_log'], 
+                            ephemeris=ephemeris)
             elif sonde_type == "RS41":
-                decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+                decode_rs41(sonde_freq, 
+                            ppm=config['rtlsdr_ppm'], 
+                            gain=config['rtlsdr_gain'], 
+                            bias=config['rtlsdr_bias'], 
+                            rx_queue=internet_push_queue, 
+                            timeout=config['rx_timeout'], 
+                            save_log=config['per_sonde_log'])
             else:
                 pass
 

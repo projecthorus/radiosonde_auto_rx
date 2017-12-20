@@ -4,6 +4,11 @@
 # Copy this file to station.cfg and modify as required. 
 #
 
+# Logging Settings
+[logging]
+# If enabled, a log file will be written for each detected radiosonde.
+per_sonde_log = True
+
 # Settings used when receiving data using a RTLSDR.
 [rtlsdr]
 # PPM Frequency Correction (ppm offset)
