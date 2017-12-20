@@ -222,56 +222,72 @@ def sonde_search(config, attempts = 5):
 
     while search_attempts > 0:
 
-        # Scan Band
-        run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'], ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
+        if len(config['whitelist']) == 0 :
+            # No whitelist frequencies provided - perform a scan.
+            run_rtl_power(config['min_freq']*1e6, config['max_freq']*1e6, config['search_step'], ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
 
-        # Read in result
-        try:
-            (freq, power, step) = read_rtl_power('log_power.csv')
-            # Sanity check results.
-            if step == 0 or len(freq)==0 or len(power)==0:
-                raise Exception("Invalid file.")
+            # Read in result
+            try:
+                (freq, power, step) = read_rtl_power('log_power.csv')
+                # Sanity check results.
+                if step == 0 or len(freq)==0 or len(power)==0:
+                    raise Exception("Invalid file.")
 
-            if uber_debug:
-                # Copy log_power.csv to log directory, for later debugging.
-                shutil.copy('log_power.csv', './log/log_power_%s.csv'%datetime.datetime.utcnow().strftime('%Y-%m-%d_%H%M%S'))
-
-
-        except Exception as e:
-            traceback.print_exc()
-            logging.error("Failed to read log_power.csv. Resetting RTLSDRs and attempting to run rtl_power again.")
-            # no log_power.csv usually means that rtl_power has locked up and had to be SIGKILL'd. 
-            # This occurs when it can't get samples from the RTLSDR, because it's locked up for some reason.
-            # Issuing a USB Reset to the rtlsdr can sometimes solve this. 
-            reset_rtlsdr()
-            search_attempts -= 1
-            time.sleep(10)
-            continue
+                if uber_debug:
+                    # Copy log_power.csv to log directory, for later debugging.
+                    shutil.copy('log_power.csv', './log/log_power_%s.csv'%datetime.datetime.utcnow().strftime('%Y-%m-%d_%H%M%S'))
 
 
-        # Rough approximation of the noise floor of the received power spectrum.
-        power_nf = np.mean(power)
+            except Exception as e:
+                traceback.print_exc()
+                logging.error("Failed to read log_power.csv. Resetting RTLSDRs and attempting to run rtl_power again.")
+                # no log_power.csv usually means that rtl_power has locked up and had to be SIGKILL'd. 
+                # This occurs when it can't get samples from the RTLSDR, because it's locked up for some reason.
+                # Issuing a USB Reset to the rtlsdr can sometimes solve this. 
+                reset_rtlsdr()
+                search_attempts -= 1
+                time.sleep(10)
+                continue
 
-        # Detect peaks.
-        peak_indices = detect_peaks(power, mph=(power_nf+config['min_snr']), mpd=(config['min_distance']/step), show = False)
 
-        if len(peak_indices) == 0:
-            logging.info("No peaks found on this pass.")
-            search_attempts -= 1
-            time.sleep(10)
-            continue
+            # Rough approximation of the noise floor of the received power spectrum.
+            power_nf = np.mean(power)
 
-        # Sort peaks by power.
-        peak_powers = power[peak_indices]
-        peak_freqs = freq[peak_indices]
-        peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
+            # Detect peaks.
+            peak_indices = detect_peaks(power, mph=(power_nf+config['min_snr']), mpd=(config['min_distance']/step), show = False)
 
-        # Quantize to nearest x kHz
-        peak_frequencies = quantize_freq(peak_frequencies, config['quantization'])
-        # Remove any duplicate entries after quantization, but preserve order.
-        _, peak_idx = np.unique(peak_frequencies, return_index=True)
-        peak_frequencies = peak_frequencies[np.sort(peak_idx)]
-        logging.info("Found %d peak(s) at (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+            if len(peak_indices) == 0:
+                logging.info("No peaks found on this pass.")
+                search_attempts -= 1
+                time.sleep(10)
+                continue
+
+            # Sort peaks by power.
+            peak_powers = power[peak_indices]
+            peak_freqs = freq[peak_indices]
+            peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
+
+            # Quantize to nearest x kHz
+            peak_frequencies = quantize_freq(peak_frequencies, config['quantization'])
+
+            # Append on any frequencies in the supplied greylist
+            peak_frequencies = np.append(np.array(config['greylist'])*1e6, peak_frequencies)
+
+            # Remove any duplicate entries after quantization, but preserve order.
+            _, peak_idx = np.unique(peak_frequencies, return_index=True)
+            peak_frequencies = peak_frequencies[np.sort(peak_idx)]
+
+            # Remove any frequencies in the blacklist.
+            for _frequency in np.array(config['blacklist'])*1e6:
+                _index = np.argwhere(peak_frequencies==_frequency)
+                peak_frequencies = np.delete(peak_frequencies, _index)
+
+            logging.info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+
+        else:
+            # We have been provided a whitelist - scan through the supplied frequencies.
+            peak_frequencies = np.array(config['whitelist'])*1e6
+            logging.info("Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
@@ -476,9 +492,9 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     else:
         gain_param = ''
 
-    # Note: may want to remove the 'highpass 20' line at some point in the future.
+    # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
     decode_cmd = "rtl_fm %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
-    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2600 2>/dev/null |"
+    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
 
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
@@ -672,66 +688,76 @@ if __name__ == "__main__":
     sonde_freq = None
     sonde_type = None
 
-    # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
-    if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
-        uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
-
-    # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
-
-    while time.time() < timeout_time or args.timeout == 0:
-        # Attempt to detect a sonde on a supplied frequency.
-        if args.frequency != 0.0:
-            sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
-            if sonde_type != None:
-                sonde_freq = int(float(args.frequency)*1e6)
-            else:
-                logging.info("No sonde found. Exiting.")
-                sys.exit(1)
-
-        # If we have a rotator configured, attempt to point the rotator to the home location
-        if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['rotator_homing_enabled']:
-            update_rotctld(hostname=config['rotator_hostname'], 
-                        port=config['rotator_port'], 
-                        azimuth=config['rotator_home_azimuth'], 
-                        elevation=config['rotator_home_elevation'])
-
-        # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
-        if sonde_type == None:
-            (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])
-
-        # If we *still* haven't detected a sonde... just keep on trying, until we hit our timeout.
-        if sonde_type == None:
-            continue
-
-        logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
-
-        # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
+    try:
+        # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
         if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
             uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
 
-        # Start both of our internet/ozi push threads, even if we're not going to use them.
-        if push_thread_1 == None:
-            push_thread_1 = Thread(target=internet_push_thread, kwargs={'station_config':config})
-            push_thread_1.start()
+        # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
-        if push_thread_2 == None:
-            push_thread_2 = Thread(target=ozi_push_thread, kwargs={'station_config':config})
-            push_thread_2.start()
+        while time.time() < timeout_time or args.timeout == 0:
+            # Attempt to detect a sonde on a supplied frequency.
+            if args.frequency != 0.0:
+                sonde_type = detect_sonde(int(float(args.frequency)*1e6), ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'])
+                if sonde_type != None:
+                    sonde_freq = int(float(args.frequency)*1e6)
+                else:
+                    logging.info("No sonde found. Exiting.")
+                    sys.exit(1)
 
-        # Start decoding the sonde!
-        if sonde_type == "RS92":
-            decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
-        elif sonde_type == "RS41":
-            decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
-        else:
-            pass
+            # If we have a rotator configured, attempt to point the rotator to the home location
+            if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['rotator_homing_enabled']:
+                update_rotctld(hostname=config['rotator_hostname'], 
+                            port=config['rotator_port'], 
+                            azimuth=config['rotator_home_azimuth'], 
+                            elevation=config['rotator_home_elevation'])
 
-        # Receiver has timed out. Reset sonde type and frequency variables and loop.
-        logging.error("Receiver timed out. Re-starting scan.")
-        time.sleep(config['search_delay'])
-        sonde_type = None
-        sonde_freq = None
+            # If nothing is detected, or we haven't been supplied a frequency, perform a scan.
+            if sonde_type == None:
+                (sonde_freq, sonde_type) = sonde_search(config, config['search_attempts'])
 
+            # If we *still* haven't detected a sonde... just keep on trying, until we hit our timeout.
+            if sonde_type == None:
+                continue
+
+            logging.info("Starting decoding of %s on %.3f MHz" % (sonde_type, sonde_freq/1e6))
+
+            # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
+            if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
+                uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
+
+            # Start both of our internet/ozi push threads, even if we're not going to use them.
+            if push_thread_1 == None:
+                push_thread_1 = Thread(target=internet_push_thread, kwargs={'station_config':config})
+                push_thread_1.start()
+
+            if push_thread_2 == None:
+                push_thread_2 = Thread(target=ozi_push_thread, kwargs={'station_config':config})
+                push_thread_2.start()
+
+            # Start decoding the sonde!
+            if sonde_type == "RS92":
+                decode_rs92(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+            elif sonde_type == "RS41":
+                decode_rs41(sonde_freq, ppm=config['rtlsdr_ppm'], gain=config['rtlsdr_gain'], bias=config['rtlsdr_bias'], rx_queue=internet_push_queue, timeout=config['rx_timeout'])
+            else:
+                pass
+
+            # Receiver has timed out. Reset sonde type and frequency variables and loop.
+            logging.error("Receiver timed out. Re-starting scan.")
+            time.sleep(config['search_delay'])
+            sonde_type = None
+            sonde_freq = None
+
+    except KeyboardInterrupt:
+        logging.info("Caught CTRL-C, exiting.")
+        # Shut down the Internet Push Threads.
+        INTERNET_PUSH_RUNNING = False
+        OZI_PUSH_RUNNING = False
+        # Kill all rtl_fm processes.
+        os.system('killall rtl_power')
+        os.system('killall rtl_fm')
+        sys.exit(0)
     # Note that if we are running as a service, we won't ever get here.
 
     logging.info("Exceeded maximum receive time. Exiting.")

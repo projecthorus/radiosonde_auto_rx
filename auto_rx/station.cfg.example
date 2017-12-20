@@ -38,13 +38,13 @@ min_snr = 10
 # Minimum distance between peaks (Hz)
 min_distance = 1000
 # Dwell time - How long to wait for a sonde detection on each peak.
-dwell_time = 10
+dwell_time = 5
 # Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
 quantization = 10000
 # Timeout and re-scan after X seconds of no data.
 rx_timeout = 120
 
-# Frequency Lists - These must be provided as JSON-compatible lists of floats, i.e. [400.50, 401.520, 403.200]
+# Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
 # White-List - Add values to this list to *only* scan on these frequencies.
 # This is for when you only want to monitor a small set of launch frequencies.
