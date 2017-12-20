@@ -404,6 +404,8 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
     else:
         gain_param = ''
 
+    # Example command:
+    # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc
     decode_cmd = "rtl_fm %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 
@@ -474,6 +476,7 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     else:
         gain_param = ''
 
+    # Note: may want to remove the 'highpass 20' line at some point in the future.
     decode_cmd = "rtl_fm %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2600 2>/dev/null |"
 
