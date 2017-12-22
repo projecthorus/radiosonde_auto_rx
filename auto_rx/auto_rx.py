@@ -459,13 +459,19 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS92"
 
+                        # If we are seeing any aux data (i.e. there is something strapped to this RS92), append '-Ozone' to the type.
+                        if 'aux' in data.keys():
+                            _ozone = "-Ozone"
+                        else:
+                            _ozone = ""
+
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
                                 _log_file_name = "./log/%s_%s_%s_%d.log" % (
                                     datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
                                     data['id'],
-                                    data['type'],
+                                    (data['type'] + _ozone),
                                     int(frequency/1e3))
 
                                 _log_file = open(_log_file_name,'wb')
@@ -479,7 +485,7 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                                 data['lat'],
                                 data['lon'],
                                 data['alt'],
-                                data['type'],
+                                (data['type'] + _ozone),
                                 frequency/1e6)
 
                             _log_file.write(_log_line)
@@ -647,7 +653,11 @@ def internet_push_thread(station_config):
                 aprs_comment = aprs_comment.replace("<freq>", data['freq'])
                 aprs_comment = aprs_comment.replace("<id>", data['id'])
                 aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
-                aprs_comment = aprs_comment.replace("<type>", data['type'])
+                # Add 'Ozone' to the sonde type field if we are seeing aux data.
+                _sonde_type = data['type']
+                if 'aux' in data.keys():
+                    _sonde_type += "-Ozone"
+                aprs_comment = aprs_comment.replace("<type>", _sonde_type)
 
                 # Push data to APRS.
                 aprs_data = push_balloon_to_aprs(data,
@@ -660,7 +670,14 @@ def internet_push_thread(station_config):
             # Habitat Upload
             if station_config['enable_habitat']:
                 # We make the habitat comment field fixed, as we only need to add the payload type/serial/frequency.
-                habitat_comment = "%s %s %s" % (data['type'], data['id'], data['freq'])
+                # If we are seeing aux data, it likely means we have an Ozone sonde!
+                if 'aux' in data.keys():
+                    _ozone = "-Ozone"
+                else:
+                    _ozone = ""
+                # Create comment field.
+                habitat_comment = "%s%s %s %s" % (data['type'], _ozone, data['id'], data['freq'])
+
                 habitat_upload_payload_telemetry(data, 
                                                 payload_callsign=config['payload_callsign'], 
                                                 callsign=config['uploader_callsign'], 
