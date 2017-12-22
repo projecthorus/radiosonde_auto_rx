@@ -432,9 +432,9 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
     if ephemeris != None:
-        decode_cmd += "./rs92ecc -v --crc --ecc --vel -e %s" % ephemeris
+        decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel -e %s" % ephemeris
     elif almanac != None:
-        decode_cmd += "./rs92ecc -v --crc --ecc --vel -a %s" % almanac
+        decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel -a %s" % almanac
 
     logging.debug("Running command: %s" % decode_cmd)
 
