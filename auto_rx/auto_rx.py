@@ -256,7 +256,8 @@ def sonde_search(config, attempts = 5):
             # Detect peaks.
             peak_indices = detect_peaks(power, mph=(power_nf+config['min_snr']), mpd=(config['min_distance']/step), show = False)
 
-            if len(peak_indices) == 0:
+            # If we have found no peaks, and no greylist has been provided, re-scan.
+            if (len(peak_indices) == 0) and (len(config['greylist'])==0):
                 logging.info("No peaks found on this pass.")
                 search_attempts -= 1
                 time.sleep(10)
@@ -658,7 +659,12 @@ def internet_push_thread(station_config):
 
             # Habitat Upload
             if station_config['enable_habitat']:
-                habitat_upload_payload_telemetry(data, payload_callsign=config['payload_callsign'], callsign=config['uploader_callsign'])
+                # We make the habitat comment field fixed, as we only need to add the payload type/serial/frequency.
+                habitat_comment = "%s %s %s" % (data['type'], data['id'], data['freq'])
+                habitat_upload_payload_telemetry(data, 
+                                                payload_callsign=config['payload_callsign'], 
+                                                callsign=config['uploader_callsign'], 
+                                                comment=habitat_comment)
                 logging.debug("Data pushed to Habitat.")
 
             # Update Rotator positon, if configured.

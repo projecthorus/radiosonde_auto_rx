@@ -28,7 +28,7 @@ def crc16_ccitt(data):
     crc16 = crcmod.predefined.mkCrcFun('crc-ccitt-false')
     return hex(crc16(data))[2:].upper().zfill(4)
 
-def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE"):
+def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE", comment=None):
     # RS produces timestamps with microseconds on the end, we only want HH:MM:SS for uploading to habitat.
     data_datetime = datetime.datetime.strptime(sonde_data['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
     short_time = data_datetime.strftime("%H:%M:%S")
@@ -36,13 +36,18 @@ def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE"):
     sentence = "$$%s,%d,%s,%.5f,%.5f,%d,%.1f,%.1f,%.1f" % (payload_callsign,sonde_data['frame'],short_time,sonde_data['lat'],
         sonde_data['lon'],int(sonde_data['alt']),sonde_data['vel_h'], sonde_data['temp'], sonde_data['humidity'])
 
+    # Add on a comment field if provided - note that this will result in a different habitat payload doc being required.
+    if comment != None:
+        comment = comment.replace(',','_')
+        sentence += "," + comment
+
     checksum = crc16_ccitt(sentence[2:])
     output = sentence + "*" + checksum + "\n"
     return output
 
-def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL"):
+def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None):
 
-    sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign)
+    sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign, comment=comment)
 
     sentence_b64 = b64encode(sentence)
 
