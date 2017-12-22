@@ -103,7 +103,7 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 
 # Settings for uploading to the Habitat HAB tracking database
 # Note that the habitat upload will use a fixed string format of:
-#`$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>*<CRC16>`
+#`$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
 # Where callsign is set below. Temp and Humidity values are currently fixed to 0, as the RS
 # code doesn't extract the PTU data at this time.
 # You will need to create an appropriate Habitat payload document for this data to appear on the habitat tracker.
