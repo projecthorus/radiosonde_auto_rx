@@ -61,6 +61,9 @@ flight_stats = {
     'last': None
 }
 
+# Station config, we need to populate this with data from station.cfg
+config = {}
+
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, ppm = 0, gain = -1, bias = False):
     """ Run rtl_power, with a timeout"""
@@ -315,6 +318,39 @@ def sonde_search(config, attempts = 5):
     logging.error("No sondes detected.")
     return (None, None)
 
+
+def check_position_valid(data):
+    """
+    Check to see if a payload position breaches one of our filtering limits.
+    """
+    # Access the global copy of the station config. Bit of a hack, but the alternative is
+    # passing the config through multiple layers of functions.
+    global config
+
+    # First check: Altitude cap.
+    if data['alt'] > config['max_altitude']:
+        _altitude_breach = data['alt'] - config['max_altitude']
+        logging.warning("Position breached altitude cap by %d m." % _altitude_breach)
+        return False
+
+    # Second check - is the payload more than x km from our listening station.
+    # Only run this check if a station location has been provided.
+    if (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
+        # Calculate the distance from the station to the payload.
+        _listener = (config['station_lat'], config['station_lon'], config['station_alt'])
+        _payload = (data['lat'], data['lon'], data['alt'])
+        # Calculate using positon_info function from rotator_utils.py
+        _info = position_info(_listener, _payload)
+
+        if _info['straight_distance'] > config['max_radius_km']*1000:
+            _radius_breach = _info['straight_distance']/1000.0 - config['max_radius_km']
+            logging.warning("Position breached radius cap by %.1f km." % (_radius_breach))
+            return False
+
+    # Payload position has passed our filters, assume it is valid.
+    return True
+
+
 def process_rs_line(line):
     """ Process a line of output from the rs92gps decoder, converting it to a dict """
     # Sample output:
@@ -334,9 +370,14 @@ def process_rs_line(line):
         rs_frame['datetime_str'] = rs_frame['datetime'].replace("Z","") #python datetime sucks
         rs_frame['short_time'] = rs_frame['datetime'].split(".")[0].split("T")[1]
 
-        logging.info("TELEMETRY: %s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc']))
+        _telem_string = "%s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc'])
 
-        return rs_frame
+        if check_position_valid(rs_frame):
+            logging.info("TELEMETRY: %s" % _telem_string)
+            return rs_frame
+        else:
+            logging.warning("Invalid Position, discarding: %s" % _telem_string)
+            return None
 
     except:
         logging.error("Could not parse string: %s" % line)
