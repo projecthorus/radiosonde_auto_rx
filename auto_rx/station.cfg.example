@@ -141,3 +141,13 @@ ozi_port = 55681
 # Payload summary output, which can be used by a few of the Horus Ground Station tools
 payload_summary_enabled = False
 payload_summary_port = 55672
+
+# Position Filtering Options
+# These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
+# or has suddenly ended up in orbit.
+# Adjust only if absolutely necessary.
+[filtering]
+# Discard positions with an altitude greater than 50000 metres. 
+max_altitude = 50000
+# Discard positions more than 1000 km from the observation station location (if set)
+max_radius_km = 1000

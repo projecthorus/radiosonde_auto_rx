@@ -54,7 +54,9 @@ def read_auto_rx_config(filename):
 		'payload_summary_port' : 55672,
 		'whitelist'	: [],
 		'blacklist'	: [],
-		'greylist'	: []
+		'greylist'	: [],
+		'max_altitude'	: 50000,
+		'max_radius_km'	: 1000
 	}
 
 	try:
@@ -103,9 +105,13 @@ def read_auto_rx_config(filename):
 		auto_rx_config['payload_summary_port'] = config.getint('oziplotter', 'payload_summary_port')
 
 		# Read in lists using a JSON parser.
-		auto_rx_config['whitelist'] = json.loads(config.get('search_params','whitelist'))
-		auto_rx_config['blacklist'] = json.loads(config.get('search_params','blacklist'))
-		auto_rx_config['greylist'] = json.loads(config.get('search_params','greylist'))
+		auto_rx_config['whitelist'] = json.loads(config.get('search_params', 'whitelist'))
+		auto_rx_config['blacklist'] = json.loads(config.get('search_params', 'blacklist'))
+		auto_rx_config['greylist'] = json.loads(config.get('search_params', 'greylist'))
+
+		# Position Filtering
+		auto_rx_config['max_altitude'] = config.getint('filtering', 'max_altitude')
+		auto_rx_config['max_radius_km'] = config.getint('filtering', 'max_radius_km')
 
 		return auto_rx_config
 
