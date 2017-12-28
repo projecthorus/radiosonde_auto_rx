@@ -99,6 +99,7 @@ aprs_object_id = <id>
 # <type> - Sonde Type (RS94/RS41)
 # <id> - Sonde Serial Number (i.e. M1234567)
 # <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
+# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 aprs_custom_comment = Radiosonde Auto-RX <freq>
 
 # Settings for uploading to the Habitat HAB tracking database

@@ -353,9 +353,6 @@ def check_position_valid(data):
 
 def process_rs_line(line):
     """ Process a line of output from the rs92gps decoder, converting it to a dict """
-    # Sample output:
-    #   0      1        2        3            4         5         6      7   8     9  10
-    # 106,M3553150,2017-04-30,05:44:40.460,-34.72471,138.69178,-263.83, 0.1,265.0,0.3,OK
     try:
 
         if line[0] != "{":
@@ -365,12 +362,15 @@ def process_rs_line(line):
         # Note: We expect the following fields available within the JSON blob:
         # id, frame, datetime, lat, lon, alt, crc
         rs_frame['crc'] = True # the rs92ecc only reports frames that match crc so we can lie here
-        rs_frame['temp'] = 0.0 #we don't have this yet
-        rs_frame['humidity'] = 0.0
+
+        if 'temp' not in rs_frame.keys():
+            rs_frame['temp'] = -273.0 # We currently don't get temperature data out of the RS92s.
+
+        rs_frame['humidity'] = -1.0 # Currently no Humidity data available.
         rs_frame['datetime_str'] = rs_frame['datetime'].replace("Z","") #python datetime sucks
         rs_frame['short_time'] = rs_frame['datetime'].split(".")[0].split("T")[1]
 
-        _telem_string = "%s,%d,%s,%.5f,%.5f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['crc'])
+        _telem_string = "%s,%d,%s,%.5f,%.5f,%.1f,%.1f,%s" % (rs_frame['id'], rs_frame['frame'],rs_frame['datetime'], rs_frame['lat'], rs_frame['lon'], rs_frame['alt'], rs_frame['temp'], rs_frame['crc'])
 
         if check_position_valid(rs_frame):
             logging.info("TELEMETRY: %s" % _telem_string)
@@ -519,13 +519,14 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
 
                             # Write a log line
                             # datetime,id,frame_no,lat,lon,alt,type,frequency
-                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%s,%.3f\n" % (
+                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f\n" % (
                                 data['datetime_str'],
                                 data['id'],
                                 data['frame'],
                                 data['lat'],
                                 data['lon'],
                                 data['alt'],
+                                data['temp'],
                                 (data['type'] + _ozone),
                                 frequency/1e6)
 
@@ -583,7 +584,7 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
-    decode_cmd += "./rs41ecc --crc --ecc " # if this doesn't work try -i at the end
+    decode_cmd += "./rs41ecc --crc --ecc --ptu" # if this doesn't work try -i at the end
 
     logging.debug("Running command: %s" % decode_cmd)
 
@@ -621,13 +622,14 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
 
                             # Write a log line
                             # datetime,id,frame_no,lat,lon,alt,type,frequency
-                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%s,%.3f\n" % (
+                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f\n" % (
                                 data['datetime_str'],
                                 data['id'],
                                 data['frame'],
                                 data['lat'],
                                 data['lon'],
                                 data['alt'],
+                                data['temp'],
                                 data['type'],
                                 frequency/1e6)
 
@@ -693,6 +695,7 @@ def internet_push_thread(station_config):
                 aprs_comment = station_config['aprs_custom_comment']
                 aprs_comment = aprs_comment.replace("<freq>", data['freq'])
                 aprs_comment = aprs_comment.replace("<id>", data['id'])
+                aprs_comment = aprs_comment.replace("<temp>", "%.1f degC" % data['temp'])
                 aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
                 # Add 'Ozone' to the sonde type field if we are seeing aux data.
                 _sonde_type = data['type']
