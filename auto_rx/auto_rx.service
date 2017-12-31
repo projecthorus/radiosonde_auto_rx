@@ -8,6 +8,7 @@ Restart=always
 RestartSec=3
 WorkingDirectory=/home/pi/radiosonde_auto_rx/auto_rx/
 User=pi
+SyslogIdentifier=auto_rx
 
 [Install]
 WantedBy=multi-user.target
