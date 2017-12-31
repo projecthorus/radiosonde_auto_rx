@@ -21,6 +21,7 @@ import signal
 import Queue
 import subprocess
 import traceback
+import json
 from aprs_utils import *
 from habitat_utils import *
 from ozi_utils import *
@@ -63,7 +64,6 @@ flight_stats = {
 
 # Station config, we need to populate this with data from station.cfg
 config = {}
-
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, ppm = 0, gain = -1, bias = False):
     """ Run rtl_power, with a timeout"""
@@ -720,11 +720,17 @@ def internet_push_thread(station_config):
                     _ozone = "-Ozone"
                 else:
                     _ozone = ""
+                
+                payload_callsign = config['payload_callsign']
+                if config['payload_callsign'] == "<id>":
+                    initPayloadDoc(data['id']) # it's fine for us to call this multiple times as initPayloadDoc keeps a cache for serial numbers it's created payloads for.
+                    payload_callsign = data['id']
+
                 # Create comment field.
                 habitat_comment = "%s%s %s %s" % (data['type'], _ozone, data['id'], data['freq'])
 
                 habitat_upload_payload_telemetry(data, 
-                                                payload_callsign=config['payload_callsign'], 
+                                                payload_callsign=payload_callsign, 
                                                 callsign=config['uploader_callsign'], 
                                                 comment=habitat_comment)
                 logging.debug("Data pushed to Habitat.")
