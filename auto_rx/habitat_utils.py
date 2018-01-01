@@ -93,8 +93,10 @@ uuids = []
 # Keep an internal cache for which payload docs we've created so we don't spam couchdb with updates
 payload_config_cache = {}
 
+
 def ISOStringNow():
     return "%sZ" % datetime.datetime.utcnow().isoformat()
+
 
 def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000):
     """Creates a payload in Habitat for the radiosonde before uploading"""
@@ -113,7 +115,7 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
         },
         "transmissions": [
             {
-                "frequency": frequency, #We might be able to fill this in at a later stage
+                "frequency": frequency, # Currently a dummy value.
                 "modulation": "RTTY",
                 "mode": "USB",
                 "encoding": "ASCII-8",
@@ -198,6 +200,7 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
         logging.error("Habitat Listener: Failed to create a payload document for %s" % serial)
         logging.error(response)
     return response
+
 
 def postListenerData(doc):
     global uuids, url_habitat_db
