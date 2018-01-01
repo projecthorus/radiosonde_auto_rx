@@ -90,9 +90,114 @@ url_habitat_uuids = "http://habitat.habhub.org/_uuids?count=%d"
 url_habitat_db = "http://habitat.habhub.org/habitat/"
 uuids = []
 
+# Keep an internal cache for which payload docs we've created so we don't spam couchdb with updates
+payload_config_cache = {}
+
 def ISOStringNow():
     return "%sZ" % datetime.datetime.utcnow().isoformat()
 
+def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000):
+    """Creates a payload in Habitat for the radiosonde before uploading"""
+    global url_habitat_db
+    global payload_config_cache 
+    
+    if serial in payload_config_cache:
+        return payload_config_cache["serial"]
+
+    payload_data = {
+        "type": "payload_configuration",
+        "name": serial,
+        "time_created": ISOStringNow(),
+        "metadata": { 
+             "description": description
+        },
+        "transmissions": [
+            {
+                "frequency": frequency, #We might be able to fill this in at a later stage
+                "modulation": "RTTY",
+                "mode": "USB",
+                "encoding": "ASCII-8",
+                "parity": "none",
+                "stop": 2,
+                "shift": 350,
+                "baud": 50,
+                "description": "DUMMY ENTRY, DATA IS VIA radiosonde_auto_rx"
+            }
+        ],
+        "sentences": [
+            {
+                "protocol": "UKHAS",
+                "callsign": serial,
+                "checksum":"crc16-ccitt",
+                "fields":[
+                    {
+                        "name": "sentence_id",
+                        "sensor": "base.ascii_int"
+                    },
+                    {
+                        "name": "time",
+                        "sensor": "stdtelem.time"
+                    }, 
+                    {
+                        "name": "latitude",
+                        "sensor": "stdtelem.coordinate",
+                        "format": "dd.dddd"
+                    },
+                    {
+                        "name": "longitude",
+                        "sensor": "stdtelem.coordinate",
+                        "format": "dd.dddd"
+                    },
+                    {
+                        "name": "altitude",
+                        "sensor": "base.ascii_int"
+                    },
+                    {
+                        "name": "speed",
+                        "sensor": "base.ascii_float"
+                    },
+                    {
+                        "name": "temperature_external",
+                        "sensor": "base.ascii_float"
+                    },
+                    {
+                        "name": "humidity",
+                        "sensor": "base.ascii_float"
+                    },
+                    {
+                        "name": "comment",
+                        "sensor": "base.string"
+                    }
+                ],
+            "filters": 
+                {
+                    "post": [
+                        {
+                            "filter": "common.invalid_location_zero",
+                            "type": "normal"
+                        }
+                    ]
+                },
+             "description": "radiosonde_auto_rx to Habitat Bridge"
+            }
+        ]
+    }
+    
+
+    data = json.dumps(payload_data)
+    headers = {
+            'Content-Type': 'application/json; charset=utf-8'
+            }
+
+    req = urllib2.Request(url_habitat_db, data, headers)
+    response = json.loads(urllib2.urlopen(req).read())
+    if response['ok'] == True:
+        logging.debug("Habitat Listener: Created a payload document for %s" % serial)
+        payload_config_cache = response
+    else:
+        logging.error("Habitat Listener: Failed to create a payload document for %s" % serial)
+        logging.error(response)
+    return response
 
 def postListenerData(doc):
     global uuids, url_habitat_db

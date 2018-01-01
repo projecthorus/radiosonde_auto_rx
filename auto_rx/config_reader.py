@@ -38,6 +38,7 @@ def read_auto_rx_config(filename):
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
 		'payload_callsign': 'RADIOSONDE',
+		'payload_description': 'Meteorology Radiosonde',
 		'uploader_callsign': 'SONDE_AUTO_RX',
 		'upload_listener_position': False,
 		'enable_rotator': False,
@@ -60,7 +61,7 @@ def read_auto_rx_config(filename):
 	}
 
 	try:
-		config = ConfigParser.RawConfigParser()
+		config = ConfigParser.RawConfigParser(auto_rx_config)
 		config.read(filename)
 
 		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
@@ -89,6 +90,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['aprs_object_id'] = config.get('aprs', 'aprs_object_id')
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
 		auto_rx_config['payload_callsign'] = config.get('habitat', 'payload_callsign')
+		auto_rx_config['payload_description'] = config.get('habitat', 'payload_description')
 		auto_rx_config['uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['enable_rotator'] = config.getboolean('rotator','enable_rotator')
