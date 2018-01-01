@@ -112,6 +112,7 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 [habitat]
 # Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
 payload_callsign = <id>
+payload_description = "Meteorology Radiosonde"
 # Uploader callsign, as shown above.
 uploader_callsign = SONDE_AUTO_RX
 # Upload listener position to Habitat? (So you show up on the map)

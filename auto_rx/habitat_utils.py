@@ -96,7 +96,7 @@ payload_config_cache = {}
 def ISOStringNow():
     return "%sZ" % datetime.datetime.utcnow().isoformat()
 
-def initPayloadDoc(serial):
+def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000):
     """Creates a payload in Habitat for the radiosonde before uploading"""
     global url_habitat_db
     global payload_config_cache 
@@ -109,11 +109,11 @@ def initPayloadDoc(serial):
         "name": serial,
         "time_created": ISOStringNow(),
         "metadata": { 
-             "description": "Bureau of Met Radiosonde, Melbourne, Second Launch"
+             "description": description
         },
         "transmissions": [
             {
-                "frequency": 401500000, #We might be able to fill this in at a later stage
+                "frequency": frequency, #We might be able to fill this in at a later stage
                 "modulation": "RTTY",
                 "mode": "USB",
                 "encoding": "ASCII-8",

@@ -723,7 +723,7 @@ def internet_push_thread(station_config):
                 
                 payload_callsign = config['payload_callsign']
                 if config['payload_callsign'] == "<id>":
-                    initPayloadDoc(data['id']) # it's fine for us to call this multiple times as initPayloadDoc keeps a cache for serial numbers it's created payloads for.
+                    initPayloadDoc(data['id'], config['payload_description']) # it's fine for us to call this multiple times as initPayloadDoc keeps a cache for serial numbers it's created payloads for.
                     payload_callsign = data['id']
 
                 # Create comment field.
