@@ -21,9 +21,11 @@ def get_ephemeris(destination="ephemeris.dat"):
 
 		# We expect the latest files to be the last in the list.
 		download_file = None
-		if "17n.Z" in file_list[-1]:
+		file_suffix = datetime.datetime.utcnow().strftime("%yn.Z")
+
+		if file_suffix in file_list[-1]:
 			download_file = file_list[-1]
-		elif "17n.Z" in file_list[-2]:
+		elif file_suffix in file_list[-2]:
 			download_file = file_list[-2]
 		else:
 			logging.error("Could not find appropriate ephemeris file.")
