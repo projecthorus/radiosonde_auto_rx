@@ -15,6 +15,7 @@ import logging
 import datetime
 import time
 import os
+import glob
 import shutil
 import platform
 import signal
@@ -509,11 +510,17 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
-                                _log_file_name = "./log/%s_%s_%s_%d.log" % (
-                                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
-                                    data['id'],
-                                    (data['type'] + _ozone),
-                                    int(frequency/1e3))
+                                _existing_files = glob.glob("./log/*%s_%s*.log" % (data['id'], data['type']))
+                                if len(_existing_files) != 0:
+                                    _log_file_name = _existing_files[0]
+                                    logging.debug("Using existing log file: %s" % _log_file_name)
+                                else:
+                                    _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                        datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                                        data['id'],
+                                        (data['type'] + _ozone),
+                                        int(frequency/1e3))
+                                    logging.debug("Opening new log file: %s" % _log_file_name)
 
                                 _log_file = open(_log_file_name,'wb')
 
@@ -613,11 +620,17 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
-                                _log_file_name = "./log/%s_%s_%s_%d.log" % (
-                                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
-                                    data['id'],
-                                    data['type'],
-                                    int(frequency/1e3))
+                                _existing_files = glob.glob("./log/*%s_%s*.log" % (data['id'], data['type']))
+                                if len(_existing_files) != 0:
+                                    _log_file_name = _existing_files[0]
+                                    logging.debug("Using existing log file: %s" % _log_file_name)
+                                else:
+                                    _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                        datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                                        data['id'],
+                                        data['type'],
+                                        int(frequency/1e3))
+                                    logging.debug("Opening new log file: %s" % _log_file_name)
 
                                 _log_file = open(_log_file_name,'wb')
 
