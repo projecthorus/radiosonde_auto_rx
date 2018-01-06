@@ -18,6 +18,8 @@ This software performs the following steps:
 
 Refer to the wiki for [installation and setup instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
+#### Please note this software is under constant development. Please update (git pull) regularly!
+
 ### Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
 * [Michael Wheeler](https://github.com/TheSkorm) - git@mwheeler.org

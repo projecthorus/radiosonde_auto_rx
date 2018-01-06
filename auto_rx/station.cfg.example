@@ -75,7 +75,9 @@ station_alt = 0.0
 upload_rate = 30
 
 # Enable upload to various services.
+#  Uploading to APRS. Change settings in [aprs] block below.
 enable_aprs = False
+#  Uploading to Habitat. PLEASE CHANGE uploader_callsign IN [habitat] BLOCK BELOW BEFORE ENABLING THIS
 enable_habitat = False
 
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
@@ -113,7 +115,7 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 # Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
 payload_callsign = <id>
 payload_description = Meteorological Radiosonde
-# Uploader callsign, as shown above.
+# Uploader callsign, as shown above. PLEASE CHANGE THIS TO SOMETHING UNIQUE.
 uploader_callsign = SONDE_AUTO_RX
 # Upload listener position to Habitat? (So you show up on the map)
 upload_listener_position = False
