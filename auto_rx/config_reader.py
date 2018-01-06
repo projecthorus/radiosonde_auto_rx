@@ -108,9 +108,6 @@ def read_auto_rx_config(filename):
 		auto_rx_config['ozi_port'] = config.getint('oziplotter', 'ozi_port')
 		auto_rx_config['payload_summary_enabled'] = config.getboolean('oziplotter', 'payload_summary_enabled')
 		auto_rx_config['payload_summary_port'] = config.getint('oziplotter', 'payload_summary_port')
-		auto_rx_config['mqtt_enabled'] = config.getboolean('mqtt', 'mqtt_enabled')
-		auto_rx_config['mqtt_hostname'] = config.get('mqtt', 'mqtt_hostname')
-		auto_rx_config['mqtt_port'] = config.getint('mqtt', 'mqtt_port')
 
 		# Read in lists using a JSON parser.
 		auto_rx_config['whitelist'] = json.loads(config.get('search_params', 'whitelist'))
@@ -120,6 +117,11 @@ def read_auto_rx_config(filename):
 		# Position Filtering
 		auto_rx_config['max_altitude'] = config.getint('filtering', 'max_altitude')
 		auto_rx_config['max_radius_km'] = config.getint('filtering', 'max_radius_km')
+
+		# MQTT settings
+		auto_rx_config['mqtt_enabled'] = config.getboolean('mqtt', 'mqtt_enabled')
+		auto_rx_config['mqtt_hostname'] = config.get('mqtt', 'mqtt_hostname')
+		auto_rx_config['mqtt_port'] = config.getint('mqtt', 'mqtt_port')
 
 		return auto_rx_config
 
