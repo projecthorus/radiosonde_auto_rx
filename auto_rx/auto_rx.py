@@ -507,6 +507,10 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                         else:
                             _ozone = ""
 
+                        # post to MQTT
+                        if mqtt_client:
+                            mqtt_client.publish("sonde/%s" % data['id'], payload=json.dumps(data), retain=True)
+
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
@@ -616,6 +620,10 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
                         # Add in a few fields that don't come from the sonde telemetry.
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS41"
+
+                        # post to MQTT
+                        if mqtt_client:
+                            mqtt_client.publish("sonde/%s" % data['id'], payload=json.dumps(data), retain=True)
 
                         # Per-Sonde Logging
                         if save_log:
@@ -853,10 +861,20 @@ if __name__ == "__main__":
     sonde_freq = None
     sonde_type = None
 
+    # MQTT Client
+    mqtt_client = None
+
     try:
         # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
         if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
             uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
+
+        if config['mqtt_enabled']:
+            import paho.mqtt.client
+            mqtt_client = paho.mqtt.client.Client()
+            print "Connecting to MQTT Server %s:%s" % (config['mqtt_hostname'], config['mqtt_port'])
+            mqtt_client.connect(config['mqtt_hostname'], config['mqtt_port'])
+            mqtt_client.loop_start()
 
         # Main scan & track loop. We keep on doing this until we timeout (i.e. after we expect the sonde to have landed)
 
