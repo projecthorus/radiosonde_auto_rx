@@ -509,6 +509,7 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
 
                         # post to MQTT
                         if mqtt_client:
+                            data['seen_by'] = config['uploader_callsign']
                             mqtt_client.publish("sonde/%s" % data['id'], payload=json.dumps(data), retain=True)
 
                         # Per-Sonde Logging
@@ -623,6 +624,7 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
 
                         # post to MQTT
                         if mqtt_client:
+                            data['seen_by'] = config['uploader_callsign']
                             mqtt_client.publish("sonde/%s" % data['id'], payload=json.dumps(data), retain=True)
 
                         # Per-Sonde Logging
