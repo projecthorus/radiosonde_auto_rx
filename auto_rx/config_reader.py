@@ -51,6 +51,9 @@ def read_auto_rx_config(filename):
 		'ozi_update_rate': 5,
 		'ozi_hostname'	: '127.0.0.1',
 		'ozi_port'		: 55681,
+		'mqtt_enabled'	: False,
+		'mqtt_hostname'	: '127.0.0.1',
+		'mqtt_port'		: 1883,
 		'payload_summary_enabled': False,
 		'payload_summary_port' : 55672,
 		'whitelist'	: [],
@@ -114,6 +117,11 @@ def read_auto_rx_config(filename):
 		# Position Filtering
 		auto_rx_config['max_altitude'] = config.getint('filtering', 'max_altitude')
 		auto_rx_config['max_radius_km'] = config.getint('filtering', 'max_radius_km')
+
+		# MQTT settings
+		auto_rx_config['mqtt_enabled'] = config.getboolean('mqtt', 'mqtt_enabled')
+		auto_rx_config['mqtt_hostname'] = config.get('mqtt', 'mqtt_hostname')
+		auto_rx_config['mqtt_port'] = config.getint('mqtt', 'mqtt_port')
 
 		return auto_rx_config
 

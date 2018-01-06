@@ -153,3 +153,10 @@ payload_summary_port = 55672
 max_altitude = 50000
 # Discard positions more than 1000 km from the observation station location (if set)
 max_radius_km = 1000
+
+# MQTT
+# Post all sonde messages to a MQTT server
+[mqtt]
+mqtt_enabled = False
+mqtt_hostname = 127.0.0.1
+mqtt_port = 1883
