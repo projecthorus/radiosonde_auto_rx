@@ -527,7 +527,7 @@ def decode_rs92(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, almanac=No
                                         int(frequency/1e3))
                                     logging.debug("Opening new log file: %s" % _log_file_name)
 
-                                _log_file = open(_log_file_name,'wb')
+                                _log_file = open(_log_file_name,'ab')
 
                             # Write a log line
                             # datetime,id,frame_no,lat,lon,alt,type,frequency
@@ -642,7 +642,7 @@ def decode_rs41(frequency, ppm=0, gain=-1, bias=False, rx_queue=None, timeout=12
                                         int(frequency/1e3))
                                     logging.debug("Opening new log file: %s" % _log_file_name)
 
-                                _log_file = open(_log_file_name,'wb')
+                                _log_file = open(_log_file_name,'ab')
 
                             # Write a log line
                             # datetime,id,frame_no,lat,lon,alt,type,frequency
