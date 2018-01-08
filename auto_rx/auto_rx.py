@@ -969,7 +969,8 @@ if __name__ == "__main__":
         f.write(stats_str + "\n")
         f.close()
 
-    # Stop the APRS output thread.
+    # Stop the Output threads.
     INTERNET_PUSH_RUNNING = False
+    OZI_PUSH_RUNNING = False
 
 
