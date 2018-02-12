@@ -13,9 +13,11 @@ def read_auto_rx_config(filename):
 	# Configuration Defaults:
 	auto_rx_config = {
 		'per_sonde_log' : True,
-		'rtlsdr_ppm'	:	0,
-		'rtlsdr_gain'	:	-1,
-		'rtlsdr_bias'	: False,
+		'sdr_fm_path': 'rtl_fm',
+		'sdr_power_path': 'rtl_power',
+		'sdr_ppm'	:	0,
+		'sdr_gain'	:	-1,
+		'sdr_bias'	: False,
 		'search_attempts':	5,
 		'search_delay'	: 10,
 		'min_freq'		: 400.4,
@@ -68,9 +70,11 @@ def read_auto_rx_config(filename):
 		config.read(filename)
 
 		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
-		auto_rx_config['rtlsdr_ppm'] = int(config.getfloat('rtlsdr', 'rtlsdr_ppm'))
-		auto_rx_config['rtlsdr_gain'] = config.getfloat('rtlsdr', 'rtlsdr_gain')
-		auto_rx_config['rtlsdr_bias'] = config.getboolean('rtlsdr', 'rtlsdr_bias')
+		auto_rx_config['sdr_fm_path'] = config.get('sdr','sdr_fm_path')
+		auto_rx_config['sdr_power_path'] = config.get('sdr','sdr_power_path')
+		auto_rx_config['sdr_ppm'] = int(config.getfloat('sdr', 'sdr_ppm'))
+		auto_rx_config['sdr_gain'] = config.getfloat('sdr', 'sdr_gain')
+		auto_rx_config['sdr_bias'] = config.getboolean('sdr', 'sdr_bias')
 		auto_rx_config['search_attempts'] = config.getint('search_params', 'search_attempts')
 		auto_rx_config['search_delay'] = config.getint('search_params', 'search_delay')
 		auto_rx_config['min_freq'] = config.getfloat('search_params', 'min_freq')

@@ -9,19 +9,30 @@
 # If enabled, a log file will be written for each detected radiosonde.
 per_sonde_log = True
 
-# Settings used when receiving data using a RTLSDR.
-[rtlsdr]
+# SDR Receiver Settings
+[sdr]
+# Paths to the rtl_fm and rtl_power utilities, or their rx_tools equivalents.
+# RTLSDR (Default)
+sdr_fm_path = rtl_fm
+sdr_power_path = rtl_power
+
+# AirSpy
+#sdr_fm_path = rx_fm -d="driver=airspy"
+#sdr_power_path = rx_power -d="driver=airspy"
+
 # PPM Frequency Correction (ppm offset)
 # Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
-rtlsdr_ppm = 0
-# RTLSDR Gain Setting
+sdr_ppm = 0
+# SDR Gain Setting
 # Gain settings can generally range between 0dB and 30dB depending on the tuner in use.
 # Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
 # Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
-rtlsdr_gain = -1
+sdr_gain = -1
 # Enable RTLSDR Bias Tee (for v3 Dongles)
+# WARNING: THIS ONLY WORKS WITH rtl_fm AND rtl_power
+# To enable the bias tee on other SDRs, consult the relevant SoapySDR Module documentation
 # Requires a recent version of rtl-sdr to be installed (needs the -T option)
-rtlsdr_bias = False
+sdr_bias = False
 
 # Radiosonde Search Parameters
 [search_params]
