@@ -516,12 +516,12 @@ def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
-                                _existing_files = glob.glob("./log/*%s_%s*.log" % (data['id'], data['type']))
+                                _existing_files = glob.glob("./log/*%s_%s*_sonde.log" % (data['id'], data['type']))
                                 if len(_existing_files) != 0:
                                     _log_file_name = _existing_files[0]
                                     logging.debug("Using existing log file: %s" % _log_file_name)
                                 else:
-                                    _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                    _log_file_name = "./log/%s_%s_%s_%d_sonde.log" % (
                                         datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
                                         data['id'],
                                         (data['type'] + _ozone),
@@ -631,12 +631,12 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
                         # Per-Sonde Logging
                         if save_log:
                             if _log_file is None:
-                                _existing_files = glob.glob("./log/*%s_%s*.log" % (data['id'], data['type']))
+                                _existing_files = glob.glob("./log/*%s_%s*_sonde.log" % (data['id'], data['type']))
                                 if len(_existing_files) != 0:
                                     _log_file_name = _existing_files[0]
                                     logging.debug("Using existing log file: %s" % _log_file_name)
                                 else:
-                                    _log_file_name = "./log/%s_%s_%s_%d.log" % (
+                                    _log_file_name = "./log/%s_%s_%s_%d_sonde.log" % (
                                         datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
                                         data['id'],
                                         data['type'],
@@ -828,7 +828,7 @@ def ozi_push_thread(station_config):
 if __name__ == "__main__":
 
     # Setup logging.
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S.log"), level=logging_level)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)
