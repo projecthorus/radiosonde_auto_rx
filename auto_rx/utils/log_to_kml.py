@@ -202,7 +202,7 @@ def write_kml(geom_objects,
         kml_file.close()
 
 
-def convert_single_file(filename, absolute=True, tessellate=True):
+def convert_single_file(filename, absolute=True, tessellate=True, last_only=False):
     ''' Convert a single sonde log file to a fastkml KML Folder object '''
 
     # Read file.
@@ -225,7 +225,8 @@ def convert_single_file(filename, absolute=True, tessellate=True):
     _landing_geom = new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3], name=_landing_comment, absolute=absolute)
 
     _folder = fastkml.kml.Folder(ns, _flight_serial, _track_comment, 'Radiosonde Flight Path')
-    _folder.append(_flight_geom)
+    if last_only == False:
+        _folder.append(_flight_geom)
     _folder.append(_landing_geom)
 
     return _folder
@@ -238,6 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, default="sondes.kml", help="KML output file name. Default=sondes.kml")
     parser.add_argument('--clamp', action="store_false", default=True, help="Clamp tracks to ground instead of showing absolute altitudes.")
     parser.add_argument('--noextrude', action="store_false", default=True, help="Disable Extrusions for absolute flight paths.")
+    parser.add_argument('--lastonly', action="store_true", default=False, help="Only plot last-seen sonde positions, not the flight paths.")
     args = parser.parse_args()
 
     _file_list = glob.glob(args.input)
@@ -247,7 +249,7 @@ if __name__ == "__main__":
     for _file in _file_list:
         print("Processing: %s" % _file)
         try:
-            _placemarks.append(convert_single_file(_file, absolute=args.clamp, tessellate=args.noextrude))
+            _placemarks.append(convert_single_file(_file, absolute=args.clamp, tessellate=args.noextrude, last_only=args.lastonly))
         except:
             print("Failed to process: %s" % _file)
 
