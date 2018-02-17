@@ -13,9 +13,11 @@ def read_auto_rx_config(filename):
 	# Configuration Defaults:
 	auto_rx_config = {
 		'per_sonde_log' : True,
-		'rtlsdr_ppm'	:	0,
-		'rtlsdr_gain'	:	-1,
-		'rtlsdr_bias'	: False,
+		'sdr_fm_path': 'rtl_fm',
+		'sdr_power_path': 'rtl_power',
+		'sdr_ppm'	:	0,
+		'sdr_gain'	:	-1,
+		'sdr_bias'	: False,
 		'search_attempts':	5,
 		'search_delay'	: 10,
 		'min_freq'		: 400.4,
@@ -35,6 +37,7 @@ def read_auto_rx_config(filename):
 		'enable_habitat': False,
 		'aprs_user'		: 'N0CALL',
 		'aprs_pass'		: '00000',
+		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
 		'payload_callsign': '<id>',
@@ -68,9 +71,11 @@ def read_auto_rx_config(filename):
 		config.read(filename)
 
 		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
-		auto_rx_config['rtlsdr_ppm'] = int(config.getfloat('rtlsdr', 'rtlsdr_ppm'))
-		auto_rx_config['rtlsdr_gain'] = config.getfloat('rtlsdr', 'rtlsdr_gain')
-		auto_rx_config['rtlsdr_bias'] = config.getboolean('rtlsdr', 'rtlsdr_bias')
+		auto_rx_config['sdr_fm_path'] = config.get('sdr','sdr_fm_path')
+		auto_rx_config['sdr_power_path'] = config.get('sdr','sdr_power_path')
+		auto_rx_config['sdr_ppm'] = int(config.getfloat('sdr', 'sdr_ppm'))
+		auto_rx_config['sdr_gain'] = config.getfloat('sdr', 'sdr_gain')
+		auto_rx_config['sdr_bias'] = config.getboolean('sdr', 'sdr_bias')
 		auto_rx_config['search_attempts'] = config.getint('search_params', 'search_attempts')
 		auto_rx_config['search_delay'] = config.getint('search_params', 'search_delay')
 		auto_rx_config['min_freq'] = config.getfloat('search_params', 'min_freq')
@@ -90,6 +95,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['enable_habitat'] = config.getboolean('upload', 'enable_habitat')
 		auto_rx_config['aprs_user'] = config.get('aprs', 'aprs_user')
 		auto_rx_config['aprs_pass'] = config.get('aprs', 'aprs_pass')
+		auto_rx_config['aprs_server'] = config.get('aprs', 'aprs_server')
 		auto_rx_config['aprs_object_id'] = config.get('aprs', 'aprs_object_id')
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
 		auto_rx_config['payload_callsign'] = config.get('habitat', 'payload_callsign')
