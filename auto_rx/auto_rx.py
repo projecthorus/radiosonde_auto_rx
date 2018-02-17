@@ -715,7 +715,7 @@ def internet_push_thread(station_config):
         try:
             # Wrap this entire section in a try/except, to catch any data parsing errors.
             # APRS Upload
-            if station_config['enable_aprs']:
+            if station_config['enable_aprs'] and (data['lat'] != 0.0) and (data['lon'] != 0.0):
                 # Produce aprs comment, based on user config.
                 aprs_comment = station_config['aprs_custom_comment']
                 aprs_comment = aprs_comment.replace("<freq>", data['freq'])
