@@ -37,7 +37,7 @@ from async_file_reader import AsynchronousFileReader
 # Logging level
 # INFO = Basic status messages
 # DEBUG = Adds information on each command run by subprocess.
-logging_level = logging.DEBUG
+logging_level = logging.INFO
 
 # Set this to true to enable dumping of all the rtl_power output to files in ./log/
 # Note that this can result in a LOT of log files being generated depending on your scanning settings.
