@@ -37,6 +37,7 @@ def read_auto_rx_config(filename):
 		'enable_habitat': False,
 		'aprs_user'		: 'N0CALL',
 		'aprs_pass'		: '00000',
+		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
 		'payload_callsign': '<id>',
@@ -94,6 +95,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['enable_habitat'] = config.getboolean('upload', 'enable_habitat')
 		auto_rx_config['aprs_user'] = config.get('aprs', 'aprs_user')
 		auto_rx_config['aprs_pass'] = config.get('aprs', 'aprs_pass')
+		auto_rx_config['aprs_server'] = config.get('aprs', 'aprs_server')
 		auto_rx_config['aprs_object_id'] = config.get('aprs', 'aprs_object_id')
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
 		auto_rx_config['payload_callsign'] = config.get('habitat', 'payload_callsign')

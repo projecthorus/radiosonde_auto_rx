@@ -6,31 +6,24 @@
 
 # Logging Settings
 [logging]
-# If enabled, a log file will be written for each detected radiosonde.
+# If enabled, a log file will be written to ./log/ for each detected radiosonde.
 per_sonde_log = True
 
 # SDR Receiver Settings
 [sdr]
-# Paths to the rtl_fm and rtl_power utilities, or their rx_tools equivalents.
-# RTLSDR (Default)
+# Paths to the rtl_fm and rtl_power utilities. If these are on your system path, then you don't need to change this.
 sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
 
-# AirSpy
-#sdr_fm_path = rx_fm -d="driver=airspy"
-#sdr_power_path = rx_power -d="driver=airspy"
-
 # PPM Frequency Correction (ppm offset)
-# Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
+#   Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
 sdr_ppm = 0
 # SDR Gain Setting
-# Gain settings can generally range between 0dB and 30dB depending on the tuner in use.
-# Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
-# Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
+#   Gain settings can generally range between 0dB and 30dB depending on the tuner in use.
+#   Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
+#   Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
 sdr_gain = -1
 # Enable RTLSDR Bias Tee (for v3 Dongles)
-# WARNING: THIS ONLY WORKS WITH rtl_fm AND rtl_power
-# To enable the bias tee on other SDRs, consult the relevant SoapySDR Module documentation
 # Requires a recent version of rtl-sdr to be installed (needs the -T option)
 sdr_bias = False
 
@@ -70,7 +63,7 @@ whitelist = []
 # This is used to remove known spurs or other interferers from the scan list, potentially speeding up detection of a sonde.
 blacklist = []
 
-# Grey-List - Any values in this list will be added to every scan run.
+# Grey-List - Any values in this list will be added to the start every scan run.
 # This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
 greylist = []
 
@@ -87,6 +80,7 @@ upload_rate = 30
 
 # Enable upload to various services.
 #  Uploading to APRS. Change settings in [aprs] block below.
+#  PLEASE READ WARNING HERE BEFORE ENABLING: https://github.com/projecthorus/radiosonde_auto_rx/wiki/Configuration-Settings#uploading-to-aprs-is
 enable_aprs = False
 #  Uploading to Habitat. PLEASE CHANGE uploader_callsign IN [habitat] BLOCK BELOW BEFORE ENABLING THIS
 enable_habitat = False
@@ -102,6 +96,9 @@ synchronous_upload = True
 aprs_user = N0CALL
 aprs_pass = 00000
 
+# APRS-IS server to upload to.
+aprs_server = rotate.aprs2.net
+
 # Object name to be used when uploading to APRS-IS (Max 9 chars)
 # Should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
 # or <id>, which will be replaced with the radiosondes serial number
@@ -115,12 +112,12 @@ aprs_object_id = <id>
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 aprs_custom_comment = Radiosonde Auto-RX <freq>
 
-# Settings for uploading to the Habitat HAB tracking database
-# Note that the habitat upload will use a fixed string format of:
-#`$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
-# Where callsign is set below. Temp and Humidity values are currently fixed to 0, as the RS
-# code doesn't extract the PTU data at this time.
-# You will need to create an appropriate Habitat payload document for this data to appear on the habitat tracker.
+
+# Settings for uploading to the Habitat HAB tracking database ( https://tracker.habhub.org/ )
+#   Note that the habitat upload will use a fixed string format of:
+#  `$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
+#   Where callsign is set below. Temp values are only supported on the RS41 at this time.
+#   If you use a custom payload callsign, you will need to create an appropriate payload document for it to appear on the map
 # 
 [habitat]
 # Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
@@ -131,20 +128,6 @@ uploader_callsign = SONDE_AUTO_RX
 # Upload listener position to Habitat? (So you show up on the map)
 upload_listener_position = False
 
-# Rotator Settings
-# auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
-# The update rate is tied to the upload_rate setting above, though internet upload does not need to be enabled
-# for the rotator to be updated.
-[rotator]
-enable_rotator = False
-# Hostname / Port of the rotctld instance.
-rotator_hostname = 127.0.0.1
-rotator_port = 4533
-# Rotator Homing.
-# If enabled, turn to this location when scanning for sondes.
-rotator_homing_enabled = False
-rotator_home_azimuth = 0
-rotator_home_elevation = 0
 
 # Settings for pushing data into OziPlotter
 # Oziplotter receives data via a basic CSV format, via UDP.
@@ -157,19 +140,35 @@ ozi_port = 55681
 payload_summary_enabled = False
 payload_summary_port = 55672
 
+
 # Position Filtering Options
-# These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
-# or has suddenly ended up in orbit.
-# Adjust only if absolutely necessary.
+#   These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
+#   or has suddenly ended up in orbit.
+#   Adjust only if absolutely necessary.
 [filtering]
 # Discard positions with an altitude greater than 50000 metres. 
 max_altitude = 50000
 # Discard positions more than 1000 km from the observation station location (if set)
 max_radius_km = 1000
 
-# MQTT
-# Post all sonde messages to a MQTT server
+# MQTT (Even more interfacing options!)
+#   Post all sonde messages to a MQTT server
 [mqtt]
 mqtt_enabled = False
 mqtt_hostname = 127.0.0.1
 mqtt_port = 1883
+
+# Rotator Settings
+#   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
+#   The update rate is tied to the upload_rate setting above, though internet upload does not need to be enabled
+#   for the rotator to be updated.
+[rotator]
+enable_rotator = False
+# Hostname / Port of the rotctld instance.
+rotator_hostname = 127.0.0.1
+rotator_port = 4533
+# Rotator Homing.
+# If enabled, turn to this location when scanning for sondes.
+rotator_homing_enabled = False
+rotator_home_azimuth = 0
+rotator_home_elevation = 0

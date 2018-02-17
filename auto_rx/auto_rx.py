@@ -733,7 +733,8 @@ def internet_push_thread(station_config):
                                                 object_name=station_config['aprs_object_id'],
                                                 aprs_comment=aprs_comment,
                                                 aprsUser=station_config['aprs_user'],
-                                                aprsPass=station_config['aprs_pass'])
+                                                aprsPass=station_config['aprs_pass'],
+                                                serverHost=station_config['aprs_server'])
                 logging.info("Data pushed to APRS-IS: %s" % aprs_data)
 
             # Habitat Upload
