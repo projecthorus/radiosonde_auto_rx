@@ -614,7 +614,7 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
         for line in rx_stdout.readlines():
             if (line != None) and (line != ""):
                 try:
-                    data = process_rs_line(line)2
+                    data = process_rs_line(line)
 
                     if data != None:
                         # Reset timeout counter.
