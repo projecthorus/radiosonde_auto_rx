@@ -494,10 +494,10 @@ def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
             if (line != None) and (line != ""):
                 try:
                     data = process_rs_line(line)
-                    # Reset timeout counter.
-                    rx_last_line = time.time()
 
                     if data != None:
+                        # Reset timeout counter
+                        rx_last_line = time.time()
                         # Add in a few fields that don't come from the sonde telemetry.
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS92"
@@ -614,11 +614,11 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
         for line in rx_stdout.readlines():
             if (line != None) and (line != ""):
                 try:
-                    data = process_rs_line(line)
-                    # Reset timeout counter.
-                    rx_last_line = time.time()
+                    data = process_rs_line(line)2
 
                     if data != None:
+                        # Reset timeout counter.
+                        rx_last_line = time.time()
                         # Add in a few fields that don't come from the sonde telemetry.
                         data['freq'] = "%.3f MHz" % (frequency/1e6)
                         data['type'] = "RS41"
