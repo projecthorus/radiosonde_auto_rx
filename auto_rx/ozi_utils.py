@@ -67,7 +67,7 @@ def oziplotter_upload_basic_telemetry(time, latitude, longitude, altitude, hostn
         ozisock.close()
         return sentence
     except Exception as e:
-        print("Failed to send to Ozi: " % e)
+        print("Failed to send to Ozi: %s" % str(e))
 
 
 
