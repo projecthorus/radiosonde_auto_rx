@@ -254,11 +254,8 @@ def initListenerCallsign(callsign):
             continue
 
 def uploadListenerPosition(callsign, lat, lon):
-    # initialize call sign (one time only)
-    global callsign_init
-    if not callsign_init:
-        initListenerCallsign(callsign)
-        callsign_init = True
+    """ Initializer Listener Callsign, and upload Listener Position """
+    initListenerCallsign(callsign)
 
     doc = {
         'type': 'listener_telemetry',
