@@ -110,7 +110,6 @@ def read_auto_rx_config(filename):
 		auto_rx_config['rotator_home_elevation'] = config.getfloat('rotator', 'rotator_home_elevation')
 		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
 		auto_rx_config['ozi_update_rate'] = config.getint('oziplotter', 'ozi_update_rate')
-		auto_rx_config['ozi_hostname'] = config.get('oziplotter', 'ozi_hostname')
 		auto_rx_config['ozi_port'] = config.getint('oziplotter', 'ozi_port')
 		auto_rx_config['payload_summary_enabled'] = config.getboolean('oziplotter', 'payload_summary_enabled')
 		auto_rx_config['payload_summary_port'] = config.getint('oziplotter', 'payload_summary_port')

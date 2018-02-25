@@ -134,7 +134,7 @@ upload_listener_position = False
 [oziplotter]
 ozi_enabled = False
 ozi_update_rate = 5
-ozi_hostname = 127.0.0.1
+# Broadcast UDP port - Set this to 55681 if sending data to OziMux, or 8942 if sending directly to OziPlotter
 ozi_port = 55681
 # Payload summary output, which can be used by a few of the Horus Ground Station tools
 payload_summary_enabled = False

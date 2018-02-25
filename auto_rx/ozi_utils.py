@@ -43,7 +43,7 @@ def send_payload_summary(callsign, latitude, longitude, altitude, packet_time, s
 
 
 # The new 'generic' OziPlotter upload function, with no callsign, or checksumming (why bother, really)
-def oziplotter_upload_basic_telemetry(time, latitude, longitude, altitude, hostname="192.168.88.2", udp_port = HORUS_OZIPLOTTER_PORT):
+def oziplotter_upload_basic_telemetry(time, latitude, longitude, altitude, hostname="192.168.88.2", udp_port = HORUS_OZIPLOTTER_PORT, broadcast=True):
     """
     Send a sentence of position data to Oziplotter, via UDP.
     """
@@ -51,10 +51,24 @@ def oziplotter_upload_basic_telemetry(time, latitude, longitude, altitude, hostn
 
     try:
         ozisock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-        ozisock.sendto(sentence,(hostname,udp_port))
+        if broadcast:
+            # Set up socket for broadcast, and allow re-use of the address
+            ozisock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
+            ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except:
+                pass
+            ozisock.sendto(sentence,('<broadcast>',udp_port))
+        else:
+            # Otherwise, send to a user-defined hostname/port.
+            ozisock.sendto(sentence,(hostname,udp_port))
+
         ozisock.close()
+        return sentence
     except Exception as e:
         print("Failed to send to Ozi: " % e)
+
 
 
 def push_telemetry_to_ozi(telemetry, hostname='127.0.0.1', udp_port = HORUS_OZIPLOTTER_PORT):
