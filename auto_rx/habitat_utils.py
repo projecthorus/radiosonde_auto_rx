@@ -192,7 +192,7 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
             }
 
     req = urllib2.Request(url_habitat_db, data, headers)
-    response = json.loads(urllib2.urlopen(req).read())
+    response = json.loads(urllib2.urlopen(req, timeout=30).read())
     if response['ok'] == True:
         logging.info("Habitat Listener: Created a payload document for %s" % serial)
         payload_config_cache[serial] = response
@@ -219,13 +219,13 @@ def postListenerData(doc):
             }
 
     req = urllib2.Request(url_habitat_db, data, headers)
-    return urllib2.urlopen(req).read()
+    return urllib2.urlopen(req, timeout=30).read()
 
 def fetchUuids():
     global uuids, url_habitat_uuids
     while True:
         try:
-            resp = urllib2.urlopen(url_habitat_uuids % 10).read()
+            resp = urllib2.urlopen(url_habitat_uuids % 10, timeout=30).read()
             data = json.loads(resp)
         except urllib2.HTTPError, e:
             logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds.")
