@@ -135,3 +135,10 @@ def read_auto_rx_config(filename):
 		logging.error("Could not parse config file, using defaults.")
 		return auto_rx_config
 
+
+if __name__ == '__main__':
+	''' Quick test script to attempt to read in a config file. '''
+	import sys
+	print(read_auto_rx_config(sys.argv[1]))
+
+
