@@ -236,11 +236,15 @@ def fetchUuids():
         break;
 
 
-def initListenerCallsign(callsign):
+def initListenerCallsign(callsign, version=''):
     doc = {
             'type': 'listener_information',
             'time_created' : ISOStringNow(),
-            'data': { 'callsign': callsign }
+            'data': {
+                'callsign': callsign,
+                'antenna': '',
+                'radio': 'radiosonde_auto_rx %s' % version,
+                }
             }
 
     while True:
@@ -253,9 +257,9 @@ def initListenerCallsign(callsign):
             time.sleep(10)
             continue
 
-def uploadListenerPosition(callsign, lat, lon):
+def uploadListenerPosition(callsign, lat, lon, version=''):
     """ Initializer Listener Callsign, and upload Listener Position """
-    initListenerCallsign(callsign)
+    initListenerCallsign(callsign, version=version)
 
     doc = {
         'type': 'listener_telemetry',

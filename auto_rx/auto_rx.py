@@ -34,6 +34,9 @@ from config_reader import *
 from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
+# TODO: Break this out to somewhere else, that is set automatically based on releases...
+AUTO_RX_VERSION = '20180308'
+
 # Logging level
 # INFO = Basic status messages
 # DEBUG = Adds information on each command run by subprocess.
@@ -871,7 +874,7 @@ if __name__ == "__main__":
     try:
         # If Habitat upload is enabled and we have been provided with listener coords, push our position to habitat
         if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
-            uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
+            uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'], version=AUTO_RX_VERSION)
 
         if config['mqtt_enabled']:
             import paho.mqtt.client
@@ -911,7 +914,7 @@ if __name__ == "__main__":
 
             # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
             if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
-                uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'])
+                uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'], version=AUTO_RX_VERSION)
 
             # Start both of our internet/ozi push threads, even if we're not going to use them.
             if push_thread_1 == None:
