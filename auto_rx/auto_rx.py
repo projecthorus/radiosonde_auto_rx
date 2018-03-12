@@ -675,8 +675,8 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
                             except:
                                 pass
                 except:
-                    traceback.print_exc()
-                    logging.error("Error parsing line: %s" % line)
+                    _err_str = traceback.format_exc()
+                    logging.error("Error parsing line: %s - %s" % (line, _err_str))
 
         # Check timeout counter.
         if time.time() > (rx_last_line+timeout):
