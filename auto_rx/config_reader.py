@@ -63,7 +63,8 @@ def read_auto_rx_config(filename):
 		'blacklist'	: [],
 		'greylist'	: [],
 		'max_altitude'	: 50000,
-		'max_radius_km'	: 1000
+		'max_radius_km'	: 1000,
+		'payload_id_valid' : 5 # TODO: Add this to config file in next bulk update.
 	}
 
 	try:

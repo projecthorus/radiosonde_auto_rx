@@ -23,6 +23,7 @@ import Queue
 import subprocess
 import traceback
 import json
+import re
 from aprs_utils import *
 from habitat_utils import *
 from ozi_utils import *
@@ -35,7 +36,7 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # TODO: Break this out to somewhere else, that is set automatically based on releases...
-AUTO_RX_VERSION = '20180308'
+AUTO_RX_VERSION = '20180318'
 
 # Logging level
 # INFO = Basic status messages
@@ -326,7 +327,8 @@ def sonde_search(config, attempts = 5):
 
 def check_position_valid(data):
     """
-    Check to see if a payload position breaches one of our filtering limits.
+    Check to see if a payload position frame breaches one of our filters.
+    In this function we also check that the payload callsign is not invalid.
     """
     # Access the global copy of the station config. Bit of a hack, but the alternative is
     # passing the config through multiple layers of functions.
@@ -352,8 +354,42 @@ def check_position_valid(data):
             logging.warning("Position breached radius cap by %.1f km." % (_radius_breach))
             return False
 
-    # Payload position has passed our filters, assume it is valid.
-    return True
+    # Payload Serial Number Checks
+    _serial = data['id']
+    # Run a Regex to match known Vaisala RS92/RS41 serial numbers (YWWDxxxx)
+    # RS92: https://www.vaisala.com/sites/default/files/documents/Vaisala%20Radiosonde%20RS92%20Serial%20Number.pdf
+    # RS41: https://www.vaisala.com/sites/default/files/documents/Vaisala%20Radiosonde%20RS41%20Serial%20Number.pdf
+    # This will need to be re-evaluated if we're still using this code in 2021!
+    callsign_valid = re.match(r'[J-T][0-5][\d][1-7]\d{4}', _serial)
+
+    if callsign_valid:
+        return True
+    else:
+        logging.warning("Payload ID does not match regex. Discarding.")
+        return False
+
+
+# Dictionary of observed payload IDs.
+seen_payload_ids = {}
+
+def payload_id_valid_for_upload(payload_id, update=False):
+    ''' Update our list of seen payload IDs '''
+    global config, seen_payload_ids
+
+    if payload_id in seen_payload_ids:
+        if seen_payload_ids[payload_id] >= config['payload_id_valid']:
+            # We have seen this payload ID often enough to consider it to be valid.
+            return True
+        else:
+            if update:
+                seen_payload_ids[payload_id] += 1
+    else:
+        if update:
+            seen_payload_ids[payload_id] = 1
+
+    # Otherwise, we still haven't seen this payload enough to be sure it's ID is valid.
+    return False
+
 
 
 def process_rs_line(line):
@@ -379,6 +415,10 @@ def process_rs_line(line):
 
         if check_position_valid(rs_frame):
             logging.info("TELEMETRY: %s" % _telem_string)
+            # Update the seen-payload-id list
+            # This will then be queried within the internet upload threads.
+            payload_id_valid_for_upload(rs_frame['id'],update=True)
+
             return rs_frame
         else:
             logging.warning("Invalid Position, discarding: %s" % _telem_string)
@@ -717,63 +757,70 @@ def internet_push_thread(station_config):
 
         try:
             # Wrap this entire section in a try/except, to catch any data parsing errors.
-            # APRS Upload
-            if station_config['enable_aprs'] and (data['lat'] != 0.0) and (data['lon'] != 0.0):
-                # Produce aprs comment, based on user config.
-                aprs_comment = station_config['aprs_custom_comment']
-                aprs_comment = aprs_comment.replace("<freq>", data['freq'])
-                aprs_comment = aprs_comment.replace("<id>", data['id'])
-                aprs_comment = aprs_comment.replace("<temp>", "%.1f degC" % data['temp'])
-                aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
-                # Add 'Ozone' to the sonde type field if we are seeing aux data.
-                _sonde_type = data['type']
-                if 'aux' in data.keys():
-                    _sonde_type += "-Ozone"
-                aprs_comment = aprs_comment.replace("<type>", _sonde_type)
 
-                # Push data to APRS.
-                aprs_data = push_balloon_to_aprs(data,
-                                                object_name=station_config['aprs_object_id'],
-                                                aprs_comment=aprs_comment,
-                                                aprsUser=station_config['aprs_user'],
-                                                aprsPass=station_config['aprs_pass'],
-                                                serverHost=station_config['aprs_server'])
-                logging.info("Data pushed to APRS-IS: %s" % aprs_data)
-
-            # Habitat Upload
-            if station_config['enable_habitat']:
-                # We make the habitat comment field fixed, as we only need to add the payload type/serial/frequency.
-                # If we are seeing aux data, it likely means we have an Ozone sonde!
-                if 'aux' in data.keys():
-                    _ozone = "-Ozone"
-                else:
-                    _ozone = ""
+            # Test to see if this payload ID has been seen often enough to permit uploading.
+            if not payload_id_valid_for_upload(data['id'],update=False):
+                logging.warning("Payload ID has not been observed enough to permit uploading.")
+            else:
+                # Data from this payload is considered 'valid'
                 
-                payload_callsign = config['payload_callsign']
-                if config['payload_callsign'] == "<id>":
-                    payload_callsign = 'RS_' + data['id']
-                    initPayloadDoc(payload_callsign, config['payload_description']) # it's fine for us to call this multiple times as initPayloadDoc keeps a cache for serial numbers it's created payloads for.
+                # APRS Upload
+                if station_config['enable_aprs'] and (data['lat'] != 0.0) and (data['lon'] != 0.0):
+                    # Produce aprs comment, based on user config.
+                    aprs_comment = station_config['aprs_custom_comment']
+                    aprs_comment = aprs_comment.replace("<freq>", data['freq'])
+                    aprs_comment = aprs_comment.replace("<id>", data['id'])
+                    aprs_comment = aprs_comment.replace("<temp>", "%.1f degC" % data['temp'])
+                    aprs_comment = aprs_comment.replace("<vel_v>", "%.1fm/s" % data['vel_v'])
+                    # Add 'Ozone' to the sonde type field if we are seeing aux data.
+                    _sonde_type = data['type']
+                    if 'aux' in data.keys():
+                        _sonde_type += "-Ozone"
+                    aprs_comment = aprs_comment.replace("<type>", _sonde_type)
 
-                # Create comment field.
-                habitat_comment = "%s%s %s %s" % (data['type'], _ozone, data['id'], data['freq'])
+                    # Push data to APRS.
+                    aprs_data = push_balloon_to_aprs(data,
+                                                    object_name=station_config['aprs_object_id'],
+                                                    aprs_comment=aprs_comment,
+                                                    aprsUser=station_config['aprs_user'],
+                                                    aprsPass=station_config['aprs_pass'],
+                                                    serverHost=station_config['aprs_server'])
+                    logging.info("Data pushed to APRS-IS: %s" % aprs_data)
 
-                habitat_upload_payload_telemetry(data, 
-                                                payload_callsign=payload_callsign, 
-                                                callsign=config['uploader_callsign'], 
-                                                comment=habitat_comment)
-                logging.debug("Data pushed to Habitat.")
+                # Habitat Upload
+                if station_config['enable_habitat']:
+                    # We make the habitat comment field fixed, as we only need to add the payload type/serial/frequency.
+                    # If we are seeing aux data, it likely means we have an Ozone sonde!
+                    if 'aux' in data.keys():
+                        _ozone = "-Ozone"
+                    else:
+                        _ozone = ""
+                    
+                    payload_callsign = config['payload_callsign']
+                    if config['payload_callsign'] == "<id>":
+                        payload_callsign = 'RS_' + data['id']
+                        initPayloadDoc(payload_callsign, config['payload_description']) # it's fine for us to call this multiple times as initPayloadDoc keeps a cache for serial numbers it's created payloads for.
 
-            # Update Rotator positon, if configured.
-            if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
-                # Calculate Azimuth & Elevation to Radiosonde.
-                rel_position = position_info((config['station_lat'], config['station_lon'], config['station_alt']),
-                    (data['lat'], data['lon'], data['alt']))
+                    # Create comment field.
+                    habitat_comment = "%s%s %s %s" % (data['type'], _ozone, data['id'], data['freq'])
 
-                # Update the rotator with the current sonde position.
-                update_rotctld(hostname=config['rotator_hostname'], 
-                            port=config['rotator_port'],
-                            azimuth=rel_position['bearing'],
-                            elevation=rel_position['elevation'])
+                    habitat_upload_payload_telemetry(data, 
+                                                    payload_callsign=payload_callsign, 
+                                                    callsign=config['uploader_callsign'], 
+                                                    comment=habitat_comment)
+                    logging.debug("Data pushed to Habitat.")
+
+                # Update Rotator positon, if configured.
+                if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
+                    # Calculate Azimuth & Elevation to Radiosonde.
+                    rel_position = position_info((config['station_lat'], config['station_lon'], config['station_alt']),
+                        (data['lat'], data['lon'], data['alt']))
+
+                    # Update the rotator with the current sonde position.
+                    update_rotctld(hostname=config['rotator_hostname'], 
+                                port=config['rotator_port'],
+                                azimuth=rel_position['bearing'],
+                                elevation=rel_position['elevation'])
 
         except:
             logging.error("Error while uploading data: %s" % traceback.format_exc())
@@ -915,6 +962,7 @@ if __name__ == "__main__":
             # Re-push our listener position to habitat, as if we have been running continuously we may have dropped off the map.
             if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
                 uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'], version=AUTO_RX_VERSION)
+
 
             # Start both of our internet/ozi push threads, even if we're not going to use them.
             if push_thread_1 == None:
