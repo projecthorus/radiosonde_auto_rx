@@ -36,7 +36,7 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # TODO: Break this out to somewhere else, that is set automatically based on releases...
-AUTO_RX_VERSION = '20180318'
+AUTO_RX_VERSION = '20180325'
 
 # Logging level
 # INFO = Basic status messages
