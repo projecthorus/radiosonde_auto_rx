@@ -8,7 +8,7 @@ import json
 HORUS_UDP_PORT = 55672
 HORUS_OZIPLOTTER_PORT = 8942
 
-def send_payload_summary(callsign, latitude, longitude, altitude, packet_time, speed=-1, heading=-1, comment= '', udp_port = HORUS_UDP_PORT):
+def send_payload_summary(callsign, latitude, longitude, altitude, packet_time, speed=-1, heading=-1, comment= '', model='', freq=401.0, temp=-273, udp_port = HORUS_UDP_PORT):
     """
     Send an update on the core payload telemetry statistics into the network via UDP broadcast.
     This can be used by other devices hanging off the network to display vital stats about the payload.
@@ -22,7 +22,11 @@ def send_payload_summary(callsign, latitude, longitude, altitude, packet_time, s
         'speed' : speed,
         'heading': heading,
         'time' : packet_time,
-        'comment' : comment
+        'comment' : comment,
+        # Additional fields specifically for radiosondes
+        'model': model,
+        'freq': freq,
+        'temp': temp
     }
 
     # Set up our UDP socket
@@ -102,7 +106,10 @@ def push_payload_summary(telemetry, udp_port = HORUS_UDP_PORT):
                         telemetry['alt'], 
                         telemetry['short_time'],
                         heading=_heading,
-                        speed=_speed, 
+                        speed=_speed,
+                        model=telemetry['type'],
+                        freq=telemetry['freq'],
+                        temp=telemetry['temp'],
                         comment=summary_comment, 
                         udp_port=udp_port)
 
