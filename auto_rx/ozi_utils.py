@@ -86,8 +86,6 @@ def push_payload_summary(telemetry, udp_port = HORUS_UDP_PORT):
     """
     Extract the needed data from a telemetry dictionary, and send out a payload summary packet.
     """
-    # Insert the payload type, frequency and ID as a comment field.
-    summary_comment = "%s,%s,%s" % (telemetry['type'], telemetry['freq'], telemetry['id'])
 
     # Prepare heading & speed fields, if they are provided in the incoming telemetry blob.
     if 'heading' in telemetry.keys():
@@ -110,6 +108,6 @@ def push_payload_summary(telemetry, udp_port = HORUS_UDP_PORT):
                         model=telemetry['type'],
                         freq=telemetry['freq'],
                         temp=telemetry['temp'],
-                        comment=summary_comment, 
+                        comment='radiosonde', 
                         udp_port=udp_port)
 
