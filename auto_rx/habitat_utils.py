@@ -90,8 +90,8 @@ def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE",
 # from https://raw.githubusercontent.com/rossengeorgiev/hab-tools/master/spot2habitat_chase.py
 #
 callsign_init = False
-url_habitat_uuids = "http://habitat.habhub2.org/_uuids?count=%d"
-url_habitat_db = "http://habitat.habhub2.org/habitat/"
+url_habitat_uuids = "http://habitat.habhub.org/_uuids?count=%d"
+url_habitat_db = "http://habitat.habhub.org/habitat/"
 url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
 uuids = []
 
