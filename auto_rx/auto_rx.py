@@ -36,7 +36,7 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # TODO: Break this out to somewhere else, that is set automatically based on releases...
-AUTO_RX_VERSION = '20180325'
+AUTO_RX_VERSION = '20180415'
 
 # Logging level
 # INFO = Basic status messages
@@ -291,7 +291,10 @@ def sonde_search(config, attempts = 5):
                 _index = np.argwhere(peak_frequencies==_frequency)
                 peak_frequencies = np.delete(peak_frequencies, _index)
 
-            logging.info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+            if len(peak_frequencies) == 0:
+                logging.info("No peaks found after blacklist frequencies removed.")
+            else:
+                logging.info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
 
         else:
             # We have been provided a whitelist - scan through the supplied frequencies.
@@ -883,6 +886,12 @@ if __name__ == "__main__":
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)
     logging.getLogger().addHandler(stdout_handler)
+
+    # Set the requests logger to only display WARNING messages or higher.
+    requests_log = logging.getLogger("requests")
+    requests_log.setLevel(logging.CRITICAL)
+    urllib3_log = logging.getLogger("urllib3")
+    urllib3_log.setLevel(logging.CRITICAL)
 
     # Command line arguments. 
     parser = argparse.ArgumentParser()

@@ -2,13 +2,12 @@
 #
 # Radiosonde Auto RX Tools - Habitat Upload
 #
-# 2017-04 Mark Jessop <vk5qi@rfhead.net>
+# 2018-04 Mark Jessop <vk5qi@rfhead.net>
 #
 import crcmod
-import httplib
-import urllib2
 import datetime
 import logging
+import requests
 import time
 import traceback
 import json
@@ -45,7 +44,7 @@ def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE", comment=Non
     output = sentence + "*" + checksum + "\n"
     return output
 
-def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None):
+def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None, timeout=10):
 
     sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign, comment=comment)
 
@@ -65,21 +64,26 @@ def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE",
                 },
             },
     }
-    try:
-        c = httplib.HTTPConnection("habitat.habhub.org",timeout=4)
-        c.request(
-            "PUT",
-            "/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(sentence_b64).hexdigest(),
-            json.dumps(data),  # BODY
-            {"Content-Type": "application/json"}  # HEADERS
-            )
 
-        response = c.getresponse()
-        logging.info("Telemetry uploaded to Habitat: %s" % sentence)
-        return
+
+    # The URl to upload to.
+    _url = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(sentence_b64).hexdigest()
+
+    try:
+        # Run the request.
+        _req = requests.put(_url, data=json.dumps(data), timeout=timeout)
+
+        if _req.status_code == 201:
+            logging.info("Uploaded sentence to Habitat successfully: %s" % sentence)
+        elif _req.status_code == 403:
+            logging.info("Sentence uploaded to Habitat, but already present in database.")
+        else:
+            logging.error("Error uploading to Habitat. Status Code: %d" % _req.status_code)
+
     except Exception as e:
-        logging.error("Failed to upload to Habitat: %s" % (str(e)))
-        return
+        logging.error("Error Uploading to Habitat: %s" % str(e))
+
+    return
 
 #
 # Functions for uploading a listener position to Habitat.
@@ -88,7 +92,44 @@ def habitat_upload_payload_telemetry(telemetry, payload_callsign = "RADIOSONDE",
 callsign_init = False
 url_habitat_uuids = "http://habitat.habhub.org/_uuids?count=%d"
 url_habitat_db = "http://habitat.habhub.org/habitat/"
+url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
 uuids = []
+
+
+def check_callsign(callsign, timeout=10):
+    ''' 
+    Check if a payload document exists for a given callsign. 
+
+    This is done in a bit of a hack-ish way at the moment. We just check to see if there have
+    been any reported packets for the payload callsign on the tracker.
+    This should really be replaced with the correct call into the habitat tracker.
+    '''
+    global url_check_callsign
+
+    # Perform the request
+    _r = requests.get(url_check_callsign % callsign, timeout=timeout)
+
+    try:
+        # Read the response in as JSON
+        _r_json = _r.json()
+
+        # Read out the list of positions for the requested callsign
+        _positions = _r_json['positions']['position']
+
+        # If there is at least one position returned, we assume there is a valid payload document.
+        if len(_positions) > 0:
+            logging.info("Callsign %s already present in Habitat DB, not creating new payload doc." % callsign)
+            return True
+        else:
+            # Otherwise, we don't, and go create one.
+            return False
+
+    except Exception as e:
+        # Handle errors with JSON parsing.
+        logging.error("Unable to request payload positions from spacenear.us - %s" % str(e))
+        return False
+
+
 
 # Keep an internal cache for which payload docs we've created so we don't spam couchdb with updates
 payload_config_cache = {}
@@ -98,13 +139,24 @@ def ISOStringNow():
     return "%sZ" % datetime.datetime.utcnow().isoformat()
 
 
-def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000):
+def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000, timeout=20):
     """Creates a payload in Habitat for the radiosonde before uploading"""
     global url_habitat_db
     global payload_config_cache 
     
+    # First, check if the payload's serial number is already in our local cache.
     if serial in payload_config_cache:
         return payload_config_cache[serial]
+
+    # Next, check to see if the payload has been observed on the online tracker already.
+    _callsign_present = False# check_callsign(serial)
+
+    if _callsign_present:
+        # Add the callsign to the local cache.
+        payload_config_cache[serial] = serial
+        return
+
+    # Otherwise, proceed to creating a new payload document.
 
     payload_data = {
         "type": "payload_configuration",
@@ -184,56 +236,64 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
             }
         ]
     }
-    
 
-    data = json.dumps(payload_data)
-    headers = {
-            'Content-Type': 'application/json; charset=utf-8'
-            }
+    # Perform the POST request to the Habitat DB.
+    try:
+        _r = requests.post(url_habitat_db, json=payload_data, timeout=timeout)
 
-    req = urllib2.Request(url_habitat_db, data, headers)
-    response = json.loads(urllib2.urlopen(req, timeout=30).read())
-    if response['ok'] == True:
-        logging.info("Habitat Listener: Created a payload document for %s" % serial)
-        payload_config_cache[serial] = response
-    else:
-        logging.error("Habitat Listener: Failed to create a payload document for %s" % serial)
-        logging.error(response)
-    return response
+        if _r.json()['ok'] is True:
+            logging.info("Habitat Listener: Created a payload document for %s" % serial)
+            payload_config_cache[serial] = _r.json()
+        else:
+            logging.error("Habitat Listener: Failed to create a payload document for %s" % serial)
+
+    except Exception as e:
+        logging.error("Habitat Listener: Failed to create a payload document for %s - %s" % (serial, str(e)))
 
 
-def postListenerData(doc):
+
+def postListenerData(doc, timeout=10):
     global uuids, url_habitat_db
     # do we have at least one uuid, if not go get more
     if len(uuids) < 1:
         fetchUuids()
 
-    # add uuid and uploade time
-    doc['_id'] = uuids.pop()
+    # Attempt to add UUID and time data to document.
+    try:
+        doc['_id'] = uuids.pop()
+    except IndexError:
+        logging.error("Habitat Listener: Unable to post listener data - no UUIDs available.")
+        return False
+
     doc['time_uploaded'] = ISOStringNow()
 
-    data = json.dumps(doc)
-    headers = {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Referer': url_habitat_db,
-            }
+    try:
+        _r = requests.post(url_habitat_db, json=doc, timeout=timeout)
+        return True
+    except Exception as e:
+        logging.error("Habitat Listener: Could not post listener data - %s" % str(e))
+        return False
 
-    req = urllib2.Request(url_habitat_db, data, headers)
-    return urllib2.urlopen(req, timeout=30).read()
 
-def fetchUuids():
+def fetchUuids(timeout=10):
     global uuids, url_habitat_uuids
-    while True:
+
+    _retries = 5
+
+    while _retries > 0:
         try:
-            resp = urllib2.urlopen(url_habitat_uuids % 10, timeout=30).read()
-            data = json.loads(resp)
-        except urllib2.HTTPError, e:
-            logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds.")
+            _r = requests.get(url_habitat_uuids % 10, timeout=timeout)
+            uuids.extend(_r.json()['uuids'])
+            logging.debug("Habitat Listener: Got UUIDs")
+            return
+        except Exception as e:
+            logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds - %s" % str(e))
             time.sleep(10)
+            _retries = _retries - 1
             continue
 
-        uuids.extend(data['uuids'])
-        break;
+    logging.error("Habitat Listener: Gave up trying to get UUIDs.")
+    return
 
 
 def initListenerCallsign(callsign, version=''):
@@ -247,19 +307,25 @@ def initListenerCallsign(callsign, version=''):
                 }
             }
 
-    while True:
-        try:
-            resp = postListenerData(doc)
-            logging.debug("Habitat Listener: Listener callsign Initialized.")
-            break;
-        except urllib2.HTTPError, e:
-            logging.error("Habitat Listener: Unable to initialize callsign. Retrying...")
-            time.sleep(10)
-            continue
+    resp = postListenerData(doc)
+
+    if resp is True:
+        logging.debug("Habitat Listener: Listener Callsign Initialized.")
+        return True
+    else:
+        logging.error("Habitat Listener: Unable to initialize callsign.")
+        return False
+
 
 def uploadListenerPosition(callsign, lat, lon, version=''):
     """ Initializer Listener Callsign, and upload Listener Position """
-    initListenerCallsign(callsign, version=version)
+
+    # Attempt to initialize the listeners callsign
+    resp = initListenerCallsign(callsign, version=version)
+    # If this fails, it means we can't contact the Habitat server,
+    # so there is no point continuing.
+    if resp is False:
+        return
 
     doc = {
         'type': 'listener_telemetry',
@@ -275,12 +341,9 @@ def uploadListenerPosition(callsign, lat, lon, version=''):
     }
 
     # post position to habitat
-    try:
-        postListenerData(doc)
-    except urllib2.HTTPError, e:
-        traceback.print_exc()
+    resp = postListenerData(doc)
+    if resp is True:
+        logging.info("Habitat Listener: Listener information uploaded.")
+    else:
         logging.error("Habitat Listener: Unable to upload listener information.")
-        return
 
-    logging.info("Habitat Listener: Listener information uploaded.")
-    return
