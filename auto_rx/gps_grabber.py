@@ -5,7 +5,7 @@
 # 2017-04 Mark Jessop <vk5qi@rfhead.net>
 #
 import ftplib
-import urllib2
+import requests
 import datetime
 import logging
 import os
@@ -49,12 +49,11 @@ def get_ephemeris(destination="ephemeris.dat"):
 		logging.error("Could not download ephemeris file.")
 		return None
 
-def get_almanac(destination="almanac.txt"):
+def get_almanac(destination="almanac.txt", timeout=20):
 	''' Download the latest GPS almanac file from the US Coast Guard website. '''
 	try:
-		req = urllib2.Request("https://www.navcen.uscg.gov/?pageName=currentAlmanac&format=sem")
-		res = urllib2.urlopen(req)
-		data = res.read()
+		_r = requests.get("https://www.navcen.uscg.gov/?pageName=currentAlmanac&format=sem", timeout=timeout)
+		data = _r.text
 		if "CURRENT.ALM" in data:
 			f = open(destination,'wb')
 			f.write(data)
