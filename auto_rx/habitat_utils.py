@@ -5,14 +5,17 @@
 # 2018-04 Mark Jessop <vk5qi@rfhead.net>
 #
 import crcmod
-import requests
 import datetime
 import logging
+import requests
 import time
 import traceback
 import json
 from base64 import b64encode
 from hashlib import sha256
+
+# Set the requests logger to only display WARNING messages or higher.
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 #
 # Functions for uploading telemetry to Habitat

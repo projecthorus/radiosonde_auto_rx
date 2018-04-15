@@ -291,7 +291,10 @@ def sonde_search(config, attempts = 5):
                 _index = np.argwhere(peak_frequencies==_frequency)
                 peak_frequencies = np.delete(peak_frequencies, _index)
 
-            logging.info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+            if len(peak_frequencies) == 0:
+                logging.info("No peaks found after blacklist frequencies removed.")
+            else:
+                logging.info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
 
         else:
             # We have been provided a whitelist - scan through the supplied frequencies.
