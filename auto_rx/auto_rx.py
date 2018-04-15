@@ -887,6 +887,12 @@ if __name__ == "__main__":
     stdout_handler.setFormatter(stdout_format)
     logging.getLogger().addHandler(stdout_handler)
 
+    # Set the requests logger to only display WARNING messages or higher.
+    requests_log = logging.getLogger("requests")
+    requests_log.setLevel(logging.CRITICAL)
+    urllib3_log = logging.getLogger("urllib3")
+    urllib3_log.setLevel(logging.CRITICAL)
+
     # Command line arguments. 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
