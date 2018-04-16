@@ -149,7 +149,7 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
         return payload_config_cache[serial]
 
     # Next, check to see if the payload has been observed on the online tracker already.
-    _callsign_present = False# check_callsign(serial)
+    _callsign_present = check_callsign(serial)
 
     if _callsign_present:
         # Add the callsign to the local cache.
