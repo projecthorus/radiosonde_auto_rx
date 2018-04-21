@@ -75,7 +75,7 @@ class HabitatUploader(object):
                 },
         }
 
-        # The URl to upload to.
+        # The URL to upload to.
         _url = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
 
         # Delay for a random amount of time between 0 and upload_retry_interval*2 seconds.
@@ -84,8 +84,8 @@ class HabitatUploader(object):
         _retries = 0
 
         # When uploading, we have three possible outcomes:
-        # - Can't connect. No point re-trying in this situation.
-        # - The packet is uploaded successfult (201 / 403)
+        # - Can't connect. No point immediately re-trying in this situation.
+        # - The packet is uploaded successfuly (201 / 403)
         # - There is a upload conflict on the Habitat DB end (409). We can retry and it might work.
         while _retries < self.upload_retries:
             # Run the request.
