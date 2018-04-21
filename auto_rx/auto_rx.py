@@ -58,6 +58,7 @@ internet_push_queue = Queue.Queue()
 OZI_PUSH_RUNNING = True
 ozi_push_queue = Queue.Queue()
 
+# Habitat Uploader object, instantiated in __main__
 habitat_uploader = None
 
 
