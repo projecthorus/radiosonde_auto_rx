@@ -36,7 +36,7 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # TODO: Break this out to somewhere else, that is set automatically based on releases...
-AUTO_RX_VERSION = '20180417'
+AUTO_RX_VERSION = '20180422'
 
 # Logging level
 # INFO = Basic status messages
@@ -57,6 +57,8 @@ internet_push_queue = Queue.Queue()
 # Second Queue for OziPlotter outputs, since we want this to run at a faster rate.
 OZI_PUSH_RUNNING = True
 ozi_push_queue = Queue.Queue()
+
+habitat_uploader = None
 
 
 # Flight Statistics data
@@ -741,7 +743,7 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
 
 def internet_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat), and also to a rotator (if configured) """
-    global internet_push_queue, INTERNET_PUSH_RUNNING
+    global internet_push_queue, INTERNET_PUSH_RUNNING, habitat_uploader
     logging.info("Started Internet Push thread.")
     while INTERNET_PUSH_RUNNING:
         data = None
@@ -807,11 +809,11 @@ def internet_push_thread(station_config):
                     # Create comment field.
                     habitat_comment = "%s%s %s %s" % (data['type'], _ozone, data['id'], data['freq'])
 
-                    habitat_upload_payload_telemetry(data, 
+                    habitat_upload_payload_telemetry(habitat_uploader, 
+                                                    data, 
                                                     payload_callsign=payload_callsign, 
                                                     callsign=config['uploader_callsign'], 
                                                     comment=habitat_comment)
-                    logging.debug("Data pushed to Habitat.")
 
                 # Update Rotator positon, if configured.
                 if config['enable_rotator'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
@@ -932,6 +934,9 @@ if __name__ == "__main__":
         if config['enable_habitat'] and (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0) and config['upload_listener_position']:
             uploadListenerPosition(config['uploader_callsign'], config['station_lat'], config['station_lon'], version=AUTO_RX_VERSION)
 
+        if config['enable_habitat']:
+            habitat_uploader = HabitatUploader(user_callsign=config['uploader_callsign'])
+
         if config['mqtt_enabled']:
             import paho.mqtt.client
             mqtt_client = paho.mqtt.client.Client()
@@ -1012,10 +1017,13 @@ if __name__ == "__main__":
             sonde_freq = None
 
     except KeyboardInterrupt:
-        logging.info("Caught CTRL-C, exiting.")
+        logging.info("Caught CTRL-C, exiting. Please wait for all processes to finish (may take up to a minute).")
         # Shut down the Internet Push Threads.
         INTERNET_PUSH_RUNNING = False
         OZI_PUSH_RUNNING = False
+
+        if habitat_uploader != None:
+            habitat_uploader.close()
         # Kill all rtl_fm processes.
         os.system('killall rtl_power')
         os.system('killall rtl_fm')
