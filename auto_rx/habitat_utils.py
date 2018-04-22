@@ -373,13 +373,13 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
         _r = requests.post(url_habitat_db, json=payload_data, timeout=timeout)
 
         if _r.json()['ok'] is True:
-            logging.info("Habitat Listener: Created a payload document for %s" % serial)
+            logging.info("Habitat - Created a payload document for %s" % serial)
             payload_config_cache[serial] = _r.json()
         else:
-            logging.error("Habitat Listener: Failed to create a payload document for %s" % serial)
+            logging.error("Habitat - Failed to create a payload document for %s" % serial)
 
     except Exception as e:
-        logging.error("Habitat Listener: Failed to create a payload document for %s - %s" % (serial, str(e)))
+        logging.error("Habitat - Failed to create a payload document for %s - %s" % (serial, str(e)))
 
 
 
@@ -393,7 +393,7 @@ def postListenerData(doc, timeout=10):
     try:
         doc['_id'] = uuids.pop()
     except IndexError:
-        logging.error("Habitat Listener: Unable to post listener data - no UUIDs available.")
+        logging.error("Habitat - Unable to post listener data - no UUIDs available.")
         return False
 
     doc['time_uploaded'] = ISOStringNow()
@@ -402,7 +402,7 @@ def postListenerData(doc, timeout=10):
         _r = requests.post(url_habitat_db, json=doc, timeout=timeout)
         return True
     except Exception as e:
-        logging.error("Habitat Listener: Could not post listener data - %s" % str(e))
+        logging.error("Habitat - Could not post listener data - %s" % str(e))
         return False
 
 
@@ -415,15 +415,15 @@ def fetchUuids(timeout=10):
         try:
             _r = requests.get(url_habitat_uuids % 10, timeout=timeout)
             uuids.extend(_r.json()['uuids'])
-            logging.debug("Habitat Listener: Got UUIDs")
+            logging.debug("Habitat - Got UUIDs")
             return
         except Exception as e:
-            logging.error("Habitat Listener: Unable to fetch UUIDs, retrying in 10 seconds - %s" % str(e))
+            logging.error("Habitat - Unable to fetch UUIDs, retrying in 10 seconds - %s" % str(e))
             time.sleep(10)
             _retries = _retries - 1
             continue
 
-    logging.error("Habitat Listener: Gave up trying to get UUIDs.")
+    logging.error("Habitat - Gave up trying to get UUIDs.")
     return
 
 
@@ -441,10 +441,10 @@ def initListenerCallsign(callsign, version=''):
     resp = postListenerData(doc)
 
     if resp is True:
-        logging.debug("Habitat Listener: Listener Callsign Initialized.")
+        logging.debug("Habitat - Listener Callsign Initialized.")
         return True
     else:
-        logging.error("Habitat Listener: Unable to initialize callsign.")
+        logging.error("Habitat - Unable to initialize callsign.")
         return False
 
 
@@ -474,7 +474,7 @@ def uploadListenerPosition(callsign, lat, lon, version=''):
     # post position to habitat
     resp = postListenerData(doc)
     if resp is True:
-        logging.info("Habitat Listener: Listener information uploaded.")
+        logging.info("Habitat - Listener information uploaded.")
     else:
-        logging.error("Habitat Listener: Unable to upload listener information.")
+        logging.error("Habitat - Unable to upload listener information.")
 
