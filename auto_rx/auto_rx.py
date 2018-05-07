@@ -36,7 +36,7 @@ from gps_grabber import *
 from async_file_reader import AsynchronousFileReader
 
 # TODO: Break this out to somewhere else, that is set automatically based on releases...
-AUTO_RX_VERSION = '20180422'
+AUTO_RX_VERSION = '20180507'
 
 # Logging level
 # INFO = Basic status messages
@@ -1032,12 +1032,13 @@ if __name__ == "__main__":
                             save_log=config['per_sonde_log'], 
                             ephemeris=ephemeris
                             )
+
             elif sonde_type == "RS41":
                 decode_rs41(sonde_freq, 
                             sdr_fm=config['sdr_fm_path'],
                             ppm=config['sdr_ppm'], 
                             gain=config['sdr_gain'], 
-                            bias=config['sdr_bias'], 
+                            bias=config['sdr_bias'],
                             invert=invert_fm,
                             rx_queue=internet_push_queue, 
                             timeout=config['rx_timeout'], 
@@ -1048,7 +1049,7 @@ if __name__ == "__main__":
                 logging.error("DFM sondes not supported yet.")
 
             else:
-                logging.error("Unsupported sonde: %s" % sonde_type)
+                logging.error("Unsupported sonde type: %s" % sonde_type)
                 pass
 
             # Receiver has timed out. Reset sonde type and frequency variables and loop.
