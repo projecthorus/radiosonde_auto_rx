@@ -179,23 +179,35 @@ def detect_sonde(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, dwell_t
 
     ret_code = os.system(rx_test_command)
 
+    # Shift down by a byte... for some reason.
     ret_code = ret_code >> 8
+
+    # Default is non-inverted FM.
+    inv = ""
+
+    # Check if the inverted bit is set
+    if (ret_code & 0x80) > 0: 
+        # If the inverted bit is set, we have to do some munging of the return code to get the sonde type.
+        ret_code = abs(-1 * (0x100 - ret_code))
+        inv = "-"
+    else:
+        ret_code = abs(ret_code)
 
     if ret_code == 3:
         logging.info("Detected a RS41!")
-        return "RS41"
+        return inv+"RS41"
     elif ret_code == 4:
         logging.info("Detected a RS92!")
-        return "RS92"
+        return inv+"RS92"
     elif ret_code == 2:
         logging.info("Detected a DFM Sonde! (Unsupported)")
-        return "DFM"
+        return inv+"DFM"
     elif ret_code == 5:
         logging.info("Detected a M10 Sonde! (Unsupported)")
-        return "M10"
+        return inv+"M10"
     elif ret_code == 6:
         logging.info("Detected a iMet Sonde! (Unsupported)")
-        return "iMet"
+        return inv+"iMet"
     else:
         return None
 
@@ -486,7 +498,7 @@ def calculate_flight_statistics():
 
     return stats_str
 
-def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120, save_log=False):
+def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, invert=False, rx_queue=None, almanac=None, ephemeris=None, timeout=120, save_log=False):
     """ Decode a RS92 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
 
@@ -527,6 +539,10 @@ def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
         decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel -e %s" % ephemeris
     elif almanac != None:
         decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel -a %s" % almanac
+
+    # Add inversion option if we have detected the signal as being inverted (shouldn't happen, but anyway...)
+    if invert:
+        decode_cmd += " -i"
 
     logging.debug("Running command: %s" % decode_cmd)
 
@@ -627,7 +643,7 @@ def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
     return
 
 
-def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue=None, timeout=120, save_log=False):
+def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, invert=False, rx_queue=None, timeout=120, save_log=False):
     """ Decode a RS41 sonde """
     global latest_sonde_data, internet_push_queue, ozi_push_queue
     # Add a -T option if bias is enabled
@@ -647,7 +663,11 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, rx_queue
     # Note: I've got the check-CRC option hardcoded in here as always on. 
     # I figure this is prudent if we're going to proceed to push this telemetry data onto a map.
 
-    decode_cmd += "./rs41ecc --crc --ecc --ptu" # if this doesn't work try -i at the end
+    decode_cmd += "./rs41ecc --crc --ecc --ptu"
+
+    # Add inversion option if we have detected the signal as being inverted (shouldn't happen, but anyway...)
+    if invert:
+        decode_cmd += " -i"
 
     logging.debug("Running command: %s" % decode_cmd)
 
@@ -988,27 +1008,38 @@ if __name__ == "__main__":
                 push_thread_2 = Thread(target=ozi_push_thread, kwargs={'station_config':config})
                 push_thread_2.start()
 
+            # Look for an inverted detection flag.
+            if sonde_type[0] == '-':
+                invert_fm = True
+                sonde_type = sonde_type[1:]
+            else:
+                invert_fm = False
+
             # Start decoding the sonde!
             if sonde_type == "RS92":
                 decode_rs92(sonde_freq, 
                             sdr_fm=config['sdr_fm_path'],
                             ppm=config['sdr_ppm'], 
                             gain=config['sdr_gain'], 
-                            bias=config['sdr_bias'], 
+                            bias=config['sdr_bias'],
+                            invert=invert_fm,
                             rx_queue=internet_push_queue, 
                             timeout=config['rx_timeout'], 
                             save_log=config['per_sonde_log'], 
                             ephemeris=ephemeris)
+
             elif sonde_type == "RS41":
                 decode_rs41(sonde_freq, 
                             sdr_fm=config['sdr_fm_path'],
                             ppm=config['sdr_ppm'], 
                             gain=config['sdr_gain'], 
-                            bias=config['sdr_bias'], 
+                            bias=config['sdr_bias'],
+                            invert=invert_fm,
                             rx_queue=internet_push_queue, 
                             timeout=config['rx_timeout'], 
                             save_log=config['per_sonde_log'])
             else:
+                logging.error("Unsupported sonde type: %s" % sonde_type)
                 pass
 
             # Receiver has timed out. Reset sonde type and frequency variables and loop.
