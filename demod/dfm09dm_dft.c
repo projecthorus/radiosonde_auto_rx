@@ -46,6 +46,8 @@ gpx_t gpx;
 
 char dat_str[9][13+1];
 
+// Buffer to store sonde ID
+char sonde_id[] = "DFMxx-xxxxxx";
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
@@ -488,14 +490,23 @@ void print_gpx() {
           {
               if ((gpx.sonde_typ & 0xFF) == 6) {
                   printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
+                  sprintf(sonde_id, "DFM06-%06X", gpx.SN6);
               }
               if ((gpx.sonde_typ & 0xFF) == 9) {
                   printf(" (ID%1d:%06u) ", gpx.sonde_typ & 0xF, gpx.SN9);
+                  sprintf(sonde_id, "DFM09-%06u", gpx.SN9);
               }
               gpx.sonde_typ ^= SNbit;
           }
       }
       printf("\n");
+
+      // Print JSON blob
+      // Get temperature
+      float t = get_Temp(gpx.meas24);
+      printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, sonde_id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.horiV, gpx.dir, gpx.vertV, t );
+
+    
 
   }
 }
