@@ -353,13 +353,19 @@ def check_position_valid(data):
     # passing the config through multiple layers of functions.
     global config
 
-    # First check: Altitude cap.
+
+    # First Check: zero lat/lon
+    if (data['lat'] == 0.0) and (data['lon'] == 0.0):
+        logging.warning("Zero Lat/Lon. Sonde does not have GPS lock.")
+        return False
+
+    # Second check: Altitude cap.
     if data['alt'] > config['max_altitude']:
         _altitude_breach = data['alt'] - config['max_altitude']
         logging.warning("Position breached altitude cap by %d m." % _altitude_breach)
         return False
 
-    # Second check - is the payload more than x km from our listening station.
+    # Third check - is the payload more than x km from our listening station.
     # Only run this check if a station location has been provided.
     if (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
         # Calculate the distance from the station to the payload.
@@ -380,6 +386,8 @@ def check_position_valid(data):
     # RS41: https://www.vaisala.com/sites/default/files/documents/Vaisala%20Radiosonde%20RS41%20Serial%20Number.pdf
     # This will need to be re-evaluated if we're still using this code in 2021!
     vaisala_callsign_valid = re.match(r'[J-T][0-5][\d][1-7]\d{4}', _serial)
+
+    # TODO: DFM06/DFM09 serial number checks.
 
     if vaisala_callsign_valid:
         return True
@@ -414,7 +422,6 @@ def payload_id_valid_for_upload(payload_id, update=False):
 def process_rs_line(line):
     """ Process a line of output from the rs92gps decoder, converting it to a dict """
     try:
-
         if line[0] != "{":
             return None
 
@@ -529,7 +536,7 @@ def decode_rs92(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, invert=F
         gain_param = ''
 
     # Example command:
-    # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc
+    # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
     decode_cmd = "%s %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (sdr_fm,bias_option, int(ppm), gain_param, frequency)
     decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
 

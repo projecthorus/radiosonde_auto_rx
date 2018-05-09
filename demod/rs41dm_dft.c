@@ -551,7 +551,7 @@ int get_PTU() {
         }
         gpx.T = Tc;
 
-        if (option_verbose == 3)
+        if (option_verbose == 4)
         {
             printf("  h: %8.2f   # ", gpx.alt); // crc_GPS3 ?
 
@@ -783,10 +783,10 @@ int get_Aux() {
         auxlen = framebyte(pos7E+1);
         auxcrc = framebyte(pos7E+2+auxlen) | (framebyte(pos7E+2+auxlen+1)<<8);
 
-        if (count7E == 0) fprintf(stdout, "\n # xdata = ");
-        else              fprintf(stdout, " # ");
-
         if ( auxcrc == crc16(pos7E+2, auxlen) ) {
+            if (count7E == 0) fprintf(stdout, "\n # xdata = ");
+            else              fprintf(stdout, " # ");
+
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
                 fprintf(stdout, "%c", framebyte(pos7E+2+i));
@@ -814,9 +814,11 @@ int get_Calconf(int out) {
     ui16_t fw = 0;
     int freq = 0, f0 = 0, f1 = 0;
     char sondetyp[9];
+    int err = 0;
 
     byte = framebyte(pos_CalData);
     calfr = byte;
+    err = check_CRC(pos_FRAME, pck_FRAME);
 
     if (option_verbose == 3) {
         fprintf(stdout, "\n");  // fflush(stdout);
@@ -826,12 +828,12 @@ int get_Calconf(int out) {
             byte = framebyte(pos_CalData+1+i);
             fprintf(stdout, "%02x ", byte);
         }
-        if (check_CRC(pos_FRAME, pck_FRAME)==0) fprintf(stdout, "[OK]");
-        else                                    fprintf(stdout, "[NO]");
+        if (err == 0) fprintf(stdout, "[OK]");
+        else          fprintf(stdout, "[NO]");
         fprintf(stdout, " ");
     }
 
-    if (out)
+    if (out && err == 0)
     {
         if (calfr == 0x01  &&  option_verbose /*== 2*/) {
             fw = framebyte(pos_CalData+6) | (framebyte(pos_CalData+7)<<8);
@@ -865,6 +867,20 @@ int get_Calconf(int out) {
     }
 
     return 0;
+}
+
+/*
+  frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
+  frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
+*/
+int frametype() { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
+    int i;
+    ui8_t b = frame[pos_FRAME-1];
+    int ft = 0;
+    for (i = 0; i < 4; i++) {
+        ft += ((b>>i)&1) - ((b>>(i+4))&1);
+    }
+    return ft;
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -919,6 +935,22 @@ int rs41_ecc(int frmlen) {
     errors2 = rs_decode(cw2, err_pos2, err_val2);
 
 
+    if (option_ecc == 2 && (errors1 < 0 || errors2 < 0)) {
+        frame[pos_FRAME] = (pck_FRAME>>8)&0xFF; frame[pos_FRAME+1] = pck_FRAME&0xFF;
+        frame[pos_PTU]   = (pck_PTU  >>8)&0xFF; frame[pos_PTU  +1] = pck_PTU  &0xFF;
+        frame[pos_GPS1]  = (pck_GPS1 >>8)&0xFF; frame[pos_GPS1 +1] = pck_GPS1 &0xFF;
+        frame[pos_GPS2]  = (pck_GPS2 >>8)&0xFF; frame[pos_GPS2 +1] = pck_GPS2 &0xFF;
+        frame[pos_GPS3]  = (pck_GPS3 >>8)&0xFF; frame[pos_GPS3 +1] = pck_GPS3 &0xFF;
+        if (frametype() < -2) {
+            for (i = NDATA_LEN + 7; i < FRAME_LEN-2; i++) frame[i] = 0;
+        }
+        for (i = 0; i < rs_K; i++) cw1[rs_R+i] = frame[cfg_rs41.msgpos+2*i  ];
+        for (i = 0; i < rs_K; i++) cw2[rs_R+i] = frame[cfg_rs41.msgpos+2*i+1];
+        errors1 = rs_decode(cw1, err_pos1, err_val1);
+        errors2 = rs_decode(cw2, err_pos2, err_val2);
+    }
+
+
     // Wenn Fehler im 00-padding korrigiert wurden,
     // war entweder der frame zu kurz, oder
     // Fehler wurden falsch korrigiert;
@@ -950,7 +982,7 @@ int rs41_ecc(int frmlen) {
 /* ------------------------------------------------------------------------------------ */
 
 
-int print_position() {
+int print_position(int ec) {
     int i;
     int err, err0, err1, err2, err3;
     int output, out_mask;
@@ -995,7 +1027,6 @@ int print_position() {
                         printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
                     }
                 }
-
             }
         }
         if (option_ptu && !err0) {
@@ -1003,12 +1034,13 @@ int print_position() {
         }
 
 
-        if (output)
+        //if (output)
         {
             if (option_crc) {
                 fprintf(stdout, " # [");
                 for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
                 fprintf(stdout, "]");
+                if (option_ecc == 2 && ec > 0) fprintf(stdout, " (%d)", ec);
             }
         }
 
@@ -1027,27 +1059,48 @@ int print_position() {
 }
 
 void print_frame(int len) {
-    int i, ret = 0;
+    int i, ec = 0, ft;
 
     gpx.crc = 0;
 
-    for (i = len; i < FRAME_LEN; i++) {
-        //xframe[i] = 0;
+    //frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
+    //frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
+    ft = frametype();
+    if (ft > 2) len = NDATA_LEN;
+    // STD-frames mit 00 auffuellen fuer Fehlerkorrektur
+    if (len > NDATA_LEN  &&  len < NDATA_LEN+XDATA_LEN-10) {
+        if (ft < -2) {
+            len = NDATA_LEN + 7; // std-O3-AUX-frame
+        }
+    }
+    // AUX-frames mit vielen Fehlern besser mit 00 auffuellen
+
+    for (i = len; i < FRAME_LEN-2; i++) {
         frame[i] = 0;
     }
+    if (ft > 2 || len == NDATA_LEN) {
+        frame[FRAME_LEN-2] = 0;
+        frame[FRAME_LEN-1] = 0;
+    }
+    if (len > NDATA_LEN) len = FRAME_LEN;
+    else                 len = NDATA_LEN;
+
 
     if (option_ecc) {
-        ret = rs41_ecc(len);
+        ec = rs41_ecc(len);
     }
 
 
     if (option_raw) {
+        if (option_ecc == 2 && ec >= 0) {
+            if (len < FRAME_LEN && frame[FRAME_LEN-1] != 0) len = FRAME_LEN;
+        }
         for (i = 0; i < len; i++) {
             fprintf(stdout, "%02x", frame[i]);
         }
         if (option_ecc) {
-            if (ret >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            if (option_ecc == 2 && ret >  0) fprintf(stdout, " (%d)", ret);
+            if (ec >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+            if (option_ecc == 2 && ec > 0) fprintf(stdout, " (%d)", ec);
         }
         fprintf(stdout, "\n");
     }
@@ -1055,7 +1108,7 @@ void print_frame(int len) {
         get_SatData();
     }
     else {
-        print_position();
+        print_position(ec);
     }
 }
 
@@ -1069,6 +1122,7 @@ int main(int argc, char *argv[]) {
     int bit_count = 0,
         bitpos = 0,
         byte_count = FRAMESTART,
+        ft_len = FRAME_LEN,
         header_found = 0;
     int bit, byte;
     int frmlen = FRAME_LEN;
@@ -1112,6 +1166,7 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "-vx") == 0) { option_verbose = 2; }
         else if   (strcmp(*argv, "-vv") == 0) { option_verbose = 3; }
+        else if   (strcmp(*argv, "-vvv") == 0) { option_verbose = 4; }
         else if   (strcmp(*argv, "--crc") == 0) { option_crc = 1; }
         else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
@@ -1165,8 +1220,8 @@ int main(int argc, char *argv[]) {
     symlen = 1;
     headerlen = strlen(header);
     bitofs = 2; // +1 .. +2
-    K = init_buffers(header, headerlen, 2);
-    if ( K < 0) { // shape=2
+    K = init_buffers(header, headerlen, 2); // shape=2
+    if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
         return -1;
     };
@@ -1180,7 +1235,7 @@ int main(int argc, char *argv[]) {
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
             k = 0;
         }
         else {
@@ -1192,10 +1247,10 @@ int main(int argc, char *argv[]) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(symlen, header, headerlen, mv_pos); // symlen=1
+                herrs = headcmp(symlen, header, headerlen, mv_pos, mv<0, 0); // symlen=1
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(symlen, header, headerlen, mv_pos+1);
+                    herr1 = headcmp(symlen, header, headerlen, mv_pos+1, mv<0, 0);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;
@@ -1210,6 +1265,7 @@ int main(int argc, char *argv[]) {
                     bitpos = 0;
 
                     Qerror_count = 0;
+                    ft_len = frmlen;
 
                     while ( byte_count < frmlen ) {
                         bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
@@ -1232,17 +1288,15 @@ int main(int argc, char *argv[]) {
 
                             byte_count++;
                         }
-                        if (Qerror_count > 4) {   // ab byte 320 entscheiden, ob framelen = 320 oder 518
-                            if (byte_count > NDATA_LEN  && byte_count < NDATA_LEN+XDATA_LEN-10) {
-                                byte_count = NDATA_LEN;
-                            } // in print_frame() wird ab byte_count mit 00 aufgefuellt fuer Fehlerkorrektur
-                            break;
+                        if (Qerror_count == 4) { // framelen = 320 oder 518
+                            ft_len = byte_count;
+                            Qerror_count += 1;
                         }
                     }
                     header_found = 0;
-                    print_frame(byte_count);
+                    print_frame(ft_len);
 
-                    while ( bit_count < BITS*FRAME_LEN ) {
+                    while ( bit_count < BITS*(FRAME_LEN-8+24) ) {
                         bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
                         if ( bitQ == EOF) break;
                         bit_count++;

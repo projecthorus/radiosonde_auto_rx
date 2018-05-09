@@ -4,35 +4,25 @@
 #
 
 # Build rs_detect.
+echo "Building rs_detect"
 cd ../scan/
 gcc rs_detect.c -lm -o rs_detect
+echo "Building reset_usb (will result in error under OSX)"
 gcc reset_usb.c -o reset_usb
 
-
-# Build rs92 and rs41 decoders
-cd ../rs_module/
-gcc -c rs_datum.c
-gcc -c rs_demod.c
-gcc -c rs_bch_ecc.c
-gcc -c rs_rs41.c
-gcc -c rs_rs92.c
-gcc -c rs_main41.c
-gcc rs_main41.o rs_rs41.o rs_bch_ecc.o rs_demod.o rs_datum.o -lm -o rs41mod
-gcc -c rs_main92.c
-gcc rs_main92.o rs_rs92.o rs_bch_ecc.o rs_demod.o rs_datum.o -lm -o rs92mod
-
+echo "Building RS92/RS41 Demodulators"
 cd ../demod/
 gcc -c demod.c
 gcc -c demod_dft.c
-gcc rs92dm.c demod.o -lm -o rs92ecc -I../ecc/ -I../rs92
+#gcc rs92dm.c demod.o -lm -o rs92ecc -I../ecc/ -I../rs92
+gcc rs92dm_dft.c demod_dft.o -lm -o rs92ecc -I../ecc/ -I../rs92
 gcc rs41dm_dft.c demod_dft.o -lm -o rs41ecc -I../ecc/ -I../rs41
 
 # Copy all necessary files into this directory.
+echo "Copying files into auto_rx directory."
 cd ../auto_rx/
 cp ../scan/rs_detect .
 cp ../scan/reset_usb .
-cp ../rs_module/rs41mod .
-cp ../rs_module/rs92mod .
 cp ../demod/rs92ecc .
 cp ../demod/rs41ecc .
 
