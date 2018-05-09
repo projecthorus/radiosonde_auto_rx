@@ -189,7 +189,9 @@ def detect_sonde(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, dwell_t
     if (ret_code & 0x80) > 0: 
         # If the inverted bit is set, we have to do some munging of the return code to get the sonde type.
         ret_code = abs(-1 * (0x100 - ret_code))
-        inv = "-"
+        # Currently ignoring the inverted flag, as rs_detect appears to detect some sondes as inverted incorrectly. 
+        #inv = "-"
+
     else:
         ret_code = abs(ret_code)
 
@@ -390,8 +392,6 @@ def check_position_valid(data):
     # Regex to check DFM06/09 callsigns.
     # TODO: Check if this valid for DFM06s
     dfm_callsign_valid = re.match(r'DFM0[69]-\d{6}', _serial)
-
-    # TODO: DFM06/DFM09 serial number checks.
 
     if vaisala_callsign_valid or dfm_callsign_valid:
         return True
