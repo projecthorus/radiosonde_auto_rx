@@ -387,9 +387,13 @@ def check_position_valid(data):
     # This will need to be re-evaluated if we're still using this code in 2021!
     vaisala_callsign_valid = re.match(r'[J-T][0-5][\d][1-7]\d{4}', _serial)
 
+    # Regex to check DFM06/09 callsigns.
+    # TODO: Check if this valid for DFM06s
+    dfm_callsign_valid = re.match(r'DFM0[69]-\d{6}', _serial)
+
     # TODO: DFM06/DFM09 serial number checks.
 
-    if vaisala_callsign_valid:
+    if vaisala_callsign_valid or dfm_callsign_valid:
         return True
     else:
         logging.warning("Payload ID does not match regex. Discarding.")
@@ -420,7 +424,7 @@ def payload_id_valid_for_upload(payload_id, update=False):
 
 
 def process_rs_line(line):
-    """ Process a line of output from the rs92gps decoder, converting it to a dict """
+    """ Process a line of output from the radiosonde decoder, converting it to a dict """
     try:
         if line[0] != "{":
             return None
@@ -428,7 +432,7 @@ def process_rs_line(line):
         rs_frame = json.loads(line)
         # Note: We expect the following fields available within the JSON blob:
         # id, frame, datetime, lat, lon, alt, crc
-        rs_frame['crc'] = True # the rs92ecc only reports frames that match crc so we can lie here
+        rs_frame['crc'] = True # The demods only report frames that match crc so we can lie here
 
         if 'temp' not in rs_frame.keys():
             rs_frame['temp'] = -273.0 # We currently don't get temperature data out of the RS92s.
@@ -768,6 +772,127 @@ def decode_rs41(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, invert=F
     rx_stdout.join()
     return
 
+
+def decode_dfm(frequency, sdr_fm='rtl_fm', ppm=0, gain=-1, bias=False, invert=False, rx_queue=None, timeout=120, save_log=False):
+    """ Decode a Graw DFM06/DFM09 sonde """
+    global latest_sonde_data, internet_push_queue, ozi_push_queue
+    # Add a -T option if bias is enabled
+    bias_option = "-T " if bias else ""
+
+    # Add a gain parameter if we have been provided one.
+    if gain != -1:
+        gain_param = '-g %.1f ' % gain
+    else:
+        gain_param = ''
+
+    # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 15k -f 403250000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./dfm09ecc -vv --ecc
+    # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
+    decode_cmd = "%s %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (sdr_fm, bias_option, int(ppm), gain_param, frequency)
+    decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
+
+    # DFM decoder
+    decode_cmd += "./dfm09ecc -vv --ecc"
+
+    # Add inversion option if we have detected the signal as being inverted
+    if invert:
+        # Note: Currently ignoring the invert option on the DFM sondes. 
+        #decode_cmd += " -i"
+        pass
+
+    logging.debug("Running command: %s" % decode_cmd)
+
+    rx_last_line = time.time()
+
+    # Receiver subprocess. Discard stderr, and feed stdout into an asynchronous read class.
+    rx = subprocess.Popen(decode_cmd, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
+    rx_stdout = AsynchronousFileReader(rx.stdout, autostart=True)
+
+    _log_file = None
+
+    while not rx_stdout.eof():
+        for line in rx_stdout.readlines():
+            if (line != None) and (line != ""):
+                try:
+                    data = process_rs_line(line)
+
+                    if data != None:
+                        # Reset timeout counter.
+                        rx_last_line = time.time()
+                        # Add in a few fields that don't come from the sonde telemetry.
+                        data['freq'] = "%.3f MHz" % (frequency/1e6)
+                        data['type'] = "DFM"
+
+                        # post to MQTT
+                        if mqtt_client:
+                            data['seen_by'] = config['uploader_callsign']
+                            mqtt_client.publish("sonde/%s" % data['id'], payload=json.dumps(data), retain=True)
+
+                        # Per-Sonde Logging
+                        if save_log:
+                            if _log_file is None:
+                                _existing_files = glob.glob("./log/*%s_%s*_sonde.log" % (data['id'], data['type']))
+                                if len(_existing_files) != 0:
+                                    _log_file_name = _existing_files[0]
+                                    logging.debug("Using existing log file: %s" % _log_file_name)
+                                else:
+                                    _log_file_name = "./log/%s_%s_%s_%d_sonde.log" % (
+                                        datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                                        data['id'],
+                                        data['type'],
+                                        int(frequency/1e3))
+                                    logging.debug("Opening new log file: %s" % _log_file_name)
+
+                                _log_file = open(_log_file_name,'ab')
+
+                            # Write a log line
+                            # datetime,id,frame_no,lat,lon,alt,type,frequency
+                            _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f\n" % (
+                                data['datetime_str'],
+                                data['id'],
+                                data['frame'],
+                                data['lat'],
+                                data['lon'],
+                                data['alt'],
+                                data['temp'],
+                                data['type'],
+                                frequency/1e6)
+
+                            _log_file.write(_log_line)
+                            _log_file.flush()
+
+                        update_flight_stats(data)
+
+                        latest_sonde_data = data
+
+                        if rx_queue != None:
+                            try:
+                                internet_push_queue.put_nowait(data)
+                                ozi_push_queue.put_nowait(data)
+                            except:
+                                pass
+                except:
+                    _err_str = traceback.format_exc()
+                    logging.error("Error parsing line: %s - %s" % (line, _err_str))
+
+        # Check timeout counter.
+        if time.time() > (rx_last_line+timeout):
+            logging.error("RX Timed out.")
+            break
+        # Sleep for a short time.
+        time.sleep(0.1)
+
+    # If we were writing a log, close the file.
+    if _log_file != None:
+        _log_file.flush()
+        _log_file.close()
+
+    logging.error("Closing RX Thread.")
+    os.killpg(os.getpgid(rx.pid), signal.SIGTERM)
+    rx_stdout.stop()
+    rx_stdout.join()
+    return
+
+
 def internet_push_thread(station_config):
     """ Push a frame of sonde data into various internet services (APRS-IS, Habitat), and also to a rotator (if configured) """
     global internet_push_queue, INTERNET_PUSH_RUNNING, habitat_uploader
@@ -1053,7 +1178,16 @@ if __name__ == "__main__":
                             )
 
             elif sonde_type == 'DFM':
-                logging.error("DFM sondes not supported yet.")
+                decode_dfm(sonde_freq, 
+                            sdr_fm=config['sdr_fm_path'],
+                            ppm=config['sdr_ppm'], 
+                            gain=config['sdr_gain'], 
+                            bias=config['sdr_bias'],
+                            invert=invert_fm,
+                            rx_queue=internet_push_queue, 
+                            timeout=config['rx_timeout'], 
+                            save_log=config['per_sonde_log'],
+                            )
 
             else:
                 logging.error("Unsupported sonde type: %s" % sonde_type)
