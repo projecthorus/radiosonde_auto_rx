@@ -2,10 +2,10 @@
 /*
  *  rs92
  *  sync header: correlation/matched filter
- *  files: rs92dm.c nav_gps_vel.c bch_ecc.c demod.h demod.c
+ *  files: rs92dm_dft.c nav_gps_vel.c bch_ecc.c demod_dft.h demod_dft.c
  *  compile:
- *      gcc -c demod.c
- *      gcc rs92dm.c demod.o -lm -o rs92dm
+ *      gcc -c demod_dft.c
+ *      gcc rs92dm_dft.c demod_dft.o -lm -o rs92dm_dft
  *
  *  author: zilog80
  */
@@ -25,8 +25,8 @@ typedef unsigned char  ui8_t;
 typedef unsigned short ui16_t;
 typedef unsigned int   ui32_t;
 
-//#include "demod.c"
-#include "demod.h"
+//#include "demod_dft.c"
+#include "demod_dft.h"
 
 #include "bch_ecc.c"  // RS/ecc/
 
@@ -100,7 +100,7 @@ int exSat = -1;
 /*                    2A                  10*/
 char rawheader[] = //"10100110011001101001"
                    //"10100110011001101001"
-                     "10100110011001101001"
+                   //"10100110011001101001"
                      "10100110011001101001"
                      "1010011001100110100110101010100110101001";
 
@@ -271,7 +271,7 @@ int get_SondeID() {
     }
 */
     ret = 0;
-    if ( 0  &&  option_crc  &&  crc != crc_frame) {
+    if ( /*0  &&*/  option_crc  &&  crc != crc_frame) {
         ret = -2;  // erst wichtig, wenn Cal/Cfg-Data
     }
 
@@ -1107,7 +1107,8 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
     }
 
     if (!err2) {
-        if (option_verbose) {
+        //if (option_verbose)
+        {
             Gps2Date(gpx.week, gpx.gpssec, &gpx.jahr, &gpx.monat, &gpx.tag);
             //fprintf(stdout, "(W %d) ", gpx.week);
             fprintf(stdout, "(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag);
@@ -1139,6 +1140,14 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                         if (j < n-1) fprintf(stdout, ","); else fprintf(stdout, "] %.1f ", gpx.dop);
                     }
                 }
+            }
+        }
+        // Print out telemetry data as JSON, even if we don't have a valid GPS lock.
+        if (!err1 && !err2){
+            if (gpx.aux[0] != 0 || gpx.aux[1] != 0 || gpx.aux[2] != 0 || gpx.aux[3] != 0) {
+                printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"aux\": \"%04x%04x%04x%04x\"}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU , gpx.aux[0], gpx.aux[1], gpx.aux[2], gpx.aux[3]);
+            } else {
+                printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
             }
         }
 
@@ -1218,12 +1227,14 @@ int main(int argc, char *argv[]) {
     int herrs, herr1;
     int headerlen = 0;
 
+    int k,K;
     float mv;
     unsigned int mv_pos, mv0_pos;
+    int mp = 0;
 
     float thres = 0.7;
 
-    int bitofs = 0, dif = 0;
+    int bitofs = 0;
     int symlen = 2;
 
 
@@ -1387,26 +1398,36 @@ int main(int argc, char *argv[]) {
     symlen = 2;
     headerlen = strlen(rawheader);
     bitofs = 2; // +1 .. +2
-    if (init_buffers(rawheader, headerlen, 2) < 0) { // shape=2
+    K = init_buffers(rawheader, headerlen, 2); // shape=2
+    if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
         return -1;
     };
 
+    k = 0;
     mv = -1; mv_pos = 0;
 
     while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
 
-        mv0_pos = mv_pos;
-        dif = getmaxCorr(&mv, &mv_pos, headerlen+headerlen/2);
+        k += 1;
+        if (k >= K-4) {
+            mv0_pos = mv_pos;
+            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
+            k = 0;
+        }
+        else {
+            mv = 0.0;
+            continue;
+        }
 
-        if (mv > thres) {
+        if (mv > thres && mp > 0) {
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
-                herrs = headcmp(symlen, rawheader, headerlen, mv_pos); // symlen=2
+                herrs = headcmp(symlen, rawheader, headerlen, mv_pos, mv<0, 0); // symlen=2
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(symlen, rawheader, headerlen, mv_pos+1);
+                    herr1 = headcmp(symlen, rawheader, headerlen, mv_pos+1, mv<0, 0);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;

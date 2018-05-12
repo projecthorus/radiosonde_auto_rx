@@ -14,6 +14,7 @@ import numpy as np
 import sys
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
 
+
 # Earthmaths code by Daniel Richman (thanks!)
 # Copyright 2012 (C) Daniel Richman; GNU GPL 3
 def position_info(listener, balloon):
