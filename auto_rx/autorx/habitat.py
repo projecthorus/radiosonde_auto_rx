@@ -52,7 +52,7 @@ class HabitatUploader(object):
         self.upload_retries = upload_retries
         self.upload_retry_interval = upload_retry_interval
         self.queue_size = queue_size
-        self.habitat_upload_queue = Queue.Queue(queue_size)
+        self.habitat_upload_queue = Queue(queue_size)
         self.inhibit = inhibit
 
         # Start the uploader thread.

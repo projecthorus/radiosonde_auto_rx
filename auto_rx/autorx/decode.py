@@ -11,8 +11,9 @@ import os
 import signal
 import subprocess
 import time
+from dateutil.parser import parse
 from threading import Thread
-from types import FunctionType
+from types import FunctionType, MethodType
 from .asyncfilereader import AsynchronousFileReader
 
 
@@ -40,7 +41,11 @@ class SondeDecoder(object):
         "vel_h" (float): Horizontal Velocity (metres/s)
         "vel_v" (float): Vertical Velocity (metres/s)
         "heading" (float): Heading of the movement of the payload (degrees true)
-
+    The following fields are added to the dictionary:
+        "type" (str): Radiosonde type
+        "freq_float" (float): Radiosonde frequency in MHz, as a float.
+        "freq" (str): Radiosonde frequency as a string (XXX.XXX MHz).
+        "datetime_dt" (datetime): Telemetry sentence time, as a datetime object.
     '''
 
     DECODER_REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt']
@@ -54,7 +59,7 @@ class SondeDecoder(object):
 
     def __init__(self,
         decoder_command,
-        sonde_frequency='',
+        sonde_frequency=400.0,
         sonde_type='',
         exporter = None,
         timeout = 180,
@@ -63,8 +68,7 @@ class SondeDecoder(object):
 
         Args:
             decoder_command (str): The command to be run as a decoder. This will be run as a subprocess.Popen within a thread.
-            sonde_frequency (str): The radio freqency of the current sonde (as a string i.e. '402.340MHz'. To be passed onto the exporters.
-                Defaults to an empty string.
+            sonde_frequency (float): The radio freqency of the current sonde (as a float, in MHz). Defaults to 400 MHz.
             sonde_type (str): The general type of the radiosonde to be decoder (as a string, i.e. 'RS41', to be passed onto the exporters.
                 Defaults to an empty string.
             exporter (function, list): Either a function, or a list of functions, which accept a single dictionary. Fields described above.
@@ -93,7 +97,7 @@ class SondeDecoder(object):
         elif type(exporter) == list:
             # Check everything in the list is a function
             for _func in exporter:
-                if type(_func) is not FunctionType:
+                if (type(_func) is not FunctionType) and (type(_func) is not MethodType):
                     raise TypeError("Supplied exporter list does not contain functions.")
             
             # If it all checks out, use the supplied list.
@@ -212,9 +216,23 @@ class SondeDecoder(object):
                 if _field not in _telemetry:
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
+            # Check the datetime field is parseable.
+            try:
+                _telemetry['datetime_dt'] = parse(_telemetry['datetime'])
+            except Exception as e:
+                self.log_error("Invalid date/time in telemetry dict - %s" % str(e))
+                return False
+
             # Add in the sonde frequency and type fields.
             _telemetry['type'] = self.sonde_type
-            _telemetry['freq'] = self.sonde_frequency
+            _telemetry['freq_float'] = self.sonde_frequency
+            _telemetry['freq'] = "%.3f MHz" % (self.sonde_frequency)
+
+            # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
+            # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
+            if 'aux' in _telemetry:
+                _telemetry['type'] += "-Ozone"
+
 
             # Send to the exporter functions (if we have any).
             if self.exporters is None:
@@ -282,6 +300,7 @@ class SondeDecoder(object):
 
 if __name__ == "__main__":
     # Test script.
+    from .logger import TelemetryLogger
 
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
 
@@ -293,14 +312,16 @@ if __name__ == "__main__":
         """ Another test exporter function """
         print("ID: " + data['id'])
 
+    _log = TelemetryLogger()
 
-    _cmd = "rtl_fm -p 0 -g 20 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu"
+
+    _cmd = "rtl_fm -p 0 -g 40 -M fm -F9 -s 15k -f 402500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu"
 
     _decoder = SondeDecoder(_cmd,
-        sonde_frequency = "TEST",
+        sonde_frequency = 402.5,
         sonde_type = "TEST",
         timeout = 10,
-        exporter=[print_json,print_id])
+        exporter=[print_id,_log.add])
 
 
     try:
@@ -310,6 +331,7 @@ if __name__ == "__main__":
                 break
     except KeyboardInterrupt:
         _decoder.close()
+        _log.close()
 
 
 
