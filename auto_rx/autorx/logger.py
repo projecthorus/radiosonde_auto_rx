@@ -5,6 +5,8 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import datetime
+import glob
 import logging
 import os
 import time
@@ -108,6 +110,27 @@ class TelemetryLogger(object):
         self.log_info("Stopped Telemetry Logger Thread.")
 
 
+    def telemetry_to_string(self, telemetry):
+        """ Convert a telemetry dictionary to a CSV string.
+
+        Args:
+            telemetry (dict): Telemetry dictionary to process.
+        """
+        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f\n" % (
+            telemetry['datetime'],
+            telemetry['id'],
+            telemetry['frame'],
+            telemetry['lat'],
+            telemetry['lon'],
+            telemetry['alt'],
+            telemetry['temp'],
+            telemetry['type'],
+            telemetry['freq_float'])
+
+        # TODO: Add Aux data, if it exists.
+
+        return _log_line
+
     def write_telemetry(self, telemetry):
         """ Write a packet of telemetry to a log file.
 
@@ -118,17 +141,42 @@ class TelemetryLogger(object):
         # TODO
         print(telemetry)
 
-        # Check to see if we already have an open log file for this sonde ID.
+        _id = telemetry['id']
+        _type = telemetry['type']
 
-        # If not, check to see if there is an existing log file for this sonde ID, and open it.
-
-        # Otherside, create a new log file, and open it.
+        # If there is no log open for the current ID check to see if there is an existing (closed) log file, and open it.
+        if _id not in self.open_logs:
+            _search_string = os.path.join(self.log_directory, "*%s_%s*_sonde.log" % (_id, _type))
+            _existing_files = glob.glob(_search_string)
+            if len(_existing_files) != 0:
+                # Open the existing log file.
+                _log_file_name = _existing_files[0]
+                self.log_debug("Using existing log file: %s" % _log_file_name)
+                # Create entry in open logs dictionary
+                self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}
+            else:
+                # Create a new log file.
+                _log_suffix = "%s_%s_%s_%d_sonde.log" % (
+                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                    _id,
+                    _type,
+                    int(telemetry['freq_float']*1e3) # Convert frequency to kHz
+                    )
+                _log_file_name = os.path.join(self.log_directory, _log_suffix)
+                self.log_debug("Opening new log file: %s" % _log_file_name)
+                # Create entry in open logs dictionary
+                self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}               
 
 
         # Produce log file sentence.
+        _log_line = self.telemetry_to_string(telemetry)
 
         # Write out to log.
-
+        self.open_logs[_id]['log'].write(_log_line)
+        self.open_logs[_id]['log'].flush()
+        # Update the last_time field.
+        self.open_logs[_id]['last_time'] = time.time()
+        self.log_debug("Wrote line: %s" % _log_line.strip())
 
 
     def cleanup_logs(self):

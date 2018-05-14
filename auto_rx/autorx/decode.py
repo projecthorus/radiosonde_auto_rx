@@ -312,15 +312,15 @@ if __name__ == "__main__":
         """ Another test exporter function """
         print("ID: " + data['id'])
 
-    _log = TelemetryLogger()
+    _log = TelemetryLogger(log_directory="./testlog/")
 
 
-    _cmd = "rtl_fm -p 0 -g 40 -M fm -F9 -s 15k -f 402500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu"
+    _cmd = "rtl_fm -p 0 -g 40 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu"
 
     _decoder = SondeDecoder(_cmd,
         sonde_frequency = 402.5,
         sonde_type = "TEST",
-        timeout = 10,
+        timeout = 50,
         exporter=[print_id,_log.add])
 
 
@@ -331,7 +331,8 @@ if __name__ == "__main__":
                 break
     except KeyboardInterrupt:
         _decoder.close()
-        _log.close()
+    
+    _log.close()
 
 
 
