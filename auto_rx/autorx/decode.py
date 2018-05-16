@@ -14,7 +14,7 @@ import time
 from dateutil.parser import parse
 from threading import Thread
 from types import FunctionType, MethodType
-from .asyncfilereader import AsynchronousFileReader
+from .utils import AsynchronousFileReader
 
 
 

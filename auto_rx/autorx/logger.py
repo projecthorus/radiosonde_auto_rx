@@ -202,6 +202,15 @@ class TelemetryLogger(object):
         self.input_processing_running = False
 
 
+    def running(self):
+        """ Check if the logging thread is running. 
+
+        Returns:
+            bool: True if the logging thread is running.
+        """
+        return self.input_processing_running
+
+
     def log_debug(self, line):
         """ Helper function to log a debug message with a descriptive heading. 
         Args:
