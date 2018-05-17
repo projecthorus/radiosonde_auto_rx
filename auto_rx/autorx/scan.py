@@ -9,7 +9,11 @@ import logging
 import numpy as np
 import os
 import platform
-from .utils import detect_peaks
+import subprocess
+import time
+from threading import Thread
+from types import FunctionType, MethodType
+from .utils import detect_peaks, rtlsdr_test, rtlsdr_reset
 
 try:
     # Python 2
@@ -49,6 +53,10 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
     else:
         gain_param = ''
 
+    # If the output log file exists, remove it.
+    if os.path.exists(filename):
+        os.remove(filename)
+
     # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
     # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
     # which is provided with OSX (Darwin).
@@ -57,15 +65,33 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
     else:
         timeout_kill = '-k 30 '
 
-    rtl_power_cmd = "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 20%% -p %d -d %d %s%s" % (timeout_kill, dwell+10, sdr_power, bias_option, start, stop, step, dwell, int(ppm), int(device_idx), gain_param, filename)
+    rtl_power_cmd = "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 20%% -p %d -d %d %s%s" % (
+        timeout_kill,
+        dwell+10,
+        sdr_power,
+        bias_option,
+        start,
+        stop,
+        step,
+        dwell,
+        int(ppm), # Should this be an int?
+        int(device_idx),
+        gain_param,
+        filename)
+
     logging.info("Scanner - Running frequency scan.")
     logging.debug("Scanner - Running command: %s" % rtl_power_cmd)
-    ret_code = os.system(rtl_power_cmd)
-    if ret_code == 1:
+
+    try:
+        FNULL = open(os.devnull, 'w')
+        subprocess.check_call(rtl_power_cmd, shell=True, stderr=FNULL)
+        FNULL.close()
+    except subprocess.CalledProcessError:
         logging.critical("rtl_power call failed!")
         return False
     else:
         return True
+
 
 
 def read_rtl_power(filename):
@@ -168,10 +194,19 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     logging.info("Scanner - Attempting sonde detection on %.3f MHz" % (frequency/1e6))
     logging.debug("Scanner - Running command: %s" % rx_test_command)
 
-    ret_code = os.system(rx_test_command)
+    try:
+        FNULL = open(os.devnull, 'w')
+        ret_code = subprocess.call(rx_test_command, shell=True, stderr=FNULL)
+        FNULL.close()
+    except Exception as e:
+        # Something broke when running the detection function.
+        logging.error("Scanner - Error when running rs_detect - %s" % str(e))
+        return None
 
     # Shift down by a byte... for some reason.
-    ret_code = ret_code >> 8
+    # NOTE: For some reason, we don't need to do this when using subprocess.call vs when using os.system.
+    # Should probably figure out why this is the case at some point.
+    #ret_code = ret_code >> 8
 
     # Default is non-inverted FM.
     inv = ""
@@ -287,7 +322,7 @@ def sonde_search(min_freq = 400.0,
         if step == 0 or len(freq)==0 or len(power)==0:
             # Otherwise, if a file has been written but contains no data, it can indicate
             # an issue with the RTLSDR. Sometimes these issues can be resolved by issuing a usb reset to the RTLSDR.
-            raise Exception("Invalid Log File")
+            raise ValueError("Invalid Log File")
 
 
         # Rough approximation of the noise floor of the received power spectrum.
@@ -363,6 +398,191 @@ def sonde_search(min_freq = 400.0,
     return _search_results
 
 
+#
+# Continuous Scanner Class
+#
+class SondeScanner(object):
+    """ Radiosonde Scanner
+    Continuously scan for radiosondes using a RTLSDR, and pass results onto a callback function
+    """
+
+    # Allow up to X consecutive scan errors before giving up.
+    SONDE_SCANNER_MAX_ERRORS = 5
+
+    def __init__(self,
+        callback = None,
+        min_freq = 400.0,
+        max_freq = 403.0,
+        search_step = 800.0,
+        whitelist = [],
+        greylist = [],
+        blacklist = [],
+        snr_threshold = 10,
+        min_distance = 1000,
+        quantization = 10000,
+        scan_dwell_time = 20,
+        detect_dwell_time = 5,
+        max_peaks = 10,
+        rs_path = "./",
+        sdr_power = "rtl_power",
+        sdr_fm = "rtl_fm",
+        device_idx = 0,
+        gain = -1,
+        ppm = 0,
+        bias = False):
+        """ Initialise a Sonde Scanner Object.
+
+        Apologies for the huge number of args...
+
+        Args:
+            callback (function): A function to pass results from the sonde scanner to (when a sonde is found).
+
+            min_freq (float): Minimum search frequency, in MHz.
+            max_freq (float): Maximum search frequency, in MHz.
+            search_step (float): Search step, in *Hz*. Defaults to 800 Hz, which seems to work well.
+            whitelist (list): If provided, *only* scan on these frequencies. Frequencies provided as a list in MHz.
+            greylist (list): If provided, add these frequencies to the start of each scan attempt.
+            blacklist (list): If provided, remove these frequencies from the detected peaks before scanning.
+            snr_threshold (float): SNR to threshold detections at. (dB)
+            min_distance (float): Minimum allowable distance between detected peaks, in Hz.
+                Helps avoid detection of numerous peaks due to ripples within the signal bandwidth.
+            quantization (float): Quantize search results to this value in Hz. Defaults to 10 kHz.
+                Essentially all radiosondes transmit on 10 kHz channel steps.
+            scan_dwell_time (int): Number of seconds for rtl_power to average spectrum over. Default = 20 seconds.
+            detect_dwell_time (int): Number of seconds to allow rs_detect to attempt to detect a sonde. Default = 5 seconds.
+            max_peaks (int): Maximum number of peaks to search over. Peaks are ordered by signal power before being limited to this number.
+            rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
+            sdr_power (str): Path to rtl_power, or drop-in equivalent. Defaults to 'rtl_power'
+            sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
+            device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
+            ppm (int): SDR Frequency accuracy correction, in ppm.
+            gain (int): SDR Gain setting, in dB.
+            bias (bool): If True, enable the bias tee on the SDR.
+        """
+
+        # Copy parameters into a dict for passing into the scan function.
+        self.scan_params = {
+            'min_freq'  : min_freq,
+            'max_freq'  : max_freq,
+            'search_step': search_step,
+            'whitelist' : whitelist,
+            'greylist'  : greylist,
+            'blacklist' : blacklist,
+            'snr_threshold' : snr_threshold,
+            'min_distance'  : min_distance,
+            'quantization'  : quantization,
+            'scan_dwell_time'   : scan_dwell_time,
+            'detect_dwell_time' : detect_dwell_time,
+            'max_peaks' : max_peaks,
+            'rs_path'   : rs_path,
+            'sdr_power' : sdr_power,
+            'sdr_fm'    : sdr_fm,
+            'device_idx': device_idx,
+            'gain'      : gain,
+            'ppm'       : ppm,
+            'bias'      : bias
+        }
+
+        # Callback function.
+        self.callback = callback
+
+        # Error counter. 
+        self.error_retries = 0
+
+        # Test if the supplied RTLSDR is working.
+        _rtlsdr_ok = rtlsdr_test(device_idx)
+        if _rtlsdr_ok:
+            # Start the scan loop.
+            self.sonde_scanner_running = True
+            self.sonde_scan_thread = Thread(target=self.scan_loop)
+            self.sonde_scan_thread.start()
+        
+        else:
+            logging.error("Scanner - RTLSDR #%d non-functional - exiting." % device_idx)
+            return
+
+    def scan_loop(self):
+        """ Continually perform scans, and pass any results onto the callback function """
+
+        self.log_info("Starting Scanner Thread")
+        while self.sonde_scanner_running:
+
+            # If we have hit the maximum number of permissable errors, quit.
+            if self.error_retries > self.SONDE_SCANNER_MAX_ERRORS:
+                self.log_error("Exceeded maximum number of consecutive RTLSDR errors. Closing scan thread.")
+                break
+
+            try:
+                _results = sonde_search(**self.scan_params)
+
+            except (IOError, ValueError) as e:
+                # No log file produced. Reset the RTLSDR and try again.
+                self.log_warning("RTLSDR produced no output... resetting and retrying.")
+                self.error_retries += 1
+                # Attempt to reset the RTLSDR.
+                rtlsdr_reset(self.scan_params['device_idx'])
+                time.sleep(10)
+                continue
+            except Exception as e:
+                self.log_error("Caught other error: %s" % str(e))
+                time.sleep(10)
+            else:
+                # Scan completed successfuly! Reset the error counter.
+                self.error_retries = 0
+                # If we have scan results, pass them onto the callback.
+                if len(_results) > 0:
+                    try:
+                        if self.callback != None:
+                            self.callback(_results)
+                    except Exception as e:
+                        self.log_error("Error handling scan results - %s" % str(e))
+
+
+
+        self.log_info("Scanner Thread Closed.")
+        self.sonde_scanner_running = False
+
+    def close(self):
+        """ Stop the Scan Loop """
+        self.log_info("Waiting for current scan to finish...")
+        self.sonde_scanner_running = False
+
+
+    def running(self):
+        """ Check if the scanner is running """
+        return self.sonde_scanner_running
+
+
+    def log_debug(self, line):
+        """ Helper function to log a debug message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.debug("Scanner - %s" % line)
+
+
+    def log_info(self, line):
+        """ Helper function to log an informational message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.info("Scanner - %s" % line)
+
+
+    def log_error(self, line):
+        """ Helper function to log an error message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.error("Scanner - %s" % line)
+
+    def log_warning(self, line):
+        """ Helper function to log a warning message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.warning("Scanner - %s" % line)
+
 
 if __name__ == "__main__":
     # Basic test script - run a scan using default parameters.
@@ -370,10 +590,25 @@ if __name__ == "__main__":
 
     # Call sonde_search with various parameter options
     # Standard call
-    print(sonde_search())
+    #print(sonde_search())
     # Whitelist
     #print(sonde_search(whitelist=[401.0]))
     # Blacklist
     #print(sonde_search(blacklist=[402.5]))
     # Greylist
     #print(sonde_search(greylist=[401.0]))
+
+    # Test scanner object.
+    def print_result(scan_result):
+        print("SCAN RESULT: " + str(scan_result))
+
+    # Local spurs at my house :-)
+    blacklist = [401.7,401.32,402.09,402.47,400.17,402.85]
+    _scanner = SondeScanner(callback=print_result, blacklist=blacklist)
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        _scanner.close()
+

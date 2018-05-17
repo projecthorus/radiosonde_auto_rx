@@ -7,6 +7,7 @@
 #
 
 from __future__ import division, print_function
+import os
 import subprocess
 import threading
 import numpy as np
@@ -267,7 +268,9 @@ def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
     _rtl_cmd = "%s -d %d -n 200000 - > /dev/null" % (rtl_sdr_path, int(device_idx))
 
     try:
-        _ret_code = subprocess.check_call(_rtl_cmd, shell=True)
+        FNULL = open(os.devnull, 'w') # Inhibit stderr output
+        _ret_code = subprocess.check_call(_rtl_cmd, shell=True, stderr=FNULL)
+        FNULL.close()
     except subprocess.CalledProcessError:
         # This exception means the subprocess has returned an error code of one.
         return False
