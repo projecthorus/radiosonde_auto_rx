@@ -87,7 +87,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
         subprocess.check_call(rtl_power_cmd, shell=True, stderr=FNULL)
         FNULL.close()
     except subprocess.CalledProcessError:
-        logging.critical("rtl_power call failed!")
+        logging.critical("Scanner - rtl_power call failed!")
         return False
     else:
         return True
@@ -126,8 +126,8 @@ def read_rtl_power(filename):
         fields = line.split(',')
 
         if len(fields) < 6:
-            logging.error("Invalid number of samples in input file - corrupt?")
-            raise Exception("Invalid number of samples in input file - corrupt?")
+            logging.error("Scanner - Invalid number of samples in input file - corrupt?")
+            raise Exception("Scanner - Invalid number of samples in input file - corrupt?")
 
         start_date = fields[0]
         start_time = fields[1]
@@ -162,7 +162,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
         device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
         ppm (int): SDR Frequency accuracy correction, in ppm.
-        gain (int): SDR Gain setting, in dB.
+        gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
         bias (bool): If True, enable the bias tee on the SDR.
 
     Returns:
@@ -299,7 +299,7 @@ class SondeScanner(object):
             sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
             device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
             ppm (int): SDR Frequency accuracy correction, in ppm.
-            gain (int): SDR Gain setting, in dB.
+            gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
         """
 
@@ -613,8 +613,8 @@ if __name__ == "__main__":
 
     try:
         # Oneshot approach.
-        #_result = _scanner.oneshot(first_only = True)
-        #print("Oneshot search result: %s" % str(_result))
+        _result = _scanner.oneshot(first_only = True)
+        print("Oneshot search result: %s" % str(_result))
 
         # Continuous scanning:
         _scanner.start()

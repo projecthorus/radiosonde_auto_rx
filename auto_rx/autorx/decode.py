@@ -14,13 +14,14 @@ import time
 from dateutil.parser import parse
 from threading import Thread
 from types import FunctionType, MethodType
-from .utils import AsynchronousFileReader
+from .utils import AsynchronousFileReader, rtlsdr_test
+from .gps import get_ephemeris, get_almanac
 
 
 
 class SondeDecoder(object):
     '''
-    Generic Sonde Decoder class. Run a radiosonde decoder program as a subprocess, and pass the output onto exporters.
+    Radiosonde Sonde Decoder class. Run a radiosonde decoder program as a subprocess, and pass the output onto exporters.
 
     Notes:
     The sonde decoder binary needs to output telemetry data as a valid JSON, with one frame of telemetry per line.
@@ -57,32 +58,76 @@ class SondeDecoder(object):
         'heading'   : 0.0
     }
 
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM']
+
     def __init__(self,
-        decoder_command,
-        sonde_frequency=400.0,
-        sonde_type='',
+        sonde_type="None",
+        sonde_freq=400000000,
+        rs_path = "./",
+        sdr_fm = "rtl_fm",
+        device_idx = 0,
+        ppm = 0,
+        gain = -1,
+        bias = False,
+
         exporter = None,
         timeout = 180,
-        telem_filter = None):
+        telem_filter = None,
+
+        rs92_ephemeris = None):
         """ Initialise and start a Sonde Decoder.
 
         Args:
-            decoder_command (str): The command to be run as a decoder. This will be run as a subprocess.Popen within a thread.
-            sonde_frequency (float): The radio freqency of the current sonde (as a float, in MHz). Defaults to 400 MHz.
-            sonde_type (str): The general type of the radiosonde to be decoder (as a string, i.e. 'RS41', to be passed onto the exporters.
-                Defaults to an empty string.
+            sonde_type (str): The radiosonde type, as returned by SondeScanner. Valid types listed in VALID_SONDE_TYPES
+            sonde_freq (int/float): The radiosonde frequency, in Hz.
+            
+            rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
+            sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
+            device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
+            ppm (int): SDR Frequency accuracy correction, in ppm.
+            gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
+            bias (bool): If True, enable the bias tee on the SDR.
+
             exporter (function, list): Either a function, or a list of functions, which accept a single dictionary. Fields described above.
-            timeout (int): Timeout after X seconds of no valid data received from the decoder.
+            timeout (int): Timeout after X seconds of no valid data received from the decoder. Defaults to 180.
             telem_filter (function): An optional filter function, which determines if a telemetry frame is valid. 
                 This can be used to allow the decoder to timeout based on telemetry contents (i.e. no lock, too far away, etc), 
-                not just lack-of-telemetry. This function is passed the telemetry dict, and must return a boolean based on the telemetry validity
+                not just lack-of-telemetry. This function is passed the telemetry dict, and must return a boolean based on the telemetry validity.
+
+            rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
         """
         # Local copy of init arguments
-        self.decoder_command = decoder_command
-        self.sonde_frequency = sonde_frequency
         self.sonde_type = sonde_type
+        self.sonde_freq = sonde_freq
+
+        self.rs_path = rs_path
+        self.sdr_fm = sdr_fm
+        self.device_idx = device_idx
+        self.ppm = ppm
+        self.gain = gain
+        self.bias = bias
+
         self.telem_filter = telem_filter
         self.timeout = timeout
+        self.rs92_ephemeris = rs92_ephemeris
+
+        # Thread running flag
+        self.decoder_running = False
+        # This will become out decoder thread.
+        self.decoder = None
+
+        # Check if the sonde type is valid.
+        if self.sonde_type not in self.VALID_SONDE_TYPES:
+            self.log_error("Unsupported sonde type: %s" % self.sonde_type)
+            raise ValueError("Unsupported sonde type: %s." % self.sonde_type)
+
+        # Test if the supplied RTLSDR is working.
+        _rtlsdr_ok = rtlsdr_test(device_idx)
+
+        # TODO: How should this error be handled?
+        if not _rtlsdr_ok:
+            self.log_error("RTLSDR #%d non-functional - exiting." % device_idx)
+            raise IOError("Could not open RTLSDR #%d" % device_idx)
 
         # We can accept a few different types in the exporter argument..
         # Nothing...
@@ -107,13 +152,96 @@ class SondeDecoder(object):
             # Otherwise, bomb out. 
             raise TypeError("Supplied exporter has incorrect type.")
 
-        # Start up the decoder thread.
-        self.decode_process = None
-        self.async_reader = None
+        # Generate the decoder command.
+        self.decoder_command = self.generate_decoder_command()
 
-        self.decoder_running = True
-        self.decoder = Thread(target=self.decoder_thread)
-        self.decoder.start()
+        if self.decoder_command is None:
+            self.log_error("Could not generate decoder command. Not starting decoder.")
+        else:
+            # Start up the decoder thread.
+            self.decode_process = None
+            self.async_reader = None
+
+            self.decoder_running = True
+            self.decoder = Thread(target=self.decoder_thread)
+            self.decoder.start()
+
+
+    def generate_decoder_command(self):
+        """ Generate the shell command which runs the relevant radiosonde decoder.
+
+        This is where support for new sonde types can be added.s
+
+        Returns:
+            str: The shell command which will be run in the decoder thread.
+
+        """
+        # Common options to rtl_fm
+
+        # Add a -T option if bias is enabled
+        bias_option = "-T " if self.bias else ""
+
+        # Add a gain parameter if we have been provided one.
+        if self.gain != -1:
+            gain_param = '-g %.1f ' % self.gain
+        else:
+            gain_param = ''
+
+
+        if self.sonde_type == "RS41":
+            # RS41 Decoder command.
+            # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
+            # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
+            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
+            decode_cmd += "./rs41ecc --crc --ecc --ptu"
+
+        elif self.sonde_type == "RS92":
+            # Decoding a RS92 requires either an ephemeris or an almanac file.
+            # If we have been supplied an ephemeris file, we will attempt to use it, otherwise
+            # we will try and download one.
+            if self.rs92_ephemeris == None:
+                # If no ephemeris data defined, attempt to download it.
+                # get_ephemeris will either return the saved file name, or None.
+                self.rs92_ephemeris = get_ephemeris(destination="ephemeris.dat")
+
+                # If ephemeris is still None, then we failed to download the ephemeris data.
+                # Try and grab the almanac data instead
+                if self.rs92_ephemeris == None:
+                    self.log_error("Could not obtain ephemeris data, trying to download an almanac.")
+                    almanac = get_almanac(destination="almanac.txt")
+                    if almanac == None:
+                        # We probably don't have an internet connection. Bomb out, since we can't do much with the sonde telemetry without an almanac!
+                        self.log_error("Could not obtain GPS ephemeris or almanac data.")
+                        return None
+                    else:
+                        _rs92_gps_data = "-a almanac.txt"
+                else:
+                    _rs92_gps_data = "-e ephemeris.dat"
+            else:
+                _rs92_gps_data = "-e %s" % self.rs92_ephemeris
+
+            # Now construct the decoder sentence.
+            # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
+            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
+            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s" % _rs92_gps_data
+
+        elif self.sonde_freq == "DFM":
+            # DFM06/DFM09 Sondes
+
+            # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
+            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
+            # DFM decoder
+            decode_cmd += "./dfm09ecc -vv --ecc"
+
+
+        else:
+            # Should never get here.
+            return None
+
+        return decode_cmd
 
 
     def decoder_thread(self):
@@ -138,7 +266,6 @@ class SondeDecoder(object):
                     # If we decoded a valid JSON blob, update our last-packet time.
                     if _ok:
                         _last_packet = time.time()
-
 
 
             # Check timeout counter.
@@ -225,8 +352,8 @@ class SondeDecoder(object):
 
             # Add in the sonde frequency and type fields.
             _telemetry['type'] = self.sonde_type
-            _telemetry['freq_float'] = self.sonde_frequency
-            _telemetry['freq'] = "%.3f MHz" % (self.sonde_frequency)
+            _telemetry['freq_float'] = self.sonde_freq/1e6
+            _telemetry['freq'] = "%.3f MHz" % (self.sonde_freq/1e6)
 
             # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
             # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
@@ -265,7 +392,7 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.debug("Decoder %s %s - %s" % (self.sonde_type, self.sonde_frequency, line))
+        logging.debug("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def log_info(self, line):
@@ -273,7 +400,7 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.info("Decoder %s %s - %s" % (self.sonde_type, self.sonde_frequency, line))
+        logging.info("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def log_error(self, line):
@@ -281,12 +408,15 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.error("Decoder %s %s - %s" % (self.sonde_type, self.sonde_frequency, line))
+        logging.error("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def close(self):
         """ Kill the currently running decoder subprocess """
         self.decoder_running = False
+
+        if self.decoder is not None:
+            self.decoder.join()
 
 
     def running(self):
@@ -314,23 +444,20 @@ if __name__ == "__main__":
 
     _log = TelemetryLogger(log_directory="./testlog/")
 
-
-    _cmd = "rtl_fm -p 0 -g 40 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu"
-
-    _decoder = SondeDecoder(_cmd,
-        sonde_frequency = 402.5,
-        sonde_type = "TEST",
-        timeout = 50,
-        exporter=[print_id,_log.add])
-
-
     try:
+        _decoder = SondeDecoder(sonde_freq = 401.5*1e6,
+            sonde_type = "RS41",
+            timeout = 50,
+            exporter=[print_id,_log.add])
+
         while True:
             time.sleep(1)
             if not _decoder.running():
                 break
     except KeyboardInterrupt:
         _decoder.close()
+    except:
+        pass
     
     _log.close()
 
