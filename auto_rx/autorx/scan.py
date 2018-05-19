@@ -241,165 +241,8 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
 
 
 
-def sonde_search(min_freq = 400.0,
-    max_freq = 403.0,
-    search_step = 800.0,
-    whitelist = [],
-    greylist = [],
-    blacklist = [],
-    snr_threshold = 10,
-    min_distance = 1000,
-    quantization = 10000,
-    scan_dwell_time = 20,
-    detect_dwell_time = 5,
-    max_peaks = 10,
-    first_only = False,
-    rs_path = "./",
-    sdr_power = "rtl_power",
-    sdr_fm = "rtl_fm",
-    device_idx = 0,
-    gain = -1,
-    ppm = 0,
-    bias = False):
-    """ Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
-
-    In order, this function:
-    - Runs rtl_power to capture spectrum data across the frequency range of interest.
-    - Thresholds and quantises peaks detected in the spectrum.
-    - On each peak run rs_detect to determine if a radiosonce is present.
-    - Returns either the first, or a list of all detected sondes.
-
-    Apologies for the huge number of args...
-
-    Args:
-        min_freq (float): Minimum search frequency, in MHz.
-        max_freq (float): Maximum search frequency, in MHz.
-        search_step (float): Search step, in *Hz*. Defaults to 800 Hz, which seems to work well.
-        whitelist (list): If provided, *only* scan on these frequencies. Frequencies provided as a list in MHz.
-        greylist (list): If provided, add these frequencies to the start of each scan attempt.
-        blacklist (list): If provided, remove these frequencies from the detected peaks before scanning.
-        snr_threshold (float): SNR to threshold detections at. (dB)
-        min_distance (float): Minimum allowable distance between detected peaks, in Hz.
-            Helps avoid detection of numerous peaks due to ripples within the signal bandwidth.
-        quantization (float): Quantize search results to this value in Hz. Defaults to 10 kHz.
-            Essentially all radiosondes transmit on 10 kHz channel steps.
-        scan_dwell_time (int): Number of seconds for rtl_power to average spectrum over. Default = 20 seconds.
-        detect_dwell_time (int): Number of seconds to allow rs_detect to attempt to detect a sonde. Default = 5 seconds.
-        max_peaks (int): Maximum number of peaks to search over. Peaks are ordered by signal power before being limited to this number.
-        first_only (bool): If True, return after detecting the first sonde. Otherwise continue to scan through all peaks.
-        rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
-        sdr_power (str): Path to rtl_power, or drop-in equivalent. Defaults to 'rtl_power'
-        sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
-        device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
-        ppm (int): SDR Frequency accuracy correction, in ppm.
-        gain (int): SDR Gain setting, in dB.
-        bias (bool): If True, enable the bias tee on the SDR.
-
-    Returns:
-        list: An empty list [] if no sondes are detected otherwise, a list of list, containing entries of [frequency (Hz), Sonde Type],
-            i.e. [[402500000,'RS41'],[402040000,'RS92']]
-    """
-
-    _search_results = []
-
-    if len(whitelist) == 0 :
-        # No whitelist frequencies provided - perform a scan.
-        run_rtl_power(min_freq*1e6,
-            max_freq*1e6,
-            search_step,
-            filename="log_power.csv",
-            dwell=scan_dwell_time,
-            sdr_power=sdr_power,
-            device_idx=device_idx,
-            ppm=ppm,
-            gain=gain,
-            bias=bias)
-
-        # Read in result.
-        # This step will throw an IOError if the file does not exist.
-        (freq, power, step) = read_rtl_power('log_power.csv')
-        # Sanity check results.
-        if step == 0 or len(freq)==0 or len(power)==0:
-            # Otherwise, if a file has been written but contains no data, it can indicate
-            # an issue with the RTLSDR. Sometimes these issues can be resolved by issuing a usb reset to the RTLSDR.
-            raise ValueError("Invalid Log File")
-
-
-        # Rough approximation of the noise floor of the received power spectrum.
-        power_nf = np.mean(power)
-
-        # Detect peaks.
-        peak_indices = detect_peaks(power, mph=(power_nf+snr_threshold), mpd=(min_distance/step), show = False)
-
-        # If we have found no peaks, and no greylist has been provided, re-scan.
-        if (len(peak_indices) == 0) and (len(greylist) == 0):
-            logging.info("Scanner - No peaks found.")
-            return []
-
-        # Sort peaks by power.
-        peak_powers = power[peak_indices]
-        peak_freqs = freq[peak_indices]
-        peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
-
-        # Quantize to nearest x Hz
-        peak_frequencies = np.round(peak_frequencies/quantization)*quantization
-
-        # Remove any duplicate entries after quantization, but preserve order.
-        _, peak_idx = np.unique(peak_frequencies, return_index=True)
-        peak_frequencies = peak_frequencies[np.sort(peak_idx)]
-
-        # Remove any frequencies in the blacklist.
-        for _frequency in np.array(blacklist)*1e6:
-            _index = np.argwhere(peak_frequencies==_frequency)
-            peak_frequencies = np.delete(peak_frequencies, _index)
-
-        # Limit to the user-defined number of peaks to search over.
-        if len(peak_frequencies) > max_peaks:
-            peak_frequencies = peak_frequencies[:max_peaks]
-
-        # Append on any frequencies in the supplied greylist
-        peak_frequencies = np.append(np.array(greylist)*1e6, peak_frequencies)
-
-        if len(peak_frequencies) == 0:
-            logging.info("Scanner - No peaks found after blacklist frequencies removed.")
-            return []
-        else:
-            logging.info("Scanner - Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
-
-    else:
-        # We have been provided a whitelist - scan through the supplied frequencies.
-        peak_frequencies = np.array(whitelist)*1e6
-        logging.info("Scanner - Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
-
-    # Run rs_detect on each peak frequency, to determine if there is a sonde there.
-    for freq in peak_frequencies:
-        detected = detect_sonde(freq,
-            sdr_fm=sdr_fm,
-            device_idx=device_idx,
-            ppm=ppm,
-            gain=gain,
-            bias=bias,
-            dwell_time=detect_dwell_time)
-
-        if detected != None:
-            # Add a detected sonde to the output array
-            _search_results.append([freq, detected])
-            # If we only want the first detected sonde, then return now.
-            if first_only:
-                return _search_results
-
-            # Otherwise, we continue....
-
-    if len(_search_results) == 0:
-        logging.info("Scanner - No sondes detected.")
-    else:
-        logging.info("Scanner - Detected Sondes: %s" % str(_search_results))
-
-    return _search_results
-
-
 #
-# Continuous Scanner Class
+# Radiosonde Scanner Class
 #
 class SondeScanner(object):
     """ Radiosonde Scanner
@@ -460,46 +303,58 @@ class SondeScanner(object):
             bias (bool): If True, enable the bias tee on the SDR.
         """
 
-        # Copy parameters into a dict for passing into the scan function.
-        self.scan_params = {
-            'min_freq'  : min_freq,
-            'max_freq'  : max_freq,
-            'search_step': search_step,
-            'whitelist' : whitelist,
-            'greylist'  : greylist,
-            'blacklist' : blacklist,
-            'snr_threshold' : snr_threshold,
-            'min_distance'  : min_distance,
-            'quantization'  : quantization,
-            'scan_dwell_time'   : scan_dwell_time,
-            'detect_dwell_time' : detect_dwell_time,
-            'max_peaks' : max_peaks,
-            'rs_path'   : rs_path,
-            'sdr_power' : sdr_power,
-            'sdr_fm'    : sdr_fm,
-            'device_idx': device_idx,
-            'gain'      : gain,
-            'ppm'       : ppm,
-            'bias'      : bias
-        }
+        # Copy parameters
 
-        # Callback function.
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+        self.search_step = search_step
+        self.whitelist = whitelist
+        self.greylist = greylist
+        self.blacklist = blacklist
+        self.snr_threshold = snr_threshold
+        self.min_distance = min_distance
+        self.quantization = quantization
+        self.scan_dwell_time = scan_dwell_time
+        self.detect_dwell_time = detect_dwell_time
+        self.max_peaks = max_peaks
+        self.rs_path = rs_path
+        self.sdr_power = sdr_power
+        self.sdr_fm = sdr_fm
+        self.device_idx = device_idx
+        self.gain = gain
+        self.ppm = ppm
+        self.bias = bias
         self.callback = callback
+
 
         # Error counter. 
         self.error_retries = 0
 
+        # Thread flag. This is set to True when a scan is running.
+        self.sonde_scanner_running = False
+
+        # This will become our scanner thread.
+        self.sonde_scan_thread = None
+
         # Test if the supplied RTLSDR is working.
         _rtlsdr_ok = rtlsdr_test(device_idx)
-        if _rtlsdr_ok:
-            # Start the scan loop.
+
+        # TODO: How should this error be handled?
+        if not _rtlsdr_ok:
+            self.log_error("RTLSDR #%d non-functional - exiting." % device_idx)
+            raise IOError("Could not open RTLSDR #%d" % device_idx)
+
+
+
+    def start(self):
+        # Start the scan loop (if not already running)
+        if self.sonde_scanner_running == False:
             self.sonde_scanner_running = True
             self.sonde_scan_thread = Thread(target=self.scan_loop)
             self.sonde_scan_thread.start()
-        
         else:
-            logging.error("Scanner - RTLSDR #%d non-functional - exiting." % device_idx)
-            return
+            self.log_warning("Sonde scan already running!")
+
 
     def scan_loop(self):
         """ Continually perform scans, and pass any results onto the callback function """
@@ -513,7 +368,7 @@ class SondeScanner(object):
                 break
 
             try:
-                _results = sonde_search(**self.scan_params)
+                _results = self.sonde_search()
 
             except (IOError, ValueError) as e:
                 # No log file produced. Reset the RTLSDR and try again.
@@ -542,10 +397,167 @@ class SondeScanner(object):
         self.log_info("Scanner Thread Closed.")
         self.sonde_scanner_running = False
 
+
+    def sonde_search(self,
+        first_only = False):
+        """ Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
+
+        In order, this function:
+        - Runs rtl_power to capture spectrum data across the frequency range of interest.
+        - Thresholds and quantises peaks detected in the spectrum.
+        - On each peak run rs_detect to determine if a radiosonce is present.
+        - Returns either the first, or a list of all detected sondes.
+
+        Performing a search can take some time (many minutes if there are lots of peaks detected). This function can be exited quickly
+        by setting self.sonde_scanner_running to False, which will also close the sonde scanning thread if running.
+
+        Args:
+            first_only (bool): If True, return after detecting the first sonde. Otherwise continue to scan through all peaks.
+
+        Returns:
+            list: An empty list [] if no sondes are detected otherwise, a list of list, containing entries of [frequency (Hz), Sonde Type],
+                i.e. [[402500000,'RS41'],[402040000,'RS92']]
+        """
+
+        _search_results = []
+
+        if len(self.whitelist) == 0 :
+            # No whitelist frequencies provided - perform a scan.
+            run_rtl_power(self.min_freq*1e6,
+                self.max_freq*1e6,
+                self.search_step,
+                filename="log_power_%d.csv" % self.device_idx,
+                dwell=self.scan_dwell_time,
+                sdr_power=self.sdr_power,
+                device_idx=self.device_idx,
+                ppm=self.ppm,
+                gain=self.gain,
+                bias=self.bias)
+
+            # Exit opportunity.
+            if self.sonde_scanner_running == False:
+                return []
+
+            # Read in result.
+            # This step will throw an IOError if the file does not exist.
+            (freq, power, step) = read_rtl_power("log_power_%d.csv" % self.device_idx)
+            # Sanity check results.
+            if step == 0 or len(freq)==0 or len(power)==0:
+                # Otherwise, if a file has been written but contains no data, it can indicate
+                # an issue with the RTLSDR. Sometimes these issues can be resolved by issuing a usb reset to the RTLSDR.
+                raise ValueError("Invalid Log File")
+
+
+            # Rough approximation of the noise floor of the received power spectrum.
+            power_nf = np.mean(power)
+
+            # Detect peaks.
+            peak_indices = detect_peaks(power, mph=(power_nf+self.snr_threshold), mpd=(self.min_distance/step), show = False)
+
+            # If we have found no peaks, and no greylist has been provided, re-scan.
+            if (len(peak_indices) == 0) and (len(self.greylist) == 0):
+                self.log_info("No peaks found.")
+                return []
+
+            # Sort peaks by power.
+            peak_powers = power[peak_indices]
+            peak_freqs = freq[peak_indices]
+            peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
+
+            # Quantize to nearest x Hz
+            peak_frequencies = np.round(peak_frequencies/self.quantization)*self.quantization
+
+            # Remove any duplicate entries after quantization, but preserve order.
+            _, peak_idx = np.unique(peak_frequencies, return_index=True)
+            peak_frequencies = peak_frequencies[np.sort(peak_idx)]
+
+            # Remove any frequencies in the blacklist.
+            for _frequency in np.array(self.blacklist)*1e6:
+                _index = np.argwhere(peak_frequencies==_frequency)
+                peak_frequencies = np.delete(peak_frequencies, _index)
+
+            # Limit to the user-defined number of peaks to search over.
+            if len(peak_frequencies) > self.max_peaks:
+                peak_frequencies = peak_frequencies[:self.max_peaks]
+
+            # Append on any frequencies in the supplied greylist
+            peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
+
+            if len(peak_frequencies) == 0:
+                self.log_info("No peaks found after blacklist frequencies removed.")
+                return []
+            else:
+                self.log_info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+
+        else:
+            # We have been provided a whitelist - scan through the supplied frequencies.
+            peak_frequencies = np.array(self.whitelist)*1e6
+            self.log_info("Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
+
+        # Run rs_detect on each peak frequency, to determine if there is a sonde there.
+        for freq in peak_frequencies:
+
+            # Exit opportunity.
+            if self.sonde_scanner_running == False:
+                return []
+
+            detected = detect_sonde(freq,
+                sdr_fm=self.sdr_fm,
+                device_idx=self.device_idx,
+                ppm=self.ppm,
+                gain=self.gain,
+                bias=self.bias,
+                dwell_time=self.detect_dwell_time)
+
+            if detected != None:
+                # Add a detected sonde to the output array
+                _search_results.append([freq, detected])
+                # If we only want the first detected sonde, then return now.
+                if first_only:
+                    return _search_results
+
+                # Otherwise, we continue....
+
+        if len(_search_results) == 0:
+            self.log_info("No sondes detected.")
+        else:
+            self.log_info("Detected Sondes: %s" % str(_search_results))
+
+        return _search_results
+
+
+    def oneshot(self, first_only = False):
+        """ Perform a once-off scan attempt 
+
+        Args:
+            first_only (bool): If True, return after detecting the first sonde. Otherwise continue to scan through all peaks.
+
+        Returns:
+            list: An empty list [] if no sondes are detected otherwise, a list of list, containing entries of [frequency (Hz), Sonde Type],
+                i.e. [[402500000,'RS41'],[402040000,'RS92']]
+
+        """
+        # If we already have a scanner thread active, bomb out.
+        if self.sonde_scanner_running:
+            self.log_error("Oneshot scan attempted with scan thread running!")
+            return []
+        else:
+            # Otherwise, attempt a scan.
+            self.sonde_scanner_running = True
+            _result = self.sonde_search(first_only = first_only)
+            self.sonde_scanner_running = False
+            return _result
+
+
+
     def close(self):
         """ Stop the Scan Loop """
         self.log_info("Waiting for current scan to finish...")
         self.sonde_scanner_running = False
+
+        # Wait for the sonde scanner thread to close, if there is one.
+        if self.sonde_scan_thread != None:
+            self.sonde_scan_thread.join()
 
 
     def running(self):
@@ -588,27 +600,29 @@ if __name__ == "__main__":
     # Basic test script - run a scan using default parameters.
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
 
-    # Call sonde_search with various parameter options
-    # Standard call
-    #print(sonde_search())
-    # Whitelist
-    #print(sonde_search(whitelist=[401.0]))
-    # Blacklist
-    #print(sonde_search(blacklist=[402.5]))
-    # Greylist
-    #print(sonde_search(greylist=[401.0]))
 
-    # Test scanner object.
+    # Callback to handle scan results
     def print_result(scan_result):
         print("SCAN RESULT: " + str(scan_result))
 
     # Local spurs at my house :-)
     blacklist = [401.7,401.32,402.09,402.47,400.17,402.85]
+
+    # Instantiate scanner with default parameters.
     _scanner = SondeScanner(callback=print_result, blacklist=blacklist)
 
     try:
+        # Oneshot approach.
+        #_result = _scanner.oneshot(first_only = True)
+        #print("Oneshot search result: %s" % str(_result))
+
+        # Continuous scanning:
+        _scanner.start()
+
+        # Run until Ctrl-C, then exit cleanly.
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         _scanner.close()
+        print("Exited cleanly.")
 
