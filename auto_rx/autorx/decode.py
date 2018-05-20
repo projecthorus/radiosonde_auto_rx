@@ -173,7 +173,7 @@ class SondeDecoder(object):
         This is where support for new sonde types can be added.s
 
         Returns:
-            str: The shell command which will be run in the decoder thread.
+            str/None: The shell command which will be run in the decoder thread, or none if a valid decoder could not be found.
 
         """
         # Common options to rtl_fm
@@ -221,7 +221,7 @@ class SondeDecoder(object):
             else:
                 _rs92_gps_data = "-e %s" % self.rs92_ephemeris
 
-            # Now construct the decoder sentence.
+            # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
             decode_cmd = "%s %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
@@ -411,7 +411,7 @@ class SondeDecoder(object):
         logging.error("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
 
 
-    def close(self):
+    def stop(self):
         """ Kill the currently running decoder subprocess """
         self.decoder_running = False
 
@@ -455,11 +455,11 @@ if __name__ == "__main__":
             if not _decoder.running():
                 break
     except KeyboardInterrupt:
-        _decoder.close()
+        _decoder.stop()
     except:
         pass
     
-    _log.close()
+    _log.stop()
 
 
 

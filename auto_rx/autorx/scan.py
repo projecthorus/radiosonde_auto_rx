@@ -550,7 +550,7 @@ class SondeScanner(object):
 
 
 
-    def close(self):
+    def stop(self):
         """ Stop the Scan Loop """
         self.log_info("Waiting for current scan to finish...")
         self.sonde_scanner_running = False
@@ -623,6 +623,6 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        _scanner.close()
+        _scanner.stop()
         print("Exited cleanly.")
 
