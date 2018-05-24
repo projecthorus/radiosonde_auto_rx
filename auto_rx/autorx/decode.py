@@ -284,14 +284,17 @@ class SondeDecoder(object):
         try:
             # Stop the async reader
             self.async_reader.stop()
-            # Send a SIGKILL to the subprocess PID via OS. This may fail if the above line worked.
+            # Send a SIGKILL to the subprocess PID via OS.
             try:
                 os.killpg(os.getpgid(self.decode_process.pid), signal.SIGKILL)
             except Exception as e:
-                self.log_debug("SIGKILL via OS failed.")
+                self.log_debug("SIGKILL via os.killpg failed. - %s" % str(e))
             time.sleep(1)
-            # Send a SIGKILL via subprocess
-            self.decode_process.kill()
+            try:
+                # Send a SIGKILL via subprocess
+                self.decode_process.kill()
+            except Exception as e:
+                self.log_debug("SIGKILL via subprocess.kill failed - %s" % str(e))
             # Finally, join the async reader.
             self.async_reader.join()
             
