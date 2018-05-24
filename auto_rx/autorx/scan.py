@@ -33,7 +33,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
         filename (str): Output results to this file. Defaults to ./log_power.csv
         dwell (int): How long to average on the frequency range for.
         sdr_power (str): Path to the rtl_power utility.
-        device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
+        device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
         ppm (int): SDR Frequency accuracy correction, in ppm.
         gain (float): SDR Gain setting, in dB.
         bias (bool): If True, enable the bias tee on the SDR.
@@ -65,7 +65,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
     else:
         timeout_kill = '-k 30 '
 
-    rtl_power_cmd = "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 20%% -p %d -d %d %s%s" % (
+    rtl_power_cmd = "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 20%% -p %d -d %s %s%s" % (
         timeout_kill,
         dwell+10,
         sdr_power,
@@ -75,7 +75,7 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
         step,
         dwell,
         int(ppm), # Should this be an int?
-        int(device_idx),
+        str(device_idx),
         gain_param,
         filename)
 
@@ -160,7 +160,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
         dwell_time (int): Timeout before giving up detection.
         sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
-        device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
+        device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
         ppm (int): SDR Frequency accuracy correction, in ppm.
         gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
         bias (bool): If True, enable the bias tee on the SDR.
@@ -187,7 +187,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     else:
         gain_param = ''
 
-    rx_test_command = "timeout %ds %s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), int(device_idx), gain_param, frequency) 
+    rx_test_command = "timeout %ds %s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null"
 

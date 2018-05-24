@@ -11,6 +11,7 @@ import os
 import signal
 import subprocess
 import time
+import traceback
 from dateutil.parser import parse
 from threading import Thread
 from types import FunctionType, MethodType
@@ -83,7 +84,7 @@ class SondeDecoder(object):
             
             rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
             sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
-            device_idx (int): SDR Device index. Defaults to 0 (the first SDR found).
+            device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
             ppm (int): SDR Frequency accuracy correction, in ppm.
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
@@ -126,8 +127,9 @@ class SondeDecoder(object):
 
         # TODO: How should this error be handled?
         if not _rtlsdr_ok:
-            self.log_error("RTLSDR #%d non-functional - exiting." % device_idx)
-            raise IOError("Could not open RTLSDR #%d" % device_idx)
+            self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
+            return
+            #raise IOError("Could not open RTLSDR #%d" % device_idx)
 
         # We can accept a few different types in the exporter argument..
         # Nothing...
@@ -192,7 +194,7 @@ class SondeDecoder(object):
             # RS41 Decoder command.
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
             decode_cmd += "./rs41ecc --crc --ecc --ptu"
 
@@ -223,7 +225,7 @@ class SondeDecoder(object):
 
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
-            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s" % _rs92_gps_data
 
@@ -231,7 +233,7 @@ class SondeDecoder(object):
             # DFM06/DFM09 Sondes
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
             decode_cmd += "./dfm09ecc -vv --ecc"
@@ -282,15 +284,20 @@ class SondeDecoder(object):
         try:
             # Stop the async reader
             self.async_reader.stop()
+            # Send a SIGKILL to the subprocess PID via OS. This may fail if the above line worked.
+            try:
+                os.killpg(os.getpgid(self.decode_process.pid), signal.SIGKILL)
+            except Exception as e:
+                self.log_debug("SIGKILL via OS failed.")
+            time.sleep(1)
             # Send a SIGKILL via subprocess
             self.decode_process.kill()
-            # Send a SIGKILL to the subprocess PID via OS.
-            os.killpg(os.getpgid(self.decode_process.pid), signal.SIGKILL)
             # Finally, join the async reader.
             self.async_reader.join()
             
 
         except Exception as e:
+            traceback.print_exc()
             self.log_error("Error while killing subprocess - %s" % str(e))
 
         self.log_info("Closed decoder subprocess.")
@@ -442,28 +449,30 @@ if __name__ == "__main__":
 
 
     _log = TelemetryLogger(log_directory="./testlog/")
-    _habitat = HabitatUploader(user_callsign="AUTORXTEST", inhibit=True)
+    _habitat = HabitatUploader(user_callsign="VK5QI_AUTO_RX_DEV", inhibit=False)
 
     try:
         _decoder = SondeDecoder(sonde_freq = 401.5*1e6,
             sonde_type = "RS41",
             timeout = 50,
+            device_idx="00000002",
             exporter=[_habitat.add, _log.add])
 
-        _decoder2 = SondeDecoder(sonde_freq = 405.5*1e6,
-            sonde_type = "RS41",
-            timeout = 50,
-            device_idx=1,
-            exporter=[_habitat.add, _log.add])
+        # _decoder2 = SondeDecoder(sonde_freq = 405.5*1e6,
+        #     sonde_type = "RS41",
+        #     timeout = 50,
+        #     device_idx="00000001",
+        #     exporter=[_habitat.add, _log.add])
 
         while True:
-            time.sleep(1)
+            time.sleep(5)
             if not _decoder.running():
                 break
     except KeyboardInterrupt:
         _decoder.stop()
-        _decoder2.stop()
+        #_decoder2.stop()
     except:
+        traceback.print_exc()
         pass
     
     _habitat.close()

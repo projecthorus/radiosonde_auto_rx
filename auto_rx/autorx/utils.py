@@ -258,7 +258,7 @@ def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
     The exit code from rtl-sdr indicates if the attempt was successful, and hence shows if the rtlsdr is usable.
 
     Args:
-        device_idx (int): Device index of the RTLSDR to test. Defaults to 0.
+        device_idx (int or str): Device index or serial number of the RTLSDR to test. Defaults to 0.
         rtl_sdr_path (str): Path to the rtl_sdr utility. Defaults to 'rtl_sdr' (i.e. look on the system path)
 
     Returns:
@@ -266,7 +266,7 @@ def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
     """
 
 
-    _rtl_cmd = "%s -d %d -n 200000 - > /dev/null" % (rtl_sdr_path, int(device_idx))
+    _rtl_cmd = "%s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
 
     try:
         FNULL = open(os.devnull, 'w') # Inhibit stderr output
@@ -283,7 +283,7 @@ def rtlsdr_reset(device_idx=0, rs_path="./"):
     """ Issue a USB reset to a specific RTLSDR device
 
     Args:
-        device_idx (int): Device index of the RTLSDR to issue the reset command to.
+        device_idx (int or str): Device index or serial number of the RTLSDR to issue the reset command to.
         rs_path (str): Path to the compiled RS binaries (in this case, we need reset_usb)
 
     Returns:

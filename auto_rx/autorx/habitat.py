@@ -503,7 +503,7 @@ class HabitatUploader(object):
 
             if _req.status_code == 201 or _req.status_code == 403:
                 # 201 = Success, 403 = Success, sentence has already seen by others.
-                self.log_info("Uploaded sentence to Habitat successfully")
+                self.log_info("Uploaded sentence to Habitat successfully: %s" % sentence.strip())
                 _upload_success = True
                 break
             elif _req.status_code == 409:
