@@ -431,24 +431,24 @@ class SondeDecoder(object):
 if __name__ == "__main__":
     # Test script.
     from .logger import TelemetryLogger
+    from .habitat import HabitatUploader
 
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
+    # Make requests & urllib3 STFU
+    requests_log = logging.getLogger("requests")
+    requests_log.setLevel(logging.CRITICAL)
+    urllib3_log = logging.getLogger("urllib3")
+    urllib3_log.setLevel(logging.CRITICAL)
 
-    def print_json(data):
-        """ Test Exporter function """
-        print("JSON: " + str(data))
-
-    def print_id(data):
-        """ Another test exporter function """
-        print("ID: " + data['id'])
 
     _log = TelemetryLogger(log_directory="./testlog/")
+    _habitat = HabitatUploader(user_callsign="AUTORXTEST")
 
     try:
         _decoder = SondeDecoder(sonde_freq = 401.5*1e6,
             sonde_type = "RS41",
             timeout = 50,
-            exporter=[print_id,_log.add])
+            exporter=[_habitat.add, _log.add])
 
         while True:
             time.sleep(1)
@@ -459,7 +459,8 @@ if __name__ == "__main__":
     except:
         pass
     
-    _log.stop()
+    _habitat.close()
+    _log.close()
 
 
 

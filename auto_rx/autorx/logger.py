@@ -138,9 +138,6 @@ class TelemetryLogger(object):
             telemetry (dict): Telemetry dictionary to process.
         """
 
-        # TODO
-        print(telemetry)
-
         _id = telemetry['id']
         _type = telemetry['type']
 

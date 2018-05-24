@@ -23,228 +23,103 @@ except ImportError:
     # Python 3
     from queue import Queue
 
-#
-# Habitat Uploader Class
-#
-
-class HabitatUploader(object):
-    ''' 
-    Queued Habitat Telemetry Uploader class 
-    
-    Packets to be uploaded to Habitat are added to a queue for uploading.
-    If an upload attempt times out, the packet is discarded.
-    If the queue fills up (probably indicating no network connection, and a fast packet downlink rate),
-    it is immediately emptied, to avoid upload of out-of-date packets.
-    '''
-
-
-    def __init__(self, user_callsign='N0CALL', 
-                queue_size=16,
-                upload_timeout = 10,
-                upload_retries = 5,
-                upload_retry_interval = 0.25,
-                inhibit = False,
-                ):
-        ''' Create a Habitat Uploader object. ''' 
-
-        self.user_callsign = user_callsign
-        self.upload_timeout = upload_timeout
-        self.upload_retries = upload_retries
-        self.upload_retry_interval = upload_retry_interval
-        self.queue_size = queue_size
-        self.habitat_upload_queue = Queue(queue_size)
-        self.inhibit = inhibit
-
-        # Start the uploader thread.
-        self.habitat_uploader_running = True
-        self.uploadthread = Thread(target=self.habitat_upload_thread)
-        self.uploadthread.start()
-
-    def habitat_upload(self, sentence):
-        ''' Upload a UKHAS-standard telemetry sentence to Habitat '''
-
-        # Generate payload to be uploaded
-        _sentence_b64 = b64encode(sentence)
-        _date = datetime.datetime.utcnow().isoformat("T") + "Z"
-        _user_call = self.user_callsign
-
-        _data = {
-            "type": "payload_telemetry",
-            "data": {
-                "_raw": _sentence_b64
-                },
-            "receivers": {
-                _user_call: {
-                    "time_created": _date,
-                    "time_uploaded": _date,
-                    },
-                },
-        }
-
-        # The URL to upload to.
-        _url = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
-
-        # Delay for a random amount of time between 0 and upload_retry_interval*2 seconds.
-        time.sleep(random.random()*self.upload_retry_interval*2.0)
-
-        _retries = 0
-
-        # When uploading, we have three possible outcomes:
-        # - Can't connect. No point immediately re-trying in this situation.
-        # - The packet is uploaded successfuly (201 / 403)
-        # - There is a upload conflict on the Habitat DB end (409). We can retry and it might work.
-        while _retries < self.upload_retries:
-            # Run the request.
-            try:
-                _req = requests.put(_url, data=json.dumps(_data), timeout=self.upload_timeout)
-            except Exception as e:
-                logging.error("Habitat - Upload Failed: %s" % str(e))
-                break
-
-            if _req.status_code == 201 or _req.status_code == 403:
-                # 201 = Success, 403 = Success, sentence has already seen by others.
-                logging.info("Habitat - Uploaded sentence to Habitat successfully")
-                _upload_success = True
-                break
-            elif _req.status_code == 409:
-                # 409 = Upload conflict (server busy). Sleep for a moment, then retry.
-                logging.debug("Habitat - Upload conflict.. retrying.")
-                time.sleep(random.random()*self.upload_retry_interval)
-                _retries += 1
-            else:
-                logging.error("Habitat - Error uploading to Habitat. Status Code: %d." % _req.status_code)
-                break
-
-        if _retries == self.upload_retries:
-            logging.error("Habitat - Upload conflict not resolved with %d retries." % self.upload_retries)
-
-        return
-
-
-    def habitat_upload_thread(self):
-        ''' Handle uploading of packets to Habitat '''
-
-        logging.info("Started Habitat Uploader Thread.")
-
-        while self.habitat_uploader_running:
-
-            if self.habitat_upload_queue.qsize() > 0:
-                # If the queue is completely full, jump to the most recent telemetry sentence.
-                if self.habitat_upload_queue.qsize() == self.queue_size:
-                    while not self.habitat_upload_queue.empty():
-                        sentence = self.habitat_upload_queue.get()
-
-                    logging.warning("Habitat uploader queue was full - possible connectivity issue.")
-                else:
-                    # Otherwise, get the first item in the queue.
-                    sentence = self.habitat_upload_queue.get()
-
-                # Attempt to upload it.
-                self.habitat_upload(sentence)
-
-            else:
-                # Wait for a short time before checking the queue again.
-                time.sleep(0.1)
-
-        logging.info("Stopped Habitat Uploader Thread.")
-
-
-    def add(self, sentence):
-        ''' Add a sentence to the upload queue '''
-
-        if self.inhibit:
-            # We have upload inhibited. Return.
-            return
-
-        # Handling of arbitrary numbers of $$'s at the start of a sentence:
-        # Extract the data part of the sentence (i.e. everything after the $$'s')
-        sentence = sentence.split('$')[-1]
-        # Now add the *correct* number of $$s back on.
-        sentence = '$$' +sentence
-
-        if not (sentence[-1] == '\n'):
-            sentence += '\n'
-
-        try:
-            self.habitat_upload_queue.put_nowait(sentence)
-        except Queue.Full:
-            logging.error("Upload Queue is full, sentence discarded.")
-        except Exception as e:
-            logging.error("Error adding sentence to queue: %s" % str(e))
-
-
-    def close(self):
-        ''' Shutdown uploader thread. '''
-        self.habitat_uploader_running = False
-
-
-#
-# Functions for uploading telemetry to Habitat
-#
-
 
 # CRC16 function
 def crc16_ccitt(data):
     """
     Calculate the CRC16 CCITT checksum of *data*.
     (CRC16 CCITT: start 0xFFFF, poly 0x1021)
+
+    Args:
+        data (str): String to be CRC'd. The string will be encoded to ASCII prior to CRCing.
+
+    Return:
+        str: Resultant checksum as two bytes of hexadecimal.
+
     """
     crc16 = crcmod.predefined.mkCrcFun('crc-ccitt-false')
-    return hex(crc16(data))[2:].upper().zfill(4)
+    # Encode to ASCII.
+    _data_ascii = data.encode('ascii')
+    return hex(crc16(_data_ascii))[2:].upper().zfill(4)
 
 
-def telemetry_to_sentence(sonde_data, payload_callsign="RADIOSONDE", comment=None):
-    ''' Convert a telemetry data dictionary into a UKHAS-compliant telemetry sentence '''
-    # RS produces timestamps with microseconds on the end, we only want HH:MM:SS for uploading to habitat.
-    data_datetime = datetime.datetime.strptime(sonde_data['datetime_str'],"%Y-%m-%dT%H:%M:%S.%f")
-    short_time = data_datetime.strftime("%H:%M:%S")
+def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
+    """ Convert a telemetry data dictionary into a UKHAS-compliant telemetry sentence.
+    
+    Args:
+        telemetry (dict): A sonde telemetry dictionary. Refer to the description in the autorx.decode.SondeDecoder docs.
+        payload_callsign (str): If supplied, override the callsign field with this string.
+        comment (str): Optional data to add to the comment field of the output sentence.
 
-    sentence = "$$%s,%d,%s,%.5f,%.5f,%d,%.1f,%.1f,%.1f" % (payload_callsign,sonde_data['frame'],short_time,sonde_data['lat'],
-        sonde_data['lon'],int(sonde_data['alt']),sonde_data['vel_h'], sonde_data['temp'], sonde_data['humidity'])
+    Returns:
+        str: UKHAS-compliant telemetry sentence for uploading to Habitat
 
-    # Add on a comment field if provided - note that this will result in a different habitat payload doc being required.
+
+    """
+    # We only want HH:MM:SS for uploading to habitat.
+    _short_time = telemetry['datetime_dt'].strftime("%H:%M:%S")
+
+    if payload_callsign is None:
+        # If we haven't been supplied a callsign, we generate one based on the serial number.
+        _callsign = "RS_" + telemetry['id']
+    else:
+        _callsign = payload_callsign
+
+    _sentence = "$$%s,%d,%s,%.5f,%.5f,%d,%.1f,%.1f,%.1f" % (_callsign,
+        telemetry['frame'],
+        _short_time,
+        telemetry['lat'],
+        telemetry['lon'],
+        int(telemetry['alt']), # Round to the nearest metre.
+        telemetry['vel_h'],
+        telemetry['temp'],
+        telemetry['humidity'])
+
+    # Add in a comment field, containing the sonde type, serial number, and frequency.
+    _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], telemetry['freq'])
+
+    # Add on any custom comment data if provided.
     if comment != None:
         comment = comment.replace(',','_')
-        sentence += "," + comment
+        _sentence += " " + comment
 
-    checksum = crc16_ccitt(sentence[2:])
-    output = sentence + "*" + checksum + "\n"
-    return output
+    _checksum = crc16_ccitt(_sentence[2:])
+    _output = _sentence + "*" + _checksum + "\n"
+    return _output
 
-
-def habitat_upload_payload_telemetry(uploader, telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None):
-    ''' Add a packet of radiosonde telemetry to the Habitat uploader queue. '''
-
-    sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign, comment=comment)
-
-    try:
-        uploader.add(sentence)
-    except Exception as e:
-        logging.error("Could not add telemetry to Habitat Uploader - %s" % str(e))
 
 #
 # Functions for uploading a listener position to Habitat.
-# from https://raw.githubusercontent.com/rossengeorgiev/hab-tools/master/spot2habitat_chase.py
+# Derived from https://raw.githubusercontent.com/rossengeorgiev/hab-tools/master/spot2habitat_chase.py
 #
 callsign_init = False
 url_habitat_uuids = "http://habitat.habhub.org/_uuids?count=%d"
 url_habitat_db = "http://habitat.habhub.org/habitat/"
-url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
+
 uuids = []
 
 
 def check_callsign(callsign, timeout=10):
-    ''' 
+    """
     Check if a payload document exists for a given callsign. 
 
     This is done in a bit of a hack-ish way at the moment. We just check to see if there have
     been any reported packets for the payload callsign on the tracker.
     This should really be replaced with the correct call into the habitat tracker.
-    '''
-    global url_check_callsign
 
+    Args:
+        callsign (str): Payload callsign to search for.
+        timeout (int): Timeout for the search, in seconds. Defaults to 10 seconds.
+
+    Returns:
+        bool: True if callsign has been observed within the last 6 hour, False otherwise.
+    """
+
+    _url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
+
+    logging.debug("Habitat - Checking if %s has been observed recently..." % callsign)
     # Perform the request
-    _r = requests.get(url_check_callsign % callsign, timeout=timeout)
+    _r = requests.get(_url_check_callsign % callsign, timeout=timeout)
 
     try:
         # Read the response in as JSON
@@ -255,7 +130,7 @@ def check_callsign(callsign, timeout=10):
 
         # If there is at least one position returned, we assume there is a valid payload document.
         if len(_positions) > 0:
-            logging.info("Callsign %s already present in Habitat DB, not creating new payload doc." % callsign)
+            logging.info("Habitat - Callsign %s already present in Habitat DB, not creating new payload doc." % callsign)
             return True
         else:
             # Otherwise, we don't, and go create one.
@@ -263,7 +138,7 @@ def check_callsign(callsign, timeout=10):
 
     except Exception as e:
         # Handle errors with JSON parsing.
-        logging.error("Unable to request payload positions from spacenear.us - %s" % str(e))
+        logging.error("Habitat - Unable to request payload positions from spacenear.us - %s" % str(e))
         return False
 
 
@@ -276,24 +151,10 @@ def ISOStringNow():
     return "%sZ" % datetime.datetime.utcnow().isoformat()
 
 
-def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401500000, timeout=20):
+def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=401.5, timeout=20):
     """Creates a payload in Habitat for the radiosonde before uploading"""
     global url_habitat_db
-    global payload_config_cache 
-    
-    # First, check if the payload's serial number is already in our local cache.
-    if serial in payload_config_cache:
-        return payload_config_cache[serial]
 
-    # Next, check to see if the payload has been observed on the online tracker already.
-    _callsign_present = check_callsign(serial)
-
-    if _callsign_present:
-        # Add the callsign to the local cache.
-        payload_config_cache[serial] = serial
-        return
-
-    # Otherwise, proceed to creating a new payload document.
 
     payload_data = {
         "type": "payload_configuration",
@@ -304,7 +165,7 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
         },
         "transmissions": [
             {
-                "frequency": frequency, # Currently a dummy value.
+                "frequency": frequency,
                 "modulation": "RTTY",
                 "mode": "USB",
                 "encoding": "ASCII-8",
@@ -380,12 +241,14 @@ def initPayloadDoc(serial, description="Meteorology Radiosonde", frequency=40150
 
         if _r.json()['ok'] is True:
             logging.info("Habitat - Created a payload document for %s" % serial)
-            payload_config_cache[serial] = _r.json()
+            return True
         else:
             logging.error("Habitat - Failed to create a payload document for %s" % serial)
+            return False
 
     except Exception as e:
         logging.error("Habitat - Failed to create a payload document for %s - %s" % (serial, str(e)))
+        return False
 
 
 
@@ -483,4 +346,382 @@ def uploadListenerPosition(callsign, lat, lon, version=''):
         logging.info("Habitat - Listener information uploaded.")
     else:
         logging.error("Habitat - Unable to upload listener information.")
+
+
+#
+# Habitat Uploader Class
+#
+
+class HabitatUploader(object):
+    ''' 
+    Queued Habitat Telemetry Uploader class
+    This performs uploads to the Habitat servers, and also handles generation of flight documents.
+
+    Incoming telemetry packets are fed into queue, which is checked regularly.
+    If a new callsign is sighted, a payload document is created in the Habitat DB.
+    The telemetry data is then converted into a UKHAS-compatible format, before being added to queue to be
+    uploaded as network speed permits.
+
+    If an upload attempt times out, the packet is discarded.
+    If the queue fills up (probably indicating no network connection, and a fast packet downlink rate),
+    it is immediately emptied, to avoid upload of out-of-date packets.
+
+    Note that this uploader object is intended to handle telemetry from multiple sondes
+    '''
+
+    # We require the following fields to be present in the incoming telemetry dictionary data
+    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
+
+
+    def __init__(self, 
+                user_callsign = 'N0CALL', 
+                user_position = None,
+                payload_callsign_override = None,
+                synchronous_upload_time = 30,
+                callsign_validity_threshold = 5,
+                upload_queue_size = 16,
+                upload_timeout = 10,
+                upload_retries = 5,
+                upload_retry_interval = 0.25
+                ):
+        """ Initialise a Habitat Uploader object.
+
+        Args:
+            user_callsign (str): Callsign of the uploader.
+            user_position (tuple): Optional - a tuple consisting of (lat, lon, alt), which if populated,
+                is used to plot the listener's position on the Habitat map, both when this class is initialised, and
+                when a new sonde ID is observed.
+
+            payload_callsign_override (str): Override the payload callsign in the uploaded sentence with this value.
+                WARNING: This will horrible break the tracker map if multiple sondes are uploaded under the same callsign.
+                USE WITH CAUTION!!!
+
+            synchronous_upload_time (int): Upload the most recent telemetry when time.time()%synchronous_upload_time == 0
+                This is done in an attempt to get multiple stations uploading the same telemetry sentence simultaneously,
+                and also acts as decimation on the number of sentences uploaded to Habitat.
+            callsign_validity_threshold (int): Only upload telemetry data if the callsign has been observed more than N times. Default = 5
+
+            upload_queue_size (int): Maximum umber of sentences to keep in the upload queue. If the queue is filled,
+                it will be emptied (discarding the queue contents).
+            upload_timeout (int): Timeout (Seconds) when performing uploads to Habitat. Default: 10 seconds.
+            upload_retries (int): Retry an upload up to this many times. Default: 5
+            upload_retry_interval (int): Time interval between upload retries. Default: 0.25 seconds.
+
+        """
+
+        self.user_callsign = user_callsign
+        self.payload_callsign_override = payload_callsign_override
+        self.upload_timeout = upload_timeout
+        self.upload_retries = upload_retries
+        self.upload_retry_interval = upload_retry_interval
+        self.upload_queue_size = upload_queue_size
+        self.synchronous_upload_time = synchronous_upload_time
+        self.callsign_validity_threshold = callsign_validity_threshold
+
+        # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
+        # input telemetry dictionaries before they are converted and processed.
+        self.habitat_upload_queue = Queue(upload_queue_size)
+        self.input_queue = Queue()
+
+        # Dictionary where we store sorted telemetry data for upload when required.
+        # Elements will be named after payload IDs, and will contain:
+        #   'count' (int): Number of times this callsign has been observed. Uploads will only occur when
+        #       this number rises above callsign_validity_threshold.
+        #   'data' (Queue): A queue of telemetry sentences to be uploaded. When the upload timer fires,
+        #       this queue will be dumped, and the most recent telemetry uploaded.
+        #   'habitat_document' (bool): Indicates if a habitat document has been created for this payload ID.
+        self.observed_payloads = {}
+
+        # Start the uploader thread.
+        self.upload_thread_running = True
+        self.upload_thread = Thread(target=self.habitat_upload_thread)
+        self.upload_thread.start()
+
+        # Start the input queue processing thread.
+        self.input_processing_running = True
+        self.input_thread = Thread(target=self.process_queue)
+        self.input_thread.start()
+
+        self.timer_thread_running = True
+        self.timer_thread = Thread(target=self.upload_timer)
+        self.timer_thread.start()
+
+
+
+    def habitat_upload(self, sentence):
+        ''' Upload a UKHAS-standard telemetry sentence to Habitat
+
+        Args:
+            sentence (str): The UKHAS-standard telemetry sentence to upload.
+        '''
+
+        # Generate payload to be uploaded
+        _sentence_b64 = b64encode(sentence.encode('ascii'))
+        _date = datetime.datetime.utcnow().isoformat("T") + "Z"
+        _user_call = self.user_callsign
+
+        _data = {
+            "type": "payload_telemetry",
+            "data": {
+                "_raw": _sentence_b64
+                },
+            "receivers": {
+                _user_call: {
+                    "time_created": _date,
+                    "time_uploaded": _date,
+                    },
+                },
+        }
+
+        # The URL to upload to.
+        _url = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
+
+        # Delay for a random amount of time between 0 and upload_retry_interval*2 seconds.
+        time.sleep(random.random()*self.upload_retry_interval*2.0)
+
+        _retries = 0
+
+        # When uploading, we have three possible outcomes:
+        # - Can't connect. No point immediately re-trying in this situation.
+        # - The packet is uploaded successfuly (201 / 403)
+        # - There is a upload conflict on the Habitat DB end (409). We can retry and it might work.
+        while _retries < self.upload_retries:
+            # Run the request.
+            try:
+                _req = requests.put(_url, data=json.dumps(_data), timeout=self.upload_timeout)
+            except Exception as e:
+                self.log_error("Upload Failed: %s" % str(e))
+                break
+
+            if _req.status_code == 201 or _req.status_code == 403:
+                # 201 = Success, 403 = Success, sentence has already seen by others.
+                self.log_info("Uploaded sentence to Habitat successfully")
+                _upload_success = True
+                break
+            elif _req.status_code == 409:
+                # 409 = Upload conflict (server busy). Sleep for a moment, then retry.
+                self.log_debug("Upload conflict.. retrying.")
+                time.sleep(random.random()*self.upload_retry_interval)
+                _retries += 1
+            else:
+                self.log_error("Error uploading to Habitat. Status Code: %d." % _req.status_code)
+                break
+
+        if _retries == self.upload_retries:
+            self.log_error("Upload conflict not resolved with %d retries." % self.upload_retries)
+
+        return
+
+
+    def habitat_upload_thread(self):
+        ''' Handle uploading of packets to Habitat '''
+
+        self.log_debug("Started Habitat Uploader Thread.")
+
+        while self.upload_thread_running:
+
+            if self.habitat_upload_queue.qsize() > 0:
+                # If the queue is completely full, jump to the most recent telemetry sentence.
+                if self.habitat_upload_queue.qsize() == self.upload_queue_size:
+                    while not self.habitat_upload_queue.empty():
+                        sentence = self.habitat_upload_queue.get()
+
+                    self.log_warning("Uploader queue was full - possible connectivity issue.")
+                else:
+                    # Otherwise, get the first item in the queue.
+                    sentence = self.habitat_upload_queue.get()
+
+                # Attempt to upload it.
+                self.habitat_upload(sentence)
+
+            else:
+                # Wait for a short time before checking the queue again.
+                time.sleep(0.1)
+
+        self.log_debug("Stopped Habitat Uploader Thread.")
+
+
+
+    def upload_timer(self):
+        """ Add packets to the habitat upload queue if it is time for us to upload. """
+        
+        while self.timer_thread_running:
+            if int(time.time()) % self.synchronous_upload_time == 0:
+                # Time to upload! 
+                for _id in self.observed_payloads.keys():
+                    # If no data, continue...
+                    if self.observed_payloads[_id]['data'].empty():
+                        continue
+                    else:
+                        # Otherwise, dump the queue and keep the latest telemetry.
+                        while not self.observed_payloads[_id]['data'].empty():
+                            _telem = self.observed_payloads[_id]['data'].get()
+
+                        # Try and convert it to a UKHAS sentence
+                        try:
+                            _sentence = sonde_telemetry_to_sentence(_telem)
+                        except Exception as e:
+                            self.log_error("Error converting telemetry to sentence - %s" % str(e))
+                            continue
+
+                        _callsign = "RS_" + _id
+
+                        # Create a habitat document if one does not already exist:
+                        if not self.observed_payloads[_id]['habitat_document']:
+                            # Check if there has already been telemetry from this ID observed on Habhub
+                            _document_exists = check_callsign(_callsign)
+                            # If so, we don't need to create a new document
+                            if _document_exists:
+                                self.observed_payloads[_id]['habitat_document'] = True
+                            else:
+                                # Otherwise, we attempt to create a new document.
+                                _created = initPayloadDoc(_callsign, description="Meteorology Radiosonde", frequency=_telem['freq_float'])
+                                if _created:
+                                    self.observed_payloads[_id]['habitat_document'] = True
+                                else:
+                                    self.log_error("Error creating payload document!")
+                                    continue
+
+                        # Attept to add it to the habitat uploader queue.
+                        try:
+                            self.habitat_upload_queue.put_nowait(_sentence)
+                        except Queue.Full:
+                            self.log_error("Upload Queue is full, sentence discarded.")
+                        except Exception as e:
+                            self.log_error("Error adding sentence to queue: %s" % str(e))
+
+                # Sleep a second so we don't hit the synchronous upload time again.
+                time.sleep(1)
+            else:
+                # Not yet time to upload, wait for a bit.
+                time.sleep(0.1)
+
+
+    def process_queue(self):
+        """ Process packets from the input queue.
+
+        This thread handles packets from the input queue (provided by the decoders)
+        Packets are sorted by ID, and a dictionary entry is created. 
+
+        """
+
+        while self.input_processing_running:
+            # Process everything in the queue.
+            while self.input_queue.qsize() > 0:
+                # Grab latest telem dictionary.
+                _telem = self.input_queue.get_nowait()
+
+                _id = _telem['id']
+
+                if _id not in self.observed_payloads:
+                    # We haven't seen this ID before, so create a new dictionary entry for it.
+                    self.observed_payloads[_id] = {'count':1, 'data':Queue(), 'habitat_document': False}
+                    self.log_debug("New Payload %s. Not observed enough to allow upload." % _id)
+                    # However, we don't yet add anything to the queue for this payload...
+                else:
+                    # We have seen this payload before!
+                    # Increment the 'seen' counter.
+                    self.observed_payloads[_id]['count'] += 1
+
+                    # If we have seen this particular ID enough times, add the data to the ID's queue.
+                    if self.observed_payloads[_id]['count'] >= self.callsign_validity_threshold:
+                        self.observed_payloads[_id]['data'].put(_telem)
+                    else:
+                        self.log_debug("Payload ID %s not observed enough to allow upload." % _id)
+
+
+            time.sleep(0.1)
+
+
+    def add(self, telemetry):
+        """ Add a dictionary of telemetry to the input queue. 
+
+        Args:
+            telemetry (dict): Telemetry dictionary to add to the input queue.
+
+        """
+
+        # Check the telemetry dictionary contains the required fields.
+        for _field in self.REQUIRED_FIELDS:
+            if _field not in telemetry:
+                self.log_error("JSON object missing required field %s" % _field)
+                return
+
+        # Add it to the queue if we are running.
+        if self.input_processing_running:
+            self.input_queue.put(telemetry)
+        else:
+            self.log_error("Processing not running, discarding.")
+
+
+
+    def close(self):
+        ''' Shutdown uploader and processing threads. '''
+        self.log_debug("Waiting for threads to close...")
+        self.input_processing_running = False
+        self.timer_thread_running = False
+        self.upload_thread_running = False
+
+        # Wait for all threads to close.
+        if self.upload_thread is not None:
+            self.upload_thread.join()
+
+        if self.timer_thread is not None:
+            self.timer_thread.join()
+
+        if self.input_thread is not None:
+            self.input_thread.join()
+
+
+    def log_debug(self, line):
+        """ Helper function to log a debug message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.debug("Habitat - %s" % line)
+
+
+    def log_info(self, line):
+        """ Helper function to log an informational message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.info("Habitat - %s" % line)
+
+
+    def log_error(self, line):
+        """ Helper function to log an error message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.error("Habitat - %s" % line)
+
+
+    def log_warning(self, line):
+        """ Helper function to log a warning message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.warning("Habitat - %s" % line)
+
+
+#
+# Functions for uploading telemetry to Habitat
+#
+
+
+
+
+# DEPRECATED - USE 
+def habitat_upload_payload_telemetry(uploader, telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None):
+    ''' Add a packet of radiosonde telemetry to the Habitat uploader queue. '''
+
+    sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign, comment=comment)
+
+    try:
+        uploader.add(sentence)
+    except Exception as e:
+        logging.error("Could not add telemetry to Habitat Uploader - %s" % str(e))
+
+
 
