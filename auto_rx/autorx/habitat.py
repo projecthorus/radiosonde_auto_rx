@@ -382,7 +382,8 @@ class HabitatUploader(object):
                 upload_queue_size = 16,
                 upload_timeout = 10,
                 upload_retries = 5,
-                upload_retry_interval = 0.25
+                upload_retry_interval = 0.25,
+                inhibit = False
                 ):
         """ Initialise a Habitat Uploader object.
 
@@ -407,6 +408,8 @@ class HabitatUploader(object):
             upload_retries (int): Retry an upload up to this many times. Default: 5
             upload_retry_interval (int): Time interval between upload retries. Default: 0.25 seconds.
 
+            inhibit (bool): Inhibit all uploads. Mainly intended for debugging.
+
         """
 
         self.user_callsign = user_callsign
@@ -417,6 +420,7 @@ class HabitatUploader(object):
         self.upload_queue_size = upload_queue_size
         self.synchronous_upload_time = synchronous_upload_time
         self.callsign_validity_threshold = callsign_validity_threshold
+        self.inhibit = inhibit
 
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.
@@ -454,6 +458,10 @@ class HabitatUploader(object):
         Args:
             sentence (str): The UKHAS-standard telemetry sentence to upload.
         '''
+
+        if self.inhibit:
+            self.log_info("Upload inhibited.")
+            return
 
         # Generate payload to be uploaded
         _sentence_b64 = b64encode(sentence.encode('ascii'))
@@ -575,7 +583,11 @@ class HabitatUploader(object):
                                 self.observed_payloads[_id]['habitat_document'] = True
                             else:
                                 # Otherwise, we attempt to create a new document.
-                                _created = initPayloadDoc(_callsign, description="Meteorology Radiosonde", frequency=_telem['freq_float'])
+                                if self.inhibit:
+                                    # If we have an upload inhibit, don't create a payload doc.
+                                    _created = True
+                                else:
+                                    _created = initPayloadDoc(_callsign, description="Meteorology Radiosonde", frequency=_telem['freq_float'])
                                 if _created:
                                     self.observed_payloads[_id]['habitat_document'] = True
                                 else:

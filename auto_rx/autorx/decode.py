@@ -192,7 +192,7 @@ class SondeDecoder(object):
             # RS41 Decoder command.
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
             decode_cmd += "./rs41ecc --crc --ecc --ptu"
 
@@ -223,7 +223,7 @@ class SondeDecoder(object):
 
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
-            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s" % _rs92_gps_data
 
@@ -231,7 +231,7 @@ class SondeDecoder(object):
             # DFM06/DFM09 Sondes
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), gain_param, self.sonde_freq)
+            decode_cmd = "%s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), int(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
             decode_cmd += "./dfm09ecc -vv --ecc"
@@ -442,12 +442,18 @@ if __name__ == "__main__":
 
 
     _log = TelemetryLogger(log_directory="./testlog/")
-    _habitat = HabitatUploader(user_callsign="AUTORXTEST")
+    _habitat = HabitatUploader(user_callsign="AUTORXTEST", inhibit=True)
 
     try:
         _decoder = SondeDecoder(sonde_freq = 401.5*1e6,
             sonde_type = "RS41",
             timeout = 50,
+            exporter=[_habitat.add, _log.add])
+
+        _decoder2 = SondeDecoder(sonde_freq = 405.5*1e6,
+            sonde_type = "RS41",
+            timeout = 50,
+            device_idx=1,
             exporter=[_habitat.add, _log.add])
 
         while True:
@@ -456,6 +462,7 @@ if __name__ == "__main__":
                 break
     except KeyboardInterrupt:
         _decoder.stop()
+        _decoder2.stop()
     except:
         pass
     
