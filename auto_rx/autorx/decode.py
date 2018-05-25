@@ -199,7 +199,7 @@ class SondeDecoder(object):
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
-            decode_cmd += "./rs41ecc --crc --ecc --ptu"
+            decode_cmd += "./rs41ecc --crc --ecc --ptu 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -230,7 +230,7 @@ class SondeDecoder(object):
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
-            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s" % _rs92_gps_data
+            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_freq == "DFM":
             # DFM06/DFM09 Sondes
@@ -239,7 +239,7 @@ class SondeDecoder(object):
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc"
+            decode_cmd += "./dfm09ecc -vv --ecc 2>/dev/null"
 
 
         else:
