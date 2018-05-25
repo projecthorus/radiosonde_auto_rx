@@ -63,7 +63,7 @@ class SondeDecoder(object):
 
     def __init__(self,
         sonde_type="None",
-        sonde_freq=400000000,
+        sonde_freq=400000000.0,
         rs_path = "./",
         sdr_fm = "rtl_fm",
         device_idx = 0,
@@ -97,6 +97,9 @@ class SondeDecoder(object):
 
             rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
         """
+        # Thread running flag
+        self.decoder_running = True
+
         # Local copy of init arguments
         self.sonde_type = sonde_type
         self.sonde_freq = sonde_freq
@@ -112,15 +115,14 @@ class SondeDecoder(object):
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
 
-        # Thread running flag
-        self.decoder_running = False
-        # This will become out decoder thread.
+        # This will become our decoder thread.
         self.decoder = None
 
         # Check if the sonde type is valid.
         if self.sonde_type not in self.VALID_SONDE_TYPES:
             self.log_error("Unsupported sonde type: %s" % self.sonde_type)
-            raise ValueError("Unsupported sonde type: %s." % self.sonde_type)
+            self.decoder_running = False
+            return 
 
         # Test if the supplied RTLSDR is working.
         _rtlsdr_ok = rtlsdr_test(device_idx)
@@ -128,8 +130,8 @@ class SondeDecoder(object):
         # TODO: How should this error be handled?
         if not _rtlsdr_ok:
             self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
+            self.decoder_running = False
             return
-            #raise IOError("Could not open RTLSDR #%d" % device_idx)
 
         # We can accept a few different types in the exporter argument..
         # Nothing...
@@ -159,6 +161,7 @@ class SondeDecoder(object):
 
         if self.decoder_command is None:
             self.log_error("Could not generate decoder command. Not starting decoder.")
+            self.decoder_running = False
         else:
             # Start up the decoder thread.
             self.decode_process = None

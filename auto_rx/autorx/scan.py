@@ -11,6 +11,7 @@ import os
 import platform
 import subprocess
 import time
+import traceback
 from threading import Thread
 from types import FunctionType, MethodType
 from .utils import detect_peaks, rtlsdr_test, rtlsdr_reset
@@ -187,9 +188,9 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     else:
         gain_param = ''
 
-    rx_test_command = "timeout %ds %s %s-p %d -d %d %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
+    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
-    rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null"
+    rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null >/dev/null"
 
     logging.info("Scanner - Attempting sonde detection on %.3f MHz" % (frequency/1e6))
     logging.debug("Scanner - Running command: %s" % rx_test_command)
@@ -254,6 +255,7 @@ class SondeScanner(object):
 
     def __init__(self,
         callback = None,
+        auto_start = True,
         min_freq = 400.0,
         max_freq = 403.0,
         search_step = 800.0,
@@ -279,7 +281,7 @@ class SondeScanner(object):
 
         Args:
             callback (function): A function to pass results from the sonde scanner to (when a sonde is found).
-
+            auto_start (bool): Start up the scanner automatically.
             min_freq (float): Minimum search frequency, in MHz.
             max_freq (float): Maximum search frequency, in MHz.
             search_step (float): Search step, in *Hz*. Defaults to 800 Hz, which seems to work well.
@@ -302,6 +304,9 @@ class SondeScanner(object):
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
         """
+
+        # Thread flag. This is set to True when a scan is running.
+        self.sonde_scanner_running = True
 
         # Copy parameters
 
@@ -330,9 +335,6 @@ class SondeScanner(object):
         # Error counter. 
         self.error_retries = 0
 
-        # Thread flag. This is set to True when a scan is running.
-        self.sonde_scanner_running = False
-
         # This will become our scanner thread.
         self.sonde_scan_thread = None
 
@@ -341,14 +343,16 @@ class SondeScanner(object):
 
         # TODO: How should this error be handled?
         if not _rtlsdr_ok:
-            self.log_error("RTLSDR #%d non-functional - exiting." % device_idx)
-            raise IOError("Could not open RTLSDR #%d" % device_idx)
+            self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
+            self.sonde_scanner_running = False
+            return
 
-
+        if auto_start:
+            self.start()
 
     def start(self):
         # Start the scan loop (if not already running)
-        if self.sonde_scanner_running == False:
+        if self.sonde_scan_thread is None:
             self.sonde_scanner_running = True
             self.sonde_scan_thread = Thread(target=self.scan_loop)
             self.sonde_scan_thread.start()
@@ -379,6 +383,7 @@ class SondeScanner(object):
                 time.sleep(10)
                 continue
             except Exception as e:
+                traceback.print_exc()
                 self.log_error("Caught other error: %s" % str(e))
                 time.sleep(10)
             else:
@@ -426,7 +431,7 @@ class SondeScanner(object):
             run_rtl_power(self.min_freq*1e6,
                 self.max_freq*1e6,
                 self.search_step,
-                filename="log_power_%d.csv" % self.device_idx,
+                filename="log_power_%s.csv" % self.device_idx,
                 dwell=self.scan_dwell_time,
                 sdr_power=self.sdr_power,
                 device_idx=self.device_idx,
@@ -440,7 +445,7 @@ class SondeScanner(object):
 
             # Read in result.
             # This step will throw an IOError if the file does not exist.
-            (freq, power, step) = read_rtl_power("log_power_%d.csv" % self.device_idx)
+            (freq, power, step) = read_rtl_power("log_power_%s.csv" % self.device_idx)
             # Sanity check results.
             if step == 0 or len(freq)==0 or len(power)==0:
                 # Otherwise, if a file has been written but contains no data, it can indicate
@@ -570,7 +575,7 @@ class SondeScanner(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.debug("Scanner - %s" % line)
+        logging.debug("Scanner #%s - %s" % (self.device_idx,line))
 
 
     def log_info(self, line):
@@ -578,7 +583,7 @@ class SondeScanner(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.info("Scanner - %s" % line)
+        logging.info("Scanner #%s - %s" % (self.device_idx,line))
 
 
     def log_error(self, line):
@@ -586,14 +591,14 @@ class SondeScanner(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.error("Scanner - %s" % line)
+        logging.error("Scanner #%s - %s" % (self.device_idx,line))
 
     def log_warning(self, line):
         """ Helper function to log a warning message with a descriptive heading. 
         Args:
             line (str): Message to be logged.
         """
-        logging.warning("Scanner - %s" % line)
+        logging.warning("Scanner #%s - %s" % (self.device_idx,line))
 
 
 if __name__ == "__main__":

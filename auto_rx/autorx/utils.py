@@ -10,6 +10,7 @@ from __future__ import division, print_function
 import os
 import subprocess
 import threading
+import time
 import numpy as np
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
 try:
@@ -274,8 +275,10 @@ def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
         FNULL.close()
     except subprocess.CalledProcessError:
         # This exception means the subprocess has returned an error code of one.
+        time.sleep(1)
         return False
     else:
+        time.sleep(1)
         return True
 
 
