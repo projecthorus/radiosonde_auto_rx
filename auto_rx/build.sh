@@ -7,8 +7,6 @@
 echo "Building rs_detect"
 cd ../scan/
 gcc rs_detect.c -lm -o rs_detect
-echo "Building reset_usb (will result in error under OSX)"
-gcc reset_usb.c -o reset_usb
 
 echo "Building RS92/RS41/DFM Demodulators"
 cd ../demod/
