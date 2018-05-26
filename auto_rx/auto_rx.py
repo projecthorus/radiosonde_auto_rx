@@ -20,6 +20,7 @@ from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder
 from autorx.logger import TelemetryLogger
 from autorx.habitat import HabitatUploader
+from autorx.aprs import APRSUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
 
@@ -230,7 +231,7 @@ def handle_scan_results():
                 # Already decoding this sonde, continue.
                 continue
             else:
-                logging.info("Scanner - Detected new %s sonde on %.3f MHz!" % (_type, _freq/1e6))
+                logging.info("Detected new %s sonde on %.3f MHz!" % (_type, _freq/1e6))
                 if allocate_sdr(check_only=True) is not None :
                     # There is a SDR free! Start the decoder on that SDR
                     start_decoder(_freq, _type)
@@ -351,6 +352,7 @@ def main():
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step, and quit if no sonde found).")
     parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file.")
+    parser.add_argument("-t", "--timeout", type=int, default=0, help="Dummy timeout argument. To be removed.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
     args = parser.parse_args()
 
@@ -420,6 +422,24 @@ def main():
 
 
     # APRS - TODO
+    if config['aprs_enabled']:
+        if config['aprs_object_id'] == "<id>":
+            _aprs_object = None
+        else:
+            _aprs_object = config['aprs_object_id']
+
+        _aprs = APRSUploader(
+            aprs_callsign = config['aprs_user'],
+            aprs_passcode = config['aprs_pass'],
+            object_name_override = _aprs_object,
+            object_comment = config['aprs_custom_comment'],
+            aprsis_host = config['aprs_server'],
+            synchronous_upload_time = config['aprs_upload_rate'],
+            callsign_validity_threshold = config['payload_id_valid']
+            )
+
+        exporter_objects.append(_aprs)
+        exporter_functions.append(_aprs.add)
 
     # OziExplorer - TODO
 
