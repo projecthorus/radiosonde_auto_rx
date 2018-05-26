@@ -53,7 +53,6 @@ def read_auto_rx_config(filename):
 		'habitat_uploader_callsign': 'SONDE_AUTO_RX',
 		'habitat_upload_listener_position': False,
 		'habitat_payload_callsign': '<id>',
-		'habitat_payload_description': 'Meteorological Radiosonde',
 		# APRS Settings
 		'aprs_enabled'	: False,
 		'aprs_upload_rate': 30,
@@ -72,6 +71,7 @@ def read_auto_rx_config(filename):
 		'synchronous_upload' : False,
 		'scan_dwell_time' : 20,
 		'detect_dwell_time' : 5,
+		'scan_delay' : 10,
 		'payload_id_valid' : 5, 
 		# Rotator Settings
 		'enable_rotator': False,
@@ -83,7 +83,6 @@ def read_auto_rx_config(filename):
 		# OziExplorer Settings
 		'ozi_enabled'	: False,
 		'ozi_update_rate': 5,
-		'ozi_hostname'	: '127.0.0.1',
 		'ozi_port'		: 55681,
 		'payload_summary_enabled': False,
 		'payload_summary_port' : 55672
@@ -124,7 +123,6 @@ def read_auto_rx_config(filename):
 		auto_rx_config['habitat_enabled'] = config.getboolean('habitat', 'habitat_enabled')
 		auto_rx_config['habitat_upload_rate'] = config.getint('habitat', 'upload_rate')
 		auto_rx_config['habitat_payload_callsign'] = config.get('habitat', 'payload_callsign')
-		auto_rx_config['habitat_payload_description'] = config.get('habitat', 'payload_description')
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 
@@ -153,11 +151,13 @@ def read_auto_rx_config(filename):
 		auto_rx_config['max_peaks'] = config.getint('advanced', 'max_peaks')
 		auto_rx_config['scan_dwell_time'] = config.getint('advanced', 'scan_dwell_time')
 		auto_rx_config['detect_dwell_time'] = config.getint('advanced', 'detect_dwell_time')
+		auto_rx_config['scan_delay'] = config.getint('advanced', 'scan_delay')
 		auto_rx_config['payload_id_valid'] = config.getint('advanced', 'payload_id_valid')
 		auto_rx_config['synchronous_upload'] = config.getboolean('advanced', 'synchronous_upload')
 
 		# Rotator Settings (TBC)
 		auto_rx_config['rotator_enabled'] = config.getboolean('rotator','rotator_enabled')
+		auto_rx_config['rotator_update_rate'] = config.getint('rotator', 'update_rate')
 		auto_rx_config['rotator_hostname'] = config.get('rotator', 'rotator_hostname')
 		auto_rx_config['rotator_port'] = config.getint('rotator', 'rotator_port')
 		auto_rx_config['rotator_homing_enabled'] = config.getboolean('rotator', 'rotator_homing_enabled')
@@ -176,7 +176,7 @@ def read_auto_rx_config(filename):
 				_bias = config.getboolean(_section, 'bias')
 
 				if (auto_rx_config['sdr_quantity'] > 1) and (_device_idx == '0'):
-					logging.error("Config - SDR Device ID of 0 used with a multi-SDR configuration. Go read the warning in the config file!")
+					logging.critical("Config - SDR Device ID of 0 used with a multi-SDR configuration. Go read the warning in the config file!")
 					return None
 
 				# See if the SDR exists.
@@ -189,6 +189,25 @@ def read_auto_rx_config(filename):
 			except Exception as e:
 				logging.error("Config - Error parsing SDR %d config - %s" % (_n,str(e)))
 				continue
+
+		# Sanity checks when using more than one SDR
+		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['habitat_payload_callsign'] != "<id>"):
+			logging.critical("Fixed Habitat Payload callsign used in a multi-SDR configuration. Go read the warnings in the config file!")
+			return None
+
+		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['aprs_object_id'] != "<id>"):
+			logging.critical("Fixed APRS object ID used in a multi-SDR configuration. Go read the warnings in the config file!")
+			return None
+
+		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['rotator_enabled']):
+			logging.critical("Rotator enabled in a multi-SDR configuration. Go read the warnings in the config file!")
+			return None
+
+		# TODO: Revisit this limitation once the OziPlotter output sub-module is complete.
+		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['ozi_enabled'] or auto_rx_config['payload_summary_enabled']):
+			logging.critical("Chase car outputs (OziPlotter/Payload Summary) enabled in a multi-SDR configuration.")
+			return None
+
 
 		if len(auto_rx_config['sdr_settings'].keys()) == 0:
 			# We have no SDRs to use!!

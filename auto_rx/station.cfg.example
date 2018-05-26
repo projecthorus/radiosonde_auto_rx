@@ -1,5 +1,5 @@
 #
-# Radiosonde Auto RX Station Configuration File
+# Radiosonde Auto RX v2 Station Configuration File
 #
 # Copy this file to station.cfg and modify as required. 
 #
@@ -15,43 +15,51 @@ per_sonde_log = True
 sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
 
-# PPM Frequency Correction (ppm offset)
-#   Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
-sdr_ppm = 0
+# Number of RTLSDRs to use.
+# If more than one RTLSDR is in use, multiple [sdr_X] sections must be populated below
+sdr_quantity = 1
+
+# Individual SDR Settings. 
+[sdr_1]
+# Device Index / Serial
+#	If using a single RTLSDR, set this value to 0
+#	If using multiple SDRs, you MUST allocate each SDR a unique serial number using rtl_eeprom
+#	i.e. to set the serial number of a (single) connected RTLSDR: rtl_eeprom -s 00000002
+#	Then set the device_idx below to 00000002, and repeat for the other [sdr_n] sections below
+device_idx = 0
+
+# Frequency Correction (ppm offset)
+# 	Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
+ppm = 0
+
 # SDR Gain Setting
-#   Gain settings can generally range between 0dB and 30dB depending on the tuner in use.
+#   Gain settings can generally range between 0dB and 40dB depending on the tuner in use.
 #   Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
 #   Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
-sdr_gain = -1
-# Enable RTLSDR Bias Tee (for v3 Dongles)
-# Requires a recent version of rtl-sdr to be installed (needs the -T option)
-sdr_bias = False
+gain = -1
+
+# Bias Tee - Enable the bias tee in the RTLSDR v3 Dongles.
+bias = False
+
+[sdr_2]
+# As above, for the next SDR. Note the warning about serial numbers.
+device_idx = 00000002
+ppm = 0
+gain = -1
+bias = False
+
+# Add more SDR definitions here if needed.
+
 
 # Radiosonde Search Parameters
 [search_params]
-# Number of times to scan before quitting (Deprecated?)
-search_attempts = 10
-# Wait time between failed scans.
-search_delay = 10
-
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
 # Europe: Use 400.05 - 406 MHz
 min_freq = 400.05
 max_freq = 403.0
-
-# Receive bin width (Hz)
-search_step = 800
-# Minimum SNR for a peak to be detected. The lower the number, the more peaks detected.
-min_snr = 10
-# Minimum distance between peaks (Hz)
-min_distance = 1000
-# Dwell time - How long to wait for a sonde detection on each peak.
-dwell_time = 5
-# Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
-quantization = 10000
-# Timeout and re-scan after X seconds of no data.
-rx_timeout = 120
+# Have the decoder timeout after X seconds of no valid data.
+rx_timeout = 180
 
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
@@ -67,50 +75,6 @@ blacklist = []
 # This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
 greylist = []
 
-# Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
-[location]
-station_lat = 0.0
-station_lon = 0.0
-station_alt = 0.0
-
-# Upload settings. Used by both the internet upload threads, and the rotator updater.
-[upload]
-# Upload/update every x seconds
-upload_rate = 30
-
-# Enable upload to various services.
-#  Uploading to APRS. Change settings in [aprs] block below.
-#  PLEASE READ WARNING HERE BEFORE ENABLING: https://github.com/projecthorus/radiosonde_auto_rx/wiki/Configuration-Settings#uploading-to-aprs-is
-enable_aprs = False
-#  Uploading to Habitat. PLEASE CHANGE uploader_callsign IN [habitat] BLOCK BELOW BEFORE ENABLING THIS
-enable_habitat = False
-
-# Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
-# Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
-# however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
-synchronous_upload = True
-
-# Settings for uploading to APRS-IS
-[aprs]
-# APRS-IS Login Information
-aprs_user = N0CALL
-aprs_pass = 00000
-
-# APRS-IS server to upload to.
-aprs_server = rotate.aprs2.net
-
-# Object name to be used when uploading to APRS-IS (Max 9 chars)
-# Should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
-# or <id>, which will be replaced with the radiosondes serial number
-aprs_object_id = <id>
-
-# The APRS-IS beacon comment. The following fields can be included:
-# <freq> - Sonde Frequency, i.e. 401.520 MHz
-# <type> - Sonde Type (RS94/RS41)
-# <id> - Sonde Serial Number (i.e. M1234567)
-# <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
-# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
-aprs_custom_comment = Radiosonde Auto-RX <freq>
 
 
 # Settings for uploading to the Habitat HAB tracking database ( https://tracker.habhub.org/ )
@@ -120,21 +84,67 @@ aprs_custom_comment = Radiosonde Auto-RX <freq>
 #   If you use a custom payload callsign, you will need to create an appropriate payload document for it to appear on the map
 # 
 [habitat]
-# Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
-payload_callsign = <id>
-payload_description = Meteorological Radiosonde
+habitat_enabled = False
+
 # Uploader callsign, as shown above. PLEASE CHANGE THIS TO SOMETHING UNIQUE.
-uploader_callsign = SONDE_AUTO_RX
+uploader_callsign = CHANGEME_AUTO_RX
+
 # Upload listener position to Habitat? (So you show up on the map)
-upload_listener_position = False
+upload_listener_position = True
+
+# Habitat Upload Rate - Upload a packet every X seconds.
+upload_rate = 30
+
+# Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
+# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
+# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
+payload_callsign = <id>
+
+
+# Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
+[location]
+station_lat = 0.0
+station_lon = 0.0
+station_alt = 0.0
+
+
+# Settings for uploading to APRS-IS
+[aprs]
+aprs_enabled = False
+# APRS-IS Login Information
+aprs_user = N0CALL
+aprs_pass = 00000
+
+# APRS Upload Rate - Upload a packet every X seconds.
+upload_rate = 30
+
+# APRS-IS server to upload to.
+aprs_server = rotate.aprs2.net
+
+# Object name to be used when uploading to APRS-IS (Max 9 chars)
+# Should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
+# or <id>, which will be replaced with the radiosondes serial number
+# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
+# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
+aprs_object_id = <id>
+
+# The APRS-IS beacon comment. The following fields can be included:
+# <freq> - Sonde Frequency, i.e. 401.520 MHz
+# <type> - Sonde Type (RS94/RS41)
+# <id> - Sonde Serial Number (i.e. M1234567)
+# <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
+# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
+aprs_custom_comment = <type> Radiosonde <freq> <vel_v> http://bit.ly/2Bj4Sfk
 
 
 # Settings for pushing data into OziPlotter
 # Oziplotter receives data via a basic CSV format, via UDP.
 [oziplotter]
+# WARNING - This should not be enabled in a multi-SDR configuration, as OziExplorer currently has no way of differentiating
+# between sonde IDs.
 ozi_enabled = False
 ozi_update_rate = 5
-# Broadcast UDP port - Set this to 55681 if sending data to OziMux, or 8942 if sending directly to OziPlotter
+# UDP Broadcast output port.
 ozi_port = 55681
 # Payload summary output, which can be used by a few of the Horus Ground Station tools
 payload_summary_enabled = False
@@ -151,19 +161,43 @@ max_altitude = 50000
 # Discard positions more than 1000 km from the observation station location (if set)
 max_radius_km = 1000
 
-# MQTT (Even more interfacing options!)
-#   Post all sonde messages to a MQTT server
-[mqtt]
-mqtt_enabled = False
-mqtt_hostname = 127.0.0.1
-mqtt_port = 1883
+# Advanced Settings
+# These control low-level settings within various modules.
+# Playing with them may result in odd behaviour.
+[advanced]
+# Scanner - Receive bin width (Hz)
+search_step = 800
+# Scanner - Minimum SNR for a peak to be detected. The lower the number, the more peaks detected.
+snr_threshold = 10
+# Scanner - Maximum number of peaks to search through during a scan pass.
+#	Increase this if you have lots of spurious signals, though this will increase scan times.
+max_peaks = 10
+# Scanner - Minimum distance between peaks (Hz)
+min_distance = 1000
+# Scanner - Scan Dwell Time - How long to observe the specified spectrum for.
+scan_dwell_time = 20
+# Scanner - Detection Dwell time - How long to wait for a sonde detection on each peak.
+detect_dwell_time = 5
+# Scanner - Delay between scans. We should delay a short amount between scans to allow for decoders and other actions to jump in.
+scan_delay = 10
+# Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
+quantization = 10000
+# Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
+# Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
+# however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
+synchronous_upload = True
+# Only accept a payload ID as valid until it has been seen N times.
+# This helps avoid corrupted callsigns getting onto the map.
+payload_id_valid = 5
+
 
 # Rotator Settings
 #   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
-#   The update rate is tied to the upload_rate setting above, though internet upload does not need to be enabled
-#   for the rotator to be updated.
 [rotator]
-enable_rotator = False
+# WARNING - This should not be enabled in a multi-SDR configuration.
+rotator_enabled = False
+# How often to update the rotator position.
+update_rate = 10
 # Hostname / Port of the rotctld instance.
 rotator_hostname = 127.0.0.1
 rotator_port = 4533

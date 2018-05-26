@@ -16,6 +16,7 @@ import json
 from base64 import b64encode
 from hashlib import sha256
 from threading import Thread
+from . import __version__ as auto_rx_version
 try:
     # Python 2
     from Queue import Queue
@@ -325,7 +326,7 @@ def uploadListenerPosition(callsign, lat, lon, version=''):
     # If this fails, it means we can't contact the Habitat server,
     # so there is no point continuing.
     if resp is False:
-        return
+        return False
 
     doc = {
         'type': 'listener_telemetry',
@@ -344,8 +345,10 @@ def uploadListenerPosition(callsign, lat, lon, version=''):
     resp = postListenerData(doc)
     if resp is True:
         logging.info("Habitat - Listener information uploaded.")
+        return True
     else:
         logging.error("Habitat - Unable to upload listener information.")
+        return False
 
 
 #
@@ -394,7 +397,7 @@ class HabitatUploader(object):
                 when a new sonde ID is observed.
 
             payload_callsign_override (str): Override the payload callsign in the uploaded sentence with this value.
-                WARNING: This will horrible break the tracker map if multiple sondes are uploaded under the same callsign.
+                WARNING: This will horribly break the tracker map if multiple sondes are uploaded under the same callsign.
                 USE WITH CAUTION!!!
 
             synchronous_upload_time (int): Upload the most recent telemetry when time.time()%synchronous_upload_time == 0
@@ -413,6 +416,7 @@ class HabitatUploader(object):
         """
 
         self.user_callsign = user_callsign
+        self.user_position = user_position
         self.payload_callsign_override = payload_callsign_override
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
@@ -434,6 +438,7 @@ class HabitatUploader(object):
         #   'data' (Queue): A queue of telemetry sentences to be uploaded. When the upload timer fires,
         #       this queue will be dumped, and the most recent telemetry uploaded.
         #   'habitat_document' (bool): Indicates if a habitat document has been created for this payload ID.
+        #   'listener_updated' (bool): Indicates if the listener position has been updated for the start of this ID's flight.
         self.observed_payloads = {}
 
         # Start the uploader thread.
@@ -449,6 +454,10 @@ class HabitatUploader(object):
         self.timer_thread_running = True
         self.timer_thread = Thread(target=self.upload_timer)
         self.timer_thread.start()
+
+        # Upload listener position
+        if self.user_position is not None:
+            uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version)
 
 
 
@@ -627,7 +636,7 @@ class HabitatUploader(object):
 
                 if _id not in self.observed_payloads:
                     # We haven't seen this ID before, so create a new dictionary entry for it.
-                    self.observed_payloads[_id] = {'count':1, 'data':Queue(), 'habitat_document': False}
+                    self.observed_payloads[_id] = {'count':1, 'data':Queue(), 'habitat_document': False, 'listener_updated': False}
                     self.log_debug("New Payload %s. Not observed enough to allow upload." % _id)
                     # However, we don't yet add anything to the queue for this payload...
                 else:
@@ -637,7 +646,16 @@ class HabitatUploader(object):
 
                     # If we have seen this particular ID enough times, add the data to the ID's queue.
                     if self.observed_payloads[_id]['count'] >= self.callsign_validity_threshold:
+                        # Add the telemetry to the queue
                         self.observed_payloads[_id]['data'].put(_telem)
+
+                        # If this is the first time we have observed this payload, update the listener position.
+                        if (self.observed_payloads[_id]['listener_updated'] == False) and (self.user_position is not None):
+                            self.observed_payloads[_id]['listener_updated'] = uploadListenerPosition(
+                                self.user_callsign, 
+                                self.user_position[0], 
+                                self.user_position[1], 
+                                version=auto_rx_version)
                     else:
                         self.log_debug("Payload ID %s not observed enough to allow upload." % _id)
 
@@ -716,24 +734,6 @@ class HabitatUploader(object):
         """
         logging.warning("Habitat - %s" % line)
 
-
-#
-# Functions for uploading telemetry to Habitat
-#
-
-
-
-
-# DEPRECATED - USE 
-def habitat_upload_payload_telemetry(uploader, telemetry, payload_callsign = "RADIOSONDE", callsign="N0CALL", comment=None):
-    ''' Add a packet of radiosonde telemetry to the Habitat uploader queue. '''
-
-    sentence = telemetry_to_sentence(telemetry, payload_callsign = payload_callsign, comment=comment)
-
-    try:
-        uploader.add(sentence)
-    except Exception as e:
-        logging.error("Could not add telemetry to Habitat Uploader - %s" % str(e))
 
 
 

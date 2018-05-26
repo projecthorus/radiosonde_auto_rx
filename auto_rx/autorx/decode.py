@@ -373,29 +373,30 @@ class SondeDecoder(object):
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
 
+            # If we have been provided a telemetry filter function, pass the telemetry data
+            # through the filter, and return the response
+            # By default, we will assume the telemetry is OK.
+            _telem_ok = True
+            if self.telem_filter is not None:
+                try:
+                    _telem_ok = self.telem_filter(_telemetry)
+                except Exception as e:
+                    self.log_error("Failed to run telemetry filter - %s" % str(e))
+                    _telem_ok = True
 
-            # Send to the exporter functions (if we have any).
+
+            # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
                 return
             else:
-                for _exporter in self.exporters:
-                    try:
-                        _exporter(_telemetry)
-                    except Exception as e:
-                        self.log_error("Exporter Error %s" % str(e))
+                if _telem_ok:
+                    for _exporter in self.exporters:
+                        try:
+                            _exporter(_telemetry)
+                        except Exception as e:
+                            self.log_error("Exporter Error %s" % str(e))
 
-            # If we have been provided a telemetry filter function, pass the telemetry data
-            # through the filter, and return the response
-            if self.telem_filter is not None:
-                try:
-                    _ok = self.telem_filter(_telemetry)
-                    return _ok
-                except Exception as e:
-                    self.log_error("Failed to run telemetry filter - %s" % str(e))
-
-            # Otherwise, just assume the telemetry is good.
-            else:
-                return True
+            return _telem_ok
 
 
 
@@ -405,7 +406,7 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.debug("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
+        logging.debug("Decoder #%s %s %.3f - %s" % (str(self.device_idx), self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def log_info(self, line):
@@ -413,7 +414,7 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.info("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
+        logging.info("Decoder #%s %s %.3f - %s" % (str(self.device_idx), self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def log_error(self, line):
@@ -421,7 +422,7 @@ class SondeDecoder(object):
         Args:
             line (str): Message to be logged.
         """
-        logging.error("Decoder %s %.3f - %s" % (self.sonde_type, self.sonde_freq/1e6, line))
+        logging.error("Decoder #%s %s %.3f - %s" % (str(self.device_idx), self.sonde_type, self.sonde_freq/1e6, line))
 
 
     def stop(self):

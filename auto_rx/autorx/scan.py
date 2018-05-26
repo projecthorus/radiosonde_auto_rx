@@ -80,15 +80,15 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
         gain_param,
         filename)
 
-    logging.info("Scanner - Running frequency scan.")
-    logging.debug("Scanner - Running command: %s" % rtl_power_cmd)
+    logging.info("Scanner #%s - Running frequency scan." % str(device_idx))
+    #logging.debug("Scanner - Running command: %s" % rtl_power_cmd)
 
     try:
         FNULL = open(os.devnull, 'w')
         subprocess.check_call(rtl_power_cmd, shell=True, stderr=FNULL)
         FNULL.close()
     except subprocess.CalledProcessError:
-        logging.critical("Scanner - rtl_power call failed!")
+        logging.critical("Scanner #%s - rtl_power call failed!" % str(device_idx))
         return False
     else:
         return True
@@ -192,8 +192,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null >/dev/null"
 
-    logging.info("Scanner - Attempting sonde detection on %.3f MHz" % (frequency/1e6))
-    logging.debug("Scanner - Running command: %s" % rx_test_command)
+    logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
 
     try:
         FNULL = open(os.devnull, 'w')
@@ -201,7 +200,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         FNULL.close()
     except Exception as e:
         # Something broke when running the detection function.
-        logging.error("Scanner - Error when running rs_detect - %s" % str(e))
+        logging.error("Scanner #%s - Error when running rs_detect - %s" % (str(device_idx), str(e)))
         return None
 
     # Shift down by a byte... for some reason.
@@ -223,19 +222,19 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         ret_code = abs(ret_code)
 
     if ret_code == 3:
-        logging.info("Scanner - Detected a RS41!")
+        logging.debug("Scanner #%s - Detected a RS41!" % str(device_idx))
         return inv+"RS41"
     elif ret_code == 4:
-        logging.info("Scanner - Detected a RS92!")
+        logging.debug("Scanner #%s - Detected a RS92!" % str(device_idx))
         return inv+"RS92"
     elif ret_code == 2:
-        logging.info("Scanner - Detected a DFM Sonde!")
+        logging.debug("Scanner #%s - Detected a DFM Sonde!" % str(device_idx))
         return inv+"DFM"
     elif ret_code == 5:
-        logging.info("Scanner - Detected a M10 Sonde! (Unsupported)")
+        logging.debug("Scanner #%s - Detected a M10 Sonde! (Unsupported)" % str(device_idx))
         return inv+"M10"
     elif ret_code == 6:
-        logging.info("Scanner - Detected a iMet Sonde! (Unsupported)")
+        logging.debug("Scanner #%s - Detected a iMet Sonde! (Unsupported)" % str(device_idx))
         return inv+"iMet"
     else:
         return None
@@ -267,6 +266,7 @@ class SondeScanner(object):
         quantization = 10000,
         scan_dwell_time = 20,
         detect_dwell_time = 5,
+        scan_delay = 10,
         max_peaks = 10,
         rs_path = "./",
         sdr_power = "rtl_power",
@@ -295,6 +295,7 @@ class SondeScanner(object):
                 Essentially all radiosondes transmit on 10 kHz channel steps.
             scan_dwell_time (int): Number of seconds for rtl_power to average spectrum over. Default = 20 seconds.
             detect_dwell_time (int): Number of seconds to allow rs_detect to attempt to detect a sonde. Default = 5 seconds.
+            scan_delay (int): Delay X seconds between scan runs.
             max_peaks (int): Maximum number of peaks to search over. Peaks are ordered by signal power before being limited to this number.
             rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
             sdr_power (str): Path to rtl_power, or drop-in equivalent. Defaults to 'rtl_power'
@@ -321,6 +322,7 @@ class SondeScanner(object):
         self.quantization = quantization
         self.scan_dwell_time = scan_dwell_time
         self.detect_dwell_time = detect_dwell_time
+        self.scan_delay = scan_delay
         self.max_peaks = max_peaks
         self.rs_path = rs_path
         self.sdr_power = sdr_power
@@ -360,6 +362,20 @@ class SondeScanner(object):
             self.log_warning("Sonde scan already running!")
 
 
+    def send_to_callback(self, results):
+        """ Send scan results to a callback.
+
+        Args:
+            results (list): List consisting of [freq, type)]
+
+        """
+        try:
+            if self.callback != None:
+                self.callback(results)
+        except Exception as e:
+            self.log_error("Error handling scan results - %s" % str(e))
+
+
     def scan_loop(self):
         """ Continually perform scans, and pass any results onto the callback function """
 
@@ -389,13 +405,9 @@ class SondeScanner(object):
             else:
                 # Scan completed successfuly! Reset the error counter.
                 self.error_retries = 0
-                # If we have scan results, pass them onto the callback.
-                if len(_results) > 0:
-                    try:
-                        if self.callback != None:
-                            self.callback(_results)
-                    except Exception as e:
-                        self.log_error("Error handling scan results - %s" % str(e))
+
+            # Sleep before starting the next scan.
+            time.sleep(self.scan_delay)
 
 
 
@@ -461,7 +473,7 @@ class SondeScanner(object):
 
             # If we have found no peaks, and no greylist has been provided, re-scan.
             if (len(peak_indices) == 0) and (len(self.greylist) == 0):
-                self.log_info("No peaks found.")
+                self.log_debug("No peaks found.")
                 return []
 
             # Sort peaks by power.
@@ -489,10 +501,10 @@ class SondeScanner(object):
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
 
             if len(peak_frequencies) == 0:
-                self.log_info("No peaks found after blacklist frequencies removed.")
+                self.log_debug("No peaks found after blacklist frequencies removed.")
                 return []
             else:
-                self.log_info("Performing scan on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
+                self.log_info("Detected peaks on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
 
         else:
             # We have been provided a whitelist - scan through the supplied frequencies.
@@ -517,6 +529,9 @@ class SondeScanner(object):
             if detected != None:
                 # Add a detected sonde to the output array
                 _search_results.append([freq, detected])
+
+                # Immediately send this result to the callback.
+                self.send_to_callback([[freq, detected]])
                 # If we only want the first detected sonde, then return now.
                 if first_only:
                     return _search_results
@@ -524,9 +539,9 @@ class SondeScanner(object):
                 # Otherwise, we continue....
 
         if len(_search_results) == 0:
-            self.log_info("No sondes detected.")
+            self.log_debug("No sondes detected.")
         else:
-            self.log_info("Detected Sondes: %s" % str(_search_results))
+            self.log_debug("Scan Detected Sondes: %s" % str(_search_results))
 
         return _search_results
 
