@@ -7,7 +7,10 @@
 #
 
 from __future__ import division, print_function
+import fcntl
 import os
+import platform
+import re
 import subprocess
 import threading
 import time
@@ -282,24 +285,156 @@ def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
         return True
 
 
-def rtlsdr_reset(device_idx=0, rs_path="./"):
-    """ Issue a USB reset to a specific RTLSDR device
+# Regexes to help parse lsusb's output
+_INDENTATION_RE = re.compile(r'^( *)')
+_LSUSB_BUS_DEVICE_RE = re.compile(r'^Bus (\d{3}) Device (\d{3}):')
+_LSUSB_ENTRY_RE = re.compile(r'^ *([^ ]+) +([^ ]+) *([^ ].*)?$')
+_LSUSB_GROUP_RE = re.compile(r'^ *([^ ]+.*):$')
 
-    Args:
-        device_idx (int or str): Device index or serial number of the RTLSDR to issue the reset command to.
-        rs_path (str): Path to the compiled RS binaries (in this case, we need reset_usb)
+# USB Reset ioctl argument
+_USBDEVFS_RESET = ord('U') << 8 | 20
+
+def lsusb():
+    """Call lsusb and return the parsed output.
 
     Returns:
-        bool: True if the reset command was issued without error. This does not ensure the RTLSDR is operational again.
-
+        (list): List of dictionaries containing the device information for each USB device.
     """
+    try:
+        lsusb_raw_output = subprocess.check_output(['lsusb', '-v'])
+    except Exception as e:
+        logging.error("lsusb parse error - %s" % str(e))
+        return
 
-    # Determine /dev/ path to specific RTLSDR (probably by parsing of lsusb -v output... only on linux!)
+    device = None
+    devices = []
+    depth_stack = []
+    for line in lsusb_raw_output.splitlines():
+        if not line:
+            if device:
+                devices.append(device)
+            device = None
+            continue
 
-    # Issue reset command (via the reset_usb binary)
+        if not device:
+            m = _LSUSB_BUS_DEVICE_RE.match(line)
+            if m:
+                device = {
+                    'bus': m.group(1),
+                    'device': m.group(2)
+                }
+                depth_stack = [device]
+            continue
 
-    # TODO.
-    return True
+        indent_match = _INDENTATION_RE.match(line)
+        if not indent_match:
+            continue
+
+        depth = 1 + len(indent_match.group(1)) / 2
+        if depth > len(depth_stack):
+            logging.error('lsusb parsing error: unexpected indentation: "%s"', line)
+            continue
+
+        while depth < len(depth_stack):
+            depth_stack.pop()
+
+        cur = depth_stack[-1]
+        m = _LSUSB_GROUP_RE.match(line)
+
+        if m:
+            new_group = {}
+            cur[m.group(1)] = new_group
+            depth_stack.append(new_group)
+            continue
+
+        m = _LSUSB_ENTRY_RE.match(line)
+        if m:
+            new_entry = {
+                '_value': m.group(2),
+                '_desc': m.group(3),
+            }
+            cur[m.group(1)] = new_entry
+            depth_stack.append(new_entry)
+            continue
+
+        logging.error('lsusb parsing error: unrecognized line: "%s"', line)
+
+    if device:
+      devices.append(device)
+
+    return devices
+
+
+def reset_usb(bus, device):
+    """Reset the USB device with the given bus and device."""
+    usb_file_path = '/dev/bus/usb/%03d/%03d' % (bus, device)
+    with open(usb_file_path, 'w') as usb_file:
+        #logging.debug('fcntl.ioctl(%s, %d)', usb_file_path, _USBDEVFS_RESET)
+        try:
+            fcntl.ioctl(usb_file, _USBDEVFS_RESET)
+
+        except IOError:
+            logging.error("RTLSDR - USB Reset Failed.")
+
+
+def reset_rtlsdr_by_serial(serial):
+    """ Attempt to reset a RTLSDR with a provided serial number """
+
+    # If not Linux, return immediately.
+    if platform.system() != 'Linux':
+        return
+
+    lsusb_info = lsusb()
+    bus_num = None
+    device_num = None
+
+    for device in lsusb_info:
+        try:
+            device_serial = device['Device Descriptor']['iSerial']['_desc']
+            device_product = device['Device Descriptor']['iProduct']['_desc']
+        except:
+            # If we hit an exception, the device likely doesn't have one of the required fields.
+            continue
+
+        if (device_serial == serial) and ('RTL2838' in device_product) :
+            bus_num = int(device['bus'])
+            device_num = int(device['device'])
+
+    if bus_num and device_num:
+        logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
+        reset_usb(bus_num, device_num)
+    else:
+        logging.error("RTLSDR - Could not find RTLSDR with serial %s!" % serial)
+        return False
+
+
+def reset_all_rtlsdrs():
+    """ Reset all RTLSDR devices found in the lsusb tree """
+
+    # If not Linux, return immediately.
+    if platform.system() != 'Linux':
+        return
+
+    lsusb_info = lsusb()
+    bus_num = None
+    device_num = None
+
+    for device in lsusb_info:
+        try:
+            device_product = device['Device Descriptor']['iProduct']['_desc']
+        except:
+            # If we hit an exception, the device likely doesn't have one of the required fields.
+            continue
+
+        if 'RTL2838' in device_product :
+            bus_num = int(device['bus'])
+            device_num = int(device['device'])
+
+            logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
+            reset_usb(bus_num, device_num)
+
+    if device_num is None:
+        logging.error("RTLSDR - Could not find any RTLSDR devices to reset!")
 
 
 

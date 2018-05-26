@@ -213,6 +213,8 @@ class APRSUploader(object):
         self.timer_thread = Thread(target=self.upload_timer)
         self.timer_thread.start()
 
+        self.log_info("APRS Uploader Started.")
+
 
     def aprsis_upload(self, packet):
         """ Upload a packet to APRS-IS

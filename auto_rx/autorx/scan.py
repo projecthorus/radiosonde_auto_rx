@@ -14,7 +14,7 @@ import time
 import traceback
 from threading import Thread
 from types import FunctionType, MethodType
-from .utils import detect_peaks, rtlsdr_test, rtlsdr_reset
+from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
 
 try:
     # Python 2
@@ -395,7 +395,13 @@ class SondeScanner(object):
                 self.log_warning("RTLSDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the RTLSDR.
-                rtlsdr_reset(self.scan_params['device_idx'])
+                if self.scan_params['device_idx'] == '0':
+                    # If the device ID is 0, we assume we only have a single RTLSDR on this system.
+                    reset_all_rtlsdrs()
+                else:
+                    # Otherwise, we reset the specific RTLSDR
+                    reset_rtlsdr_by_serial(self.scan_params['device_idx'])
+
                 time.sleep(10)
                 continue
             except Exception as e:
