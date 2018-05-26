@@ -401,7 +401,7 @@ def reset_rtlsdr_by_serial(serial):
             device_num = int(device['device'])
 
     if bus_num and device_num:
-        logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
+        logging.info("RTLSDR - Attempting to reset: /dev/bus/usb/%03d/%03d" % (bus_num, device_num))
         reset_usb(bus_num, device_num)
     else:
         logging.error("RTLSDR - Could not find RTLSDR with serial %s!" % serial)

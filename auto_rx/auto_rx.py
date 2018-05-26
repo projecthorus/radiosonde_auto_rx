@@ -101,7 +101,7 @@ def allocate_sdr(check_only = False, task_description = ""):
             else:
                 # Otherwise, set the SDR as in-use.
                 sdr_list[_idx]['in_use'] = True
-                logging.info("SDR #%s has been allocated for %s." % (str(_idx), task_description))
+                logging.info("SDR #%s has been allocated to %s." % (str(_idx), task_description))
             
             return _idx
 
