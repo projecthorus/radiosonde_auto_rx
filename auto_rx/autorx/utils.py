@@ -8,6 +8,7 @@
 
 from __future__ import division, print_function
 import fcntl
+import logging
 import os
 import platform
 import re
@@ -255,35 +256,6 @@ def peak_plot(x, mph, mpd, threshold, edge, valley, ax, ind):
 #   RTLSDR Utility Functions
 #
 
-def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
-    """ Test that a RTLSDR with supplied device ID is accessible.
-
-    This function attempts to read a small set of samples from a rtlsdr using rtl-sdr.
-    The exit code from rtl-sdr indicates if the attempt was successful, and hence shows if the rtlsdr is usable.
-
-    Args:
-        device_idx (int or str): Device index or serial number of the RTLSDR to test. Defaults to 0.
-        rtl_sdr_path (str): Path to the rtl_sdr utility. Defaults to 'rtl_sdr' (i.e. look on the system path)
-
-    Returns:
-        bool: True if the RTLSDR device is accessible, False otherwise.
-    """
-
-
-    _rtl_cmd = "%s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
-
-    try:
-        FNULL = open(os.devnull, 'w') # Inhibit stderr output
-        _ret_code = subprocess.check_call(_rtl_cmd, shell=True, stderr=FNULL)
-        FNULL.close()
-    except subprocess.CalledProcessError:
-        # This exception means the subprocess has returned an error code of one.
-        time.sleep(1)
-        return False
-    else:
-        time.sleep(1)
-        return True
-
 
 # Regexes to help parse lsusb's output
 _INDENTATION_RE = re.compile(r'^( *)')
@@ -408,6 +380,44 @@ def reset_rtlsdr_by_serial(serial):
         return False
 
 
+def find_rtlsdr(serial=None):
+    """ Search through lsusb and see if an RTLSDR exists """
+
+    # If not Linux, return immediately, and assume the RTLSDR exists..
+    if platform.system() != 'Linux':
+        return True
+
+    lsusb_info = lsusb()
+    bus_num = None
+    device_num = None
+
+    for device in lsusb_info:
+        try:
+            device_serial = device['Device Descriptor']['iSerial']['_desc']
+            device_product = device['Device Descriptor']['iProduct']['_desc']
+        except:
+            # If we hit an exception, the device likely doesn't have one of the required fields.
+            continue
+
+        if device_product != None:
+            if ('RTL2838' in device_product):
+                # We have found a RTLSDR! If we're not looking for a particular serial number, we can just quit now.
+                if serial == None:
+                    return True
+                else:
+                    if (device_serial == serial):
+                        bus_num = int(device['bus'])
+                        device_num = int(device['device'])
+
+    if bus_num and device_num:
+        # We have found an RTLSDR with this serial number!
+        return True
+
+    else:
+        # Otherwise, nope.
+        return False
+
+
 def reset_all_rtlsdrs():
     """ Reset all RTLSDR devices found in the lsusb tree """
 
@@ -426,16 +436,81 @@ def reset_all_rtlsdrs():
             # If we hit an exception, the device likely doesn't have one of the required fields.
             continue
 
-        if 'RTL2838' in device_product :
-            bus_num = int(device['bus'])
-            device_num = int(device['device'])
+        if device_product != None:
+            if 'RTL2838' in device_product :
+                bus_num = int(device['bus'])
+                device_num = int(device['device'])
 
-            logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
-            reset_usb(bus_num, device_num)
+                logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
+                reset_usb(bus_num, device_num)
 
     if device_num is None:
         logging.error("RTLSDR - Could not find any RTLSDR devices to reset!")
 
+
+
+def rtlsdr_test(device_idx=0, rtl_sdr_path="rtl_sdr"):
+    """ Test that a RTLSDR with supplied device ID is accessible.
+
+    This function attempts to read a small set of samples from a rtlsdr using rtl-sdr.
+    The exit code from rtl-sdr indicates if the attempt was successful, and hence shows if the rtlsdr is usable.
+
+    Args:
+        device_idx (int or str): Device index or serial number of the RTLSDR to test. Defaults to 0.
+        rtl_sdr_path (str): Path to the rtl_sdr utility. Defaults to 'rtl_sdr' (i.e. look on the system path)
+
+    Returns:
+        bool: True if the RTLSDR device is accessible, False otherwise.
+    """
+
+    _rtl_cmd = "timeout 5 %s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
+
+
+    # First, check if the RTLSDR with a provided serial number is present.
+    if device_idx == 0:
+        # Check for the presence of any RTLSDRs.
+        _rtl_exists = find_rtlsdr()
+
+    else:
+        # Otherwise, look for a particular RTLSDR
+        _rtl_exists = find_rtlsdr(device_idx)
+        
+    if not _rtl_exists:
+        logging.error("RTLSDR - RTLSDR with serial #%s is not present!" % str(device_idx))
+        return False
+
+    # So now we know the rtlsdr we are attempting to test does exist.
+    # We make an attempt to read samples from it:
+
+    _rtlsdr_retries = 2
+
+    while _rtlsdr_retries > 0:
+        try:
+            FNULL = open(os.devnull, 'w') # Inhibit stderr output
+            _ret_code = subprocess.check_call(_rtl_cmd, shell=True, stderr=FNULL)
+            FNULL.close()
+        except subprocess.CalledProcessError:
+            # This exception means the subprocess has returned an error code of one.
+            # This indicates either the RTLSDR doesn't exist, or 
+            pass
+        else:
+            # rtl-sdr returned OK. We can return True now.
+            time.sleep(1)
+            return True
+
+        # If we get here, it means we failed to read any samples from the RTLSDR.
+        # So, we attempt to reset it.
+        if device_idx == 0:
+            reset_all_rtlsdrs()
+        else:
+            reset_rtlsdr_by_serial(serial)
+
+        # Decrement out retry count, then wait a bit before looping
+        _rtlsdr_retries -= 1
+        time.sleep(2)
+
+    # If we run out of retries, clearly the RTLSDR isn't working.
+    return False
 
 
 # Earthmaths code by Daniel Richman (thanks!)
