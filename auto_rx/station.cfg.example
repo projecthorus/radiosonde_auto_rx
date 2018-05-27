@@ -145,8 +145,10 @@ aprs_custom_comment = <type> Radiosonde <freq> <vel_v> http://bit.ly/2Bj4Sfk
 ozi_enabled = False
 ozi_update_rate = 5
 # UDP Broadcast output port.
+# Set to 8942 to send packets directly into OziPlotter, or set to 55681 to send via OziMux
 ozi_port = 55681
 # Payload summary output, which can be used by a few of the Horus Ground Station tools
+# Do not enable this if you are using the OziMux utility.
 payload_summary_enabled = False
 payload_summary_port = 55672
 
@@ -191,7 +193,7 @@ synchronous_upload = True
 payload_id_valid = 5
 
 
-# Rotator Settings
+# Rotator Settings - Currently not implemented.
 #   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
 [rotator]
 # WARNING - This should not be enabled in a multi-SDR configuration.
