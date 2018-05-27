@@ -456,9 +456,15 @@ class HabitatUploader(object):
         self.timer_thread.start()
 
         # Upload listener position
+        # Throw this into a thread to avoid blocking during auto_rx startup.
         if self.user_position is not None:
-            uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version)
+            self.initial_position = Thread(target=self.initial_position_upload)
+            self.initial_position.start()
 
+
+    def initial_position_upload(self):
+        """ Perform the initial upload of the user position. """
+        uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version)
 
 
     def habitat_upload(self, sentence):
