@@ -273,7 +273,9 @@ def lsusb():
         (list): List of dictionaries containing the device information for each USB device.
     """
     try:
-        lsusb_raw_output = subprocess.check_output(['lsusb', '-v'])
+        FNULL = open(os.devnull, 'w')
+        lsusb_raw_output = subprocess.check_output(['lsusb', '-v'], stderr=FNULL)
+        FNULL.close()
     except Exception as e:
         logging.error("lsusb parse error - %s" % str(e))
         return
