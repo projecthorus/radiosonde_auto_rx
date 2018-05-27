@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#   radiosonde_auto_rx - APRS Upload Utilities
+#   radiosonde_auto_rx - APRS Exporter
 #
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#   radiosonde_auto_rx - Habitat Upload Utilities
+#   radiosonde_auto_rx - Habitat Exporter
 #
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later

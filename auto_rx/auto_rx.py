@@ -21,6 +21,7 @@ from autorx.decode import SondeDecoder
 from autorx.logger import TelemetryLogger
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
+from autorx.ozimux import OziUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
 
@@ -441,7 +442,25 @@ def main():
         exporter_objects.append(_aprs)
         exporter_functions.append(_aprs.add)
 
-    # OziExplorer - TODO
+    # OziExplorer 
+    if config['ozi_enabled'] or config['payload_summary_enabled']:
+        if config['ozi_enabled']:
+            _ozi_port = config['ozi_port']
+        else:
+            _ozi_port = None
+
+        if config['payload_summary_enabled']:
+            _summary_port = config['payload_summary_port']
+        else:
+            _summary_port = None
+
+        _ozimux = OziUploader(
+            ozimux_port = _ozi_port,
+            payload_summary_port = _summary_port,
+            update_rate = config['ozi_update_rate'])
+
+        exporter_objects.append(_ozimux)
+        exporter_functions.append(_ozimux.add)
 
     # MQTT (?) - TODO
 
