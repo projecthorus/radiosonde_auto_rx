@@ -395,12 +395,12 @@ class SondeScanner(object):
                 self.log_warning("RTLSDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the RTLSDR.
-                if self.scan_params['device_idx'] == '0':
+                if self.device_idx == '0':
                     # If the device ID is 0, we assume we only have a single RTLSDR on this system.
                     reset_all_rtlsdrs()
                 else:
                     # Otherwise, we reset the specific RTLSDR
-                    reset_rtlsdr_by_serial(self.scan_params['device_idx'])
+                    reset_rtlsdr_by_serial(self.device_idx)
 
                 time.sleep(10)
                 continue
