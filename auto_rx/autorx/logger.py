@@ -148,7 +148,7 @@ class TelemetryLogger(object):
             if len(_existing_files) != 0:
                 # Open the existing log file.
                 _log_file_name = _existing_files[0]
-                self.log_debug("Using existing log file: %s" % _log_file_name)
+                self.log_info("Using existing log file: %s" % _log_file_name)
                 # Create entry in open logs dictionary
                 self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}
             else:
@@ -160,7 +160,7 @@ class TelemetryLogger(object):
                     int(telemetry['freq_float']*1e3) # Convert frequency to kHz
                     )
                 _log_file_name = os.path.join(self.log_directory, _log_suffix)
-                self.log_debug("Opening new log file: %s" % _log_file_name)
+                self.log_info("Opening new log file: %s" % _log_file_name)
                 # Create entry in open logs dictionary
                 self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}               
 
@@ -188,7 +188,7 @@ class TelemetryLogger(object):
                     self.open_logs[_id]['log'].flush()
                     self.open_logs[_id]['log'].close()
                     self.open_logs.pop(_id, None)
-                    self.log_debug("Closed log file for %s" % _id)
+                    self.log_info("Closed log file for %s" % _id)
             except Exception as e:
                 self.log_error("Error closing log for %s - %s" % (_id, str(e)))
 
