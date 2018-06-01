@@ -232,7 +232,7 @@ class SondeDecoder(object):
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s 2>/dev/null" % _rs92_gps_data
 
-        elif self.sonde_freq == "DFM":
+        elif self.sonde_type == "DFM":
             # DFM06/DFM09 Sondes
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
