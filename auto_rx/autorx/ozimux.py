@@ -166,14 +166,12 @@ class OziUploader(object):
                 while not self.input_queue.empty():
                     _telem = self.input_queue.get()
 
-
+                # Send!
                 if self.ozimux_port != None:
                     self.send_ozimux_telemetry(_telem)
 
                 if self.payload_summary_port != None:
                     self.send_payload_summary(_telem)
-
-
 
             time.sleep(self.update_rate)
 

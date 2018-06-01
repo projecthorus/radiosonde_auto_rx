@@ -9,11 +9,8 @@
 # If enabled, a log file will be written to ./log/ for each detected radiosonde.
 per_sonde_log = True
 
-# SDR Receiver Settings
+# RTLSDR Receiver Settings
 [sdr]
-# Paths to the rtl_fm and rtl_power utilities. If these are on your system path, then you don't need to change this.
-sdr_fm_path = rtl_fm
-sdr_power_path = rtl_power
 
 # Number of RTLSDRs to use.
 # If more than one RTLSDR is in use, multiple [sdr_X] sections must be populated below
@@ -42,7 +39,7 @@ gain = -1
 bias = False
 
 [sdr_2]
-# As above, for the next SDR. Note the warning about serial numbers.
+# As above, for the next SDR, if used. Note the warning about serial numbers.
 device_idx = 00000002
 ppm = 0
 gain = -1
@@ -191,6 +188,9 @@ synchronous_upload = True
 # Only accept a payload ID as valid until it has been seen N times.
 # This helps avoid corrupted callsigns getting onto the map.
 payload_id_valid = 5
+# Paths to the rtl_fm and rtl_power utilities. If these are on your system path, then you don't need to change these.
+sdr_fm_path = rtl_fm
+sdr_power_path = rtl_power
 
 
 # Rotator Settings - Currently not implemented.

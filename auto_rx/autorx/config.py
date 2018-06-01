@@ -98,8 +98,8 @@ def read_auto_rx_config(filename):
 		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
 
 		# SDR Settings
-		auto_rx_config['sdr_fm'] = config.get('sdr', 'sdr_fm_path')
-		auto_rx_config['sdr_power'] = config.get('sdr', 'sdr_power_path')
+		auto_rx_config['sdr_fm'] = config.get('advanced', 'sdr_fm_path')
+		auto_rx_config['sdr_power'] = config.get('advanced', 'sdr_power_path')
 		auto_rx_config['sdr_quantity'] = config.getint('sdr', 'sdr_quantity')
 
 		# Search Parameters

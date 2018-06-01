@@ -48,7 +48,7 @@ RS_PATH = "./"
 # Optional override for RS92 ephemeris data.
 rs92_ephemeris = None
 
-# Global configuration dictionary
+# Global configuration dictionary. Populated on startup.
 config = None
 
 # Exporter Lists
@@ -129,7 +129,7 @@ def start_scanner():
         task_list['SCAN'] = {'device_idx': _device_idx, 'task': None}
 
         # Init Scanner using settings from the global config.
-
+        # TODO: Nicer way of passing in the huge list of args.
         task_list['SCAN']['task'] = SondeScanner(
             callback = scan_results.put,
             auto_start = True,
@@ -178,8 +178,15 @@ def stop_scanner():
         task_list.pop('SCAN')
 
 
+
 def start_decoder(freq, sonde_type):
-    """ Attempt to start a decoder thread """
+    """ Attempt to start a decoder thread for a given sonde.
+
+    Args:
+        freq (float): Radiosonde frequency in Hz.
+        sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM')
+
+    """
     global config, task_list, sdr_list, RS_PATH, exporter_functions, rs92_ephemeris
 
     # Allocate a SDR.
@@ -222,9 +229,12 @@ def handle_scan_results():
     - If there is no free SDR, but a scanner is running, stop the scanner and start decoding.
     """
     global scan_results, task_list, sdr_list
+
     if scan_results.qsize() > 0:
+        # Grab the latest detections from the scan result queue.
         _scan_data = scan_results.get()
         for _sonde in _scan_data:
+            # Extract frequency & type info
             _freq = _sonde[0]
             _type = _sonde[1]
 
@@ -243,8 +253,11 @@ def handle_scan_results():
                     stop_scanner()
                     start_decoder(_freq, _type)
                 else:
-                    # We have no SDRs free 
+                    # We have no SDRs free.
+                    # TODO: Alert the user that a sonde was detected, but no SDR was available,
+                    # but don't do this EVERY time we detect the sonde...
                     pass
+
 
 
 def clean_task_list():
@@ -273,6 +286,7 @@ def clean_task_list():
         start_scanner()
 
 
+
 def stop_all():
     """ Shut-down all decoders, scanners, and exporters. """
     global task_list, exporter_objects
@@ -290,12 +304,15 @@ def stop_all():
             logging.error("Error stopping exporter - %s" % str(e))
 
 
+
 def telemetry_filter(telemetry):
     """ Filter incoming radiosonde telemetry based on various factors, 
         - Invalid Position
         - Invalid Altitude
         - Abnormal range from receiver.
         - Invalid serial number.
+
+    This function is defined within this script to avoid passing around large amounts of configuration data.
 
     """
     global config
@@ -346,22 +363,29 @@ def telemetry_filter(telemetry):
 
 def main():
     """ Main Loop """
-    global config, sdr_list, exporter_objects, exporter_functions, logging_level
+    global config, sdr_list, exporter_objects, exporter_functions, logging_level, rs92_ephemeris
 
     # Command line arguments. 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File")
-    parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency (MHz) (bypass scan step, and quit if no sonde found).")
-    parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file.")
-    parser.add_argument("-t", "--timeout", type=int, default=0, help="Dummy timeout argument. To be removed.")
+    parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File. Default: station.cfg")
+    parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.")
+    parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
+    parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file when decoding RS92 Sondes.")
     args = parser.parse_args()
+
+    # Copy out timeout value, and convert to seconds,
+    _timeout = args.timeout*60
+
+    # Copy out RS92 ephemeris value, if provided.
+    if args.ephemeris != "None":
+        rs92_ephemeris = args.ephemeris
 
     # Set log-level to DEBUG if requested
     if args.verbose:
         logging_level = logging.DEBUG
 
-
+    # Configure logging
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -381,12 +405,12 @@ def main():
     if _temp_cfg is None:
         logging.critical("Error in configuration file! Exiting...")
         sys.exit(1)
-
     else:
         config = _temp_cfg
         sdr_list = config['sdr_settings']
 
-    # If we have been supplied a frequency via the command line, override the whitelist settings.
+    # If we have been supplied a frequency via the command line, override the whitelist settings
+    # to only include the supplied frequency.
     if args.frequency != 0.0:
         config['whitelist'] = [args.frequency]
 
@@ -422,7 +446,7 @@ def main():
         exporter_functions.append(_habitat.add)
 
 
-    # APRS - TODO
+    # APRS Uploader
     if config['aprs_enabled']:
         if config['aprs_object_id'] == "<id>":
             _aprs_object = None
@@ -464,11 +488,24 @@ def main():
 
     # MQTT (?) - TODO
 
+    # Note the start time.
+    _start_time = time.time()
 
+    # Loop. 
     while True:
+        # Check for finished tasks.
         clean_task_list()
+        # Handle any new scan results.
         handle_scan_results()
+        # Sleep a little bit.
         time.sleep(2)
+
+        # Allow a timeout after a set time, for users who wish to run auto_rx
+        # within a cronjob.
+        if (_timeout > 0) and ((time.time()-_start_time) > _timeout):
+            logging.info("Shutdown time reached. Closing.")
+            stop_all()
+            break
 
 
 
@@ -478,8 +515,10 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        # Upon CTRL+C, shutdown all threads and exit.
         stop_all()
     except Exception as e:
+        # Upon exceptions, attempt to shutdown threads and exit.
         traceback.print_exc()
         print("Main Loop Error - %s" % str(e))
         stop_all()
