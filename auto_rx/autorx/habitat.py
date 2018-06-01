@@ -479,14 +479,14 @@ class HabitatUploader(object):
             return
 
         # Generate payload to be uploaded
-        _sentence_b64 = b64encode(sentence.encode('ascii'))
+        _sentence_b64 = b64encode(sentence.encode('ascii')) # Encode to ASCII to be able to perform B64 encoding...
         _date = datetime.datetime.utcnow().isoformat("T") + "Z"
         _user_call = self.user_callsign
 
         _data = {
             "type": "payload_telemetry",
             "data": {
-                "_raw": _sentence_b64
+                "_raw": _sentence_b64.decode('ascii') # ... but decode back to a string to enable JSON serialisation.
                 },
             "receivers": {
                 _user_call: {

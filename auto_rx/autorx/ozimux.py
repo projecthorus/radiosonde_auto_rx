@@ -87,7 +87,7 @@ class OziUploader(object):
                 _ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             except:
                 pass
-            _ozisock.sendto(_sentence,('<broadcast>',self.ozimux_port))
+            _ozisock.sendto(_sentence.encode('ascii'),('<broadcast>',self.ozimux_port))
             _ozisock.close()
 
         except Exception as e:
@@ -146,7 +146,7 @@ class OziUploader(object):
             except:
                 pass
 
-            _s.sendto(json.dumps(packet), ('<broadcast>', self.payload_summary_port))
+            _s.sendto(json.dumps(packet).encode('ascii'), ('<broadcast>', self.payload_summary_port))
         except Exception as e:
             self.log_error("Error sending Payload Summary: %s" % str(e))
 

@@ -6,11 +6,17 @@
 #   Released under GNU GPL v3 or later
 #
 
-import ConfigParser
 import logging
 import traceback
 import json
 from .utils import rtlsdr_test
+
+try:
+    # Python 2
+    from ConfigParser import RawConfigParser
+except ImportError:
+    # Python 3
+    from configparser import RawConfigParser
 
 def read_auto_rx_config(filename):
 	""" Read an Auto-RX v2 Station Configuration File.
@@ -91,7 +97,7 @@ def read_auto_rx_config(filename):
 	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
 
 	try:
-		config = ConfigParser.RawConfigParser(auto_rx_config)
+		config = RawConfigParser(auto_rx_config)
 		config.read(filename)
 
 		# Log Settings

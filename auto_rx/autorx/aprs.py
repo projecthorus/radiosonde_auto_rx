@@ -235,9 +235,11 @@ class APRSUploader(object):
         try:
             _s.connect((self.aprsis_host, self.aprsis_port))
             # Send logon string
-            _s.send('user %s pass %s vers VK5QI-AutoRX \n' % (self.aprs_callsign, self.aprs_passcode) )
+            _logon = 'user %s pass %s vers VK5QI-AutoRX \n' % (self.aprs_callsign, self.aprs_passcode)
+            _s.send(_logon.encode('ascii'))
             # send packet
-            _s.send('%s>APRS:%s\n' % (self.aprs_callsign, packet))
+            _packet = '%s>APRS:%s\n' % (self.aprs_callsign, packet)
+            _s.send(_packet.encode('ascii'))
             # close socket
             _s.shutdown(0)
             _s.close()
