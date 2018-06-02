@@ -505,7 +505,7 @@ def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr"):
         if device_idx == '0':
             reset_all_rtlsdrs()
         else:
-            reset_rtlsdr_by_serial(serial)
+            reset_rtlsdr_by_serial(device_idx)
 
         # Decrement out retry count, then wait a bit before looping
         _rtlsdr_retries -= 1
