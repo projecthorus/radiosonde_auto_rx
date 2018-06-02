@@ -13,7 +13,7 @@ import os
 def get_ephemeris(destination="ephemeris.dat"):
 	''' Download the latest GPS ephemeris file from the CDDIS's FTP server '''
 	try:
-		logging.info("Connecting to GSFC FTP Server...")
+		logging.debug("GPS Grabber - Connecting to GSFC FTP Server...")
 		ftp = ftplib.FTP("cddis.gsfc.nasa.gov", timeout=10)
 		ftp.login("anonymous","anonymous")
 		ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
@@ -28,13 +28,13 @@ def get_ephemeris(destination="ephemeris.dat"):
 		elif file_suffix in file_list[-2]:
 			download_file = file_list[-2]
 		else:
-			logging.error("Could not find appropriate ephemeris file.")
+			logging.error("GPS Grabber - Could not find appropriate ephemeris file.")
 			return None
 
-		logging.info("Downloading ephemeris data file: %s" % download_file)
+		logging.debug("GPS Grabber - Downloading ephemeris data file: %s" % download_file)
 
 		# Download file.
-		f_eph = open(destination+".Z",'w')
+		f_eph = open(destination+".Z",'wb')
 		ftp.retrbinary("RETR %s" % download_file, f_eph.write)
 		f_eph.close()
 		ftp.close()
@@ -42,11 +42,11 @@ def get_ephemeris(destination="ephemeris.dat"):
 		# Unzip file.
 		os.system("gunzip -q -f ./%s" % (destination+".Z"))
 
-		logging.info("Ephemeris downloaded to %s successfuly!" % destination)
+		logging.info("GPS Grabber - Ephemeris downloaded to %s successfuly!" % destination)
 
 		return destination
-	except:
-		logging.error("Could not download ephemeris file.")
+	except Exception as e:
+		logging.error("GPS Grabber - Could not download ephemeris file. - %s" % str(e))
 		return None
 
 def get_almanac(destination="almanac.txt", timeout=20):
@@ -55,17 +55,18 @@ def get_almanac(destination="almanac.txt", timeout=20):
 		_r = requests.get("https://www.navcen.uscg.gov/?pageName=currentAlmanac&format=sem", timeout=timeout)
 		data = _r.text
 		if "CURRENT.ALM" in data:
-			f = open(destination,'wb')
+			f = open(destination,'w')
 			f.write(data)
 			f.close()
-			logging.info("Almanac downloaded to %s successfuly!" % destination)
+			logging.info("GPS Grabber - Almanac downloaded to %s successfuly!" % destination)
 			return destination
 		else:
-			logging.error("Downloaded file is not a GPS almanac.")
+			logging.error("GPS Grabber - Downloaded file is not a GPS almanac.")
 			return None
-	except:
-		logging.error("Failed to download almanac data")
+	except Exception as e:
+		logging.error("GPS Grabber - Failed to download almanac data - " % str(e))
 		return None
+
 
 if __name__ == "__main__":
 	logging.basicConfig(level=logging.DEBUG)
