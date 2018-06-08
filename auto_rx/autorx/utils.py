@@ -597,3 +597,9 @@ def position_info(listener, balloon):
         "elevation_radians": elevation
     }
 
+
+if __name__ == "__main__":
+    import sys
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
+    print(lsusb())
+    print(rtlsdr_test(sys.argv[1]))
