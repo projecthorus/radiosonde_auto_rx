@@ -370,7 +370,7 @@ def reset_rtlsdr_by_serial(serial):
             # If we hit an exception, the device likely doesn't have one of the required fields.
             continue
 
-        if (device_serial == serial) and ('RTL2838' in device_product) :
+        if (device_serial == serial) and ('RTL283' in device_product) :
             bus_num = int(device['bus'])
             device_num = int(device['device'])
 
@@ -402,7 +402,7 @@ def find_rtlsdr(serial=None):
             continue
 
         if device_product != None:
-            if ('RTL2838' in device_product):
+            if ('RTL283' in device_product):
                 # We have found a RTLSDR! If we're not looking for a particular serial number, we can just quit now.
                 if serial == None:
                     return True
@@ -439,7 +439,7 @@ def reset_all_rtlsdrs():
             continue
 
         if device_product != None:
-            if 'RTL2838' in device_product :
+            if 'RTL283' in device_product :
                 bus_num = int(device['bus'])
                 device_num = int(device['device'])
 
