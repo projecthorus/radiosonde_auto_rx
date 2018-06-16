@@ -612,8 +612,6 @@ class HabitatUploader(object):
                         # Attept to add it to the habitat uploader queue.
                         try:
                             self.habitat_upload_queue.put_nowait(_sentence)
-                        except Queue.Full:
-                            self.log_error("Upload Queue is full, sentence discarded.")
                         except Exception as e:
                             self.log_error("Error adding sentence to queue: %s" % str(e))
 
