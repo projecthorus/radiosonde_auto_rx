@@ -57,6 +57,7 @@ def read_auto_rx_config(filename):
 		'habitat_enabled': False,
 		'habitat_upload_rate': 30,
 		'habitat_uploader_callsign': 'SONDE_AUTO_RX',
+		'habitat_uploader_antenna': '1/4-wave',
 		'habitat_upload_listener_position': False,
 		'habitat_payload_callsign': '<id>',
 		# APRS Settings
@@ -170,6 +171,14 @@ def read_auto_rx_config(filename):
 		auto_rx_config['rotator_home_azimuth'] = config.getfloat('rotator', 'rotator_home_azimuth')
 		auto_rx_config['rotator_home_elevation'] = config.getfloat('rotator', 'rotator_home_elevation')
 
+
+		# New setting in this version (20180616). Keep it in a try-catch to avoid bombing out if the new setting isn't present.
+		try:
+			auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
+		except:
+			logging.error("Config - Missing uploader_antenna setting. Using default.")
+			auto_rx_config['habitat_uploader_antenna'] = '1/4-wave'
+
 		# Now we attempt to read in the individual SDR parameters.
 		auto_rx_config['sdr_settings'] = {}
 
@@ -231,7 +240,9 @@ def read_auto_rx_config(filename):
 
 if __name__ == '__main__':
 	''' Quick test script to attempt to read in a config file. '''
-	import sys
+	import sys, pprint
+	logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
+
 	config = read_auto_rx_config(sys.argv[1])
 
-	print(config)
+	pprint.pprint(config)

@@ -436,6 +436,7 @@ def main():
  
         _habitat = HabitatUploader(
             user_callsign = config['habitat_uploader_callsign'],
+            user_antenna = config['habitat_uploader_antenna'],
             user_position = _habitat_user_position,
             payload_callsign_override = _habitat_payload_call,
             synchronous_upload_time = config['habitat_upload_rate'],

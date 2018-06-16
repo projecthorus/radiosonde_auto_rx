@@ -297,13 +297,13 @@ def fetchUuids(timeout=10):
     return
 
 
-def initListenerCallsign(callsign, version=''):
+def initListenerCallsign(callsign, version='', antenna=''):
     doc = {
             'type': 'listener_information',
             'time_created' : ISOStringNow(),
             'data': {
                 'callsign': callsign,
-                'antenna': '',
+                'antenna': antenna,
                 'radio': 'radiosonde_auto_rx %s' % version,
                 }
             }
@@ -318,11 +318,11 @@ def initListenerCallsign(callsign, version=''):
         return False
 
 
-def uploadListenerPosition(callsign, lat, lon, version=''):
+def uploadListenerPosition(callsign, lat, lon, version='', antenna=''):
     """ Initializer Listener Callsign, and upload Listener Position """
 
     # Attempt to initialize the listeners callsign
-    resp = initListenerCallsign(callsign, version=version)
+    resp = initListenerCallsign(callsign, version=version, antenna=antenna)
     # If this fails, it means we can't contact the Habitat server,
     # so there is no point continuing.
     if resp is False:
@@ -379,6 +379,7 @@ class HabitatUploader(object):
     def __init__(self, 
                 user_callsign = 'N0CALL', 
                 user_position = None,
+                user_antenna = "",
                 payload_callsign_override = None,
                 synchronous_upload_time = 30,
                 callsign_validity_threshold = 5,
@@ -417,6 +418,7 @@ class HabitatUploader(object):
 
         self.user_callsign = user_callsign
         self.user_position = user_position
+        self.user_antenna = user_antenna
         self.payload_callsign_override = payload_callsign_override
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
@@ -464,7 +466,7 @@ class HabitatUploader(object):
 
     def initial_position_upload(self):
         """ Perform the initial upload of the user position. """
-        uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version)
+        uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version, antenna=self.user_antenna)
 
 
     def habitat_upload(self, sentence):
@@ -659,7 +661,8 @@ class HabitatUploader(object):
                                 self.user_callsign, 
                                 self.user_position[0], 
                                 self.user_position[1], 
-                                version=auto_rx_version)
+                                version=auto_rx_version,
+                                antenna=self.user_antenna)
                     else:
                         self.log_debug("Payload ID %s not observed enough to allow upload." % _id)
 

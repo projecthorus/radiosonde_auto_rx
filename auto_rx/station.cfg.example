@@ -89,6 +89,10 @@ uploader_callsign = CHANGEME_AUTO_RX
 # Upload listener position to Habitat? (So you show up on the map)
 upload_listener_position = True
 
+# Uploader Antenna Description.
+# If upload_listener_position is enabled, this information will show up in your station description on the habhub map.
+uploader_antenna = 1/4 wave monopole
+
 # Habitat Upload Rate - Upload a packet every X seconds.
 upload_rate = 30
 
