@@ -33,11 +33,17 @@
                 $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
             });
 
+            socket.on('telemetry_event', function(msg) {
+                $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
+            });
+
         });
     </script>
 </head>
 <body>
     <h1>Radiosonde Auto-RX</h1>
+    <h2>Current Sonde:</h2>
+    <div id="telemetry"></div>
     <h2>Log:</h2>
     <div id="log"></div>
 </body>

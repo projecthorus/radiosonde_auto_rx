@@ -24,7 +24,7 @@ from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
-from autorx.web import start_flask, stop_flask, WebHandler
+from autorx.web import start_flask, stop_flask, WebHandler, WebExporter
 
 try:
     # Python 2
@@ -496,6 +496,10 @@ def main():
 
         exporter_objects.append(_ozimux)
         exporter_functions.append(_ozimux.add)
+
+    _web_exporter = WebExporter()
+    exporter_objects.append(_web_exporter)
+    exporter_functions.append(_web_exporter.add)
 
     # MQTT (?) - TODO
 
