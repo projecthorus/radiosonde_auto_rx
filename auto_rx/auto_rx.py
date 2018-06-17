@@ -24,6 +24,7 @@ from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
+from autorx.web import start_flask, stop_flask, WebHandler
 
 try:
     # Python 2
@@ -385,6 +386,7 @@ def main():
     if args.verbose:
         logging_level = logging.DEBUG
 
+
     # Configure logging
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
@@ -392,12 +394,20 @@ def main():
     stdout_handler.setFormatter(stdout_format)
     logging.getLogger().addHandler(stdout_handler)
 
-    # Set the requests logger to only display WARNING messages or higher.
-    requests_log = logging.getLogger("requests")
-    requests_log.setLevel(logging.CRITICAL)
-    urllib3_log = logging.getLogger("urllib3")
-    urllib3_log.setLevel(logging.CRITICAL)
+    web_handler = WebHandler()
+    logging.getLogger().addHandler(web_handler)
 
+
+    # Set the requests/socketio logger to only display critical log messages.
+    logging.getLogger("requests").setLevel(logging.CRITICAL)
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    logging.getLogger('socketio').setLevel(logging.ERROR)
+    logging.getLogger('engineio').setLevel(logging.ERROR)
+
+    # Start up the flask server.
+    # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
+    start_flask()
 
     # Attempt to read in config file
     logging.info("Reading configuration file...")
@@ -517,6 +527,7 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         # Upon CTRL+C, shutdown all threads and exit.
+        stop_flask()
         stop_all()
     except Exception as e:
         # Upon exceptions, attempt to shutdown threads and exit.
