@@ -71,7 +71,7 @@ def flask_get_sdr_list():
 def flask_get_config():
     """ Return a copy of the current auto_rx configuration """
     # Grab a copy of the config
-    _config = autorx.config.global_config.copy()
+    _config = autorx.config.global_config
 
     # TODO: Sanitise config output a bit?
     return json.dumps(_config)

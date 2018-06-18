@@ -6,6 +6,7 @@
 #   Released under GNU GPL v3 or later
 #
 
+import copy
 import logging
 import traceback
 import json
@@ -232,7 +233,8 @@ def read_auto_rx_config(filename):
 			logging.error("Config - No working SDRs! Cannot run...")
 			return None
 		else:
-			global_config = auto_rx_config
+			# Create a global copy of the configuration file at this point
+			global_config = copy.deepcopy(auto_rx_config)
 			return auto_rx_config
 
 

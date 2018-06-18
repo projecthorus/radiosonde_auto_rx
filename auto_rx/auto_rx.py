@@ -395,7 +395,7 @@ def main():
         sys.exit(1)
     else:
         config = _temp_cfg
-        autorx.sdr_list = config['sdr_settings'].copy()
+        autorx.sdr_list = config['sdr_settings']
 
     # If we have been supplied a frequency via the command line, override the whitelist settings
     # to only include the supplied frequency.
