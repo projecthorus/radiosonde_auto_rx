@@ -368,6 +368,9 @@ class SondeDecoder(object):
             _telemetry['freq_float'] = self.sonde_freq/1e6
             _telemetry['freq'] = "%.3f MHz" % (self.sonde_freq/1e6)
 
+            # Add in information about the SDR used.
+            _telemetry['sdr_device_idx'] = self.device_idx
+
             # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
             # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
             if 'aux' in _telemetry:

@@ -6,10 +6,14 @@
 #   Released under MIT License
 #
 import datetime
+import json
 import logging
+import random
 import requests
 import traceback
 import flask
+import autorx
+import autorx.config
 from threading import Thread
 from flask_socketio import SocketIO
 
@@ -18,6 +22,8 @@ app = flask.Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 # This thread will hold the currently running flask application thread.
 flask_app_thread = None
+# A key that needs to be matched to allow shutdown.
+flask_shutdown_key = "temp"
 
 # SocketIO instance
 socketio = SocketIO(app)
@@ -26,17 +32,59 @@ socketio = SocketIO(app)
 #   Flask Routes
 #
 
-
 @app.route("/")
 def flask_index():
     """ Render main index page """
     return flask.render_template('index.html')
 
 
-@app.route("/server_shutdown")
-def shutdown_flask():
+@app.route("/get_version")
+def flask_get_version():
+    """ Return auto_rx version to client """
+    return autorx.__version__
+
+
+@app.route("/get_sdr_list")
+def flask_get_sdr_list():
+    """ Return the current list of active SDRs, and their active task names """
+
+    # Read in the task list, index by SDR ID. 
+    _task_list = {}
+    for _task in autorx.task_list.keys():
+        _task_list[str(autorx.task_list[_task]['device_idx'])] = _task
+
+    # Now, for each configured SDR, determine what task it is currently performing
+    _sdr_list = {}
+
+    for _sdr in autorx.sdr_list.keys():
+        _sdr_list[str(_sdr)] = 'Not Tasked'
+        if str(_sdr) in _task_list:
+            _sdr_list[str(_sdr)] = _task_list[str(_sdr)]
+            if _sdr_list[str(_sdr)] == 'SCAN':
+                _sdr_list[str(_sdr)] = 'Scanning'
+
+    # Convert the task list to a JSON blob, and return.
+    return json.dumps(_sdr_list)
+
+
+@app.route("/get_config")
+def flask_get_config():
+    """ Return a copy of the current auto_rx configuration """
+    # Grab a copy of the config
+    _config = autorx.config.global_config.copy()
+
+    # TODO: Sanitise config output a bit?
+    return json.dumps(_config)
+
+
+@app.route("/shutdown/<shutdown_key>")
+def shutdown_flask(shutdown_key):
     """ Shutdown the Flask Server """
-    flask.request.environ.get('werkzeug.server.shutdown')()
+    global flask_shutdown_key
+    # Only shutdown if the supplied key matches our shutdown key
+    if shutdown_key == flask_shutdown_key:
+        flask.request.environ.get('werkzeug.server.shutdown')()
+
     return ""
 
 #
@@ -50,16 +98,21 @@ def flask_thread(host='0.0.0.0', port=5000):
 
 def start_flask(host='0.0.0.0', port=5000):
     """ Start up the Flask Server """
-    global flask_app_thread
+    global flask_app_thread, flask_shutdown_key
+    # Generate the shutdown key
+    flask_shutdown_key = str(random.randint(10000,100000000))
+
+    # Start up Flask
     flask_app_thread = Thread(target=flask_thread, kwargs={'host':host, 'port':port})
     flask_app_thread.start()
     logging.info("Started Flask server on http://%s:%d" % (host,port))
 
 
 def stop_flask(host='0.0.0.0', port=5000):
-    """ Shutdown the Flask Server by submmitting a server_shutdown request """
+    """ Shutdown the Flask Server by submmitting a shutdown request """
+    global flask_shutdown_key
     try:
-        r = requests.get('http://%s:%d/server_shutdown' % (host,port))
+        r = requests.get('http://%s:%d/shutdown/%s' % (host,port, flask_shutdown_key))
         logging.info("Web - Flask Server Shutdown.")
     except:
         # TODO: Cleanup errors

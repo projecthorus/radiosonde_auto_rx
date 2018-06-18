@@ -11,6 +11,8 @@ import traceback
 import json
 from .utils import rtlsdr_test
 
+global_config = {}
+
 try:
     # Python 2
     from ConfigParser import RawConfigParser
@@ -31,6 +33,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config (dict): The configuration dictionary.
 		sdr_config (dict): A dictionary with SDR parameters.
 	"""
+	global global_config
 	# Configuration Defaults:
 	auto_rx_config = {
 		# Log Settings
@@ -229,6 +232,7 @@ def read_auto_rx_config(filename):
 			logging.error("Config - No working SDRs! Cannot run...")
 			return None
 		else:
+			global_config = auto_rx_config
 			return auto_rx_config
 
 
@@ -245,4 +249,4 @@ if __name__ == '__main__':
 
 	config = read_auto_rx_config(sys.argv[1])
 
-	pprint.pprint(config)
+	pprint.pprint(global_config)
