@@ -14,6 +14,7 @@ import traceback
 import flask
 import autorx
 import autorx.config
+import autorx.scan
 from threading import Thread
 from flask_socketio import SocketIO
 
@@ -77,6 +78,12 @@ def flask_get_config():
     return json.dumps(_config)
 
 
+@app.route("/get_scan_data")
+def flask_get_scan_data():
+    """ Return a copy of the latest scan results """
+    return json.dumps(autorx.scan.scan_result)
+
+
 @app.route("/shutdown/<shutdown_key>")
 def shutdown_flask(shutdown_key):
     """ Shutdown the Flask Server """
@@ -117,6 +124,13 @@ def stop_flask(host='0.0.0.0', port=5000):
     except:
         # TODO: Cleanup errors
         traceback.print_exc()
+
+#
+# Globally called 'emit' function
+#
+def flask_emit_event(event_name="none", data={}):
+    """ Emit a socketio event to any clients. """
+    socketio.emit(event_name, data, namespace='/update_status')
 
 
 class WebHandler(logging.Handler):

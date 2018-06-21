@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import datetime
 import logging
 import numpy as np
 import os
@@ -15,7 +16,7 @@ import traceback
 from threading import Thread
 from types import FunctionType, MethodType
 from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
-
+from .web import flask_emit_event
 try:
     # Python 2
     from StringIO import StringIO
@@ -23,6 +24,8 @@ except ImportError:
     # Python 3
     from io import StringIO
 
+# Global for latest scan result
+scan_result = {'freq':[], 'power':[], 'peaks':[], 'timestamp':'No data yet.'}
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_power='rtl_power', device_idx = 0, ppm = 0, gain = -1, bias = False):
     """ Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
@@ -441,6 +444,7 @@ class SondeScanner(object):
             list: An empty list [] if no sondes are detected otherwise, a list of list, containing entries of [frequency (Hz), Sonde Type],
                 i.e. [[402500000,'RS41'],[402040000,'RS92']]
         """
+        global scan_result
 
         _search_results = []
 
@@ -470,6 +474,10 @@ class SondeScanner(object):
                 # an issue with the RTLSDR. Sometimes these issues can be resolved by issuing a usb reset to the RTLSDR.
                 raise ValueError("Invalid Log File")
 
+            # Update the global scan result
+            scan_result['freq'] = list(freq/1e6)
+            scan_result['power'] = list(power)
+            scan_result['timestamp'] = datetime.datetime.utcnow().isoformat()
 
             # Rough approximation of the noise floor of the received power spectrum.
             power_nf = np.mean(power)
@@ -480,6 +488,9 @@ class SondeScanner(object):
             # If we have found no peaks, and no greylist has been provided, re-scan.
             if (len(peak_indices) == 0) and (len(self.greylist) == 0):
                 self.log_debug("No peaks found.")
+                # Emit a notification to the client that a scan is complete.
+                scan_result['peaks'] = []
+                flask_emit_event('scan_event')
                 return []
 
             # Sort peaks by power.
@@ -506,8 +517,12 @@ class SondeScanner(object):
             # Append on any frequencies in the supplied greylist
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
 
+
             if len(peak_frequencies) == 0:
                 self.log_debug("No peaks found after blacklist frequencies removed.")
+                # Emit a notification to the client that a scan is complete.
+                scan_result['peaks'] = []
+                flask_emit_event('scan_event')
                 return []
             else:
                 self.log_info("Detected peaks on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
@@ -516,6 +531,10 @@ class SondeScanner(object):
             # We have been provided a whitelist - scan through the supplied frequencies.
             peak_frequencies = np.array(self.whitelist)*1e6
             self.log_info("Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
+
+        # Emit a notification to the client that a scan is complete.
+        scan_result['peaks'] = list(peak_frequencies)
+        flask_emit_event('scan_event')
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
