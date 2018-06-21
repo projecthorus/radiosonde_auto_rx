@@ -2,9 +2,26 @@
 <html>
 <head>
     <title>Auto-RX Log</title>
+
+    <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+
     <script src="{{ url_for('static', filename='js/jquery-1.11.3.min.js')}}"></script>
     <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/leaflet.js') }}""></script>
+
+    <!-- Load d3.js and c3.js -->
+    <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/c3.min.js') }}""></script>
+
     <script type="text/javascript" charset="utf-8">
+        var autorx_config = {
+            lat: 0.0,
+            lon: 0.0
+        };
+
         $(document).ready(function() {
             // Use a "/test" namespace.
             // An application can open a connection on multiple namespaces, and
@@ -25,6 +42,17 @@
                 socket.emit('my_event', {data: 'I\'m connected!'});
             });
 
+            // Grab the System config.
+            $.ajax({
+                  url: "/get_config",
+                  dataType: 'json',
+                  async: false,
+                  success: function(data) {
+                    autorx_config = data;
+                  }
+            });
+
+
             // Event handler for server sent data.
             // The callback function is invoked whenever the server emits data
             // to the client. The data is then displayed in the "Received"
@@ -33,9 +61,72 @@
                 $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
             });
 
+
+            var scan_chart_spectra = {
+                xs: {
+                    'Spectra': 'x_spectra'
+                },
+                columns: [
+                    ['x_spectra',400,403],
+                    ['Spectra',0,0]
+                ],
+                type:'line'
+            };
+
+            var scan_chart_peaks = {
+                xs: {
+                    'Peaks': 'x_peaks'
+                },
+                columns: [
+                    ['x_peaks',0],
+                    ['Peaks',0]
+                ],
+                type:'scatter'
+            };
+
+
+            var scan_chart_obj = c3.generate({
+                bindto: '#scan_chart',
+                data: scan_chart_spectra,
+                axis:{
+                    x:{
+                        tick:{
+                            format: function (x) { return x.toFixed(3); }
+                        },
+                        label:"Frequency (MHz)"
+                    }
+                }
+            });
+
+            socket.on('scan_event', function(msg) {
+                // Grab the latest scan data
+                $.getJSON("/get_scan_data", function(data){
+                    scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
+                    scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
+                    scan_chart_peaks.columns[0] = ['x_peaks'].concat(data.peak_freq);
+                    scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
+
+                    scan_chart_obj.load(scan_chart_spectra);
+                    scan_chart_obj.load(scan_chart_peaks);
+
+                }
+                );
+            });
+
+            var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(sondemap);
+            // Add a new marker, but set it to hidden initially.
+            var marker = L.marker(sondemap.getCenter()).addTo(sondemap);
+
             socket.on('telemetry_event', function(msg) {
                 $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
+                marker.setLatLng([msg.lat,msg.lon]).update();
+                sondemap.setView([msg.lat, msg.lon], 10);
             });
+
 
         });
     </script>
@@ -43,7 +134,11 @@
 <body>
     <h1>Radiosonde Auto-RX</h1>
     <h2>Current Sonde:</h2>
-    <div id="telemetry"></div>
+    <div id="telemetry">Nothing being tracked.</div><br>
+    <div id="sonde_map" style="height:300px;width:75%"></div>
+    <h2>Scan Results:</h2>
+    <div id="scan_chart" style="width:75%;">
+    </div>
     <h2>Log:</h2>
     <div id="log"></div>
 </body>

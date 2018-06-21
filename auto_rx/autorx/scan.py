@@ -25,7 +25,7 @@ except ImportError:
     from io import StringIO
 
 # Global for latest scan result
-scan_result = {'freq':[], 'power':[], 'peaks':[], 'timestamp':'No data yet.'}
+scan_result = {'freq':[], 'power':[], 'peak_freq':[], 'peak_lvl':[], 'timestamp':'No data yet.'}
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_power='rtl_power', device_idx = 0, ppm = 0, gain = -1, bias = False):
     """ Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
@@ -533,7 +533,18 @@ class SondeScanner(object):
             self.log_info("Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
 
         # Emit a notification to the client that a scan is complete.
-        scan_result['peaks'] = list(peak_frequencies)
+        # We need to format our peak results in an odd manner for chart.js to read them.
+        _peak_freq = []
+        _peak_lvl = []
+        for _peak in peak_frequencies:
+            try:
+                _peak_freq.append(_peak/1e6)
+                _peak_lvl.append(power[np.argmin(np.abs(freq-_peak))])
+            except:
+                pass
+
+        scan_result['peak_freq'] = _peak_freq
+        scan_result['peak_lvl'] = _peak_lvl
         flask_emit_event('scan_event')
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.

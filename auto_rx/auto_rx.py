@@ -383,9 +383,6 @@ def main():
     logging.getLogger('socketio').setLevel(logging.ERROR)
     logging.getLogger('engineio').setLevel(logging.ERROR)
 
-    # Start up the flask server.
-    # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
-    start_flask()
 
     # Attempt to read in config file
     logging.info("Reading configuration file...")
@@ -396,6 +393,10 @@ def main():
     else:
         config = _temp_cfg
         autorx.sdr_list = config['sdr_settings']
+
+    # Start up the flask server.
+    # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
+    start_flask()
 
     # If we have been supplied a frequency via the command line, override the whitelist settings
     # to only include the supplied frequency.
