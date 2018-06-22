@@ -15,7 +15,7 @@
     <!-- Load d3.js and c3.js -->
     <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}""></script>
-    <!-- Custom style to remove circles on the Spectra graph -->
+    <!-- Custom style to remove circles on the Spectra graph, and do a few other formatting things -->
     <style>
     #scan_chart .c3-circles-Spectra {
         display: none;
@@ -29,17 +29,14 @@
     </style>
 
     <script type="text/javascript" charset="utf-8">
+        // Dummy auto_rx.config, which will be replaced with real data on page load.
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
         };
 
         $(document).ready(function() {
-            // Use a "/test" namespace.
-            // An application can open a connection on multiple namespaces, and
-            // Socket.IO will multiplex all those connections on a single
-            // physical channel. If you don't care about multiple channels, you
-            // can set the namespace to an empty string.
+            // Use the 'update_status' namespace for all of our traffic
             namespace = '/update_status';
 
             // Connect to the Socket.IO server.
@@ -47,7 +44,8 @@
             //     http[s]://<domain>:<port>[/<namespace>]
             var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
 
-            // Grab the System config.
+            // Grab the System config on startup.
+            // Refer to config.py for the contents of the configuration blob.
             $.ajax({
                   url: "/get_config",
                   dataType: 'json',
@@ -58,15 +56,15 @@
             });
 
 
-            // Event handler for server sent data.
-            // The callback function is invoked whenever the server emits data
-            // to the client. The data is then displayed in the "Received"
-            // section of the page.
+            // Event handler for Log data.
             socket.on('log_event', function(msg) {
+                // On receipt, add to the log div. 
+                // TODO: Have this div be a scrollable area, and always show the latest log message.
                 $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
             });
 
-
+            // Scan Result Chart Setup!
+            // TODO: Maybe move this out to another file.
             var scan_chart_spectra = {
                 xs: {
                     'Spectra': 'x_spectra'
@@ -117,8 +115,10 @@
                 point:{r:10}
             });
 
+            // Scan Event handler
             socket.on('scan_event', function(msg) {
-                // Grab the latest scan data
+                // There is Scan data ready for us!
+                // Grab the latest set of data.
                 $.getJSON("/get_scan_data", function(data){
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
@@ -135,6 +135,8 @@
                 );
             });
 
+            // Sonde position Map
+            // Setup a basic Leaflet map, with an OSM tileset.
             var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -142,18 +144,28 @@
             }).addTo(sondemap);
             // Add a new marker, but set it to hidden initially.
             var home_marker = L.marker(sondemap.getCenter()).addTo(sondemap);
+            // Add a marker which will be updated with sonde positions.
+            // TODO: Handle multiple sondes!
             var sonde_marker = L.marker([0.0,0.0]).addTo(sondemap);
 
+            // Telemetry event handler.
+            // We will get one of these with every line of telemetry decoded
             socket.on('telemetry_event', function(msg) {
+                // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
+                // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
+                // Update the telemetry div
                 $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
+                // Update the sonde marker on the map
                 sonde_marker.setLatLng([msg.lat,msg.lon]).update();
-                sondemap.setView([msg.lat, msg.lon], 10);
+                // Centre the map on the sonde position.
+                sondemap.panTo([msg.lat, msg.lon]);
             });
 
 
             // Tell the server we are connected and ready for data.
             socket.on('connect', function() {
                 socket.emit('client_connected', {data: 'I\'m connected!'});
+                // This will cause the server to emit a few messages telling us to fetch data.
             });
 
         });
