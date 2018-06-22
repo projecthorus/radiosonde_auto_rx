@@ -505,21 +505,6 @@ class SondeScanner(object):
             peak_freqs = freq[peak_indices]
             peak_frequencies = peak_freqs[np.argsort(peak_powers)][::-1]
 
-            # Emit a notification to the client that a scan is complete.
-            # We need to format our peak results in an odd manner for chart.js to read them.
-            _peak_freq = []
-            _peak_lvl = []
-            for _peak in peak_frequencies:
-                try:
-                    _peak_freq.append(_peak/1e6)
-                    _peak_lvl.append(power[np.argmin(np.abs(freq-_peak))])
-                except:
-                    pass
-
-            scan_result['peak_freq'] = _peak_freq
-            scan_result['peak_lvl'] = _peak_lvl
-            flask_emit_event('scan_event')
-
             # Quantize to nearest x Hz
             peak_frequencies = np.round(peak_frequencies/self.quantization)*self.quantization
 
@@ -539,6 +524,20 @@ class SondeScanner(object):
             # Append on any frequencies in the supplied greylist
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
 
+            # Emit a notification to the client that a scan is complete.
+            # We need to format our peak results in an odd manner for chart.js to read them.
+            _peak_freq = []
+            _peak_lvl = []
+            for _peak in peak_frequencies:
+                try:
+                    _peak_freq.append(_peak/1e6)
+                    _peak_lvl.append(power[np.argmin(np.abs(freq-_peak))])
+                except:
+                    pass
+
+            scan_result['peak_freq'] = _peak_freq
+            scan_result['peak_lvl'] = _peak_lvl
+            flask_emit_event('scan_event')
 
             if len(peak_frequencies) == 0:
                 self.log_debug("No peaks found after blacklist frequencies removed.")
