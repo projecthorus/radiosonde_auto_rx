@@ -483,6 +483,8 @@ class SondeScanner(object):
             scan_result['freq'] = list(_freq_decimate)
             scan_result['power'] = list(_power_decimate)
             scan_result['timestamp'] = datetime.datetime.utcnow().isoformat()
+            scan_result['peak_freq'] = []
+            scan_result['peak_lvl'] = []
 
             # Rough approximation of the noise floor of the received power spectrum.
             power_nf = np.mean(power)
@@ -496,7 +498,6 @@ class SondeScanner(object):
             if (len(peak_indices) == 0) and (len(self.greylist) == 0):
                 self.log_debug("No peaks found.")
                 # Emit a notification to the client that a scan is complete.
-                scan_result['peaks'] = []
                 flask_emit_event('scan_event')
                 return []
 
