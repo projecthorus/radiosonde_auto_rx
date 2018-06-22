@@ -142,11 +142,34 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(sondemap);
+
+            var homeIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+                iconSize: [26, 34],
+                iconAnchor: [13, 34]
+            });
+
+            var sondeAscentIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/balloon-blue.png') }}',
+                iconSize: [46, 85],
+                //iconAnchor: [13, 34]
+            });
+            var sondeDescentIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/parachute-blue.png') }}',
+                iconSize: [46, 84],
+                //iconAnchor: [13, 34]
+            });
             // Add a new marker, but set it to hidden initially.
-            var home_marker = L.marker(sondemap.getCenter()).addTo(sondemap);
+            var home_marker = L.marker(sondemap.getCenter(),
+                {title: 'Receiver Location', icon: homeIcon}
+                ).addTo(sondemap);
+            
             // Add a marker which will be updated with sonde positions.
             // TODO: Handle multiple sondes!
-            var sonde_marker = L.marker([0.0,0.0]).addTo(sondemap);
+            var sonde_marker = L.marker([0.0,0.0],
+                {title:'Sonde', icon: sondeAscentIcon}
+                ).addTo(sondemap);
+            
 
             // Telemetry event handler.
             // We will get one of these with every line of telemetry decoded
@@ -155,6 +178,11 @@
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
                 // Update the telemetry div
                 $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
+                if(msg.vel_v<0){
+                    sonde_marker.setIcon(sondeDescentIcon);
+                }else{
+                    sonde_marker.setIcon(sondeAscentIcon);
+                }
                 // Update the sonde marker on the map
                 sonde_marker.setLatLng([msg.lat,msg.lon]).update();
                 // Centre the map on the sonde position.
