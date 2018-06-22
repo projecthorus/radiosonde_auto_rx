@@ -29,6 +29,14 @@ flask_shutdown_key = "temp"
 # SocketIO instance
 socketio = SocketIO(app)
 
+
+#
+# Globally called 'emit' function
+#
+def flask_emit_event(event_name="none", data={}):
+    """ Emit a socketio event to any clients. """
+    socketio.emit(event_name, data, namespace='/update_status')
+
 #
 #   Flask Routes
 #
@@ -94,13 +102,10 @@ def shutdown_flask(shutdown_key):
 
     return ""
 
-#
-# Globally called 'emit' function
-#
-def flask_emit_event(event_name="none", data={}):
-    """ Emit a socketio event to any clients. """
-    socketio.emit(event_name, data, namespace='/update_status')
 
+#
+# SocketIO Events
+#
 
 @socketio.on('client_connected', namespace='/update_status')
 def refresh_client(arg1):
