@@ -11,12 +11,13 @@ import logging
 import random
 import requests
 import traceback
-import flask
 import autorx
 import autorx.config
 import autorx.scan
 from threading import Thread
+import flask
 from flask_socketio import SocketIO
+
 
 # Instantiate our Flask app.
 app = flask.Flask(__name__)

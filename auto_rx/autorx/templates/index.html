@@ -182,7 +182,7 @@
                 // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
                 // Update the telemetry div
-                $('#telemetry').html('<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1)) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1);
+                $('#telemetry').html('<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1));
                 if(msg.vel_v<0){
                     sonde_marker.setIcon(sondeDescentIcon);
                 }else{
