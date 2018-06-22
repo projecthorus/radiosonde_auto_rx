@@ -95,6 +95,23 @@ def shutdown_flask(shutdown_key):
     return ""
 
 #
+# Globally called 'emit' function
+#
+def flask_emit_event(event_name="none", data={}):
+    """ Emit a socketio event to any clients. """
+    socketio.emit(event_name, data, namespace='/update_status')
+
+
+@socketio.on('client_connected', namespace='/update_status')
+def refresh_client(arg1):
+    """ A client has connected, let them know to grab data."""
+    logging.info("Flask - New Web Client connected!")
+    # Tell them to get a copy of the latest scan results.
+    flask_emit_event('scan_event')
+    # TODO: Send last few log entries
+
+
+#
 #   Flask Startup & Shutdown Helper Scripts
 #
 
@@ -125,12 +142,6 @@ def stop_flask(host='0.0.0.0', port=5000):
         # TODO: Cleanup errors
         traceback.print_exc()
 
-#
-# Globally called 'emit' function
-#
-def flask_emit_event(event_name="none", data={}):
-    """ Emit a socketio event to any clients. """
-    socketio.emit(event_name, data, namespace='/update_status')
 
 
 class WebHandler(logging.Handler):

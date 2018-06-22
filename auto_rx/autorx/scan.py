@@ -524,19 +524,28 @@ class SondeScanner(object):
             # Append on any frequencies in the supplied greylist
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
 
-            # Emit a notification to the client that a scan is complete.
-            # We need to format our peak results in an odd manner for chart.js to read them.
+            # Get the level of our peak search results, to send to the web client.
+            # This is actually a bit of a pain to do...
             _peak_freq = []
             _peak_lvl = []
             for _peak in peak_frequencies:
                 try:
+                    # Find the index of the peak within our decimated frequency array.
+                    _peak_power_idx = np.argmin(np.abs(scan_result['freq']-_peak/1e6))
+                    # Because we've decimated the freq & power data, the peak location may
+                    # not be exactly at this frequency, so we take the maximum of an area
+                    # around this location.
+                    _peak_search_min = max(0,_peak_power_idx-5)
+                    _peak_search_max = min(len(scan_result['freq'])-1, _peak_power_idx+5)
+                    # Grab the maximum value, and append it and the frequency to the output arrays
+                    _peak_lvl.append(max(scan_result['power'][_peak_search_min:_peak_search_max]))
                     _peak_freq.append(_peak/1e6)
-                    _peak_lvl.append(power[np.argmin(np.abs(freq-_peak))])
                 except:
                     pass
-
+            # Add the peak results to our global scan result dictionary.
             scan_result['peak_freq'] = _peak_freq
             scan_result['peak_lvl'] = _peak_lvl
+            # Tell the web client we have new data.
             flask_emit_event('scan_event')
 
             if len(peak_frequencies) == 0:

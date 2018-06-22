@@ -47,13 +47,6 @@
             //     http[s]://<domain>:<port>[/<namespace>]
             var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
 
-            // Event handler for new connections.
-            // The callback function is invoked when a connection with the
-            // server is established.
-            socket.on('connect', function() {
-                socket.emit('my_event', {data: 'I\'m connected!'});
-            });
-
             // Grab the System config.
             $.ajax({
                   url: "/get_config",
@@ -148,14 +141,20 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(sondemap);
             // Add a new marker, but set it to hidden initially.
-            var marker = L.marker(sondemap.getCenter()).addTo(sondemap);
+            var home_marker = L.marker(sondemap.getCenter()).addTo(sondemap);
+            var sonde_marker = L.marker([0.0,0.0]).addTo(sondemap);
 
             socket.on('telemetry_event', function(msg) {
                 $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
-                marker.setLatLng([msg.lat,msg.lon]).update();
+                sonde_marker.setLatLng([msg.lat,msg.lon]).update();
                 sondemap.setView([msg.lat, msg.lon], 10);
             });
 
+
+            // Tell the server we are connected and ready for data.
+            socket.on('connect', function() {
+                socket.emit('client_connected', {data: 'I\'m connected!'});
+            });
 
         });
     </script>
