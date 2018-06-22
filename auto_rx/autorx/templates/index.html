@@ -61,6 +61,8 @@
                 // On receipt, add to the log div. 
                 // TODO: Have this div be a scrollable area, and always show the latest log message.
                 $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
+                // Scroll to the bottom of the log div
+                $("#log").scrollTop($("#log")[0].scrollHeight);
             });
 
             // Scan Result Chart Setup!
@@ -126,10 +128,13 @@
                     scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
 
                     scan_chart_threshold.columns[1] = ['Threshold'].concat([data.threshold+autorx_config.snr_threshold,data.threshold+autorx_config.snr_threshold]);
-
+                    // Plot the updated data.
                     scan_chart_obj.load(scan_chart_spectra);
                     scan_chart_obj.load(scan_chart_peaks);
                     scan_chart_obj.load(scan_chart_threshold);
+
+                    // Show the latest scan time.
+                    $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp);
 
                 }
                 );
@@ -177,7 +182,7 @@
                 // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
                 // Update the telemetry div
-                $('#telemetry').html('<b>ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat + ',' + msg.lon + '<b> Alt: </b>' + msg.alt);
+                $('#telemetry').html('<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1)) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1);
                 if(msg.vel_v<0){
                     sonde_marker.setIcon(sondeDescentIcon);
                 }else{
@@ -202,12 +207,13 @@
 <body>
     <h1>Radiosonde Auto-RX</h1>
     <h2>Current Sonde:</h2>
-    <div id="telemetry">Nothing being tracked.</div><br>
+    <div id="telemetry">Nothing being tracked...</div><br>
     <div id="sonde_map" style="height:300px;width:75%"></div>
     <h2>Scan Results:</h2>
+    <div id='scan_results'>No scan data yet...</div>
     <div id="scan_chart" style="width:75%;">
     </div>
     <h2>Log:</h2>
-    <div id="log"></div>
+    <div id="log" style="height:400px;overflow:scroll"></div>
 </body>
 </html>
