@@ -22,6 +22,8 @@ from flask_socketio import SocketIO
 # Instantiate our Flask app.
 app = flask.Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
 # This thread will hold the currently running flask application thread.
 flask_app_thread = None
 # A key that needs to be matched to allow shutdown.
@@ -30,6 +32,8 @@ flask_shutdown_key = "temp"
 # SocketIO instance
 socketio = SocketIO(app)
 
+# Global store of telemetry data, which we will add data do and manage.
+flask_telemetry_store = {}
 
 #
 # Globally called 'emit' function
