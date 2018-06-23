@@ -396,7 +396,7 @@ def main():
 
     # Start up the flask server.
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
-    start_flask()
+    start_flask(port=config['web_port'])
 
     # If we have been supplied a frequency via the command line, override the whitelist settings
     # to only include the supplied frequency.
@@ -476,7 +476,7 @@ def main():
         exporter_objects.append(_ozimux)
         exporter_functions.append(_ozimux.add)
 
-    _web_exporter = WebExporter()
+    _web_exporter = WebExporter(max_age=config['web_archive_age'])
     exporter_objects.append(_web_exporter)
     exporter_functions.append(_web_exporter.add)
 

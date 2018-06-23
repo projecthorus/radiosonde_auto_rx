@@ -59,7 +59,6 @@
             // Event handler for Log data.
             socket.on('log_event', function(msg) {
                 // On receipt, add to the log div. 
-                // TODO: Have this div be a scrollable area, and always show the latest log message.
                 $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
                 // Scroll to the bottom of the log div
                 $("#log").scrollTop($("#log")[0].scrollHeight);
@@ -176,12 +175,6 @@
             //  path: Leaflet polyline object.
             var sonde_positions = {};
             
-            // Add a marker which will be updated with sonde positions.
-            // TODO: Handle multiple sondes!
-            var sonde_marker = L.marker([0.0,0.0],
-                {title:'Sonde', icon: sondeAscentIcon}
-                ).addTo(sondemap);
-
 
             function updateTelemetryText(){
                 // Produce the text to go in the telemetry div.
@@ -197,6 +190,31 @@
                 $('#telemetry').html(telem_text);
             }
             
+            // Grab the recent archive of telemetry data
+            // This should only ever be run once - on page load.
+            // TODO: See how this performs when loading an entire flights worth of position data (could be a lot!)
+            var initial_load_complete = false;
+            $.ajax({
+                  url: "/get_telemetry_archive",
+                  dataType: 'json',
+                  async: true,
+                  success: function(data) {
+                    // Populate sonde_positions with data from the telemetry archive.
+                    for (sonde_id in data){
+                        var telem = data[sonde_id].latest_telem;
+                        sonde_positions[sonde_id] = {
+                            latest_data: telem,
+                            path: L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:'blue'}).addTo(sondemap),
+                            marker : L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcon}).addTo(sondemap),
+                        };
+                        if (telem.vel_v < 0){
+                            sonde_positions[sonde_id].marker.setIcon(sondeDescentIcon);
+                        }
+                    }
+                    initial_load_complete = true;
+                  }
+            });
+
 
             // Telemetry event handler.
             // We will get one of these with every line of telemetry decoded
@@ -204,19 +222,24 @@
                 // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
 
+                if(initial_load_complete == false){
+                    // If we have not completed our initial load of telemetry data, discard this data.
+                    return
+                }
+
                 // Have we seen this sonde before? 
                 if (sonde_positions.hasOwnProperty(msg.id) == false){
                     // Nope, add a property to the sonde_positions object, and setup markers for the sonde.
                     sonde_positions[msg.id] = {
                         latest_data : msg,
-                        marker : L.marker([msg.lat, msg.lon],{title:msg.id, icon: sondeAscentIcon}).addTo(sondemap),
-                        path: L.polyline([[msg.lat, msg.lon]],{title:msg.id + " Path", color:'blue'}).addTo(sondemap)
+                        marker : L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcon}).addTo(sondemap),
+                        path: L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:'blue'}).addTo(sondemap)
                     };
                 } else{
                     // Yep - update the sonde_positions entry.
                     sonde_positions[msg.id].latest_data = msg;
-                    sonde_positions[msg.id].path.addLatLng([msg.lat, msg.lon]);
-                    sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon]).update();
+                    sonde_positions[msg.id].path.addLatLng([msg.lat, msg.lon, msg.alt]);
+                    sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
                     if (msg.vel_v < 0){
                         sonde_positions[msg.id].marker.setIcon(sondeDescentIcon);
@@ -227,7 +250,7 @@
 
                 // Centre the map on the sonde position.
                 sondemap.panTo([msg.lat, msg.lon]);
-
+                // Update the telemetry text display
                 updateTelemetryText();
             });
 

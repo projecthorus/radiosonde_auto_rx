@@ -10,6 +10,7 @@ import json
 import logging
 import random
 import requests
+import time
 import traceback
 import autorx
 import autorx.config
@@ -17,6 +18,12 @@ import autorx.scan
 from threading import Thread
 import flask
 from flask_socketio import SocketIO
+try:
+    # Python 2
+    from Queue import Queue
+except ImportError:
+    # Python 3
+    from queue import Queue
 
 
 # Instantiate our Flask app.
@@ -32,7 +39,12 @@ flask_shutdown_key = "temp"
 # SocketIO instance
 socketio = SocketIO(app)
 
-# Global store of telemetry data, which we will add data do and manage.
+# Global store of telemetry data, which we will add data to and manage.
+# Under each key (which will be the sonde ID), we will have a dictionary containing:
+#   'latest_timestamp': timestamp (unix timestamp) of when the last packet was received.
+#   'latest_telem': telemetry dictionary.
+#   'path': list of [lat,lon,alt] pairs
+#
 flask_telemetry_store = {}
 
 #
@@ -95,6 +107,12 @@ def flask_get_config():
 def flask_get_scan_data():
     """ Return a copy of the latest scan results """
     return json.dumps(autorx.scan.scan_result)
+
+
+@app.route("/get_telemetry_archive")
+def flask_get_telemetry_archive():
+    """ Return a copy of the telemetry archive """
+    return json.dumps(flask_telemetry_store)
 
 
 @app.route("/shutdown/<shutdown_key>")
@@ -176,11 +194,44 @@ class WebExporter(object):
     # We require the following fields to be present in the incoming telemetry dictionary data
     REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
 
-    def __init__(self):
-        """ """
-        pass
+    def __init__(self,
+        max_age = 120):
+        """ Initialise a WebExporter object.
 
-    def add(self, telemetry):
+        Args:
+            max_age: Store telemetry data up to X hours old
+        """
+
+        self.max_age = max_age*60
+        self.input_queue = Queue()
+
+        # Start the input queue processing thread.
+        self.input_processing_running = True
+        self.input_thread = Thread(target=self.process_queue)
+        self.input_thread.start()
+        
+
+    def process_queue(self):
+        """ Process data from the input queue.
+        """
+        while self.input_processing_running:
+            # Read in all queue items and handle them.
+            while not self.input_queue.empty():
+                self.handle_telemetry(self.input_queue.get())
+
+            # Check the telemetry store for old data.
+            self.clean_telemetry_store()
+
+            # Wait a short time before processing new data
+            time.sleep(0.1)
+
+        logging.debug("WebExporter - Closed Processing thread.")
+
+
+    def handle_telemetry(self,telemetry):
+        """ Send incoming telemetry to clients, and add it to the telemetry store. """
+        global flask_telemetry_store
+
         for _field in self.REQUIRED_FIELDS:
             if _field not in telemetry:
                 self.log_error("JSON object missing required field %s" % _field)
@@ -190,10 +241,41 @@ class WebExporter(object):
         _telem.pop('datetime_dt')
         socketio.emit('telemetry_event', _telem, namespace='/update_status')
 
+        # Add the telemetry information to the global telemetry store
+        if _telem['id'] not in flask_telemetry_store:
+            flask_telemetry_store[_telem['id']] = {'timestamp':time.time(), 'latest_telem':_telem, 'path':[]}
+
+        flask_telemetry_store[_telem['id']]['path'].append([_telem['lat'],_telem['lon'],_telem['alt']])
+        flask_telemetry_store[_telem['id']]['latest_telem'] = _telem
+        flask_telemetry_store[_telem['id']]['timestamp'] = time.time()
+
+
+    def clean_telemetry_store(self):
+        """ Remove any old data from the telemetry store """
+        global flask_telemetry_store
+
+        _now = time.time()
+        _telem_ids = list(flask_telemetry_store.keys())
+        for _id in _telem_ids:
+            # If the most recently telemetry is older than self.max_age, remove all data for
+            # that sonde from the archive.
+            if (_now - flask_telemetry_store[_id]['timestamp']) > self.max_age:
+                flask_telemetry_store.pop(_id)
+                logging.debug("WebExporter - Removed Sonde #%s from archive." % _id)
+        
+
+
+    def add(self, telemetry):
+        # Add it to the queue if we are running.
+        if self.input_processing_running:
+            self.input_queue.put(telemetry)
+        else:
+            logging.error("WebExporter - Processing not running, discarding.")
+
 
     def close(self):
-        """ Dummy close function """
-        pass
+        """ Shutdown """
+        self.input_processing_running = False
 
 
 if __name__ == "__main__":

@@ -164,6 +164,16 @@ max_altitude = 50000
 # Discard positions more than 1000 km from the observation station location (if set)
 max_radius_km = 1000
 
+
+# Web Interface Settings
+[web]
+# Server Port
+web_port = 5000
+# Archive Age - How long to keep a sonde telemetry in memory for the web client to access, in minutes
+# Note: The higher this number, the more data the client will need to load in on startup
+archive_age = 120
+
+
 # Advanced Settings
 # These control low-level settings within various modules.
 # Playing with them may result in odd behaviour.
