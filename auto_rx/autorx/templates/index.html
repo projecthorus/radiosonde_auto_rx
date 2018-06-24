@@ -3,6 +3,7 @@
 <head>
     <title>Auto-RX Log</title>
 
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
 
@@ -25,6 +26,21 @@
     }
     #scan_chart .c3-line-Threshold {
         stroke-dasharray: 5,5;
+    }
+    .table-fixed thead {
+        width: 97%;
+    }
+    .table-fixed tbody {
+      height: 400px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .table-fixed thead, .table-fixed tbody, .table-fixed tr, .table-fixed td, .table-fixed th {
+      display: block;
+    }
+    .table-fixed tbody td, .table-fixed thead > tr> th {
+      float: left;
+      border-bottom-width: 0;
     }
     </style>
 
@@ -55,13 +71,24 @@
                   }
             });
 
+            // Grab the version information 
+            $.ajax({
+                  url: "/get_version",
+                  dataType: 'text',
+                  async: true,
+                  success: function(data) {
+                    $('#autorx_header').html('<h1>Radiosonde Auto-RX Status <small> Version: ' + data + '</small></h1>');
+                  }
+            });
+
 
             // Event handler for Log data.
             socket.on('log_event', function(msg) {
-                // On receipt, add to the log div. 
-                $('#log').append('<br>' + $('<div/>').text(msg.timestamp + ' ' + msg.level + ": " + msg.msg).html());
-                // Scroll to the bottom of the log div
-                $("#log").scrollTop($("#log")[0].scrollHeight);
+                // On receipt, add to the log table.
+                var log_entry = "<tr><td class='col-2'>"+msg.timestamp+"</td><td class='col-1'>"+msg.level+"</td><td class='col-9'>"+msg.msg+"</td></tr>";
+                $('#log_data > tbody').append(log_entry);
+                // Scroll to the bottom of the log table
+                $("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
             });
 
             // Scan Result Chart Setup!
@@ -182,9 +209,13 @@
                 $('#telemetry').empty();
                 // Generate the lines of telemetry information
                 var telem_text = "";
-                for (sonde_id in sonde_positions){
-                    var msg = sonde_positions[sonde_id].latest_data;
-                    telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
+                if (jQuery.isEmptyObject(sonde_positions)){
+                    telem_text = "No Sondes Tracked.";
+                }else{
+                    for (sonde_id in sonde_positions){
+                        var msg = sonde_positions[sonde_id].latest_data;
+                        telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
+                    }
                 }
                 // Update the div with the telemetry info.
                 $('#telemetry').html(telem_text);
@@ -211,6 +242,7 @@
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcon);
                         }
                     }
+                    updateTelemetryText();
                     initial_load_complete = true;
                   }
             });
@@ -265,15 +297,39 @@
     </script>
 </head>
 <body>
-    <h1>Radiosonde Auto-RX</h1>
-    <h2>Current Sonde:</h2>
-    <div id="telemetry">Nothing being tracked...</div><br>
-    <div id="sonde_map" style="height:300px;width:75%"></div>
-    <h2>Scan Results:</h2>
-    <div id='scan_results'>No scan data yet...</div>
-    <div id="scan_chart" style="width:75%;">
+    <div id="autorx_header"><h1>Radiosonde Auto-RX Status</h1></div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class='col-12'>
+                <h2>Current Sonde:</h2>
+                <div id="telemetry"></div><br>
+                <div id="sonde_map" style="height:300px;width:75%"></div>
+                <br>
+            </div>
+        </div>
+        <div class="row">
+            <div class='col-12'>
+                <h2>Scan Results:</h2>
+                <div id='scan_results'>No scan data yet...</div>
+                <div id="scan_chart" style="width:75%;"></div>
+            </div>
+        </div>
+        <div class="row">
+            <div class='col-12'>
+                <h2>Log:</h2>
+                <table id="log_data" class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th class="col-2">Time</th>
+                            <th class="col-1">Level</th>
+                            <th class="col-9">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <h2>Log:</h2>
-    <div id="log" style="height:400px;overflow:scroll"></div>
 </body>
 </html>

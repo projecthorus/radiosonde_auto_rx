@@ -181,7 +181,7 @@ class WebHandler(logging.Handler):
             # Convert log record into a dictionary
             log_data = {
                 'level': record.levelname,
-                'timestamp': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+                'timestamp': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'msg': record.msg
             }
             # Emit to all socket.io clients
