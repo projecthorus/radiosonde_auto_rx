@@ -476,8 +476,6 @@ class SondeScanner(object):
                 raise ValueError("Invalid Log File")
 
 
-            # TODO: Decimate these scan results, in a peak-preserving manner.
-            # Way too many points to plot quickly in C3.js at the moment...
             # Update the global scan result
             (_freq_decimate, _power_decimate) = peak_decimation(freq/1e6, power, 10) 
             scan_result['freq'] = list(_freq_decimate)
@@ -551,7 +549,6 @@ class SondeScanner(object):
 
             if len(peak_frequencies) == 0:
                 self.log_debug("No peaks found after blacklist frequencies removed.")
-                # Emit a notification to the client that a scan is complete.
                 return []
             else:
                 self.log_info("Detected peaks on %d frequencies (MHz): %s" % (len(peak_frequencies),str(peak_frequencies/1e6)))
