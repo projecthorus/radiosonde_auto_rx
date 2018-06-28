@@ -1,0 +1,335 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Auto-RX Log</title>
+
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+
+    <script src="{{ url_for('static', filename='js/jquery-1.11.3.min.js')}}"></script>
+    <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/leaflet.js') }}""></script>
+
+    <!-- Load d3.js and c3.js -->
+    <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/c3.min.js') }}""></script>
+    <!-- Custom style to remove circles on the Spectra graph, and do a few other formatting things -->
+    <style>
+    #scan_chart .c3-circles-Spectra {
+        display: none;
+    }
+    #scan_chart .c3-circles-Threshold{
+        display: none;
+    }
+    #scan_chart .c3-line-Threshold {
+        stroke-dasharray: 5,5;
+    }
+    .table-fixed thead {
+        width: 97%;
+    }
+    .table-fixed tbody {
+      height: 400px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .table-fixed thead, .table-fixed tbody, .table-fixed tr, .table-fixed td, .table-fixed th {
+      display: block;
+    }
+    .table-fixed tbody td, .table-fixed thead > tr> th {
+      float: left;
+      border-bottom-width: 0;
+    }
+    </style>
+
+    <script type="text/javascript" charset="utf-8">
+        // Dummy auto_rx.config, which will be replaced with real data on page load.
+        var autorx_config = {
+            lat: 0.0,
+            lon: 0.0
+        };
+
+        $(document).ready(function() {
+            // Use the 'update_status' namespace for all of our traffic
+            namespace = '/update_status';
+
+            // Connect to the Socket.IO server.
+            // The connection URL has the following format:
+            //     http[s]://<domain>:<port>[/<namespace>]
+            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+
+            // Grab the System config on startup.
+            // Refer to config.py for the contents of the configuration blob.
+            $.ajax({
+                  url: "/get_config",
+                  dataType: 'json',
+                  async: false,
+                  success: function(data) {
+                    autorx_config = data;
+                  }
+            });
+
+            // Grab the version information 
+            $.ajax({
+                  url: "/get_version",
+                  dataType: 'text',
+                  async: true,
+                  success: function(data) {
+                    $('#autorx_header').html('<h1>Radiosonde Auto-RX Status <small> Version: ' + data + '</small></h1>');
+                  }
+            });
+
+
+            // Event handler for Log data.
+            socket.on('log_event', function(msg) {
+                // On receipt, add to the log table.
+                var log_entry = "<tr><td class='col-2'>"+msg.timestamp+"</td><td class='col-1'>"+msg.level+"</td><td class='col-9'>"+msg.msg+"</td></tr>";
+                $('#log_data > tbody').append(log_entry);
+                // Scroll to the bottom of the log table
+                $("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
+            });
+
+            // Scan Result Chart Setup!
+            // TODO: Maybe move this out to another file.
+            var scan_chart_spectra = {
+                xs: {
+                    'Spectra': 'x_spectra'
+                },
+                columns: [
+                    ['x_spectra',autorx_config.min_freq, autorx_config.max_freq],
+                    ['Spectra',0,0]
+                ],
+                type:'line'
+            };
+
+            var scan_chart_peaks = {
+                xs: {
+                    'Peaks': 'x_peaks'
+                },
+                columns: [
+                    ['x_peaks',0],
+                    ['Peaks',0]
+                ],
+                type:'scatter'
+            };
+
+            var scan_chart_threshold = {
+                xs:{
+                    'Threshold': 'x_thresh'
+                },
+                columns:[
+                    ['x_thresh',autorx_config.min_freq, autorx_config.max_freq],
+                    ['Threshold',autorx_config.snr_threshold,autorx_config.snr_threshold]
+                ],
+                type:'line'
+            };
+
+            var scan_chart_obj = c3.generate({
+                bindto: '#scan_chart',
+                data: scan_chart_spectra,
+                axis:{
+                    x:{
+                        tick:{
+                            format: function (x) { return x.toFixed(3); }
+                        },
+                        label:"Frequency (MHz)"
+                    },
+                    y:{
+                        label:"Power (dB - Uncalibrated)"
+                    }
+                },
+                point:{r:10}
+            });
+
+            // Scan Event handler
+            socket.on('scan_event', function(msg) {
+                // There is Scan data ready for us!
+                // Grab the latest set of data.
+                $.getJSON("/get_scan_data", function(data){
+                    scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
+                    scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
+                    scan_chart_peaks.columns[0] = ['x_peaks'].concat(data.peak_freq);
+                    scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
+
+                    scan_chart_threshold.columns[1] = ['Threshold'].concat([data.threshold+autorx_config.snr_threshold,data.threshold+autorx_config.snr_threshold]);
+                    // Plot the updated data.
+                    scan_chart_obj.load(scan_chart_spectra);
+                    scan_chart_obj.load(scan_chart_peaks);
+                    scan_chart_obj.load(scan_chart_threshold);
+
+                    // Show the latest scan time.
+                    $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp);
+
+                }
+                );
+            });
+
+            // Sonde position Map
+            // Setup a basic Leaflet map, with an OSM tileset.
+            var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(sondemap);
+
+            var homeIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+                iconSize: [26, 34],
+                iconAnchor: [13, 34]
+            });
+            var sondeAscentIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/balloon-blue.png') }}',
+                iconSize: [46, 85],
+                iconAnchor: [23, 76]
+            });
+            var sondeDescentIcon = L.icon({
+                iconUrl: '{{ url_for('static', filename='img/parachute-blue.png') }}',
+                iconSize: [46, 84],
+                iconAnchor: [23, 76]
+            });
+
+            // Add a new marker, but set it to hidden initially.
+            var home_marker = L.marker(sondemap.getCenter(),
+                {title: 'Receiver Location', icon: homeIcon}
+                ).addTo(sondemap);
+
+            // Object which will contain sonde markers and traces.
+            // properties for each key in this object (key = sonde ID)
+            //  latest_data - latest sonde telemetry object from SondeDecoded
+            //  marker: Leaflet marker object.
+            //  path: Leaflet polyline object.
+            var sonde_positions = {};
+            
+
+            function updateTelemetryText(){
+                // Produce the text to go in the telemetry div.
+                // Clear out the telemetry div ready for new data
+                $('#telemetry').empty();
+                // Generate the lines of telemetry information
+                var telem_text = "";
+                if (jQuery.isEmptyObject(sonde_positions)){
+                    telem_text = "No Sondes Tracked.";
+                }else{
+                    for (sonde_id in sonde_positions){
+                        var msg = sonde_positions[sonde_id].latest_data;
+                        telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
+                    }
+                }
+                // Update the div with the telemetry info.
+                $('#telemetry').html(telem_text);
+            }
+            
+            // Grab the recent archive of telemetry data
+            // This should only ever be run once - on page load.
+            // TODO: See how this performs when loading an entire flights worth of position data (could be a lot!)
+            var initial_load_complete = false;
+            $.ajax({
+                  url: "/get_telemetry_archive",
+                  dataType: 'json',
+                  async: true,
+                  success: function(data) {
+                    // Populate sonde_positions with data from the telemetry archive.
+                    for (sonde_id in data){
+                        var telem = data[sonde_id].latest_telem;
+                        sonde_positions[sonde_id] = {
+                            latest_data: telem,
+                            path: L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:'blue'}).addTo(sondemap),
+                            marker : L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcon}).addTo(sondemap),
+                        };
+                        if (telem.vel_v < 0){
+                            sonde_positions[sonde_id].marker.setIcon(sondeDescentIcon);
+                        }
+                    }
+                    updateTelemetryText();
+                    initial_load_complete = true;
+                  }
+            });
+
+
+            // Telemetry event handler.
+            // We will get one of these with every line of telemetry decoded
+            socket.on('telemetry_event', function(msg) {
+                // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
+                // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
+
+                if(initial_load_complete == false){
+                    // If we have not completed our initial load of telemetry data, discard this data.
+                    return
+                }
+
+                // Have we seen this sonde before? 
+                if (sonde_positions.hasOwnProperty(msg.id) == false){
+                    // Nope, add a property to the sonde_positions object, and setup markers for the sonde.
+                    sonde_positions[msg.id] = {
+                        latest_data : msg,
+                        marker : L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcon}).addTo(sondemap),
+                        path: L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:'blue'}).addTo(sondemap)
+                    };
+                } else{
+                    // Yep - update the sonde_positions entry.
+                    sonde_positions[msg.id].latest_data = msg;
+                    sonde_positions[msg.id].path.addLatLng([msg.lat, msg.lon, msg.alt]);
+                    sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
+
+                    if (msg.vel_v < 0){
+                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcon);
+                    }else{
+                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcon);
+                    }
+                }
+
+                // Centre the map on the sonde position.
+                sondemap.panTo([msg.lat, msg.lon]);
+                // Update the telemetry text display
+                updateTelemetryText();
+            });
+
+
+            // Tell the server we are connected and ready for data.
+            socket.on('connect', function() {
+                socket.emit('client_connected', {data: 'I\'m connected!'});
+                // This will cause the server to emit a few messages telling us to fetch data.
+            });
+
+        });
+    </script>
+</head>
+<body>
+    <div id="autorx_header"><h1>Radiosonde Auto-RX Status</h1></div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class='col-12'>
+                <h2>Current Sonde:</h2>
+                <div id="telemetry"></div><br>
+                <div id="sonde_map" style="height:300px;width:75%"></div>
+                <br>
+            </div>
+        </div>
+        <div class="row">
+            <div class='col-12'>
+                <h2>Scan Results:</h2>
+                <div id='scan_results'>No scan data yet...</div>
+                <div id="scan_chart" style="width:75%;"></div>
+            </div>
+        </div>
+        <div class="row">
+            <div class='col-12'>
+                <h2>Log:</h2>
+                <table id="log_data" class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th class="col-2">Time</th>
+                            <th class="col-1">Level</th>
+                            <th class="col-9">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

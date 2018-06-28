@@ -6,10 +6,13 @@
 #   Released under GNU GPL v3 or later
 #
 
+import copy
 import logging
 import traceback
 import json
 from .utils import rtlsdr_test
+
+global_config = {}
 
 try:
     # Python 2
@@ -31,6 +34,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config (dict): The configuration dictionary.
 		sdr_config (dict): A dictionary with SDR parameters.
 	"""
+	global global_config
 	# Configuration Defaults:
 	auto_rx_config = {
 		# Log Settings
@@ -68,6 +72,9 @@ def read_auto_rx_config(filename):
 		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
+		# Web Settings,
+		'web_port'		: 5000,
+		'web_archive_age': 120,
 		# Advanced Parameters
 		'search_step'	: 800,
 		'snr_threshold'		: 10,
@@ -179,6 +186,17 @@ def read_auto_rx_config(filename):
 			logging.error("Config - Missing uploader_antenna setting. Using default.")
 			auto_rx_config['habitat_uploader_antenna'] = '1/4-wave'
 
+		# New settings added in 20180624.
+		try:
+			auto_rx_config['web_port'] = config.getint('web', 'web_port')
+			auto_rx_config['web_archive_age'] = config.getint('web', 'archive_age')
+		except:
+			logging.error("Config - Missing Web Server settings. Using defaults.")
+			auto_rx_config['web_port'] = 5000
+			auto_rx_config['web_archive_age'] = 120
+
+
+
 		# Now we attempt to read in the individual SDR parameters.
 		auto_rx_config['sdr_settings'] = {}
 
@@ -229,6 +247,8 @@ def read_auto_rx_config(filename):
 			logging.error("Config - No working SDRs! Cannot run...")
 			return None
 		else:
+			# Create a global copy of the configuration file at this point
+			global_config = copy.deepcopy(auto_rx_config)
 			return auto_rx_config
 
 
@@ -245,4 +265,4 @@ if __name__ == '__main__':
 
 	config = read_auto_rx_config(sys.argv[1])
 
-	pprint.pprint(config)
+	pprint.pprint(global_config)

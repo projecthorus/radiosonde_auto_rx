@@ -16,6 +16,7 @@ import sys
 import time
 import traceback
 
+import autorx
 from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder
 from autorx.logger import TelemetryLogger
@@ -24,6 +25,7 @@ from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
+from autorx.web import start_flask, stop_flask, WebHandler, WebExporter
 
 try:
     # Python 2
@@ -55,26 +57,6 @@ config = None
 exporter_objects = []   # This list will hold references to each exporter instance that is created.
 exporter_functions = [] # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
-# RTLSDR Usage Register - This dictionary holds information about each SDR and its currently running Decoder / Scanner
-#   Key = SDR device index / ID
-#   'device_idx': {
-#       'in_use' (bool) : True if the SDR is currently in-use by a decoder or scanner.
-#       'task' (class)  : If this SDR is in use, a reference to the task.
-#       'bias' (bool)   : True if the bias-tee should be enabled on this SDR, False otherwise.
-#       'ppm' (int)     : The PPM offset for this SDR.
-#       'gain' (float)  : The gain setting to use with this SDR. A setting of -1 turns on hardware AGC.    
-#   }
-#
-#
-sdr_list = {}
-
-# Currently running task register.
-#   Keys will either be 'SCAN' (only one scanner shall be running at a time), or a sonde frequency in MHz.
-#   Each element contains:
-#       'task' : (class) Reference to the currently running task.
-#       'device_idx' (str): The allocated SDR.
-#
-task_list = {}
 
 
 # Scan Result Queue
@@ -91,17 +73,16 @@ def allocate_sdr(check_only = False, task_description = ""):
     Returns:
         (str): The device index/serial number of the free/allocated SDR, if one is free, else None.
     """
-    global sdr_list
 
-    for _idx in sdr_list.keys():
-        if sdr_list[_idx]['in_use'] == False:
+    for _idx in autorx.sdr_list.keys():
+        if autorx.sdr_list[_idx]['in_use'] == False:
             # Found a free SDR!
             if check_only:
                 # If we are just checking to see if there are any SDRs free, we don't allocate it.
                 pass
             else:
                 # Otherwise, set the SDR as in-use.
-                sdr_list[_idx]['in_use'] = True
+                autorx.sdr_list[_idx]['in_use'] = True
                 logging.info("SDR #%s has been allocated to %s." % (str(_idx), task_description))
             
             return _idx
@@ -112,9 +93,9 @@ def allocate_sdr(check_only = False, task_description = ""):
 
 def start_scanner():
     """ Start a scanner thread on the first available SDR """
-    global task_list, sdr_list, config, scan_results, RS_PATH
+    global config, scan_results, RS_PATH
 
-    if 'SCAN' in task_list:
+    if 'SCAN' in autorx.task_list:
         # Already a scanner running! Return.
         logging.debug("Task Manager - Attempted to start a scanner, but one already running.")
         return
@@ -126,11 +107,11 @@ def start_scanner():
         return
     else:
         # Create entry in task list.
-        task_list['SCAN'] = {'device_idx': _device_idx, 'task': None}
+        autorx.task_list['SCAN'] = {'device_idx': _device_idx, 'task': None}
 
         # Init Scanner using settings from the global config.
         # TODO: Nicer way of passing in the huge list of args.
-        task_list['SCAN']['task'] = SondeScanner(
+        autorx.task_list['SCAN']['task'] = SondeScanner(
             callback = scan_results.put,
             auto_start = True,
             min_freq = config['min_freq'],
@@ -149,33 +130,32 @@ def start_scanner():
             sdr_power = config['sdr_power'],
             sdr_fm = config['sdr_fm'],
             device_idx = _device_idx,
-            gain = sdr_list[_device_idx]['gain'],
-            ppm = sdr_list[_device_idx]['ppm'],
-            bias = sdr_list[_device_idx]['bias']
+            gain = autorx.sdr_list[_device_idx]['gain'],
+            ppm = autorx.sdr_list[_device_idx]['ppm'],
+            bias = autorx.sdr_list[_device_idx]['bias']
             )
 
         # Add a reference into the sdr_list entry
-        sdr_list[_device_idx]['task'] = task_list['SCAN']['task']
+        autorx.sdr_list[_device_idx]['task'] = autorx.task_list['SCAN']['task']
 
 
 def stop_scanner():
     """ Stop a currently running scan thread, and release the SDR it was using. """
-    global task_list, sdr_list
 
-    if 'SCAN' not in task_list:
+    if 'SCAN' not in autorx.task_list:
         # No scanner thread running!
         # This means we likely have a SDR free already.
         return
     else:
         logging.info("Halting Scanner to decode detected radiosonde.")
-        _scan_sdr = task_list['SCAN']['device_idx']
+        _scan_sdr = autorx.task_list['SCAN']['device_idx']
         # Stop the scanner.
-        task_list['SCAN']['task'].stop()
+        autorx.task_list['SCAN']['task'].stop()
         # Relase the SDR.
-        sdr_list[_scan_sdr]['in_use'] = False
-        sdr_list[_scan_sdr]['task'] = None
+        autorx.sdr_list[_scan_sdr]['in_use'] = False
+        autorx.sdr_list[_scan_sdr]['task'] = None
         # Remove the scanner task from the task list
-        task_list.pop('SCAN')
+        autorx.task_list.pop('SCAN')
 
 
 
@@ -187,7 +167,7 @@ def start_decoder(freq, sonde_type):
         sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM')
 
     """
-    global config, task_list, sdr_list, RS_PATH, exporter_functions, rs92_ephemeris
+    global config, RS_PATH, exporter_functions, rs92_ephemeris
 
     # Allocate a SDR.
     _device_idx = allocate_sdr(task_description="Decoder (%s, %.3f MHz)" % (sonde_type, freq/1e6))
@@ -197,27 +177,27 @@ def start_decoder(freq, sonde_type):
         return
     else:
         # Add an entry to the task list
-        task_list[freq] = {'device_idx': _device_idx, 'task': None}
+        autorx.task_list[freq] = {'device_idx': _device_idx, 'task': None}
 
         # Set the SDR to in-use
-        sdr_list[_device_idx]['in_use'] = True
+        autorx.sdr_list[_device_idx]['in_use'] = True
 
         # Initialise a decoder.
-        task_list[freq]['task'] = SondeDecoder(
+        autorx.task_list[freq]['task'] = SondeDecoder(
             sonde_type = sonde_type,
             sonde_freq = freq,
             rs_path = RS_PATH,
             sdr_fm = config['sdr_fm'],
             device_idx = _device_idx,
-            gain = sdr_list[_device_idx]['gain'],
-            ppm = sdr_list[_device_idx]['ppm'],
-            bias = sdr_list[_device_idx]['bias'],
+            gain = autorx.sdr_list[_device_idx]['gain'],
+            ppm = autorx.sdr_list[_device_idx]['ppm'],
+            bias = autorx.sdr_list[_device_idx]['bias'],
             exporter = exporter_functions,
             timeout = config['rx_timeout'],
             telem_filter = telemetry_filter,
             rs92_ephemeris = rs92_ephemeris
             )
-        sdr_list[_device_idx]['task'] = task_list[freq]['task']
+        autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 
 
 
@@ -228,7 +208,7 @@ def handle_scan_results():
     - If there is a free SDR, allocate it to a decoder.
     - If there is no free SDR, but a scanner is running, stop the scanner and start decoding.
     """
-    global scan_results, task_list, sdr_list
+    global scan_results
 
     if scan_results.qsize() > 0:
         # Grab the latest detections from the scan result queue.
@@ -238,7 +218,7 @@ def handle_scan_results():
             _freq = _sonde[0]
             _type = _sonde[1]
 
-            if _freq in task_list:
+            if _freq in autorx.task_list:
                 # Already decoding this sonde, continue.
                 continue
             else:
@@ -247,7 +227,7 @@ def handle_scan_results():
                     # There is a SDR free! Start the decoder on that SDR
                     start_decoder(_freq, _type)
 
-                elif (allocate_sdr(check_only=True) is None) and ('SCAN' in task_list):
+                elif (allocate_sdr(check_only=True) is None) and ('SCAN' in autorx.task_list):
                     # We have run out of SDRs, but a scan thread is running.
                     # Stop the scan thread and take that receiver!
                     stop_scanner()
@@ -262,26 +242,25 @@ def handle_scan_results():
 
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
-    global task_list, sdr_list
 
-    for _key in task_list.keys():
+    for _key in autorx.task_list.keys():
         # Attempt to get the state of the task
         try:
-            _running = task_list[_key]['task'].running()
-            _task_sdr = task_list[_key]['device_idx']
+            _running = autorx.task_list[_key]['task'].running()
+            _task_sdr = autorx.task_list[_key]['device_idx']
         except Exception as e:
             logging.error("Task Manager - Error getting task %s state - %s" % (str(_key),str(e)))
             continue
 
         if _running == False:
             # This task has stopped. Release it's associated SDR.
-            sdr_list[_task_sdr]['in_use'] = False
-            sdr_list[_task_sdr]['task'] = None
+            autorx.sdr_list[_task_sdr]['in_use'] = False
+            autorx.sdr_list[_task_sdr]['task'] = None
             # Pop the task from the task list.
-            task_list.pop(_key)
+            autorx.task_list.pop(_key)
 
     # Check if there is a scanner thread still running. If not, and if there is a SDR free, start one up again.
-    if ('SCAN' not in task_list) and (allocate_sdr(check_only=True) is not None):
+    if ('SCAN' not in autorx.task_list) and (allocate_sdr(check_only=True) is not None):
         # We have a SDR free, and we are not running a scan thread. Start one.
         start_scanner()
 
@@ -289,11 +268,11 @@ def clean_task_list():
 
 def stop_all():
     """ Shut-down all decoders, scanners, and exporters. """
-    global task_list, exporter_objects
+    global exporter_objects
     logging.info("Starting shutdown of all threads.")
-    for _task in task_list.keys():
+    for _task in autorx.task_list.keys():
         try:
-            task_list[_task]['task'].stop()
+            autorx.task_list[_task]['task'].stop()
         except Exception as e:
             logging.error("Error stopping task - %s" % str(e))
 
@@ -363,7 +342,7 @@ def telemetry_filter(telemetry):
 
 def main():
     """ Main Loop """
-    global config, sdr_list, exporter_objects, exporter_functions, logging_level, rs92_ephemeris
+    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris
 
     # Command line arguments. 
     parser = argparse.ArgumentParser()
@@ -385,6 +364,7 @@ def main():
     if args.verbose:
         logging_level = logging.DEBUG
 
+
     # Configure logging
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
@@ -392,11 +372,16 @@ def main():
     stdout_handler.setFormatter(stdout_format)
     logging.getLogger().addHandler(stdout_handler)
 
-    # Set the requests logger to only display WARNING messages or higher.
-    requests_log = logging.getLogger("requests")
-    requests_log.setLevel(logging.CRITICAL)
-    urllib3_log = logging.getLogger("urllib3")
-    urllib3_log.setLevel(logging.CRITICAL)
+    web_handler = WebHandler()
+    logging.getLogger().addHandler(web_handler)
+
+
+    # Set the requests/socketio logger to only display critical log messages.
+    logging.getLogger("requests").setLevel(logging.CRITICAL)
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    logging.getLogger('socketio').setLevel(logging.ERROR)
+    logging.getLogger('engineio').setLevel(logging.ERROR)
 
 
     # Attempt to read in config file
@@ -407,7 +392,11 @@ def main():
         sys.exit(1)
     else:
         config = _temp_cfg
-        sdr_list = config['sdr_settings']
+        autorx.sdr_list = config['sdr_settings']
+
+    # Start up the flask server.
+    # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
+    start_flask(port=config['web_port'])
 
     # If we have been supplied a frequency via the command line, override the whitelist settings
     # to only include the supplied frequency.
@@ -487,6 +476,10 @@ def main():
         exporter_objects.append(_ozimux)
         exporter_functions.append(_ozimux.add)
 
+    _web_exporter = WebExporter(max_age=config['web_archive_age'])
+    exporter_objects.append(_web_exporter)
+    exporter_functions.append(_web_exporter.add)
+
     # MQTT (?) - TODO
 
     # Note the start time.
@@ -517,6 +510,7 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         # Upon CTRL+C, shutdown all threads and exit.
+        stop_flask()
         stop_all()
     except Exception as e:
         # Upon exceptions, attempt to shutdown threads and exit.

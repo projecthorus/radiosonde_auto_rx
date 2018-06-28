@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import datetime
 import logging
 import numpy as np
 import os
@@ -14,8 +15,8 @@ import time
 import traceback
 from threading import Thread
 from types import FunctionType, MethodType
-from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
-
+from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs, peak_decimation
+from .web import flask_emit_event
 try:
     # Python 2
     from StringIO import StringIO
@@ -23,6 +24,8 @@ except ImportError:
     # Python 3
     from io import StringIO
 
+# Global for latest scan result
+scan_result = {'freq':[], 'power':[], 'peak_freq':[], 'peak_lvl':[], 'timestamp':'No data yet.', 'threshold':0}
 
 def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_power='rtl_power', device_idx = 0, ppm = 0, gain = -1, bias = False):
     """ Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
@@ -392,6 +395,7 @@ class SondeScanner(object):
 
             except (IOError, ValueError) as e:
                 # No log file produced. Reset the RTLSDR and try again.
+                traceback.print_exc()
                 self.log_warning("RTLSDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the RTLSDR.
@@ -441,6 +445,7 @@ class SondeScanner(object):
             list: An empty list [] if no sondes are detected otherwise, a list of list, containing entries of [frequency (Hz), Sonde Type],
                 i.e. [[402500000,'RS41'],[402040000,'RS92']]
         """
+        global scan_result
 
         _search_results = []
 
@@ -471,8 +476,18 @@ class SondeScanner(object):
                 raise ValueError("Invalid Log File")
 
 
+            # Update the global scan result
+            (_freq_decimate, _power_decimate) = peak_decimation(freq/1e6, power, 10) 
+            scan_result['freq'] = list(_freq_decimate)
+            scan_result['power'] = list(_power_decimate)
+            scan_result['timestamp'] = datetime.datetime.utcnow().isoformat()
+            scan_result['peak_freq'] = []
+            scan_result['peak_lvl'] = []
+
             # Rough approximation of the noise floor of the received power spectrum.
             power_nf = np.mean(power)
+            # Pass the threshold data to the web client for plotting
+            scan_result['threshold'] = power_nf
 
             # Detect peaks.
             peak_indices = detect_peaks(power, mph=(power_nf+self.snr_threshold), mpd=(self.min_distance/step), show = False)
@@ -480,6 +495,8 @@ class SondeScanner(object):
             # If we have found no peaks, and no greylist has been provided, re-scan.
             if (len(peak_indices) == 0) and (len(self.greylist) == 0):
                 self.log_debug("No peaks found.")
+                # Emit a notification to the client that a scan is complete.
+                flask_emit_event('scan_event')
                 return []
 
             # Sort peaks by power.
@@ -506,6 +523,30 @@ class SondeScanner(object):
             # Append on any frequencies in the supplied greylist
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
 
+            # Get the level of our peak search results, to send to the web client.
+            # This is actually a bit of a pain to do...
+            _peak_freq = []
+            _peak_lvl = []
+            for _peak in peak_frequencies:
+                try:
+                    # Find the index of the peak within our decimated frequency array.
+                    _peak_power_idx = np.argmin(np.abs(scan_result['freq']-_peak/1e6))
+                    # Because we've decimated the freq & power data, the peak location may
+                    # not be exactly at this frequency, so we take the maximum of an area
+                    # around this location.
+                    _peak_search_min = max(0,_peak_power_idx-5)
+                    _peak_search_max = min(len(scan_result['freq'])-1, _peak_power_idx+5)
+                    # Grab the maximum value, and append it and the frequency to the output arrays
+                    _peak_lvl.append(max(scan_result['power'][_peak_search_min:_peak_search_max]))
+                    _peak_freq.append(_peak/1e6)
+                except:
+                    pass
+            # Add the peak results to our global scan result dictionary.
+            scan_result['peak_freq'] = _peak_freq
+            scan_result['peak_lvl'] = _peak_lvl
+            # Tell the web client we have new data.
+            flask_emit_event('scan_event')
+
             if len(peak_frequencies) == 0:
                 self.log_debug("No peaks found after blacklist frequencies removed.")
                 return []
@@ -516,6 +557,7 @@ class SondeScanner(object):
             # We have been provided a whitelist - scan through the supplied frequencies.
             peak_frequencies = np.array(self.whitelist)*1e6
             self.log_info("Scanning on whitelist frequencies (MHz): %s" % str(peak_frequencies/1e6))
+
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
