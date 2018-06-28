@@ -34,7 +34,7 @@ def telemetry_to_aprs_sentence(sonde_data, object_name="<id>", aprs_comment="BOM
     # Generate the APRS Object Name 
     if object_name == "<id>":
         # Use the radiosonde ID as the object ID
-        if ('RS91' in sonde_data['type']) or ('RS41' in sonde_data['type']):
+        if ('RS92' in sonde_data['type']) or ('RS41' in sonde_data['type']):
             # We can use the Vaisala sonde ID directly.
             _object_name = sonde_data["id"].strip()
         elif sonde_data['type'] == 'DFM':
