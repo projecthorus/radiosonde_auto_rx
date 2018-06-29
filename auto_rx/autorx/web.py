@@ -238,7 +238,11 @@ class WebExporter(object):
                 return
         
         _telem = telemetry.copy()
-        _telem.pop('datetime_dt')
+        # Remove the datetime object that is part of the telemetry, if it exists.
+        # (it might not be present in test data)
+        if 'datetime_dt' in _telem:
+            _telem.pop('datetime_dt')
+
         socketio.emit('telemetry_event', _telem, namespace='/update_status')
 
         # Add the telemetry information to the global telemetry store
@@ -278,17 +282,107 @@ class WebExporter(object):
         self.input_processing_running = False
 
 
+#
+# Testing Functions, for easier web development.
+#
+
+def test_web_log_to_dict(log_line):
+    """ Convert a line read from a sonde log to a 'fake' telemetery dictionary """
+
+    # ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
+    # ('2017-12-29T23:20:47.420', 'M2913212', 1563, -34.94541, 138.52819, 761.7, -273., 'RS92', 401.52)
+    try:
+        _telem = {
+            'frame': log_line[2],
+            'id': log_line[1],
+            'datetime': log_line[0],
+            'lat': log_line[3],
+            'lon': log_line[4],
+            'alt': log_line[5],
+            'temp': log_line[6],
+            'type': log_line[7],
+            'freq': str(log_line[8])+" MHz",
+            'freq_float': log_line[8],
+            'vel_v': 0.0,
+            'datetime_dt': None
+        }
+        return _telem
+    except:
+        return None
+
+
+def test_web_interface(file_list):
+    """ Test the web interface map functions by injecting a large amount of sonde telemetry data from sonde log files. """
+    import numpy as np
+    global _web
+
+    _sondes = []
+    # Minimum number of data points in a file
+    _min_data = 10000
+
+    # Read in files and add data to _sondes.
+    for _file_name in file_list:
+        try:
+            _data = np.genfromtxt(_file_name, delimiter=',', dtype=None)
+            _sondes.append(_data)
+            print("Read %d records from %s" % (len(_data), _file_name))
+            if len(data) < _min_data:
+                _min_data = len(_data)
+        except:
+            print("Could not read %s" % _file_name)
+
+    # Number of data points to feed in initially. (10%)
+    _i = _min_data//10
+
+    # Start up a WebExporter instance
+    _web = WebExporter()
+
+    # Feed in the first 10% of data points from each sonde.
+    print("Injecting %d initial data points." % _i)
+    for _sonde in _sondes:
+        for _j in range(0,_i):
+            _web.add(test_web_log_to_dict(_sonde[_j]))
+
+    # Now add in new data every second until CTRL-C
+    for _k in range(_i,_min_data):
+        for _sonde in _sondes:
+            _web.add(test_web_log_to_dict(_sonde[_k]))
+
+        logging.info("Added new telemetry data!")
+        time.sleep(1)
+
+
+
 if __name__ == "__main__":
     # Test script to start up the flask server and show some dummy log data
-    import time
+    # This script should be called from the auto_rx directory with:
+    # python -m autorx.web filename1_sonde.log filename2_sonde.log ..etc
+    # 
+    import time, sys
+    from autorx.config import read_auto_rx_config
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    logging.getLogger('socketio').setLevel(logging.ERROR)
+    logging.getLogger('engineio').setLevel(logging.ERROR)
+
+    # Read in config, as the web interface now uses a lot of config data during startup.
+    # TODO: Make this actually work... it doesnt seem to be writing into the global_config store
+    _temp_cfg = read_auto_rx_config('station.cfg')
+
     web_handler = WebHandler()
     logging.getLogger().addHandler(web_handler)
     start_flask()
 
     try:
-        while flask_app_thread.isAlive():
-            time.sleep(1)
-            logging.info("This is a test message.")
+        # If we have been provided some sonde logs as an argument, read them in.
+        if len(sys.argv) > 1:
+            test_web_interface(sys.argv[1:])
+        else:
+            while flask_app_thread.isAlive():
+                time.sleep(1)
+                logging.info("This is a test message.")
     except:
         stop_flask()
+        _web.close()
+
+    
