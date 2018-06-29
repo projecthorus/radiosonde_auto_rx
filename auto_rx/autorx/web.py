@@ -348,7 +348,7 @@ def test_web_interface(file_list):
         for _sonde in _sondes:
             _web.add(test_web_log_to_dict(_sonde[_k]))
 
-        logging.info("Added new telemetry data!")
+        logging.info("Added new telemetry data: %d/%d" % (_k,_min_data))
         time.sleep(1)
 
 

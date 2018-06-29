@@ -201,6 +201,8 @@
             //  marker: Leaflet marker object.
             //  path: Leaflet polyline object.
             var sonde_positions = {};
+            // The sonde we are currently following on the map
+            var sonde_currently_following = "none";
             
 
             function updateTelemetryText(){
@@ -242,6 +244,7 @@
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcon);
                         }
                     }
+
                     updateTelemetryText();
                     initial_load_complete = true;
                   }
@@ -264,12 +267,18 @@
                     // Nope, add a property to the sonde_positions object, and setup markers for the sonde.
                     sonde_positions[msg.id] = {
                         latest_data : msg,
+                        age : Date.now(),
                         marker : L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcon}).addTo(sondemap),
                         path: L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:'blue'}).addTo(sondemap)
                     };
-                } else{
+                    // If this is our first sonde since the browser has been opened, follow it.
+                    if (Object.keys(sonde_positions).length == 1){
+                        sonde_positions[msg.id].following = true;
+                    }
+                } else {
                     // Yep - update the sonde_positions entry.
                     sonde_positions[msg.id].latest_data = msg;
+                    sonde_positions[msg.id].age = Date.now();
                     sonde_positions[msg.id].path.addLatLng([msg.lat, msg.lon, msg.alt]);
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
@@ -280,11 +289,33 @@
                     }
                 }
 
-                // Centre the map on the sonde position.
-                sondemap.panTo([msg.lat, msg.lon]);
                 // Update the telemetry text display
                 updateTelemetryText();
+
+                // Are we currently following any other sondes?
+                if (sonde_currently_following == "none"){
+                    // If not, follow this one!
+                    sonde_currently_following = msg.id;
+                }
+
+                // Is sonde following enabled?
+                if (document.getElementById("sondeAutoFollow").checked == true){
+                    // If we are currently following this sonde, snap the map to it.
+                    if (msg.id == sonde_currently_following){
+                            sondemap.panTo([msg.lat,msg.lon]);
+                    }
+                }
             });
+
+            var sonde_follow_timeout = 30000; // 30 Seconds
+            // Every X seconds, check if the currently followed sonde is still getting regular data.
+            // If not, clear the currently_following flag to allow another sonde to be auto tracked.
+            window.setInterval(function () {
+                var now_time = Date.now();
+                if ( (now_time-sonde_positions[sonde_currently_following].age) > sonde_follow_timeout){
+                    sonde_currently_following = "none";
+                }
+            }, sonde_follow_timeout);            
 
 
             // Tell the server we are connected and ready for data.
@@ -304,6 +335,7 @@
                 <h2>Current Sonde:</h2>
                 <div id="telemetry"></div><br>
                 <div id="sonde_map" style="height:300px;width:75%"></div>
+                Auto-Follow Sonde: <input type="checkbox" id="sondeAutoFollow" checked>
                 <br>
             </div>
         </div>
