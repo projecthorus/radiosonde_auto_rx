@@ -166,6 +166,23 @@
                 );
             });
 
+            socket.on('task_event', function(msg){
+                $.getJSON("/get_task_list", function(data){
+                    var task_info = "";
+                    for (_task in data){
+                        var task_desc;
+                        if (data[_task] == 'SCAN'){
+                            task_desc = 'Scanning';
+                        } else {
+                            task_desc = "Decoding (" + (data[_task]/1e6).toFixed(3) + " MHz)";
+                        }
+                        task_info += "SDR #" + _task + ": " + task_desc + "  ";
+                    }
+
+                    $('#task_status').html("<h2>Current Task: <small>"+task_info+"</small></h2>");
+                });
+            });
+
             // Sonde position Map
             // Setup a basic Leaflet map, with an OSM tileset.
             var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
@@ -330,6 +347,11 @@
 <body>
     <div id="autorx_header"><h1>Radiosonde Auto-RX Status</h1></div>
     <div class="container-fluid">
+        <div class="row">
+            <div class='col-12'>
+                <div id="task_status"><h2>Current Task:</h2></div>
+            </div>
+        </div>
         <div class="row">
             <div class='col-12'>
                 <h2>Current Sonde:</h2>

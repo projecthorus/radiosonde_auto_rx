@@ -70,10 +70,10 @@ def flask_get_version():
     return autorx.__version__
 
 
-@app.route("/get_sdr_list")
-def flask_get_sdr_list():
+@app.route("/get_task_list")
+def flask_get_task_list():
     """ Return the current list of active SDRs, and their active task names """
-
+    return json.dumps({'0':401500000.0})
     # Read in the task list, index by SDR ID. 
     _task_list = {}
     for _task in autorx.task_list.keys():
@@ -86,8 +86,6 @@ def flask_get_sdr_list():
         _sdr_list[str(_sdr)] = 'Not Tasked'
         if str(_sdr) in _task_list:
             _sdr_list[str(_sdr)] = _task_list[str(_sdr)]
-            if _sdr_list[str(_sdr)] == 'SCAN':
-                _sdr_list[str(_sdr)] = 'Scanning'
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
@@ -136,7 +134,8 @@ def refresh_client(arg1):
     logging.info("Flask - New Web Client connected!")
     # Tell them to get a copy of the latest scan results.
     flask_emit_event('scan_event')
-    # TODO: Send last few log entries
+    flask_emit_event('task_event')
+    # TODO: Send last few log entries?
 
 
 #
