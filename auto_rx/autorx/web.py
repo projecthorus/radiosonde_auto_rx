@@ -73,7 +73,7 @@ def flask_get_version():
 @app.route("/get_task_list")
 def flask_get_task_list():
     """ Return the current list of active SDRs, and their active task names """
-    return json.dumps({'0':401500000.0})
+
     # Read in the task list, index by SDR ID. 
     _task_list = {}
     for _task in autorx.task_list.keys():
