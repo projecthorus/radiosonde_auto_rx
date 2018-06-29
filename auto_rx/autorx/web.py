@@ -85,7 +85,13 @@ def flask_get_task_list():
     for _sdr in autorx.sdr_list.keys():
         _sdr_list[str(_sdr)] = 'Not Tasked'
         if str(_sdr) in _task_list:
-            _sdr_list[str(_sdr)] = _task_list[str(_sdr)]
+            if _task_list[str(_sdr)] == 'SCAN':
+                _sdr_list[str(_sdr)] = 'Scanning'
+            else:
+                try:
+                    _sdr_list[str(_sdr)] = "Decoding (%.3f MHz)" % (_task_list[str(_sdr)]/1e6)
+                except:
+                    _sdr_list[str(_sdr)] = "Decoding (?? MHz)"
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)

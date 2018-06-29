@@ -170,13 +170,7 @@
                 $.getJSON("/get_task_list", function(data){
                     var task_info = "";
                     for (_task in data){
-                        var task_desc;
-                        if (data[_task] == 'SCAN'){
-                            task_desc = 'Scanning';
-                        } else {
-                            task_desc = "Decoding (" + (data[_task]/1e6).toFixed(3) + " MHz)";
-                        }
-                        task_info += "SDR #" + _task + ": " + task_desc + "  ";
+                        task_info += "SDR #" + _task + ": " + data[_task] + "    ";
                     }
 
                     $('#task_status').html("<h2>Current Task: <small>"+task_info+"</small></h2>");
