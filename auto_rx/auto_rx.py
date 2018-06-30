@@ -506,6 +506,7 @@ def main():
         # within a cronjob.
         if (_timeout > 0) and ((time.time()-_start_time) > _timeout):
             logging.info("Shutdown time reached. Closing.")
+            stop_flask()
             stop_all()
             stop_flask()
             break
