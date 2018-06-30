@@ -142,10 +142,24 @@
             // Setup a basic Leaflet map, with an OSM tileset.
             var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // Add map layers
+            var osm_map = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(sondemap);
 
+            var esrimapLink = 
+            '<a href="http://www.esri.com/">Esri</a>';
+            var esriwholink = 
+            'i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+            var esri_sat_map = L.tileLayer(
+            'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
+            {
+                attribution: '&copy; '+esrimapLink+', '+esriwholink,
+                maxZoom: 18,
+            });
+            sondemap.addControl(new L.Control.Layers({'OSM':osm_map, 'ESRI Satellite':esri_sat_map}));
+
+            // Home Icon.
             var homeIcon = L.icon({
                 iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
                 iconSize: [26, 34],
@@ -194,7 +208,9 @@
                         // Create markers
                         sonde_positions[sonde_id].path = L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:sonde_positions[sonde_id].colour}).addTo(sondemap);
 
-                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]}).addTo(sondemap);
+                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]})
+                            .bindTooltip(sonde_id,{permanent:false,direction:'right'})
+                            .addTo(sondemap);
 
                         if (telem.vel_v < 0){
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
@@ -231,7 +247,9 @@
                                             // Create markers
                     sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(sondemap);
 
-                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]}).addTo(sondemap);
+                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})                            
+                        .bindTooltip(sonde_id,{permanent:false,direction:'right'})
+                        .addTo(sondemap);
 
                     colour_idx = (colour_idx+1)%colour_values.length;
                     // If this is our first sonde since the browser has been opened, follow it.
@@ -271,8 +289,8 @@
             });
 
 
-            // 
-            var sonde_follow_timeout = 30000; // 30 Seconds
+            // Sonde-Following Logic. May need to adjust timeouts.
+            var sonde_follow_timeout = 30000; // 30 Seconds - reasonable timeout.
             // Every X seconds, check if the currently followed sonde is still getting regular data.
             // If not, clear the currently_following flag to allow another sonde to be auto tracked.
             window.setInterval(function () {
