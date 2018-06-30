@@ -508,7 +508,6 @@ def main():
             logging.info("Shutdown time reached. Closing.")
             stop_flask()
             stop_all()
-            stop_flask()
             break
 
 
