@@ -9,13 +9,14 @@
 
     <script src="{{ url_for('static', filename='js/jquery-1.11.3.min.js')}}"></script>
     <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
-
-    <script src="{{ url_for('static', filename='js/leaflet.js') }}""></script>
+    <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
 
     <!-- Load d3.js and c3.js -->
     <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
-    <script src="{{ url_for('static', filename='js/c3.min.js') }}""></script>
+    <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <!-- Custom style to remove circles on the Spectra graph, and do a few other formatting things -->
     <style>
     #scan_chart .c3-circles-Spectra {
@@ -50,6 +51,15 @@
             lat: 0.0,
             lon: 0.0
         };
+
+        // Object which will contain sonde markers and traces.
+        // properties for each key in this object (key = sonde ID)
+        //  latest_data - latest sonde telemetry object from SondeDecoded
+        //  marker: Leaflet marker object.
+        //  path: Leaflet polyline object.
+        var sonde_positions = {};
+        // The sonde we are currently following on the map
+        var sonde_currently_following = "none";
 
         $(document).ready(function() {
             // Use the 'update_status' namespace for all of our traffic
@@ -91,57 +101,8 @@
                 $("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
             });
 
-            // Scan Result Chart Setup!
-            // TODO: Maybe move this out to another file.
-            var scan_chart_spectra = {
-                xs: {
-                    'Spectra': 'x_spectra'
-                },
-                columns: [
-                    ['x_spectra',autorx_config.min_freq, autorx_config.max_freq],
-                    ['Spectra',0,0]
-                ],
-                type:'line'
-            };
-
-            var scan_chart_peaks = {
-                xs: {
-                    'Peaks': 'x_peaks'
-                },
-                columns: [
-                    ['x_peaks',0],
-                    ['Peaks',0]
-                ],
-                type:'scatter'
-            };
-
-            var scan_chart_threshold = {
-                xs:{
-                    'Threshold': 'x_thresh'
-                },
-                columns:[
-                    ['x_thresh',autorx_config.min_freq, autorx_config.max_freq],
-                    ['Threshold',autorx_config.snr_threshold,autorx_config.snr_threshold]
-                ],
-                type:'line'
-            };
-
-            var scan_chart_obj = c3.generate({
-                bindto: '#scan_chart',
-                data: scan_chart_spectra,
-                axis:{
-                    x:{
-                        tick:{
-                            format: function (x) { return x.toFixed(3); }
-                        },
-                        label:"Frequency (MHz)"
-                    },
-                    y:{
-                        label:"Power (dB - Uncalibrated)"
-                    }
-                },
-                point:{r:10}
-            });
+            // Instantiate the scan result chart (scan_chart.js)
+            setup_scan_chart();
 
             // Scan Event handler
             socket.on('scan_event', function(msg) {
@@ -190,30 +151,11 @@
                 iconSize: [26, 34],
                 iconAnchor: [13, 34]
             });
-            var sondeAscentIcon = L.icon({
-                iconUrl: '{{ url_for('static', filename='img/balloon-blue.png') }}',
-                iconSize: [46, 85],
-                iconAnchor: [23, 76]
-            });
-            var sondeDescentIcon = L.icon({
-                iconUrl: '{{ url_for('static', filename='img/parachute-blue.png') }}',
-                iconSize: [46, 84],
-                iconAnchor: [23, 76]
-            });
 
             // Add a new marker, but set it to hidden initially.
             var home_marker = L.marker(sondemap.getCenter(),
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
-
-            // Object which will contain sonde markers and traces.
-            // properties for each key in this object (key = sonde ID)
-            //  latest_data - latest sonde telemetry object from SondeDecoded
-            //  marker: Leaflet marker object.
-            //  path: Leaflet polyline object.
-            var sonde_positions = {};
-            // The sonde we are currently following on the map
-            var sonde_currently_following = "none";
             
 
             function updateTelemetryText(){
@@ -236,7 +178,6 @@
             
             // Grab the recent archive of telemetry data
             // This should only ever be run once - on page load.
-            // TODO: See how this performs when loading an entire flights worth of position data (could be a lot!)
             var initial_load_complete = false;
             $.ajax({
                   url: "/get_telemetry_archive",
@@ -248,12 +189,18 @@
                         var telem = data[sonde_id].latest_telem;
                         sonde_positions[sonde_id] = {
                             latest_data: telem,
-                            path: L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:'blue'}).addTo(sondemap),
-                            marker : L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcon}).addTo(sondemap),
+                            colour: colour_values[colour_idx]
                         };
+                        // Create markers
+                        sonde_positions[sonde_id].path = L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:sonde_positions[sonde_id].colour}).addTo(sondemap);
+
+                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]}).addTo(sondemap);
+
                         if (telem.vel_v < 0){
-                            sonde_positions[sonde_id].marker.setIcon(sondeDescentIcon);
+                            sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
                         }
+
+                        colour_idx = (colour_idx+1)%colour_values.length;
                     }
 
                     updateTelemetryText();
@@ -279,9 +226,14 @@
                     sonde_positions[msg.id] = {
                         latest_data : msg,
                         age : Date.now(),
-                        marker : L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcon}).addTo(sondemap),
-                        path: L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:'blue'}).addTo(sondemap)
+                        colour : colour_values[colour_idx]
                     };
+                                            // Create markers
+                    sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(sondemap);
+
+                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]}).addTo(sondemap);
+
+                    colour_idx = (colour_idx+1)%colour_values.length;
                     // If this is our first sonde since the browser has been opened, follow it.
                     if (Object.keys(sonde_positions).length == 1){
                         sonde_positions[msg.id].following = true;
@@ -294,9 +246,9 @@
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
                     if (msg.vel_v < 0){
-                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcon);
+                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
                     }else{
-                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcon);
+                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
                     }
                 }
 
@@ -318,10 +270,15 @@
                 }
             });
 
+
+            // 
             var sonde_follow_timeout = 30000; // 30 Seconds
             // Every X seconds, check if the currently followed sonde is still getting regular data.
             // If not, clear the currently_following flag to allow another sonde to be auto tracked.
             window.setInterval(function () {
+                if (sonde_currently_following == "none"){
+                    return;
+                }
                 var now_time = Date.now();
                 if ( (now_time-sonde_positions[sonde_currently_following].age) > sonde_follow_timeout){
                     sonde_currently_following = "none";

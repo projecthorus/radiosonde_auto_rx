@@ -1,11 +1,25 @@
-'use strict';
+// Utility Functions
+// Mark Jessop 2018-06-30
 
-window.chartColors = {
-	red: 'rgb(255, 99, 132)',
-	orange: 'rgb(255, 159, 64)',
-	yellow: 'rgb(255, 205, 86)',
-	green: 'rgb(75, 192, 192)',
-	blue: 'rgb(54, 162, 235)',
-	purple: 'rgb(153, 102, 255)',
-	grey: 'rgb(201, 203, 207)'
-};
+
+// Color cycling for balloon traces and icons - Hopefully 4 colors should be enough for now!
+var colour_values = ['blue','red','green','purple'];
+var colour_idx = 0;
+
+// Create a set of icons for the different colour values.
+var sondeAscentIcons = {};
+var sondeDescentIcons = {};
+
+// TODO: Make these /static URLS be filled in with templates (or does it not matter?)
+for (_col in colour_values){
+	sondeAscentIcons[colour_values[_col]] =  L.icon({
+        iconUrl: "/static/img/balloon-" + colour_values[_col] + '.png',
+        iconSize: [46, 85],
+        iconAnchor: [23, 76]
+    });
+    sondeDescentIcons[colour_values[_col]] = L.icon({
+	    iconUrl: "/static/img/parachute-" + colour_values[_col] + '.png',
+	    iconSize: [46, 84],
+	    iconAnchor: [23, 76]
+    });
+}

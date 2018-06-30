@@ -237,9 +237,13 @@ class WebExporter(object):
         """ Send incoming telemetry to clients, and add it to the telemetry store. """
         global flask_telemetry_store
 
+        if telemetry == None:
+            logging.error("WebExporter - Passed NoneType instead of Telemetry.")
+            return
+
         for _field in self.REQUIRED_FIELDS:
             if _field not in telemetry:
-                self.log_error("JSON object missing required field %s" % _field)
+                logging.error("WebExporter - JSON object missing required field %s" % _field)
                 return
         
         _telem = telemetry.copy()
@@ -316,10 +320,12 @@ def test_web_log_to_dict(log_line):
         return None
 
 
-def test_web_interface(file_list):
+def test_web_interface(file_list, delay=1.0):
     """ Test the web interface map functions by injecting a large amount of sonde telemetry data from sonde log files. """
     import numpy as np
     global _web
+
+    print(file_list)
 
     _sondes = []
     # Minimum number of data points in a file
@@ -331,7 +337,7 @@ def test_web_interface(file_list):
             _data = np.genfromtxt(_file_name, delimiter=',', dtype=None)
             _sondes.append(_data)
             print("Read %d records from %s" % (len(_data), _file_name))
-            if len(data) < _min_data:
+            if len(_data) < _min_data:
                 _min_data = len(_data)
         except:
             print("Could not read %s" % _file_name)
@@ -354,7 +360,7 @@ def test_web_interface(file_list):
             _web.add(test_web_log_to_dict(_sonde[_k]))
 
         logging.info("Added new telemetry data: %d/%d" % (_k,_min_data))
-        time.sleep(1)
+        time.sleep(delay)
 
 
 
@@ -372,7 +378,7 @@ if __name__ == "__main__":
 
     # Read in config, as the web interface now uses a lot of config data during startup.
     # TODO: Make this actually work... it doesnt seem to be writing into the global_config store
-    _temp_cfg = read_auto_rx_config('station.cfg')
+    #_temp_cfg = read_auto_rx_config('station.cfg')
 
     web_handler = WebHandler()
     logging.getLogger().addHandler(web_handler)
@@ -381,7 +387,7 @@ if __name__ == "__main__":
     try:
         # If we have been provided some sonde logs as an argument, read them in.
         if len(sys.argv) > 1:
-            test_web_interface(sys.argv[1:])
+            test_web_interface(sys.argv[1:], delay=1.0)
         else:
             while flask_app_thread.isAlive():
                 time.sleep(1)
