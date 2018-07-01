@@ -498,7 +498,7 @@ def main():
         # within a cronjob.
         if (_timeout > 0) and ((time.time()-_start_time) > _timeout):
             logging.info("Shutdown time reached. Closing.")
-            stop_flask()
+            stop_flask(port=config['web_port'])
             stop_all()
             break
 
@@ -511,11 +511,12 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         # Upon CTRL+C, shutdown all threads and exit.
-        stop_flask()
+        stop_flask(port=config['web_port'])
         stop_all()
     except Exception as e:
         # Upon exceptions, attempt to shutdown threads and exit.
         traceback.print_exc()
         print("Main Loop Error - %s" % str(e))
+        stop_flask(port=config['web_port'])
         stop_all()
 
