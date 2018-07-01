@@ -149,22 +149,24 @@
                 ).addTo(sondemap);
             
             // Telemetry Data Table
+            // Using tabulator makes this *really* easy.
             $("#telem_table").tabulator({
                 height:180,
                 layout:"fitData", 
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
-                    {title:"SDR", field:"sdr_device_idx"},
-                    {title:"Type", field:"type"},
-                    {title:'Freq (MHz)', field:"freq"},
-                    {title:"ID", field:"id"},
-                    {title:"Timestamp", field:"datetime"},
-                    {title:"Frame", field:"frame"},
-                    {title:"Latitude", field:"lat"},
-                    {title:"Longitude", field:"lon"},
-                    {title:"Altitude (m)", field:"alt"},
-                    {title:"Ascent Rate (m/s)", field:"vel_v"},
-                    {title:"Temp (deg C)", field:"temp"}
+                    {title:"SDR", field:"sdr_device_idx", headerSort:false},
+                    {title:"Type", field:"type", headerSort:false},
+                    {title:'Freq (MHz)', field:"freq", headerSort:false},
+                    {title:"ID", field:"id", headerSort:false},
+                    {title:"Timestamp", field:"datetime", headerSort:false},
+                    {title:"Frame", field:"frame", headerSort:false},
+                    {title:"Latitude", field:"lat", headerSort:false},
+                    {title:"Longitude", field:"lon", headerSort:false},
+                    {title:"Altitude (m)", field:"alt", headerSort:false},
+                    {title:"Asc Rate (m/s)", field:"vel_v", headerSort:false},
+                    {title:"Temp (deg C)", field:"temp", headerSort:false}
+                    // TODO: Azimuth, elevation, Range calculations.
                 ]
             });
 
