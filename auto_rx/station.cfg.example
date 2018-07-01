@@ -167,7 +167,7 @@ max_radius_km = 1000
 
 # Web Interface Settings
 [web]
-# Server Port
+# Server Port - Ports below 1024 can only be used if you run auto_rx as root (not recommended)
 web_port = 5000
 # Archive Age - How long to keep a sonde telemetry in memory for the web client to access, in minutes
 # Note: The higher this number, the more data the client will need to load in on startup
