@@ -313,7 +313,8 @@ def test_web_log_to_dict(log_line):
             'freq': str(log_line[8])+" MHz",
             'freq_float': log_line[8],
             'vel_v': 0.0,
-            'datetime_dt': None
+            'datetime_dt': None,
+            'sdr_device_idx': '00000001'
         }
         return _telem
     except:

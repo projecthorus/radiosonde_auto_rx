@@ -1,49 +1,24 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-    <title>Auto-RX Log</title>
+    <title>Radiosonde Auto-RX Status</title>
 
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/tabulator_simple.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet">
 
-    <script src="{{ url_for('static', filename='js/jquery-1.11.3.min.js')}}"></script>
+    <!-- I should probably feel bad for using so many libraries, but apparently this is the way thing are done :-/ -->
+    <script src="{{ url_for('static', filename='js/jquery-3.3.1.min.js')}}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.min.js')}}"></script>
     <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
-
-    <!-- Load d3.js and c3.js -->
+    <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
-
     <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
-    <!-- Custom style to remove circles on the Spectra graph, and do a few other formatting things -->
-    <style>
-    #scan_chart .c3-circles-Spectra {
-        display: none;
-    }
-    #scan_chart .c3-circles-Threshold{
-        display: none;
-    }
-    #scan_chart .c3-line-Threshold {
-        stroke-dasharray: 5,5;
-    }
-    .table-fixed thead {
-        width: 97%;
-    }
-    .table-fixed tbody {
-      height: 400px;
-      overflow-y: auto;
-      width: 100%;
-    }
-    .table-fixed thead, .table-fixed tbody, .table-fixed tr, .table-fixed td, .table-fixed th {
-      display: block;
-    }
-    .table-fixed tbody td, .table-fixed thead > tr> th {
-      float: left;
-      border-bottom-width: 0;
-    }
-    </style>
 
     <script type="text/javascript" charset="utf-8">
         // Dummy auto_rx.config, which will be replaced with real data on page load.
@@ -58,6 +33,7 @@
         //  marker: Leaflet marker object.
         //  path: Leaflet polyline object.
         var sonde_positions = {};
+
         // The sonde we are currently following on the map
         var sonde_currently_following = "none";
 
@@ -126,8 +102,9 @@
                 }
                 );
             });
-
+            // Task Update event handler.
             socket.on('task_event', function(msg){
+                // Grab the latest task list.
                 $.getJSON("/get_task_list", function(data){
                     var task_info = "";
                     for (_task in data){
@@ -171,24 +148,70 @@
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
             
+            // Telemetry Data Table
+            $("#telem_table").tabulator({
+                height:180,
+                layout:"fitData", 
+                layoutColumnsOnNewData:true,
+                columns:[ //Define Table Columns
+                    {title:"SDR", field:"sdr_device_idx"},
+                    {title:"Type", field:"type"},
+                    {title:'Freq (MHz)', field:"freq"},
+                    {title:"ID", field:"id"},
+                    {title:"Timestamp", field:"datetime"},
+                    {title:"Frame", field:"frame"},
+                    {title:"Latitude", field:"lat"},
+                    {title:"Longitude", field:"lon"},
+                    {title:"Altitude (m)", field:"alt"},
+                    {title:"Ascent Rate (m/s)", field:"vel_v"},
+                    {title:"Temp (deg C)", field:"temp"}
+                ]
+            });
 
-            function updateTelemetryText(){
-                // Produce the text to go in the telemetry div.
-                // Clear out the telemetry div ready for new data
-                $('#telemetry').empty();
-                // Generate the lines of telemetry information
-                var telem_text = "";
+            function updateTelemetryTable(){
+                var telem_data = [];
+
                 if (jQuery.isEmptyObject(sonde_positions)){
-                    telem_text = "No Sondes Tracked.";
+                    telem_data = [{sdr_device_idx:'None'}];
                 }else{
                     for (sonde_id in sonde_positions){
-                        var msg = sonde_positions[sonde_id].latest_data;
-                        telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
+                        var sonde_id_data = Object.assign({},sonde_positions[sonde_id].latest_data);
+                        var sonde_id_age = sonde_positions[sonde_id].age;
+                        if ((Date.now()-sonde_id_age)>180000){
+                            sonde_id_data.sdr_device_idx = "";
+                        }
+                        // Modify some of the fields to fixed point values.
+                        sonde_id_data.lat = sonde_id_data.lat.toFixed(5);
+                        sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
+                        sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
+                        sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
+                        telem_data.push(sonde_id_data);
                     }
                 }
-                // Update the div with the telemetry info.
-                $('#telemetry').html(telem_text);
+
+                $("#telem_table").tabulator("setData", telem_data);
             }
+
+            // Deprecated. Left here for now in ase we need it later...
+            // function updateTelemetryText(){
+            //     // Produce the text to go in the telemetry div.
+            //     // Clear out the telemetry div ready for new data
+            //     $('#telemetry').empty();
+            //     // Generate the lines of telemetry information
+            //     var telem_text = "";
+            //     if (jQuery.isEmptyObject(sonde_positions)){
+            //         telem_text = "No Sondes Tracked.";
+            //     }else{
+            //         for (sonde_id in sonde_positions){
+            //             var msg = sonde_positions[sonde_id].latest_data;
+            //             telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
+            //         }
+            //     }
+            //     // Update the div with the telemetry info.
+            //     $('#telemetry').html(telem_text);
+            // }
+
+
             
             // Grab the recent archive of telemetry data
             // This should only ever be run once - on page load.
@@ -203,6 +226,7 @@
                         var telem = data[sonde_id].latest_telem;
                         sonde_positions[sonde_id] = {
                             latest_data: telem,
+                            age: 0,
                             colour: colour_values[colour_idx]
                         };
                         // Create markers
@@ -218,8 +242,9 @@
 
                         colour_idx = (colour_idx+1)%colour_values.length;
                     }
-
-                    updateTelemetryText();
+                    // Update telemetry table
+                    //updateTelemetryText();
+                    updateTelemetryTable();
                     initial_load_complete = true;
                   }
             });
@@ -248,7 +273,7 @@
                     sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(sondemap);
 
                     sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})                            
-                        .bindTooltip(sonde_id,{permanent:false,direction:'right'})
+                        .bindTooltip(msg.id,{permanent:false,direction:'right'})
                         .addTo(sondemap);
 
                     colour_idx = (colour_idx+1)%colour_values.length;
@@ -270,8 +295,9 @@
                     }
                 }
 
-                // Update the telemetry text display
-                updateTelemetryText();
+                // Update the telemetry table display
+                //updateTelemetryText();
+                updateTelemetryTable();
 
                 // Are we currently following any other sondes?
                 if (sonde_currently_following == "none"){
@@ -310,6 +336,15 @@
                 // This will cause the server to emit a few messages telling us to fetch data.
             });
 
+            // Callback function for Hide Scan Plot checkbox.
+            $( "#hideScanPlot" ).click(function() {
+                if (document.getElementById("hideScanPlot").checked == true){
+                    $("#scan_chart").hide("fast");
+                } else {
+                    $("#scan_chart").show("fast");
+                }
+            });
+
         });
     </script>
 </head>
@@ -322,19 +357,21 @@
             </div>
         </div>
         <div class="row">
-            <div class='col-12'>
-                <h2>Current Sonde:</h2>
-                <div id="telemetry"></div><br>
-                <div id="sonde_map" style="height:300px;width:75%"></div>
-                Auto-Follow Sonde: <input type="checkbox" id="sondeAutoFollow" checked>
-                <br>
-            </div>
+            <div class='col-12' id="telem_table"></div>
         </div>
         <div class="row">
             <div class='col-12'>
+                Auto-Follow Latest Sonde: <input type="checkbox" id="sondeAutoFollow" checked>
+                <div id="sonde_map" style="height:400px;width:100%"></div>
+                <br>
+            </div>
+        </div>
+        <div class="row" id='scan_column'>
+            <div class='col-12'>
                 <h2>Scan Results:</h2>
                 <div id='scan_results'>No scan data yet...</div>
-                <div id="scan_chart" style="width:75%;"></div>
+                <div id="scan_chart" style="width:100%;"></div>
+                Hide Scan Plot: <input type="checkbox" id="hideScanPlot">
             </div>
         </div>
         <div class="row">
