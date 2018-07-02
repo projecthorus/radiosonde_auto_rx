@@ -24,6 +24,12 @@ except ImportError:
     # Python 3
     from queue import Queue
 
+# URL for the Habitat DB Server.
+# As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
+# from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
+# For now, sondehub.org just acts as a proxy to habhub.org.
+HABITAT_URL = "http://habitat.sondehub.org/"
+# HABITAT_URL = "http://habitat.habhub.org/"
 
 # CRC16 function
 def crc16_ccitt(data):
@@ -94,8 +100,8 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
 # Derived from https://raw.githubusercontent.com/rossengeorgiev/hab-tools/master/spot2habitat_chase.py
 #
 callsign_init = False
-url_habitat_uuids = "http://habitat.habhub.org/_uuids?count=%d"
-url_habitat_db = "http://habitat.habhub.org/habitat/"
+url_habitat_uuids = HABITAT_URL + "_uuids?count=%d"
+url_habitat_db = HABITAT_URL + "habitat/"
 
 uuids = []
 
@@ -499,7 +505,7 @@ class HabitatUploader(object):
         }
 
         # The URL to upload to.
-        _url = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
+        _url = HABITAT_URL + "habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
 
         # Delay for a random amount of time between 0 and upload_retry_interval*2 seconds.
         time.sleep(random.random()*self.upload_retry_interval*2.0)
