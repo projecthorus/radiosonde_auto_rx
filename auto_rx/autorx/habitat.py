@@ -24,8 +24,12 @@ except ImportError:
     # Python 3
     from queue import Queue
 
-
+# URL for the Habitat DB Server.
+# As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
+# from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
+# For now, sondehub.org just acts as a proxy to habhub.org.
 HABITAT_URL = "http://habitat.sondehub.org/"
+# HABITAT_URL = "http://habitat.habhub.org/"
 
 # CRC16 function
 def crc16_ccitt(data):
