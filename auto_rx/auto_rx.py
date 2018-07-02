@@ -25,7 +25,7 @@ from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.utils import rtlsdr_test, position_info
 from autorx.config import read_auto_rx_config
-from autorx.web import start_flask, stop_flask, WebHandler, WebExporter
+from autorx.web import start_flask, stop_flask, flask_emit_event, WebHandler, WebExporter
 
 try:
     # Python 2
@@ -137,6 +137,9 @@ def start_scanner():
 
         # Add a reference into the sdr_list entry
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list['SCAN']['task']
+    
+    # Indicate to the web client that the task list has been updated.
+    flask_emit_event('task_event')
 
 
 def stop_scanner():
@@ -199,6 +202,9 @@ def start_decoder(freq, sonde_type):
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 
+    # Indicate to the web client that the task list has been updated.
+    flask_emit_event('task_event')
+
 
 
 def handle_scan_results():
@@ -258,6 +264,8 @@ def clean_task_list():
             autorx.sdr_list[_task_sdr]['task'] = None
             # Pop the task from the task list.
             autorx.task_list.pop(_key)
+            # Indicate to the web client that the task list has been updated.
+            flask_emit_event('task_event')
 
     # Check if there is a scanner thread still running. If not, and if there is a SDR free, start one up again.
     if ('SCAN' not in autorx.task_list) and (allocate_sdr(check_only=True) is not None):

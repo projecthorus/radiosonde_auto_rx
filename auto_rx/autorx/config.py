@@ -12,7 +12,8 @@ import traceback
 import json
 from .utils import rtlsdr_test
 
-global_config = {}
+# Dummy initial config with some parameters we need to make the web interface happy.
+global_config = {'min_freq':400.0,'max_freq':403.0,'snr_threshold':10,'station_lat':0.0,'station_lon':0.0}
 
 try:
     # Python 2
