@@ -158,7 +158,7 @@
                     {title:"SDR", field:"sdr_device_idx", headerSort:false},
                     {title:"Type", field:"type", headerSort:false},
                     {title:'Freq (MHz)', field:"freq", headerSort:false},
-                    {title:"ID", field:"id", headerSort:false},
+                    {title:"ID", field:"id", formatter:'html', headerSort:false},
                     {title:"Timestamp", field:"datetime", headerSort:false},
                     {title:"Frame", field:"frame", headerSort:false},
                     {title:"Latitude", field:"lat", headerSort:false},
@@ -187,6 +187,12 @@
                         sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
+                        // Add a link to HabHub if we have habitat enabled.
+                        if ("habitat_enabled" in autorx_config){
+                            if(autorx_config.habitat_enabled ==true){
+                                sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                            }
+                        }
                         telem_data.push(sonde_id_data);
                     }
                 }
