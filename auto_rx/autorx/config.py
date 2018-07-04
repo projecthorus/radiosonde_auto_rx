@@ -118,10 +118,15 @@ def read_auto_rx_config(filename):
 		auto_rx_config['per_sonde_log'] = config.getboolean('logging', 'per_sonde_log')
 
                 # Email Settings
-                auto_rx_config['email_enabled'] = config.getboolean('email', 'email_enabled')
-                auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
-                auto_rx_config['email_from'] = config.get('email', 'from')
-                auto_rx_config['email_to'] = config.get('email', 'to')
+		if config.has_option('email', 'email_enabled'):
+			try:
+				auto_rx_config['email_enabled'] = config.getboolean('email', 'email_enabled')
+				auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
+				auto_rx_config['email_from'] = config.get('email', 'from')
+				auto_rx_config['email_to'] = config.get('email', 'to')
+			except:
+				logging.error("Config - Invalid email settings. Disabling.")
+				auto_rx_config['email_enabled'] = False
 
 		# SDR Settings
 		auto_rx_config['sdr_fm'] = config.get('advanced', 'sdr_fm_path')
