@@ -9,14 +9,6 @@
 # If enabled, a log file will be written to ./log/ for each detected radiosonde.
 per_sonde_log = True
 
-# Email Notification
-#   Sends an email notification to the specified address when a new Sonde is detected
-[email]
-email_enabled = False
-smtp_server = localhost
-from = sonde@localhost
-to = someone@example.com
-
 # RTLSDR Receiver Settings
 [sdr]
 
@@ -144,6 +136,15 @@ aprs_object_id = <id>
 # <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 aprs_custom_comment = <type> Radiosonde <freq> <vel_v> http://bit.ly/2Bj4Sfk
+
+
+# Email Notification
+#   Sends an email notification to the specified address when a new Sonde is detected
+[email]
+email_enabled = False
+smtp_server = localhost
+from = sonde@localhost
+to = someone@example.com
 
 
 # Settings for pushing data into OziPlotter
