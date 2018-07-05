@@ -9,6 +9,7 @@ import logging
 import time
 import smtplib
 from email.mime.text import MIMEText
+from email.utils import formatdate
 from threading import Thread
 
 try:
@@ -104,6 +105,7 @@ class EmailNotification(object):
                 msg['Subject'] = 'Sonde launch detected: ' + _id
                 msg['From'] = self.mail_from
                 msg['To'] = self.mail_to
+                msg["Date"] = formatdate()
 
                 s = smtplib.SMTP(self.smtp_server)
                 s.sendmail(msg['From'], msg['To'], msg.as_string())
