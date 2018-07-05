@@ -9,6 +9,14 @@
 # If enabled, a log file will be written to ./log/ for each detected radiosonde.
 per_sonde_log = True
 
+# Email Notification
+#   Sends an email notification to the specified address when a new Sonde is detected
+[email]
+email_enabled = False
+smtp_server = localhost
+from = sonde@localhost
+to = someone@example.com
+
 # RTLSDR Receiver Settings
 [sdr]
 

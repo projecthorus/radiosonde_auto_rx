@@ -20,6 +20,7 @@ import autorx
 from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder
 from autorx.logger import TelemetryLogger
+from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
@@ -418,6 +419,17 @@ def main():
         _logger = TelemetryLogger(log_directory="./log/")
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
+
+    if config['email_enabled']:
+
+        _email_notification = EmailNotification(
+            smtp_server = config['email_smtp_server'],
+            mail_from = config['email_from'],
+            mail_to = config['email_to']
+	)
+
+        exporter_objects.append(_email_notification)
+        exporter_functions.append(_email_notification.add)
 
     # Habitat Uploader
     if config['habitat_enabled']:
