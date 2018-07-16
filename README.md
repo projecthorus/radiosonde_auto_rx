@@ -1,6 +1,7 @@
 # Automatic Radiosonde Receiver Utilities
 This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set of utilities ('auto_rx') to allow automatic reception and uploading of [Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to multiple services, including:
 * The [Habitat High-Altitude Balloon Tracker](https://tracker.habhub.org)
+  * **Please note the HabHub Tracker now filters out radiosondes by default.** To view the radiosondes again, clear the search field at the top-left of the tracker of all text, and press enter. Alternatively, use our front-end to HabHub at: [https://sondehub.org/](https://sondehub.org/)
 * APRS-IS (for display on sites such as [aprs.fi](https://aprs.fi)
 * [OziPlotter](https://github.com/projecthorus/oziplotter), for mobile radiosonde chasing.
 
@@ -9,7 +10,7 @@ Currently we support the following radiosonde types:
 * Vaisala RS41SGP
 * Graw DFM06/DFM09
 
-Support for other radiosondes may be added as required (send us sondes to test with!)
+Support for other radiosondes may be added as required (please send us sondes to test with!)
 
 This software performs the following steps:
 1. Use rtl_power to scan across a user-defined frequency range, and detect peaks in the spectrum.
@@ -17,7 +18,9 @@ This software performs the following steps:
 3. If a radiosonde signal is found, start demodulating it, and upload data to various internet services.
 4. If no peaks are found, or if no packets are heard from the radiosonde in a given amount of time (2 minutes by default), go back to step 1.
 
-Refer to the wiki for [installation and setup instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
+The latest version can make use of multiple RTLSDRs to allow for tracking of many radiosondes simultaneously. The number of simultaneous radiosondes you can track is limited only by the number of RTLSDRs you have setup! 
+
+Refer to the wiki for the [latest updates, and installation/setup instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
 #### Please note this software is under constant development. Please update (git pull) regularly!
 
