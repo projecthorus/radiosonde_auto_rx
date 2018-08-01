@@ -18,7 +18,7 @@ import traceback
 
 import autorx
 from autorx.scan import SondeScanner
-from autorx.decode import SondeDecoder
+from autorx.decode import SondeDecoder, VALID_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
@@ -230,6 +230,12 @@ def handle_scan_results():
                 continue
             else:
                 logging.info("Detected new %s sonde on %.3f MHz!" % (_type, _freq/1e6))
+
+                # Break if we don't support this sonde type.
+                if (_type not in VALID_SONDE_TYPES):
+                    logging.error("Unsupported sonde type: %s" % _type)
+                    continue
+
                 if allocate_sdr(check_only=True) is not None :
                     # There is a SDR free! Start the decoder on that SDR
                     start_decoder(_freq, _type)

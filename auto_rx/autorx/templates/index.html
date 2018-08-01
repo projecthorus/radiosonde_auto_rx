@@ -147,6 +147,14 @@
             var home_marker = L.marker(sondemap.getCenter(),
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
+
+
+            function mapMovedEvent(e){
+                // The user has panned the map, stop following things.
+                $("#sondeAutoFollow").prop('checked', false);
+            }
+            sondemap.on('dragend',mapMovedEvent);
+
             
             // Telemetry Data Table
             // Using tabulator makes this *really* easy.
@@ -156,16 +164,20 @@
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:false},
+                    {title:"Age", field:"age", headerSort:false},
                     {title:"Type", field:"type", headerSort:false},
                     {title:'Freq (MHz)', field:"freq", headerSort:false},
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
-                    {title:"Timestamp", field:"datetime", headerSort:false},
+                    {title:"Time", field:"datetime", headerSort:false},
                     {title:"Frame", field:"frame", headerSort:false},
                     {title:"Latitude", field:"lat", headerSort:false},
                     {title:"Longitude", field:"lon", headerSort:false},
-                    {title:"Altitude (m)", field:"alt", headerSort:false},
-                    {title:"Asc Rate (m/s)", field:"vel_v", headerSort:false},
-                    {title:"Temp (deg C)", field:"temp", headerSort:false}
+                    {title:"Alt (m)", field:"alt", headerSort:false},
+                    {title:"Asc (m/s)", field:"vel_v", headerSort:false},
+                    {title:"Temp (°C)", field:"temp", headerSort:false},
+                    {title:"Az (°)", field:"azimuth", headerSort:false},
+                    {title:"El (°)", field:"elevation", headerSort:false},
+                    {title:"Range (km)", field:"range", headerSort:false}
                     // TODO: Azimuth, elevation, Range calculations.
                 ]
             });
@@ -178,10 +190,32 @@
                 }else{
                     for (sonde_id in sonde_positions){
                         var sonde_id_data = Object.assign({},sonde_positions[sonde_id].latest_data);
-                        var sonde_id_age = sonde_positions[sonde_id].age;
-                        if ((Date.now()-sonde_id_age)>180000){
+                        var sonde_id_age = Date.now() - sonde_positions[sonde_id].age;
+                        if (sonde_id_age>180000){
                             sonde_id_data.sdr_device_idx = "";
+                            sonde_id_data.age = "old";
+                        }else{
+                            sonde_id_data.age = (sonde_id_age/1000.0).toFixed(0) + " s";
                         }
+
+                        // If we have a station lat/lon/alt set, calculate az/el/range.
+                        if (autorx_config.station_lat != 0.0){
+                            // There is a station lat/lon set.
+                            var _bal = {lat:sonde_id_data.lat, lon:sonde_id_data.lon, alt:sonde_id_data.alt};
+                            var _station = {lat:autorx_config.station_lat, lon:autorx_config.station_lon, alt:autorx_config.station_alt};
+
+                            var _look_angles = calculate_lookangles(_station, _bal);
+
+                            sonde_id_data.azimuth = _look_angles.azimuth.toFixed(0);
+                            sonde_id_data.elevation = _look_angles.elevation.toFixed(0);
+                            sonde_id_data.range = (_look_angles.range/1000).toFixed(1);
+                        } else{
+                            // Insert blank data.
+                            sonde_id_data.azimuth = "";
+                            sonde_id_data.elevation = "";
+                            sonde_id_data.range = "";
+                        }
+
                         // Modify some of the fields to fixed point values.
                         sonde_id_data.lat = sonde_id_data.lat.toFixed(5);
                         sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
@@ -193,6 +227,7 @@
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             }
                         }
+
                         telem_data.push(sonde_id_data);
                     }
                 }
@@ -244,6 +279,15 @@
                             .bindTooltip(sonde_id,{permanent:false,direction:'right'})
                             .addTo(sondemap);
 
+                        if(autorx_config.station_lat != 0.0){
+                            sonde_positions[sonde_id].los_path = L.polyline([],
+                                {
+                                    color:los_color,
+                                    opacity:los_opacity
+                                }
+                            ).addTo(sondemap);
+                        }
+
                         if (telem.vel_v < 0){
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
                         }
@@ -284,6 +328,16 @@
                         .bindTooltip(msg.id,{permanent:false,direction:'right'})
                         .addTo(sondemap);
 
+                    // If there is a station location defined, show the path from the station to the sonde.
+                    if(autorx_config.station_lat != 0.0){
+                        sonde_positions[msg.id].los_path = L.polyline([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]],
+                            {
+                                color:los_color,
+                                opacity:los_opacity
+                            }
+                        ).addTo(sondemap);
+                    }
+
                     colour_idx = (colour_idx+1)%colour_values.length;
                     // If this is our first sonde since the browser has been opened, follow it.
                     if (Object.keys(sonde_positions).length == 1){
@@ -300,6 +354,10 @@
                         sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
                     }else{
                         sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                    }
+
+                    if(autorx_config.station_lat != 0.0){
+                        sonde_positions[msg.id].los_path.setLatLngs([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]]);
                     }
                 }
 
@@ -338,6 +396,12 @@
             }, sonde_follow_timeout);            
 
 
+            // Update telemetry table every 500ms
+            window.setInterval(function(){
+                updateTelemetryTable();
+            }, 1000);
+
+
             // Tell the server we are connected and ready for data.
             socket.on('connect', function() {
                 socket.emit('client_connected', {data: 'I\'m connected!'});
@@ -350,6 +414,15 @@
                     $("#scan_chart").hide("fast");
                 } else {
                     $("#scan_chart").show("fast");
+                }
+            });
+
+            // Callback function for Hide Map checkbox.
+            $( "#hideMap" ).click(function() {
+                if (document.getElementById("hideMap").checked == true){
+                    $("#sonde_map").hide("fast");
+                } else {
+                    $("#sonde_map").show("fast");
                 }
             });
 
@@ -371,6 +444,7 @@
             <div class='col-12'>
                 Auto-Follow Latest Sonde: <input type="checkbox" id="sondeAutoFollow" checked>
                 <div id="sonde_map" style="height:400px;width:100%"></div>
+                Hide Map: <input type="checkbox" id="hideMap">
                 <br>
             </div>
         </div>

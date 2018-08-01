@@ -18,6 +18,8 @@ from types import FunctionType, MethodType
 from .utils import AsynchronousFileReader, rtlsdr_test
 from .gps import get_ephemeris, get_almanac
 
+# Global valid sonde types list.
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM']
 
 
 class SondeDecoder(object):
