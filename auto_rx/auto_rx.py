@@ -24,7 +24,7 @@ from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
-from autorx.utils import rtlsdr_test, position_info
+from autorx.utils import rtlsdr_test, position_info, check_rs_utils
 from autorx.config import read_auto_rx_config
 from autorx.web import start_flask, stop_flask, flask_emit_event, WebHandler, WebExporter
 
@@ -408,6 +408,10 @@ def main():
     else:
         config = _temp_cfg
         autorx.sdr_list = config['sdr_settings']
+
+    # Check all the RS utilities exist.
+    if not check_rs_utils():
+        sys.exit(1)
 
     # Start up the flask server.
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
