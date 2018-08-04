@@ -395,6 +395,5 @@ if __name__ == "__main__":
                 logging.info("This is a test message.")
     except:
         stop_flask()
-        _web.close()
 
     

@@ -25,6 +25,21 @@ except ImportError:
     from queue import Queue
 
 
+# List of binaries we check for on startup
+REQUIRED_RS_UTILS = ['rs_detect', 'rs41ecc', 'rs92ecc', 'dfm09ecc']
+
+def check_rs_utils():
+    """ Check the required RS decoder binaries exist
+        Currently we just check there is a file present - we don't check functionality.
+    """
+    for _file in REQUIRED_RS_UTILS:
+        if not os.path.isfile(_file):
+            logging.critical("RS binary %s does not exist - did you run build.sh?" % _file)
+            return False
+
+    return True
+
+
 class AsynchronousFileReader(threading.Thread):
     """ Asynchronous File Reader
     Helper class to implement asynchronous reading of a file
@@ -252,10 +267,12 @@ def peak_plot(x, mph, mpd, threshold, edge, valley, ax, ind):
         plt.show()
 
 
+
+
+
 #
 #   RTLSDR Utility Functions
 #
-
 
 # Regexes to help parse lsusb's output
 _INDENTATION_RE = re.compile(r'^( *)')

@@ -5,6 +5,8 @@ This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set
 * APRS-IS (for display on sites such as [aprs.fi](https://aprs.fi)
 * [OziPlotter](https://github.com/projecthorus/oziplotter), for mobile radiosonde chasing.
 
+There is also a web interface provided (defaults to port 5000), allowing display of station status and basic tracking of the sonde position.
+
 Currently we support the following radiosonde types:
 * Vaisala RS92SGP
 * Vaisala RS41SGP
