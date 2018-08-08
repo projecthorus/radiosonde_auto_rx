@@ -283,6 +283,54 @@ _LSUSB_GROUP_RE = re.compile(r'^ *([^ ]+.*):$')
 # USB Reset ioctl argument
 _USBDEVFS_RESET = ord('U') << 8 | 20
 
+# List of known RTLSDR-Compatible devices, taken from
+# https://github.com/steve-m/librtlsdr/blob/master/src/librtlsdr.c#L313
+KNOWN_RTLSDR_DEVICES = [
+    [ '0x0bda', '0x2832', "Generic RTL2832U" ],
+    [ '0x0bda', '0x2838', "Generic RTL2832U OEM" ],
+    [ '0x0413', '0x6680', "DigitalNow Quad DVB-T PCI-E card" ],
+    [ '0x0413', '0x6f0f', "Leadtek WinFast DTV Dongle mini D" ],
+    [ '0x0458', '0x707f', "Genius TVGo DVB-T03 USB dongle (Ver. B)" ],
+    [ '0x0ccd', '0x00a9', "Terratec Cinergy T Stick Black (rev 1)" ],
+    [ '0x0ccd', '0x00b3', "Terratec NOXON DAB/DAB+ USB dongle (rev 1)" ],
+    [ '0x0ccd', '0x00b4', "Terratec Deutschlandradio DAB Stick" ],
+    [ '0x0ccd', '0x00b5', "Terratec NOXON DAB Stick - Radio Energy" ],
+    [ '0x0ccd', '0x00b7', "Terratec Media Broadcast DAB Stick" ],
+    [ '0x0ccd', '0x00b8', "Terratec BR DAB Stick" ],
+    [ '0x0ccd', '0x00b9', "Terratec WDR DAB Stick" ],
+    [ '0x0ccd', '0x00c0', "Terratec MuellerVerlag DAB Stick" ],
+    [ '0x0ccd', '0x00c6', "Terratec Fraunhofer DAB Stick" ],
+    [ '0x0ccd', '0x00d3', "Terratec Cinergy T Stick RC (Rev.3)" ],
+    [ '0x0ccd', '0x00d7', "Terratec T Stick PLUS" ],
+    [ '0x0ccd', '0x00e0', "Terratec NOXON DAB/DAB+ USB dongle (rev 2)" ],
+    [ '0x1554', '0x5020', "PixelView PV-DT235U(RN)" ],
+    [ '0x15f4', '0x0131', "Astrometa DVB-T/DVB-T2" ],
+    [ '0x15f4', '0x0133', "HanfTek DAB+FM+DVB-T" ],
+    [ '0x185b', '0x0620', "Compro Videomate U620F"],
+    [ '0x185b', '0x0650', "Compro Videomate U650F"],
+    [ '0x185b', '0x0680', "Compro Videomate U680F"],
+    [ '0x1b80', '0xd393', "GIGABYTE GT-U7300" ],
+    [ '0x1b80', '0xd394', "DIKOM USB-DVBT HD" ],
+    [ '0x1b80', '0xd395', "Peak 102569AGPK" ],
+    [ '0x1b80', '0xd397', "KWorld KW-UB450-T USB DVB-T Pico TV" ],
+    [ '0x1b80', '0xd398', "Zaapa ZT-MINDVBZP" ],
+    [ '0x1b80', '0xd39d', "SVEON STV20 DVB-T USB & FM" ],
+    [ '0x1b80', '0xd3a4', "Twintech UT-40" ],
+    [ '0x1b80', '0xd3a8', "ASUS U3100MINI_PLUS_V2" ],
+    [ '0x1b80', '0xd3af', "SVEON STV27 DVB-T USB & FM" ],
+    [ '0x1b80', '0xd3b0', "SVEON STV21 DVB-T USB & FM" ],
+    [ '0x1d19', '0x1101', "Dexatek DK DVB-T Dongle (Logilink VG0002A)" ],
+    [ '0x1d19', '0x1102', "Dexatek DK DVB-T Dongle (MSI DigiVox mini II V3.0)" ],
+    [ '0x1d19', '0x1103', "Dexatek Technology Ltd. DK 5217 DVB-T Dongle" ],
+    [ '0x1d19', '0x1104', "MSI DigiVox Micro HD" ],
+    [ '0x1f4d', '0xa803', "Sweex DVB-T USB" ],
+    [ '0x1f4d', '0xb803', "GTek T803" ],
+    [ '0x1f4d', '0xc803', "Lifeview LV5TDeluxe" ],
+    [ '0x1f4d', '0xd286', "MyGica TD312" ],
+    [ '0x1f4d', '0xd803', "PROlectrix DV107669" ],
+    ]
+
+
 def lsusb():
     """Call lsusb and return the parsed output.
 
@@ -368,6 +416,17 @@ def reset_usb(bus, device):
             logging.error("RTLSDR - USB Reset Failed.")
 
 
+def is_rtlsdr(vid,pid):
+    """ Check if a device with given VID/PID is a known RTLSDR """
+    for _dev in KNOWN_RTLSDR_DEVICES:
+        _vid = _dev[0]
+        _pid = _dev[1]
+        if (vid == _vid) and (pid == _pid):
+            return True
+
+    return False
+
+
 def reset_rtlsdr_by_serial(serial):
     """ Attempt to reset a RTLSDR with a provided serial number """
 
@@ -383,11 +442,13 @@ def reset_rtlsdr_by_serial(serial):
         try:
             device_serial = device['Device Descriptor']['iSerial']['_desc']
             device_product = device['Device Descriptor']['iProduct']['_desc']
+            device_pid = device['Device Descriptor']['idProduct']['_value']
+            device_vid = device['Device Descriptor']['idVendor']['_value']
         except:
             # If we hit an exception, the device likely doesn't have one of the required fields.
             continue
 
-        if (device_serial == serial) and ('RTL283' in device_product) :
+        if (device_serial == serial) and is_rtlsdr(device_vid, device_pid) :
             bus_num = int(device['bus'])
             device_num = int(device['device'])
 
@@ -414,19 +475,20 @@ def find_rtlsdr(serial=None):
         try:
             device_serial = device['Device Descriptor']['iSerial']['_desc']
             device_product = device['Device Descriptor']['iProduct']['_desc']
+            device_pid = device['Device Descriptor']['idProduct']['_value']
+            device_vid = device['Device Descriptor']['idVendor']['_value']
         except:
             # If we hit an exception, the device likely doesn't have one of the required fields.
             continue
 
-        if device_product != None:
-            if ('RTL283' in device_product):
-                # We have found a RTLSDR! If we're not looking for a particular serial number, we can just quit now.
-                if serial == None:
-                    return True
-                else:
-                    if (device_serial == serial):
-                        bus_num = int(device['bus'])
-                        device_num = int(device['device'])
+        if is_rtlsdr(device_vid, device_pid):
+            # We have found a RTLSDR! If we're not looking for a particular serial number, we can just quit now.
+            if serial == None:
+                return True
+            else:
+                if (device_serial == serial):
+                    bus_num = int(device['bus'])
+                    device_num = int(device['device'])
 
     if bus_num and device_num:
         # We have found an RTLSDR with this serial number!
@@ -451,17 +513,18 @@ def reset_all_rtlsdrs():
     for device in lsusb_info:
         try:
             device_product = device['Device Descriptor']['iProduct']['_desc']
+            device_pid = device['Device Descriptor']['idProduct']['_value']
+            device_vid = device['Device Descriptor']['idVendor']['_value']
         except:
             # If we hit an exception, the device likely doesn't have one of the required fields.
             continue
 
-        if device_product != None:
-            if 'RTL283' in device_product :
-                bus_num = int(device['bus'])
-                device_num = int(device['device'])
+        if is_rtlsdr(device_vid, device_pid) :
+            bus_num = int(device['bus'])
+            device_num = int(device['device'])
 
-                logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
-                reset_usb(bus_num, device_num)
+            logging.info("RTLSDR - Attempting to reset: Bus: %d  Device: %d" % (bus_num, device_num))
+            reset_usb(bus_num, device_num)
 
     if device_num is None:
         logging.error("RTLSDR - Could not find any RTLSDR devices to reset!")
