@@ -342,7 +342,9 @@ def telemetry_filter(telemetry):
     # RS92: https://www.vaisala.com/sites/default/files/documents/Vaisala%20Radiosonde%20RS92%20Serial%20Number.pdf
     # RS41: https://www.vaisala.com/sites/default/files/documents/Vaisala%20Radiosonde%20RS41%20Serial%20Number.pdf
     # This will need to be re-evaluated if we're still using this code in 2021!
-    vaisala_callsign_valid = re.match(r'[J-T][0-5][\d][1-7]\d{4}', _serial)
+    # UPDATE: Had some confirmation that Vaisala will continue to use the alphanumeric numbering up until
+    # ~2025-2030, so have expanded the regex to match (and also support some older RS92s)
+    vaisala_callsign_valid = re.match(r'[E-Z][0-5][\d][1-7]\d{4}', _serial)
 
     # Regex to check DFM06/09 callsigns.
     # TODO: Check if this valid for DFM06s, and find out what's up with the 8-digit DFM09 callsigns.
