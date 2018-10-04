@@ -24,6 +24,7 @@ from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
+from autorx.rotator import Rotator
 from autorx.utils import rtlsdr_test, position_info, check_rs_utils
 from autorx.config import read_auto_rx_config
 from autorx.web import start_flask, stop_flask, flask_emit_event, WebHandler, WebExporter
@@ -507,6 +508,24 @@ def main():
 
         exporter_objects.append(_ozimux)
         exporter_functions.append(_ozimux.add)
+
+
+    # Rotator 
+    if config['rotator_enabled']:
+        _rotator = Rotator(
+            station_position = [config['station_lat'], config['station_lon'], config['station_alt']],
+            rotctld_host = config['rotator_hostname'],
+            rotctld_port = config['rotator_port'],
+            rotator_update_rate = config['rotator_update_rate'],
+            rotator_update_threshold = config['rotation_threshold'],
+            rotator_homing_enabled = config['rotator_homing_enabled'],
+            rotator_homing_delay = config['rotator_homing_delay'],
+            rotator_home_position = [config['rotator_home_azimuth'], config['rotator_home_elevation']]
+            )
+        
+        exporter_objects.append(_rotator)
+        exporter_functions.append(_rotator.add)
+
 
     _web_exporter = WebExporter(max_age=config['web_archive_age'])
     exporter_objects.append(_web_exporter)

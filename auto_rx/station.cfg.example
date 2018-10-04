@@ -216,18 +216,27 @@ sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
 
 
-# Rotator Settings - Currently not implemented.
+# Rotator Settings
 #   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
+#   This is, admittedly, a bit of a waste of an az/el rotator setup when a vertical antenna usually works fine,
+#   but it's still fun :-)
 [rotator]
 # WARNING - This should not be enabled in a multi-SDR configuration.
+# Your station location (defined in the [location] section above) must also be defined.
 rotator_enabled = False
-# How often to update the rotator position.
-update_rate = 10
+# How often to update the rotator position. (Seconds)
+update_rate = 30
+# Only move the rotator if the new position is more than X degrees in azimuth or elevation from the current position.
+rotation_threshold = 5.0
 # Hostname / Port of the rotctld instance.
 rotator_hostname = 127.0.0.1
 rotator_port = 4533
 # Rotator Homing.
-# If enabled, turn to this location when scanning for sondes.
+# If enabled, turn to a 'home' location when scanning for sondes.
+# This could be used to point an antenna at a known radiosonde launch location.
 rotator_homing_enabled = False
-rotator_home_azimuth = 0
-rotator_home_elevation = 0
+# Wait until x minutes after no sonde data received before moving to the home location.
+rotator_homing_delay = 10
+# Rotator home azimuth/elevation, in degrees true.
+rotator_home_azimuth = 0.0
+rotator_home_elevation = 0.0
