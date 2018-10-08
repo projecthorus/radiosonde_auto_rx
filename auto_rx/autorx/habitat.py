@@ -420,6 +420,7 @@ class HabitatUploader(object):
             upload_retry_interval (int): Time interval between upload retries. Default: 0.25 seconds.
 
             user_position_update_rate (int): Time interval between automatic station position updates, hours.
+                Set to 6 hours by default, updating any more often than this is not really useful.
 
             inhibit (bool): Inhibit all uploads. Mainly intended for debugging.
 
