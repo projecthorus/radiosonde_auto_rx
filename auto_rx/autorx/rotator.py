@@ -223,14 +223,14 @@ class Rotator(object):
 
         if (abs(azimuth-_curr_az) > self.rotator_update_threshold) or (abs(elevation-_curr_el) > self.rotator_update_threshold):
             # Move to the target position.
-            self.log_info("New rotator target is outside current antenna view, moving rotator to %.1f, %.1f" % (azimuth, elevation))
+            self.log_info("New rotator target is outside current antenna view (%.1f, %.1f +/- %.1f deg), moving rotator to %.1f, %.1f" % (_curr_az, _curr_el, self.rotator_update_threshold, azimuth, elevation))
             return set_rotator(rotctld_host = self.rotctld_host,
                 rotctld_port = self.rotctld_port,
                 azimuth = azimuth,
                 elevation = elevation)
         else:
             # We are close enough to the target position, no need to move yet.
-            self.log_debug("New target is within current antenna view, not moving rotator.")
+            self.log_debug("New target is within current antenna view (%.1f, %.1f +/- %.1f deg), not moving rotator." % (_curr_az, _curr_el, self.rotator_update_threshold))
             return True
 
 
