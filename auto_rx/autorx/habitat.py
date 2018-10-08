@@ -393,6 +393,7 @@ class HabitatUploader(object):
                 upload_timeout = 10,
                 upload_retries = 5,
                 upload_retry_interval = 0.25,
+                user_position_update_rate = 6,
                 inhibit = False
                 ):
         """ Initialise a Habitat Uploader object.
@@ -418,6 +419,9 @@ class HabitatUploader(object):
             upload_retries (int): Retry an upload up to this many times. Default: 5
             upload_retry_interval (int): Time interval between upload retries. Default: 0.25 seconds.
 
+            user_position_update_rate (int): Time interval between automatic station position updates, hours.
+                Set to 6 hours by default, updating any more often than this is not really useful.
+
             inhibit (bool): Inhibit all uploads. Mainly intended for debugging.
 
         """
@@ -433,6 +437,7 @@ class HabitatUploader(object):
         self.synchronous_upload_time = synchronous_upload_time
         self.callsign_validity_threshold = callsign_validity_threshold
         self.inhibit = inhibit
+        self.user_position_update_rate = user_position_update_rate
 
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.
@@ -449,6 +454,9 @@ class HabitatUploader(object):
         #   'listener_updated' (bool): Indicates if the listener position has been updated for the start of this ID's flight.
         self.observed_payloads = {}
 
+        # Record of when we last uploaded a user station position to Habitat.
+        self.last_user_position_upload = 0
+
         # Start the uploader thread.
         self.upload_thread_running = True
         self.upload_thread = Thread(target=self.habitat_upload_thread)
@@ -463,16 +471,15 @@ class HabitatUploader(object):
         self.timer_thread = Thread(target=self.upload_timer)
         self.timer_thread.start()
 
-        # Upload listener position
-        # Throw this into a thread to avoid blocking during auto_rx startup.
+
+    def user_position_upload(self):
+        """ Upload the the station position to Habitat. """
         if self.user_position is not None:
-            self.initial_position = Thread(target=self.initial_position_upload)
-            self.initial_position.start()
-
-
-    def initial_position_upload(self):
-        """ Perform the initial upload of the user position. """
-        uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version, antenna=self.user_antenna)
+            _success = uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version, antenna=self.user_antenna)
+            self.last_user_position_upload = time.time()
+            return _success
+        else:
+            return False
 
 
     def habitat_upload(self, sentence):
@@ -663,15 +670,15 @@ class HabitatUploader(object):
 
                         # If this is the first time we have observed this payload, update the listener position.
                         if (self.observed_payloads[_id]['listener_updated'] == False) and (self.user_position is not None):
-                            self.observed_payloads[_id]['listener_updated'] = uploadListenerPosition(
-                                self.user_callsign, 
-                                self.user_position[0], 
-                                self.user_position[1], 
-                                version=auto_rx_version,
-                                antenna=self.user_antenna)
+                            self.observed_payloads[_id]['listener_updated'] = self.user_position_upload()
+
                     else:
                         self.log_debug("Payload ID %s not observed enough to allow upload." % _id)
 
+
+            # If we haven't uploaded our station position recently, re-upload it.
+            if (time.time() - self.last_user_position_upload) > self.user_position_update_rate*3600:
+                self.user_position_upload()
 
             time.sleep(0.1)
 
