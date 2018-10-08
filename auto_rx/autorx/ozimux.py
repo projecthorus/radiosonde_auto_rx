@@ -87,7 +87,15 @@ class OziUploader(object):
                 _ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             except:
                 pass
-            _ozisock.sendto(_sentence.encode('ascii'),('<broadcast>',self.ozimux_port))
+
+            try:
+                _ozisock.sendto(_sentence.encode('ascii'),('<broadcast>',self.ozimux_port))
+            # Catch any socket errors, that may occur when attempting to send to a broadcast address
+            # when there is no network connected. In this case, re-try and send to localhost instead.
+            except socket.error as e:
+                self.log_debug("Send to broadcast address failed, sending to localhost instead.")
+                _ozisock.sendto(_sentence.encode('ascii'),('127.0.0.1',self.ozimux_port))
+
             _ozisock.close()
 
         except Exception as e:
@@ -146,7 +154,16 @@ class OziUploader(object):
             except:
                 pass
 
-            _s.sendto(json.dumps(packet).encode('ascii'), ('<broadcast>', self.payload_summary_port))
+            try:
+                _s.sendto(json.dumps(packet).encode('ascii'), ('<broadcast>', self.payload_summary_port))
+            # Catch any socket errors, that may occur when attempting to send to a broadcast address
+            # when there is no network connected. In this case, re-try and send to localhost instead.
+            except socket.error as e:
+                self.log_debug("Send to broadcast address failed, sending to localhost instead.")
+                _s.sendto(json.dumps(packet).encode('ascii'), ('127.0.0.1', self.payload_summary_port))
+
+            _s.close()
+
         except Exception as e:
             self.log_error("Error sending Payload Summary: %s" % str(e))
 
