@@ -95,9 +95,12 @@ def read_auto_rx_config(filename):
 		'payload_id_valid' : 5, 
 		# Rotator Settings
 		'enable_rotator': False,
+		'rotator_update_rate': 30,
 		'rotator_hostname': '127.0.0.1',
 		'rotator_port'	: 4533,
+		'rotation_threshold': 5.0,
 		'rotator_homing_enabled': False,
+		'rotator_homing_delay': 10,
 		'rotator_home_azimuth': 0,
 		'rotator_home_elevation': 0,
 		# OziExplorer Settings
@@ -186,7 +189,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['payload_id_valid'] = config.getint('advanced', 'payload_id_valid')
 		auto_rx_config['synchronous_upload'] = config.getboolean('advanced', 'synchronous_upload')
 
-		# Rotator Settings (TBC)
+		# Rotator Settings
 		auto_rx_config['rotator_enabled'] = config.getboolean('rotator','rotator_enabled')
 		auto_rx_config['rotator_update_rate'] = config.getint('rotator', 'update_rate')
 		auto_rx_config['rotator_hostname'] = config.get('rotator', 'rotator_hostname')
@@ -211,6 +214,13 @@ def read_auto_rx_config(filename):
 			logging.error("Config - Missing Web Server settings. Using defaults.")
 			auto_rx_config['web_port'] = 5000
 			auto_rx_config['web_archive_age'] = 120
+
+		# New setting added in 201810xx (Rotator updates)
+		try:
+			auto_rx_config['rotator_homing_delay'] = config.getint('rotator', 'rotator_homing_delay')
+			auto_rx_config['rotation_threshold'] = config.getfloat('rotator', 'rotation_threshold')
+		except:
+			logging.error("Config - Missing new rotator settings, using defaults.")
 
 
 

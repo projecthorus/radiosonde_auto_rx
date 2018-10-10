@@ -291,7 +291,7 @@ def fetchUuids(timeout=10):
         try:
             _r = requests.get(url_habitat_uuids % 10, timeout=timeout)
             uuids.extend(_r.json()['uuids'])
-            logging.debug("Habitat - Got UUIDs")
+            #logging.debug("Habitat - Got UUIDs")
             return
         except Exception as e:
             logging.error("Habitat - Unable to fetch UUIDs, retrying in 10 seconds - %s" % str(e))
@@ -317,7 +317,7 @@ def initListenerCallsign(callsign, version='', antenna=''):
     resp = postListenerData(doc)
 
     if resp is True:
-        logging.debug("Habitat - Listener Callsign Initialized.")
+        #logging.debug("Habitat - Listener Callsign Initialized.")
         return True
     else:
         logging.error("Habitat - Unable to initialize callsign.")
@@ -350,10 +350,10 @@ def uploadListenerPosition(callsign, lat, lon, version='', antenna=''):
     # post position to habitat
     resp = postListenerData(doc)
     if resp is True:
-        logging.info("Habitat - Listener information uploaded.")
+        logging.info("Habitat - Station position uploaded.")
         return True
     else:
-        logging.error("Habitat - Unable to upload listener information.")
+        logging.error("Habitat - Unable to upload station position.")
         return False
 
 
