@@ -102,7 +102,7 @@ upload_rate = 30
 payload_callsign = <id>
 
 
-# Station Location (optional). Used by the Habitat Uploader, and by Rotator Control
+# Station Location (optional). Used by the Habitat Uploader, APRS Uploader, and by Rotator Control
 [location]
 station_lat = 0.0
 station_lon = 0.0
@@ -136,6 +136,24 @@ aprs_object_id = <id>
 # <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 aprs_custom_comment = <type> Radiosonde <freq> <vel_v> http://bit.ly/2Bj4Sfk
+
+# APRS Station Location Beaconing
+# This also requires your station location to be set in the above [location] section
+station_beacon_enabled = False
+
+# Station beaconing rate, in minutes.
+station_beacon_rate = 30
+
+# Station beacon comment.
+# <version> will be replaced with the current auto_rx version number
+station_beacon_commment = radiosonde_auto_rx SondeGate v<version>
+
+# Station Beacon Icon
+# The APRS icon to use, as defined in http://www.aprs.org/symbols.html
+# Note that the two characters that define the icon need to be concatenated. Examples:
+# Antenna Tower = /r
+# House with Yagi = /y
+station_beacon_icon = /r
 
 
 # Email Notification

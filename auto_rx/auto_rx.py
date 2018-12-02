@@ -483,7 +483,12 @@ def main():
             object_comment = config['aprs_custom_comment'],
             aprsis_host = config['aprs_server'],
             synchronous_upload_time = config['aprs_upload_rate'],
-            callsign_validity_threshold = config['payload_id_valid']
+            callsign_validity_threshold = config['payload_id_valid'],
+            station_beacon = config['station_beacon_enabled'],
+            station_beacon_rate = config['station_beacon_rate'],
+            station_beacon_position = [config['station_lat'], config['station_lon']],
+            station_beacon_comment = config['station_beacon_comment'],
+            station_beacon_icon = config['station_beacon_icon']
             )
 
         exporter_objects.append(_aprs)

@@ -78,6 +78,10 @@ def read_auto_rx_config(filename):
 		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
+		'station_beacon_enabled': False,
+		'station_beacon_rate': 30,
+		'station_beacon_comment': "radiosonde_auto_rx SondeGate v<version>",
+		'station_beacon_icon': '/r',
 		# Web Settings,
 		'web_port'		: 5000,
 		'web_archive_age': 120,
@@ -221,6 +225,20 @@ def read_auto_rx_config(filename):
 			auto_rx_config['rotation_threshold'] = config.getfloat('rotator', 'rotation_threshold')
 		except:
 			logging.error("Config - Missing new rotator settings, using defaults.")
+
+
+		# New APRS Station Beaconing settings added in 201812xx
+		try:
+			auto_rx_config['station_beacon_enabled'] = config.getboolean('aprs','station_beacon_enabled')
+			auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
+			auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')
+			auto_rx_config['station_beacon_icon'] = config.get('aprs', 'station_beacon_icon')
+
+			if auto_rx_config['station_beacon_enabled'] and auto_rx_config['station_lat']==0.0 and auto_rx_config['station_lon'] == 0.0:
+				auto_rx_config['station_beacon_enabled'] = False
+				logging.error("Config - Disable APRS Station beacon, as no station lat/lon set.")
+		except:
+			logging.error("Config - APRS Station Beacon settings missing, using defaults.")
 
 
 
