@@ -48,7 +48,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
                 _object_name = "DF6" + _id_suffix
         else:
             # Unknown sonde type, don't know how to handle this yet.
-            return None
+            return (None, None)
     else:
         _object_name = object_name
     
@@ -307,7 +307,7 @@ class APRSUploader(object):
         # Generate APRS packet
         if igate:
             # If we are emulating an IGATE, then we need to add in a path, a q-construct, and our own callsign.
-            _packet = '%s>APRS,SONDEGATE,TCPIP,qAR,%s:%s\n' % (source, self.aprs_callsign, packet)
+            _packet = '%s>APZARX,SONDEGATE,TCPIP,qAR,%s:%s\n' % (source, self.aprs_callsign, packet)
         else:
             # Otherwise, we are probably just placing an object, usually sourced by our own callsign
             _packet = '%s>APRS:%s\n' % (source, packet)
@@ -361,15 +361,25 @@ class APRSUploader(object):
                 # If the queue is completely full, jump to the most recent telemetry sentence.
                 if self.aprs_upload_queue.qsize() == self.upload_queue_size:
                     while not self.aprs_upload_queue.empty():
-                        _sentence = self.aprs_upload_queue.get()
+                        _telem = self.aprs_upload_queue.get()
 
                     self.log_warning("Uploader queue was full - possible connectivity issue.")
                 else:
                     # Otherwise, get the first item in the queue.
-                    _sentence = self.aprs_upload_queue.get()
+                    _telem = self.aprs_upload_queue.get()
+
+                # Convert to a packet.
+                try:
+                    (_packet, _call) = telemetry_to_aprs_position(_telem, 
+                        object_name=self.object_name_override,
+                        aprs_comment = self.object_comment)
+                except Exception as e:
+                    self.log_error("Error converting telemetry to APRS packet - %s" % str(e))
+                    _packet = None
 
                 # Attempt to upload it.
-                self.aprsis_upload(_sentence)
+                if _packet is not None:
+                    self.aprsis_upload(_call,_packet,igate=True)
 
             else:
                 # Wait for a short time before checking the queue again.
@@ -394,18 +404,9 @@ class APRSUploader(object):
                         while not self.observed_payloads[_id]['data'].empty():
                             _telem = self.observed_payloads[_id]['data'].get()
 
-                        # Try and convert it to a UKHAS sentence
-                        try:
-                            _sentence = telemetry_to_aprs_sentence(_telem, 
-                                object_name=self.object_name_override, 
-                                aprs_comment=self.object_comment)
-                        except Exception as e:
-                            self.log_error("Error converting telemetry to sentence - %s" % str(e))
-                            continue
-
                         # Attept to add it to the habitat uploader queue.
                         try:
-                            self.aprs_upload_queue.put_nowait(_sentence)
+                            self.aprs_upload_queue.put_nowait(_telem)
                         except Exception as e:
                             self.log_error("Error adding sentence to queue: %s" % str(e))
 
