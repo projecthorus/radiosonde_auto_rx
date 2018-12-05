@@ -46,6 +46,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
                 _object_name = "DF9" + _id_suffix
             else:
                 _object_name = "DF6" + _id_suffix
+        # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
             return (None, None)
@@ -294,7 +295,10 @@ class APRSUploader(object):
         """ Upload a packet to APRS-IS
 
         Args:
+            source (str): Callsign of the packet source.
             packet (str): APRS packet to upload.
+            igate (boolean): If True, iGate the packet into APRS-IS
+                (i.e. use the original source call, but add SONDEGATE and our callsign to the path.)
 
         """
 
@@ -307,7 +311,9 @@ class APRSUploader(object):
         # Generate APRS packet
         if igate:
             # If we are emulating an IGATE, then we need to add in a path, a q-construct, and our own callsign.
-            _packet = '%s>APZARX,SONDEGATE,TCPIP,qAR,%s:%s\n' % (source, self.aprs_callsign, packet)
+            # We have the TOCALL field 'APRARX' allocated by Bob WB4APR, so we can now use this to indicate
+            # that these packets have arrived via radiosonde_auto_rx!
+            _packet = '%s>APRARX,SONDEGATE,TCPIP,qAR,%s:%s\n' % (source, self.aprs_callsign, packet)
         else:
             # Otherwise, we are probably just placing an object, usually sourced by our own callsign
             _packet = '%s>APRS:%s\n' % (source, packet)
