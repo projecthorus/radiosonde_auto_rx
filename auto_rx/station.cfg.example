@@ -120,14 +120,23 @@ aprs_pass = 00000
 upload_rate = 30
 
 # APRS-IS server to upload to.
-aprs_server = rotate.aprs2.net
+# Default to radiosondy.info for now, to allow stats to show up on http://radiosondy.info
+# Packets are forwarded onto the rest of the APRS-IS network from radiosondy.info.
+aprs_server = radiosondy.info
 
-# Object name to be used when uploading to APRS-IS (Max 9 chars)
+# Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
 # Should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
-# or <id>, which will be replaced with the radiosondes serial number
+# or <id>, which will be replaced with the radiosondes serial number.
 # WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
 # DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
 aprs_object_id = <id>
+
+# Selection between uploading the radiosonde position as either an APRS Object, or as a position report.
+# False = Upload position as an Object, sourced from <aprs_user>
+# True = Position Report (with emulated iGating via <aprs_user>)
+# Note that if using Position Reports with aprs_object_id set to <id>, then non-AX.25 compatible callsigns will be generated.
+# If in doubt, leave this at False.
+aprs_position_report = False
 
 # The APRS-IS beacon comment. The following fields can be included:
 # <freq> - Sonde Frequency, i.e. 401.520 MHz
@@ -135,10 +144,13 @@ aprs_object_id = <id>
 # <id> - Sonde Serial Number (i.e. M1234567)
 # <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
-aprs_custom_comment = <type> Radiosonde <freq> <vel_v> http://bit.ly/2Bj4Sfk
+# The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
+# if absolutely necessary.
+aprs_custom_comment=Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://bit.ly/2Bj4Sfk
+
 
 # APRS Station Location Beaconing
-# This also requires your station location to be set in the above [location] section
+# This also requires your station location to be set in the above [location] section.
 station_beacon_enabled = False
 
 # Station beaconing rate, in minutes.

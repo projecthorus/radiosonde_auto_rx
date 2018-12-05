@@ -78,6 +78,7 @@ def read_auto_rx_config(filename):
 		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
+		'aprs_position_report': False,
 		'station_beacon_enabled': False,
 		'station_beacon_rate': 30,
 		'station_beacon_comment': "radiosonde_auto_rx SondeGate v<version>",
@@ -229,6 +230,7 @@ def read_auto_rx_config(filename):
 
 		# New APRS Station Beaconing settings added in 201812xx
 		try:
+			auto_rx_config['aprs_position_report'] = config.getboolean('aprs','aprs_position_report')
 			auto_rx_config['station_beacon_enabled'] = config.getboolean('aprs','station_beacon_enabled')
 			auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
 			auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')

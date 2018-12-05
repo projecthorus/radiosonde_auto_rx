@@ -22,13 +22,14 @@ except ImportError:
 
 
 
-def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM Balloon"):
+def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM Balloon", position_report=False):
     """ Convert a dictionary containing Sonde telemetry into an APRS packet.
 
     Args:
         sonde_data (dict): Sonde telemetry dictionary. (refer autorx.decoder)
         object_name (str): APRS Object Name. If <id>, the sonde's serial number will be used.
         aprs_comment (str): Comment to use in the packet.
+        position_report (bool): if True, generate a position report instead of an APRS object packet.
 
     """
 
@@ -52,13 +53,19 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             return (None, None)
     else:
         _object_name = object_name
-    
+
+    # Pad or limit the object name to 9 characters, if it is to long or short.
+    if len(_object_name) > 9:
+        _object_name = _object_name[:9]
+    elif len(_object_name) < 9:
+        _object_name = _object_name + " "*(9-len(_object_name))
+
     
     # Generate the comment field.
     _aprs_comment = aprs_comment
     _aprs_comment = _aprs_comment.replace("<freq>", sonde_data['freq'])
     _aprs_comment = _aprs_comment.replace("<id>", sonde_data['id'])
-    _aprs_comment = _aprs_comment.replace("<temp>", "%.1f degC" % sonde_data['temp'])
+    _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data['temp'])
     _aprs_comment = _aprs_comment.replace("<vel_v>", "%.1fm/s" % sonde_data['vel_v'])
     _aprs_comment = _aprs_comment.replace("<type>", sonde_data['type'])
 
@@ -102,12 +109,18 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     else:
         course_speed = "000/000"
 
-    # Produce the APRS position report string
-    # Note, we are using the 'position with timestamp' data type, as per http://www.aprs.org/doc/APRS101.PDF
-    out_str = "/%sh%s/%sO%s/A=%06d %s %s" % (_aprs_timestamp,lat_str,lon_str,course_speed,alt,_aprs_comment,_datum)
+
+    if position_report:
+        # Produce an APRS position report string
+        # Note, we are using the 'position with timestamp' data type, as per http://www.aprs.org/doc/APRS101.PDF
+        out_str = "/%sh%s/%sO%s/A=%06d %s %s" % (_aprs_timestamp,lat_str,lon_str,course_speed,alt,_aprs_comment,_datum)
+
+    else:
+        # Produce an APRS Object
+        out_str = ";%s*%sh%s/%sO%s/A=%06d %s %s" % (_object_name,_aprs_timestamp,lat_str,lon_str,course_speed,alt,_aprs_comment,_datum)
 
     # Return both the packet, and the 'callsign'.
-    return (out_str, _object_name)
+    return (out_str, _object_name.strip())
 
 
 
@@ -185,6 +198,7 @@ class APRSUploader(object):
                 aprs_passcode = "00000",
                 object_name_override = None,
                 object_comment = "RadioSonde",
+                position_report = False,
                 aprsis_host = 'rotate.aprs2.net',
                 aprsis_port = 14580,
                 station_beacon = False,
@@ -210,6 +224,8 @@ class APRSUploader(object):
                 WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded under the same callsign.
                 USE WITH CAUTION!!!
             object_comment (str): A comment to go with the object. Various fields will be replaced with telmetry data.
+
+            position_report (bool): If True, upload positions as APRS position reports, otherwise, upload as an Object.
 
             aprsis_host (str): APRS-IS Server to upload packets to.
             aprsis_port (int): APRS-IS TCP port number.
@@ -237,6 +253,7 @@ class APRSUploader(object):
         self.aprs_callsign = aprs_callsign
         self.aprs_passcode = aprs_passcode
         self.object_comment = object_comment
+        self.position_report = position_report
         self.aprsis_host = aprsis_host
         self.aprsis_port = aprsis_port
         self.upload_timeout = upload_timeout
@@ -378,14 +395,21 @@ class APRSUploader(object):
                 try:
                     (_packet, _call) = telemetry_to_aprs_position(_telem, 
                         object_name=self.object_name_override,
-                        aprs_comment = self.object_comment)
+                        aprs_comment = self.object_comment,
+                        position_report=self.position_report)
                 except Exception as e:
                     self.log_error("Error converting telemetry to APRS packet - %s" % str(e))
                     _packet = None
 
                 # Attempt to upload it.
                 if _packet is not None:
-                    self.aprsis_upload(_call,_packet,igate=True)
+                    # If we are uploading position reports, the source call is the generated callsign
+                    # usually based on the sonde serial number, and we iGate the position report.
+                    # Otherwise, we upload APRS Objects, sourced by our own callsign.
+                    if self.position_report:
+                        self.aprsis_upload(_call,_packet,igate=True)
+                    else:
+                        self.aprsis_upload(self.aprs_callsign,_packet,igate=False)
 
             else:
                 # Wait for a short time before checking the queue again.
