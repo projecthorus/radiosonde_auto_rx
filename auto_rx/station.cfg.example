@@ -4,12 +4,9 @@
 # Copy this file to station.cfg and modify as required. 
 #
 
-# Logging Settings
-[logging]
-# If enabled, a log file will be written to ./log/ for each detected radiosonde.
-per_sonde_log = True
-
-# RTLSDR Receiver Settings
+###################
+# RTLSDR SETTINGS #
+###################
 [sdr]
 
 # Number of RTLSDRs to use.
@@ -31,7 +28,7 @@ ppm = 0
 
 # SDR Gain Setting
 #   Gain settings can generally range between 0dB and 40dB depending on the tuner in use.
-#   Run rtl_test to confirm what gain settings are available, or use a value of -1 to use automatic gain control.
+#   Run rtl_test to confirm what gain settings are available, or use a value of -1 to use hardware automatic gain control (AGC).
 #   Note that this is an overall gain value, not an individual mixer/tuner gain. This is a limitation of the rtl_power/rtl_fm utils.
 gain = -1
 
@@ -48,7 +45,9 @@ bias = False
 # Add more SDR definitions here if needed.
 
 
-# Radiosonde Search Parameters
+##############################
+# RADIOSONDE SEARCH SETTINGS #
+##############################
 [search_params]
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
@@ -74,6 +73,20 @@ greylist = []
 
 
 
+####################
+# STATION LOCATION #
+####################
+# Used by the Habitat Uploader, APRS Uploader, and by Rotator Control
+[location]
+station_lat = 0.0
+station_lon = 0.0
+station_alt = 0.0
+
+
+
+###########################
+# HABITAT UPLOAD SETTINGS #
+###########################
 # Settings for uploading to the Habitat HAB tracking database ( https://tracker.habhub.org/ )
 #   Note that the habitat upload will use a fixed string format of:
 #  `$$<payload_callsign>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
@@ -102,16 +115,15 @@ upload_rate = 30
 payload_callsign = <id>
 
 
-# Station Location (optional). Used by the Habitat Uploader, APRS Uploader, and by Rotator Control
-[location]
-station_lat = 0.0
-station_lon = 0.0
-station_alt = 0.0
 
-
+########################
+# APRS UPLOAD SETTINGS #
+########################
 # Settings for uploading to APRS-IS
 [aprs]
+# Enable APRS upload (you will also need to change some options below!)
 aprs_enabled = False
+
 # APRS-IS Login Information
 aprs_user = N0CALL
 aprs_pass = 00000
@@ -122,6 +134,7 @@ upload_rate = 30
 # APRS-IS server to upload to.
 # Default to radiosondy.info for now, to allow stats to show up on http://radiosondy.info
 # Packets are forwarded onto the rest of the APRS-IS network from radiosondy.info.
+# If you wish to inject packets directly into the APRS-IS network, use rotate.aprs2.net
 aprs_server = radiosondy.info
 
 # Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
@@ -131,7 +144,7 @@ aprs_server = radiosondy.info
 # DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
 aprs_object_id = <id>
 
-# Selection between uploading the radiosonde position as either an APRS Object, or as a position report.
+# Select between uploading the radiosonde position as either an APRS Object, or as a position report.
 # False = Upload position as an Object, sourced from <aprs_user>
 # True = Position Report (with emulated iGating via <aprs_user>)
 # Note that if using Position Reports with aprs_object_id set to <id>, then non-AX.25 compatible callsigns will be generated.
@@ -146,10 +159,12 @@ aprs_position_report = False
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 # The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
 # if absolutely necessary.
-aprs_custom_comment=Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://bit.ly/2Bj4Sfk
+aprs_custom_comment = Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://bit.ly/2Bj4Sfk
 
 
 # APRS Station Location Beaconing
+# Note: This is only really useful if sending APRS position reports.
+# I suggest leaving this disabled unless you have a good reason.
 # This also requires your station location to be set in the above [location] section.
 station_beacon_enabled = False
 
@@ -168,8 +183,37 @@ station_beacon_commment = radiosonde_auto_rx SondeGate v<version>
 station_beacon_icon = /r
 
 
-# Email Notification
-#   Sends an email notification to the specified address when a new Sonde is detected
+
+###########################
+# CHASEMAPPER DATA OUTPUT #
+###########################
+# Settings for pushing data into Chasemapper and/or OziPlotter
+# Oziplotter receives data via a basic CSV format, via UDP.
+# Chasemapper can receive data in either the basic CSV format, or in a more descriptive JSON format.
+# WARNING - This should not be enabled in a multi-SDR configuration, as OziExplorer currently has no way of differentiating
+# between sonde IDs.
+[oziplotter]
+# How often to output data (seconds)
+ozi_update_rate = 5
+
+# Enable the 'OziMux' basic CSV output
+ozi_enabled = False
+
+# OziMux UDP Broadcast output port.
+# Set to 8942 to send packets directly into OziPlotter, or set to 55681 to send via OziMux
+ozi_port = 8942
+
+# Payload summary UDP output, which is the preferred input if using ChaseMapper
+# Using this output allows multiple sondes to be plotted in Chasemapper.
+payload_summary_enabled = False
+payload_summary_port = 55672
+
+
+
+#######################
+# EMAIL NOTIFICATIONS #
+#######################
+# Sends an email notification to the specified address when a new Sonde is detected
 [email]
 email_enabled = False
 smtp_server = localhost
@@ -177,34 +221,48 @@ from = sonde@localhost
 to = someone@example.com
 
 
-# Settings for pushing data into OziPlotter
-# Oziplotter receives data via a basic CSV format, via UDP.
-[oziplotter]
-# WARNING - This should not be enabled in a multi-SDR configuration, as OziExplorer currently has no way of differentiating
-# between sonde IDs.
-ozi_enabled = False
-ozi_update_rate = 5
-# UDP Broadcast output port.
-# Set to 8942 to send packets directly into OziPlotter, or set to 55681 to send via OziMux
-ozi_port = 55681
-# Payload summary output, which can be used by a few of the Horus Ground Station tools
-# Do not enable this if you are using the OziMux utility.
-payload_summary_enabled = False
-payload_summary_port = 55672
+
+###################
+# ROTATOR CONTROL #
+###################
+#   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
+#   This is, admittedly, a bit of a waste of an az/el rotator setup when a vertical antenna usually works fine,
+#   but it's still fun :-)
+[rotator]
+# WARNING - This should not be enabled in a multi-SDR configuration.
+# Your station location (defined in the [location] section above) must also be defined.
+rotator_enabled = False
+# How often to update the rotator position. (Seconds)
+update_rate = 30
+# Only move the rotator if the new position is more than X degrees in azimuth or elevation from the current position.
+rotation_threshold = 5.0
+# Hostname / Port of the rotctld instance.
+rotator_hostname = 127.0.0.1
+rotator_port = 4533
+# Rotator Homing.
+# If enabled, turn to a 'home' location when scanning for sondes.
+# This could be used to point an antenna at a known radiosonde launch location.
+rotator_homing_enabled = False
+# Wait until x minutes after no sonde data received before moving to the home location.
+rotator_homing_delay = 10
+# Rotator home azimuth/elevation, in degrees true.
+rotator_home_azimuth = 0.0
+rotator_home_elevation = 0.0
 
 
-# Position Filtering Options
-#   These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
-#   or has suddenly ended up in orbit.
-#   Adjust only if absolutely necessary.
-[filtering]
-# Discard positions with an altitude greater than 50000 metres. 
-max_altitude = 50000
-# Discard positions more than 1000 km from the observation station location (if set)
-max_radius_km = 1000
+
+###########
+# LOGGING #
+###########
+[logging]
+# If enabled, a log file will be written to ./log/ for each detected radiosonde.
+per_sonde_log = True
 
 
-# Web Interface Settings
+
+###########################
+# WEB INTERFACE SETTINNGS #
+###########################
 [web]
 # Server Port - Ports below 1024 can only be used if you run auto_rx as root (not recommended)
 web_port = 5000
@@ -213,7 +271,10 @@ web_port = 5000
 archive_age = 120
 
 
-# Advanced Settings
+
+#####################
+# ADVANCED SETTINGS #
+#####################
 # These control low-level settings within various modules.
 # Playing with them may result in odd behaviour.
 [advanced]
@@ -246,27 +307,14 @@ sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
 
 
-# Rotator Settings
-#   auto_rx can communicate with an instance of rotctld, on either the local machine or elsewhere on the network.
-#   This is, admittedly, a bit of a waste of an az/el rotator setup when a vertical antenna usually works fine,
-#   but it's still fun :-)
-[rotator]
-# WARNING - This should not be enabled in a multi-SDR configuration.
-# Your station location (defined in the [location] section above) must also be defined.
-rotator_enabled = False
-# How often to update the rotator position. (Seconds)
-update_rate = 30
-# Only move the rotator if the new position is more than X degrees in azimuth or elevation from the current position.
-rotation_threshold = 5.0
-# Hostname / Port of the rotctld instance.
-rotator_hostname = 127.0.0.1
-rotator_port = 4533
-# Rotator Homing.
-# If enabled, turn to a 'home' location when scanning for sondes.
-# This could be used to point an antenna at a known radiosonde launch location.
-rotator_homing_enabled = False
-# Wait until x minutes after no sonde data received before moving to the home location.
-rotator_homing_delay = 10
-# Rotator home azimuth/elevation, in degrees true.
-rotator_home_azimuth = 0.0
-rotator_home_elevation = 0.0
+# Position Filtering Options
+#   These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
+#   or has suddenly ended up in orbit.
+#   Adjust only if absolutely necessary.
+[filtering]
+# Discard positions with an altitude greater than 50000 metres. 
+max_altitude = 50000
+# Discard positions more than 1000 km from the observation station location (if set)
+max_radius_km = 1000
+
+

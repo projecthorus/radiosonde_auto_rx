@@ -95,6 +95,8 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     _lon_prec = chr(int(("%02.4f" % lon_minute)[-2:]) + 33)
 
     # Produce Datum + Added precision string
+    # We currently assume all position data is using the WGS84 datum,
+    # which I believe is true for most (if not all?) radiosondes.
     _datum = "!w%s%s!" % (_lat_prec, _lon_prec)
 
     # Convert Alt (in metres) to feet
@@ -221,7 +223,7 @@ class APRSUploader(object):
                 when a new sonde ID is observed.
 
             object_name_override (str): Override the object name in the uploaded sentence with this value.
-                WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded under the same callsign.
+                WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded simultaneously under the same callsign.
                 USE WITH CAUTION!!!
             object_comment (str): A comment to go with the object. Various fields will be replaced with telmetry data.
 
@@ -405,11 +407,11 @@ class APRSUploader(object):
                 if _packet is not None:
                     # If we are uploading position reports, the source call is the generated callsign
                     # usually based on the sonde serial number, and we iGate the position report.
-                    # Otherwise, we upload APRS Objects, sourced by our own callsign.
+                    # Otherwise, we upload APRS Objects, sourced by our own callsign, but still iGated via us.
                     if self.position_report:
                         self.aprsis_upload(_call,_packet,igate=True)
                     else:
-                        self.aprsis_upload(self.aprs_callsign,_packet,igate=False)
+                        self.aprsis_upload(self.aprs_callsign,_packet,igate=True)
 
             else:
                 # Wait for a short time before checking the queue again.
