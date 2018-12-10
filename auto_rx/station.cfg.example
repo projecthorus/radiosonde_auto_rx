@@ -125,6 +125,7 @@ payload_callsign = <id>
 aprs_enabled = False
 
 # APRS-IS Login Information
+# The aprs_user field can have an SSID on the end if desired, i.e. N0CALL-4
 aprs_user = N0CALL
 aprs_pass = 00000
 
@@ -163,8 +164,7 @@ aprs_custom_comment = Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://
 
 
 # APRS Station Location Beaconing
-# Note: This is only really useful if sending APRS position reports.
-# I suggest leaving this disabled unless you have a good reason.
+# If enabled, you will show up on APRS using the aprs_user callsign set above.
 # This also requires your station location to be set in the above [location] section.
 station_beacon_enabled = False
 
