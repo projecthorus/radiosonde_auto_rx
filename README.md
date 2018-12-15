@@ -3,7 +3,7 @@ This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set
 * The [Habitat High-Altitude Balloon Tracker](https://tracker.habhub.org)
   * **Please note the HabHub Tracker now filters out radiosondes by default.** To view the radiosondes again, clear the search field at the top-left of the tracker of all text, and press enter. Alternatively, use our front-end to HabHub at: [https://sondehub.org/](https://sondehub.org/)
 * APRS-IS (for display on sites such as [aprs.fi](https://aprs.fi)
-* [OziPlotter](https://github.com/projecthorus/oziplotter), for mobile radiosonde chasing.
+* [ChaseMapper](https://github.com/projecthorus/chasemapper) and [OziPlotter](https://github.com/projecthorus/oziplotter), for mobile radiosonde chasing.
 
 There is also a web interface provided (defaults to port 5000), allowing display of station status and basic tracking of the sonde position.
 

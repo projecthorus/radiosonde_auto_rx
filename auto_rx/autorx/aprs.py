@@ -12,6 +12,7 @@ import time
 import traceback
 import socket
 from threading import Thread
+from . import __version__ as auto_rx_version
 try:
     # Python 2
     from Queue import Queue
@@ -21,17 +22,18 @@ except ImportError:
 
 
 
-def telemetry_to_aprs_sentence(sonde_data, object_name="<id>", aprs_comment="BOM Balloon"):
+def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM Balloon", position_report=False):
     """ Convert a dictionary containing Sonde telemetry into an APRS packet.
 
     Args:
         sonde_data (dict): Sonde telemetry dictionary. (refer autorx.decoder)
         object_name (str): APRS Object Name. If <id>, the sonde's serial number will be used.
         aprs_comment (str): Comment to use in the packet.
+        position_report (bool): if True, generate a position report instead of an APRS object packet.
 
     """
 
-    # Generate the APRS Object Name 
+    # Generate the APRS 'callsign' for the sonde. 
     if object_name == "<id>":
         # Use the radiosonde ID as the object ID
         if ('RS92' in sonde_data['type']) or ('RS41' in sonde_data['type']):
@@ -45,23 +47,25 @@ def telemetry_to_aprs_sentence(sonde_data, object_name="<id>", aprs_comment="BOM
                 _object_name = "DF9" + _id_suffix
             else:
                 _object_name = "DF6" + _id_suffix
+        # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
-            return None
+            return (None, None)
     else:
         _object_name = object_name
-    
+
     # Pad or limit the object name to 9 characters, if it is to long or short.
     if len(_object_name) > 9:
         _object_name = _object_name[:9]
     elif len(_object_name) < 9:
         _object_name = _object_name + " "*(9-len(_object_name))
+
     
     # Generate the comment field.
     _aprs_comment = aprs_comment
     _aprs_comment = _aprs_comment.replace("<freq>", sonde_data['freq'])
     _aprs_comment = _aprs_comment.replace("<id>", sonde_data['id'])
-    _aprs_comment = _aprs_comment.replace("<temp>", "%.1f degC" % sonde_data['temp'])
+    _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data['temp'])
     _aprs_comment = _aprs_comment.replace("<vel_v>", "%.1fm/s" % sonde_data['vel_v'])
     _aprs_comment = _aprs_comment.replace("<type>", sonde_data['type'])
 
@@ -84,20 +88,84 @@ def telemetry_to_aprs_sentence(sonde_data, object_name="<id>", aprs_comment="BOM
     if lon<0.0:
         lon_dir = "W"
     lon_str = "%03d%s" % (lon_degree,lon_min_str) + lon_dir
-    
+
+    # Generate the added digits of precision, as per http://www.aprs.org/datum.txt
+    # Note: This is a bit hacky.
+    _lat_prec = chr(int(("%02.4f" % lat_minute)[-2:]) + 33)
+    _lon_prec = chr(int(("%02.4f" % lon_minute)[-2:]) + 33)
+
+    # Produce Datum + Added precision string
+    # We currently assume all position data is using the WGS84 datum,
+    # which I believe is true for most (if not all?) radiosondes.
+    _datum = "!w%s%s!" % (_lat_prec, _lon_prec)
+
     # Convert Alt (in metres) to feet
     alt = int(float(sonde_data["alt"])/0.3048)
 
-    # TODO: Limit comment length.
+    # Produce the timestamp
+    _aprs_timestamp = sonde_data['datetime_dt'].strftime("%H%M%S")
     
-    # Produce the APRS object string.
-
+    # Generate course/speed data, if provided in the telemetry dictionary
     if ('heading' in sonde_data.keys()) and ('vel_h' in sonde_data.keys()):
         course_speed = "%03d/%03d" % (int(sonde_data['heading']), int(sonde_data['vel_h']*1.944))
     else:
         course_speed = "000/000"
 
-    out_str = ";%s*111111z%s/%sO%s/A=%06d %s" % (_object_name,lat_str,lon_str,course_speed,alt,_aprs_comment)
+
+    if position_report:
+        # Produce an APRS position report string
+        # Note, we are using the 'position with timestamp' data type, as per http://www.aprs.org/doc/APRS101.PDF
+        out_str = "/%sh%s/%sO%s/A=%06d %s %s" % (_aprs_timestamp,lat_str,lon_str,course_speed,alt,_aprs_comment,_datum)
+
+    else:
+        # Produce an APRS Object
+        out_str = ";%s*%sh%s/%sO%s/A=%06d %s %s" % (_object_name,_aprs_timestamp,lat_str,lon_str,course_speed,alt,_aprs_comment,_datum)
+
+    # Return both the packet, and the 'callsign'.
+    return (out_str, _object_name.strip())
+
+
+
+def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx SondeGate v<version>", icon='/r'):
+    ''' Generate a station object '''
+
+    # Pad or limit the station callsign to 9 characters, if it is to long or short.
+    if len(callsign) > 9:
+        callsign = callsign[:9]
+    elif len(callsign) < 9:
+        callsign = callsign + " "*(9-len(callsign))
+
+
+    # Convert float latitude to APRS format (DDMM.MM)
+    lat = float(lat)
+    lat_degree = abs(int(lat))
+    lat_minute = abs(lat - int(lat)) * 60.0
+    lat_min_str = ("%02.2f" % lat_minute).zfill(5)
+    lat_dir = "S"
+    if lat>0.0:
+        lat_dir = "N"
+    lat_str = "%02d%s" % (lat_degree,lat_min_str) + lat_dir
+    
+    # Convert float longitude to APRS format (DDDMM.MM)
+    lon = float(lon)
+    lon_degree = abs(int(lon))
+    lon_minute = abs(lon - int(lon)) * 60.0
+    lon_min_str = ("%02.2f" % lon_minute).zfill(5)
+    lon_dir = "E"
+    if lon<0.0:
+        lon_dir = "W"
+    lon_str = "%03d%s" % (lon_degree,lon_min_str) + lon_dir
+
+    # Generate timestamp using current UTC time
+    _aprs_timestamp = datetime.datetime.utcnow().strftime("%H%M%S")
+
+
+    # Add version string to position comment, if requested.
+    _aprs_comment = comment
+    _aprs_comment = _aprs_comment.replace('<version>', auto_rx_version)
+
+    # Generate output string
+    out_str = ";%s*%sh%s%s%s%s%s" % (callsign, _aprs_timestamp, lat_str, icon[0], lon_str, icon[1], _aprs_comment)
 
     return out_str
 
@@ -132,8 +200,14 @@ class APRSUploader(object):
                 aprs_passcode = "00000",
                 object_name_override = None,
                 object_comment = "RadioSonde",
+                position_report = False,
                 aprsis_host = 'rotate.aprs2.net',
                 aprsis_port = 14580,
+                station_beacon = False,
+                station_beacon_rate = 30,
+                station_beacon_position = [0.0,0.0],
+                station_beacon_comment = "radiosonde_auto_rx SondeGate v<version>",
+                station_beacon_icon = "/r",
                 synchronous_upload_time = 30,
                 callsign_validity_threshold = 5,
                 upload_queue_size = 16,
@@ -149,12 +223,20 @@ class APRSUploader(object):
                 when a new sonde ID is observed.
 
             object_name_override (str): Override the object name in the uploaded sentence with this value.
-                WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded under the same callsign.
+                WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded simultaneously under the same callsign.
                 USE WITH CAUTION!!!
             object_comment (str): A comment to go with the object. Various fields will be replaced with telmetry data.
 
+            position_report (bool): If True, upload positions as APRS position reports, otherwise, upload as an Object.
+
             aprsis_host (str): APRS-IS Server to upload packets to.
             aprsis_port (int): APRS-IS TCP port number.
+
+            station_beacon (bool): Enable beaconing of station position.
+            station_beacon_rate (int): Time delay between beacon uploads (minutes)
+            station_beacon_position (list): [lat, lon], in decimal degrees, of the station position.
+            station_beacon_comment (str): Comment field for the station beacon. <version> will be replaced with the current auto_rx version.
+            station_beacon_icon (str): The APRS icon to be used, as the two characters (symbol table, symbol index), as per http://www.aprs.org/symbols.html
 
             synchronous_upload_time (int): Upload the most recent telemetry when time.time()%synchronous_upload_time == 0
                 This is done in an attempt to get multiple stations uploading the same telemetry sentence simultaneously,
@@ -173,6 +255,7 @@ class APRSUploader(object):
         self.aprs_callsign = aprs_callsign
         self.aprs_passcode = aprs_passcode
         self.object_comment = object_comment
+        self.position_report = position_report
         self.aprsis_host = aprsis_host
         self.aprsis_port = aprsis_port
         self.upload_timeout = upload_timeout
@@ -180,6 +263,14 @@ class APRSUploader(object):
         self.synchronous_upload_time = synchronous_upload_time
         self.callsign_validity_threshold = callsign_validity_threshold
         self.inhibit = inhibit
+
+        self.station_beacon = {
+            'enabled': station_beacon,
+            'position': station_beacon_position,
+            'rate': station_beacon_rate,
+            'comment': station_beacon_comment,
+            'icon': station_beacon_icon
+        }
 
         if object_name_override is None:
             self.object_name_override = "<id>"
@@ -199,6 +290,9 @@ class APRSUploader(object):
         #       this queue will be dumped, and the most recent telemetry uploaded.
         self.observed_payloads = {}
 
+        # Record of when we last uploaded a user station position to Habitat.
+        self.last_user_position_upload = 0
+
         # Start the uploader thread.
         self.upload_thread_running = True
         self.upload_thread = Thread(target=self.aprs_upload_thread)
@@ -216,11 +310,14 @@ class APRSUploader(object):
         self.log_info("APRS Uploader Started.")
 
 
-    def aprsis_upload(self, packet):
+    def aprsis_upload(self, source, packet, igate=False):
         """ Upload a packet to APRS-IS
 
         Args:
+            source (str): Callsign of the packet source.
             packet (str): APRS packet to upload.
+            igate (boolean): If True, iGate the packet into APRS-IS
+                (i.e. use the original source call, but add SONDEGATE and our callsign to the path.)
 
         """
 
@@ -228,6 +325,17 @@ class APRSUploader(object):
         if self.inhibit:
             self.log_info("Upload Inhibited: %s" % packet)
             return True
+
+
+        # Generate APRS packet
+        if igate:
+            # If we are emulating an IGATE, then we need to add in a path, a q-construct, and our own callsign.
+            # We have the TOCALL field 'APRARX' allocated by Bob WB4APR, so we can now use this to indicate
+            # that these packets have arrived via radiosonde_auto_rx!
+            _packet = '%s>APRARX,SONDEGATE,TCPIP,qAR,%s:%s\n' % (source, self.aprs_callsign, packet)
+        else:
+            # Otherwise, we are probably just placing an object, usually sourced by our own callsign
+            _packet = '%s>APRS:%s\n' % (source, packet)
 
         # create socket & connect to server
         _s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -238,16 +346,33 @@ class APRSUploader(object):
             _logon = 'user %s pass %s vers VK5QI-AutoRX \n' % (self.aprs_callsign, self.aprs_passcode)
             _s.send(_logon.encode('ascii'))
             # send packet
-            _packet = '%s>APRS:%s\n' % (self.aprs_callsign, packet)
             _s.send(_packet.encode('ascii'))
             # close socket
             _s.shutdown(0)
             _s.close()
-            self.log_info("Uploaded to APRS-IS: %s" % packet)
+            self.log_info("Uploaded to APRS-IS: %s" % _packet)
             return True
         except Exception as e:
             self.log_error("Upload to APRS-IS Failed - %s" % str(e))
             return False
+
+
+    def beacon_station_position(self):
+        ''' Send a station position beacon into APRS-IS '''
+        if self.station_beacon['enabled']:
+            # Generate the station position packet
+            # Note - this is generated as an APRS object.
+            _packet = generate_station_object(self.aprs_callsign,
+                self.station_beacon['position'][0], 
+                self.station_beacon['position'][1],
+                self.station_beacon['comment'], 
+                self.station_beacon['icon'])
+
+            # Send the packet
+            self.aprsis_upload(self.aprs_callsign, _packet, igate=False)
+            self.last_user_position_upload = time.time()
+
+
 
 
     def aprs_upload_thread(self):
@@ -261,15 +386,32 @@ class APRSUploader(object):
                 # If the queue is completely full, jump to the most recent telemetry sentence.
                 if self.aprs_upload_queue.qsize() == self.upload_queue_size:
                     while not self.aprs_upload_queue.empty():
-                        _sentence = self.aprs_upload_queue.get()
+                        _telem = self.aprs_upload_queue.get()
 
                     self.log_warning("Uploader queue was full - possible connectivity issue.")
                 else:
                     # Otherwise, get the first item in the queue.
-                    _sentence = self.aprs_upload_queue.get()
+                    _telem = self.aprs_upload_queue.get()
+
+                # Convert to a packet.
+                try:
+                    (_packet, _call) = telemetry_to_aprs_position(_telem, 
+                        object_name=self.object_name_override,
+                        aprs_comment = self.object_comment,
+                        position_report=self.position_report)
+                except Exception as e:
+                    self.log_error("Error converting telemetry to APRS packet - %s" % str(e))
+                    _packet = None
 
                 # Attempt to upload it.
-                self.aprsis_upload(_sentence)
+                if _packet is not None:
+                    # If we are uploading position reports, the source call is the generated callsign
+                    # usually based on the sonde serial number, and we iGate the position report.
+                    # Otherwise, we upload APRS Objects, sourced by our own callsign, but still iGated via us.
+                    if self.position_report:
+                        self.aprsis_upload(_call,_packet,igate=True)
+                    else:
+                        self.aprsis_upload(self.aprs_callsign,_packet,igate=True)
 
             else:
                 # Wait for a short time before checking the queue again.
@@ -294,18 +436,9 @@ class APRSUploader(object):
                         while not self.observed_payloads[_id]['data'].empty():
                             _telem = self.observed_payloads[_id]['data'].get()
 
-                        # Try and convert it to a UKHAS sentence
-                        try:
-                            _sentence = telemetry_to_aprs_sentence(_telem, 
-                                object_name=self.object_name_override, 
-                                aprs_comment=self.object_comment)
-                        except Exception as e:
-                            self.log_error("Error converting telemetry to sentence - %s" % str(e))
-                            continue
-
                         # Attept to add it to the habitat uploader queue.
                         try:
-                            self.aprs_upload_queue.put_nowait(_sentence)
+                            self.aprs_upload_queue.put_nowait(_telem)
                         except Exception as e:
                             self.log_error("Error adding sentence to queue: %s" % str(e))
 
@@ -349,6 +482,9 @@ class APRSUploader(object):
 
                     else:
                         self.log_debug("Payload ID %s not observed enough to allow upload." % _id)
+
+            if (time.time() - self.last_user_position_upload) > self.station_beacon['rate']*60:
+                self.beacon_station_position()
 
 
             time.sleep(0.1)
