@@ -61,7 +61,7 @@ class SondeDecoder(object):
         'heading'   : 0.0
     }
 
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10']
 
     def __init__(self,
         sonde_type="None",
@@ -242,6 +242,14 @@ class SondeDecoder(object):
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
             decode_cmd += "./dfm09ecc -vv --ecc 2>/dev/null"
+			
+        elif self.sonde_type == "M10":
+            # M10 Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+            # M10 decoder
+            decode_cmd += "./m10 -b 2>/dev/null"
 
 
         else:
@@ -377,6 +385,10 @@ class SondeDecoder(object):
             # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
+				
+			# Check for sub_type field for M10 family sondes
+            if 'sub_type' in _telemetry:
+                _telemetry['type'] += "-" + _telemetry['sub_type']
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
