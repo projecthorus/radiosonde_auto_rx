@@ -136,12 +136,10 @@ double M10Decoder::findFrameStart() {
 
                 pos /= headerLength;
 
-                fpos_t fpos;
-                fgetpos(fp, &fpos);
-                fpos += ((int) pos - j)*2;
+				fseek(fp, ((int) pos - j)*2, SEEK_CUR);
                 if (bits_sample == 16) // Two read per value
-                    fpos += ((int) pos - j)*2;
-                fsetpos(fp, &fpos);
+                    fseek(fp, ((int) pos - j)*2, SEEK_CUR);
+					
                 pos = pos - (int) pos;
                 return pos;
             }
