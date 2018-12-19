@@ -9,7 +9,7 @@
 #define M10GENERALDECODER_H
 #define FRAME_LEN       (100+1)   // 0x64+1
 #define AUX_LEN         20
-#define DATA_LENGTH     FRAME_LEN + AUX_LEN + 2
+#define DATA_LENGTH     (FRAME_LEN + AUX_LEN + 2)
 
 #include <array>
 
@@ -17,7 +17,7 @@ class M10GeneralParser {
 public:
     M10GeneralParser();
     virtual ~M10GeneralParser();
-    virtual void changeData(std::array<unsigned char, DATA_LENGTH> data);
+    virtual void changeData(std::array<unsigned char, DATA_LENGTH> data, bool good);
     virtual double getLatitude();
     virtual double getLongitude();
     virtual double getAltitude();
@@ -35,6 +35,7 @@ public:
     virtual void printFrame() = 0;
 protected:
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
+    bool correctCRC;
 };
 
 #endif /* M10GENERALDECODER_H */

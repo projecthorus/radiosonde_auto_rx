@@ -9,7 +9,7 @@
 #define M10GTOP_H
 #define FRAME_LEN       (100+1)   // 0x64+1
 #define AUX_LEN         20
-#define DATA_LENGTH     FRAME_LEN + AUX_LEN + 2
+#define DATA_LENGTH     (FRAME_LEN + AUX_LEN + 2)
 
 #include <math.h>
 #include "M10GeneralParser.h"
@@ -18,7 +18,7 @@ class M10GTopParser : public M10GeneralParser {
 public:
     M10GTopParser();
     virtual ~M10GTopParser();
-    virtual void changeData(std::array<unsigned char, DATA_LENGTH> data);
+    virtual void changeData(std::array<unsigned char, DATA_LENGTH> data, bool good);
     virtual double getLatitude();
     virtual double getLongitude();
     virtual double getAltitude();

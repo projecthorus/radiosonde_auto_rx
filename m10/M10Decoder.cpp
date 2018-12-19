@@ -20,6 +20,8 @@ M10Decoder::M10Decoder() {
 M10Decoder::~M10Decoder() {
     delete m10GTop;
     delete m10Ptu;
+
+    delete frameSamples;
 }
 
 int M10Decoder::startDecode(std::string fname) {
@@ -34,7 +36,13 @@ int M10Decoder::startDecode(std::string fname) {
         return -1;
     }
 
-    read_wav_header();
+    if (read_wav_header()) {
+        fprintf(stderr, "Could not read the header.\n");
+        return -1;
+    }
+
+    samplesBufLength = (DATA_LENGTH * 8 + 100) * samplesPerBit * 2;
+    frameSamples = new std::vector<int>(samplesBufLength);
 
     double res = 1;
     int c = 0;
@@ -62,18 +70,19 @@ int M10Decoder::startDecode(std::string fname) {
                 supported = false;
         }
 
-
-        if (checkCRC()) {
+        bool correctCRC = checkCRC();
+        if (correctCRC || verboseLevel >= 1) {
             if (!supported) {
-                fprintf(stderr, "Not supported : %#06x\n", (unsigned int)sondeType);
+                fprintf(stderr, "Not supported : %#06x\n", (unsigned int) sondeType);
                 continue;
             }
-            correct++;
-            m10Parser->changeData(frame_bytes);
+            if (correctCRC)
+                correct++;
+            m10Parser->changeData(frame_bytes, correctCRC);
             m10Parser->printFrame();
         }
     }
-    if(dispResult)
+    if (dispResult)
         fprintf(stderr, "Result of %i/%i decoding\n", correct, c);
     return 0;
 }
@@ -90,10 +99,17 @@ double M10Decoder::findFrameStart() {
     int prevV = 1;
     int len = 0;
     int v;
+    int smallBufLen = (int) (samplesPerBit * 5.);
+    std::vector<int> vals(smallBufLen);
+    int valIndex = 0;
     for (int j = 0; 1; ++j) {
-        v = readSignedSampleNormalized();
+        v = readSignedSample(false);
+        vals[valIndex++ % smallBufLen] = v;
         if (v == EOF_INT)
             return 0;
+        // Average over the last 6 samples to comply with a global offset
+        activeSum = (activeSum + (double) v)*(samplesPerBit * AVG_NUM) / (samplesPerBit * AVG_NUM + 1.);
+        v = v - activeSum / (samplesPerBit * AVG_NUM);
 
         len++;
         if (v * prevV > 0) // If the signs are the same
@@ -136,10 +152,19 @@ double M10Decoder::findFrameStart() {
 
                 pos /= headerLength;
 
-				fseek(fp, ((int) pos - j)*2, SEEK_CUR);
-                if (bits_sample == 16) // Two read per value
-                    fseek(fp, ((int) pos - j)*2, SEEK_CUR);
-					
+                int tmpIndex = 0;
+                valIndex--;
+                valIndex %= smallBufLen;
+                if(j - (int) pos > smallBufLen) // If absurdly long way back
+                    continue;
+                // Store the previous values in the buffer
+                for (curIndex = 0; curIndex < (j - (int) pos); ++curIndex) {
+                    tmpIndex = valIndex + curIndex - (j - (int) pos);
+                    if (tmpIndex < 0)
+                        tmpIndex += smallBufLen;
+                    frameSamples->at(curIndex) = vals.at(tmpIndex);
+                }
+
                 pos = pos - (int) pos;
                 return pos;
             }
@@ -153,8 +178,16 @@ double M10Decoder::findFrameStart() {
 }
 
 int M10Decoder::decodeMessage(double initialPos) {
-    fpos_t fpos;
-    fgetpos(fp, &fpos);
+    int v;
+    for (; curIndex < samplesBufLength; ++curIndex) {
+        v = readSignedSample(false);
+        if (v == EOF_INT)
+            return EOF_INT;
+        frameSamples->at(curIndex) = v;
+    }
+
+    // Reset the index
+    curIndex = 0;
 
     int ret;
 
@@ -165,7 +198,8 @@ int M10Decoder::decodeMessage(double initialPos) {
         return EOF_INT;
 
     if (trySign) {
-        fsetpos(fp, &fpos);
+        // Reset the index
+        curIndex = 0;
         ret = decodeMethodSign(initialPos);
         if (ret == 0)
             return 0;
@@ -367,7 +401,16 @@ int M10Decoder::read_wav_header() {
     return 0;
 }
 
-int M10Decoder::readSignedSample() {
+int M10Decoder::readSignedSample(bool buffer) {
+    if (buffer) {
+        if (curIndex < samplesBufLength)
+            return frameSamples->at(curIndex++);
+        else {
+            fprintf(stderr, "Error, end of buffer.\n");
+            return EOF_INT;
+        }
+    }
+
     int byte, i, sample = 0, s = 0; // EOF -> 0x1000000
 
     for (i = 0; i < channels; i++) {
@@ -390,10 +433,8 @@ int M10Decoder::readSignedSample() {
     return s;
 }
 
-#define AVG_NUM 5.
-
-int M10Decoder::readSignedSampleNormalized() {
-    int v = readSignedSample();
+int M10Decoder::readSignedSampleNormalized(bool buffer) {
+    int v = readSignedSample(buffer);
     if (v == EOF_INT)
         return EOF_INT;
     // Average over the last 6 samples to comply with a global offset

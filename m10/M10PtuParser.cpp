@@ -27,7 +27,8 @@ M10PtuParser::M10PtuParser() {
 M10PtuParser::~M10PtuParser() {
 }
 
-void M10PtuParser::changeData(std::array<unsigned char, DATA_LENGTH> data) {
+void M10PtuParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
+    correctCRC = good;
     frame_bytes = data;
 
     int i;
@@ -268,9 +269,10 @@ void M10PtuParser::printFrame() {
             "\"heading\": %.5f, "
             "\"vel_v\": %.2f, "
             //"\"temp\": %.1f "
+            "\"crc\": %d, "
             "}\n",
             "Ptu", frame, getSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
-            getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/);
+            getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/, correctCRC);
 }
 
 /*

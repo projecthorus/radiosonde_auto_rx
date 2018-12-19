@@ -13,7 +13,8 @@ M10GeneralParser::M10GeneralParser() {
 M10GeneralParser::~M10GeneralParser() {
 }
 
-void M10GeneralParser::changeData(std::array<unsigned char, DATA_LENGTH> data) {
+void M10GeneralParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
+    correctCRC = good;
     frame_bytes = data;
 }
 

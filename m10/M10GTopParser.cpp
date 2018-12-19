@@ -28,7 +28,8 @@ M10GTopParser::M10GTopParser() {
 M10GTopParser::~M10GTopParser() {
 }
 
-void M10GTopParser::changeData(std::array<unsigned char, DATA_LENGTH> data) {
+void M10GTopParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
+    correctCRC = good;
     frame_bytes = data;
 
     int i;
@@ -224,7 +225,8 @@ void M10GTopParser::printFrame() {
             "\"heading\": %.5f, "
             "\"vel_v\": %.2f, "
             //"\"temp\": %.1f "
+            "\"crc\": %d, "
             "}\n",
             "GTop", frame, getSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
-            getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/);
+            getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/, correctCRC);
 }
