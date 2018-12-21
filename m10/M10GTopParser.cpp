@@ -225,7 +225,7 @@ void M10GTopParser::printFrame() {
             "\"heading\": %.5f, "
             "\"vel_v\": %.2f, "
             //"\"temp\": %.1f "
-            "\"crc\": %d, "
+            "\"crc\": %d "
             "}\n",
             "GTop", frame, getSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
             getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/, correctCRC);
