@@ -136,7 +136,7 @@ int M10PtuParser::getMinutes() {
 }
 
 int M10PtuParser::getSeconds() {
-    return (time / 1000 % (24 * 3600));
+    return (time / 1000 % (24 * 3600)) % 60;
 }
 
 double M10PtuParser::getVerticalSpeed() {
