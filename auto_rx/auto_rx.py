@@ -384,7 +384,7 @@ def main():
 
 
     # Configure logging
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("/data/log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)
@@ -429,7 +429,7 @@ def main():
     # Start our exporter options
     # Telemetry Logger
     if config['per_sonde_log']:
-        _logger = TelemetryLogger(log_directory="./log/")
+        _logger = TelemetryLogger(log_directory="/data/log/")
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
 
