@@ -400,6 +400,7 @@ def main():
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
     logging.getLogger('socketio').setLevel(logging.ERROR)
     logging.getLogger('engineio').setLevel(logging.ERROR)
+    logging.getLogger('geventwebsocket').setLevel(logging.ERROR)
 
 
     # Attempt to read in config file
