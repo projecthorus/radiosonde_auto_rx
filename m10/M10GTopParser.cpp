@@ -206,7 +206,7 @@ std::string M10GTopParser::getSerialNumber() {
             sn_bytes[2])^(uint32_t) ((uint32_t) (uint8_t)
             sn_bytes[0] / 16UL + 16UL * (uint32_t) (uint8_t)
             sn_bytes[1] + 4096UL * (uint32_t) (uint8_t)
-            sn_bytes[1]))&0xFFFFFUL);
+            sn_bytes[2]))&0xFFFFFUL);
     i = 8UL;
     ids[8U] = 0;
     --i;
