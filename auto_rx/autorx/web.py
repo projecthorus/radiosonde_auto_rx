@@ -37,7 +37,7 @@ flask_app_thread = None
 flask_shutdown_key = "temp"
 
 # SocketIO instance
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='threading')
 
 # Global store of telemetry data, which we will add data to and manage.
 # Under each key (which will be the sonde ID), we will have a dictionary containing:
