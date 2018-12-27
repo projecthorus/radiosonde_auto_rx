@@ -385,10 +385,6 @@ class SondeDecoder(object):
             # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
-				
-			# Check for sub_type field for M10 family sondes
-            if 'sub_type' in _telemetry:
-                _telemetry['type'] += "-" + _telemetry['sub_type']
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
