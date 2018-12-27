@@ -21,12 +21,13 @@ M10Decoder::~M10Decoder() {
     delete m10GTop;
     delete m10Ptu;
 
-    delete frameSamples;
+    if (samplesPerBit != 0)
+        delete frameSamples;
 }
 
 int M10Decoder::startDecode(std::string fname) {
     filename = fname;
-    if (filename == "")
+    if (filename == "" || filename == "-")
         fp = stdin;
     else
         fp = fopen(filename.c_str(), "rb");
@@ -155,7 +156,7 @@ double M10Decoder::findFrameStart() {
                 int tmpIndex = 0;
                 valIndex--;
                 valIndex %= smallBufLen;
-                if(j - (int) pos > smallBufLen) // If absurdly long way back
+                if (j - (int) pos > smallBufLen) // If absurdly long way back
                     continue;
                 // Store the previous values in the buffer
                 for (curIndex = 0; curIndex < (j - (int) pos); ++curIndex) {

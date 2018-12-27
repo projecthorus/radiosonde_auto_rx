@@ -22,16 +22,18 @@ int main(int argc, char** argv) {
     ++argv;
     while (*argv) {
         if ((strcmp(*argv, "-h") == 0) || (strcmp(*argv, "--help") == 0)) {
-            fprintf(stderr, "%s [options] audio.wav\n", fpname);
+            fprintf(stderr, "%s [options] filename\n", fpname);
+            fprintf(stderr, "  filename needs to be in wav format and blank or - for stdin\n");
             fprintf(stderr, "  options:\n");
-            //fprintf(stderr, "       -v, --verbose\n");
-            fprintf(stderr, "       -r, --raw\n");
-            fprintf(stderr, "       -c, --color\n");
-            //fprintf(stderr, "       -o, --offset\n");
+            fprintf(stderr, "       -v, --verbose Display even when CRC is wrong\n");
+            fprintf(stderr, "       -R Show result at the end decoded/total\n");
+            fprintf(stderr, "       -b Try alternative method after main method if it failed\n");
+            fprintf(stderr, "       --ch2 Decode the second channel\n");
+            
             return 0;
         } else if ((strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0)) {
             decoder.setRaw(true);
-        } else if (strcmp(*argv, "-v") == 0) {
+        } else if (strcmp(*argv, "-v") == 0 || strcmp(*argv, "--verbose") == 0) {
             decoder.setVerboseLevel(1);
         } else if (strcmp(*argv, "-b") == 0) {
             decoder.setTryMethodSign(true);
