@@ -48,10 +48,8 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             else:
                 _object_name = "DF6" + _id_suffix
         elif 'M10' in sonde_data['type']:
-            # The M10 sonde IDs are too long to use directly.
-            # Grab the last five digits of the sonde ID (which is the serial number)
-            _id_suffix = sonde_data['id'][-5:]
-            _object_name = "M10_" + _id_suffix
+            # Use the generated id
+            _id_suffix = sonde_data['id']
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.

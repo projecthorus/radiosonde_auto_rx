@@ -256,7 +256,7 @@ double M10PtuParser::getTemperature() {
     ADC_RT -= 0xA000;
     Tcal[0] = (frame_bytes[0x42] << 8) | frame_bytes[0x41];
     Tcal[1] = (frame_bytes[0x44] << 8) | frame_bytes[0x43];
-    
+
     x = (adc_max - ADC_RT) / ADC_RT; // (Vcc-Vout)/Vout
     if (scT < 3)
         R = Rs[scT] / (x - Rs[scT] / Rp[scT]);
@@ -265,8 +265,8 @@ double M10PtuParser::getTemperature() {
     if (R > 0)
         T = 1 / (p0 + p1 * log(R) + p2 * log(R) * log(R) + p3 * log(R) * log(R) * log(R));
 
-    
-    if (1) { // on-chip temperature
+
+    /*if (1) { // on-chip temperature
         unsigned short ADC_Ti_raw = (frame_bytes[0x49] << 8) | frame_bytes[0x48]; // int.temp.diode, ref: 4095->1.5V
         float vti, ti;
         // INCH1A (temp.diode), slau144
@@ -278,7 +278,7 @@ double M10PtuParser::getTemperature() {
         //ui16_t T85 = adr_10e4h; // CAL_ADC_15T85
         //float  tic = (ADC_Ti_raw-T30)*(85.0-30.0)/(T85-T30) + 30.0;
         //fprintf(stdout, "  (Tic:%.1fC)", tic);
-    }
+    }//*/
 
     return T - 273.15; // Celsius
 }
@@ -295,23 +295,47 @@ std::string M10PtuParser::getSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
-    char SN[12];
+    //char SN[12];
 
-    for (i = 0; i < 11; i++)
+    /*for (i = 0; i < 11; i++)
         SN[i] = ' ';
-    SN[11] = '\0';
+    SN[11] = '\0';*/
 
     for (i = 0; i < 5; i++) {
         byte = frame_bytes[0x5D + i];
         sn_bytes[i] = byte;
     }
 
-    byte = sn_bytes[2];
+    // More meaningfull way
+    /*byte = sn_bytes[2];
     sprintf(SN, "%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);*/
 
-    return SN;
+    // The way used by dxlARPS used for compatibility.
+    uint32_t id;
+    char ids[9];
+     
+    id = (uint32_t) (((uint32_t) ((uint32_t) (uint8_t)
+            sn_bytes[4] + 256UL * (uint32_t) (uint8_t)
+            sn_bytes[3] + 65536UL * (uint32_t) (uint8_t)
+            sn_bytes[2])^(uint32_t) ((uint32_t) (uint8_t)
+            sn_bytes[0] / 16UL + 16UL * (uint32_t) (uint8_t)
+            sn_bytes[1] + 4096UL * (uint32_t) (uint8_t)
+            sn_bytes[1]))&0xFFFFFUL);
+    i = 8UL;
+    ids[8U] = 0;
+    --i;
+    do {
+        ids[i] = (char) (id % 10UL + 48UL);
+        id = id / 10UL;
+        --i;
+    } while (i != 1UL);
+    ids[i] = 'E';
+    --i;
+    ids[i] = 'M';
+
+    return ids;
 }
 
 void M10PtuParser::printFrame() {

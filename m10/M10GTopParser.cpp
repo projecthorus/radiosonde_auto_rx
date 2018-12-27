@@ -179,23 +179,47 @@ std::string M10GTopParser::getSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
-    char SN[12];
+    //char SN[12];
 
-    for (i = 0; i < 11; i++)
+    /*for (i = 0; i < 11; i++)
         SN[i] = ' ';
-    SN[11] = '\0';
+    SN[11] = '\0';*/
 
     for (i = 0; i < 5; i++) {
         byte = frame_bytes[0x5D + i];
         sn_bytes[i] = byte;
     }
 
-    byte = sn_bytes[2];
+    // More meaningfull way
+    /*byte = sn_bytes[2];
     sprintf(SN, "%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);*/
 
-    return SN;
+    // The way used by dxlARPS used for compatibility.
+    uint32_t id;
+    char ids[9];
+     
+    id = (uint32_t) (((uint32_t) ((uint32_t) (uint8_t)
+            sn_bytes[4] + 256UL * (uint32_t) (uint8_t)
+            sn_bytes[3] + 65536UL * (uint32_t) (uint8_t)
+            sn_bytes[2])^(uint32_t) ((uint32_t) (uint8_t)
+            sn_bytes[0] / 16UL + 16UL * (uint32_t) (uint8_t)
+            sn_bytes[1] + 4096UL * (uint32_t) (uint8_t)
+            sn_bytes[1]))&0xFFFFFUL);
+    i = 8UL;
+    ids[8U] = 0;
+    --i;
+    do {
+        ids[i] = (char) (id % 10UL + 48UL);
+        id = id / 10UL;
+        --i;
+    } while (i != 1UL);
+    ids[i] = 'E';
+    --i;
+    ids[i] = 'M';
+
+    return ids;
 }
 
 void M10GTopParser::printFrame() {
