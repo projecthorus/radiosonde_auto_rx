@@ -35,16 +35,22 @@ public:
     virtual double getHumidity();
     virtual double getDp();
     virtual std::string getSerialNumber();
+    virtual std::string getdxlSerialNumber();
+    
+    virtual std::array<unsigned char, DATA_LENGTH> replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data);
     
     void printFrame();
 private:
     void gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day);
+    std::array<bool, DATA_LENGTH> frameSpaces;
     int week;
     int time;
     int year;
     int month;
     int day;
     
+    static char similarData[];
+    static char insertSpaces[];
 };
 
 #endif /* M10GTOP_H */

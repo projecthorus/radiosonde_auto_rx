@@ -27,7 +27,9 @@ int main(int argc, char** argv) {
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose Display even when CRC is wrong\n");
             fprintf(stderr, "       -R Show result at the end decoded/total\n");
+            fprintf(stderr, "       -r Display raw information\n");
             fprintf(stderr, "       -b Try alternative method after main method if it failed\n");
+            fprintf(stderr, "       -b2 Try to repair data with the previous line\n");
             fprintf(stderr, "       --ch2 Decode the second channel\n");
             
             return 0;
@@ -37,6 +39,8 @@ int main(int argc, char** argv) {
             decoder.setVerboseLevel(1);
         } else if (strcmp(*argv, "-b") == 0) {
             decoder.setTryMethodSign(true);
+        } else if (strcmp(*argv, "-b2") == 0) {
+            decoder.setTryMethodRepair(true);
         } else if (strcmp(*argv, "-R") == 0) {
             decoder.setDispResult(true);
         } else if (strcmp(*argv, "--ch2") == 0) {

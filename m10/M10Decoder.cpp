@@ -56,7 +56,6 @@ int M10Decoder::startDecode(std::string fname) {
         c++;
         if (decodeMessage(res) == EOF_INT)
             break;
-        bits2bytes();
 
         long sondeType = ((long) frame_bytes[0] << 16) + ((long) frame_bytes[1] << 8) + (long) frame_bytes[2];
         supported = true;
@@ -77,10 +76,16 @@ int M10Decoder::startDecode(std::string fname) {
                 fprintf(stderr, "Not supported : %#06x\n", (unsigned int) sondeType);
                 continue;
             }
-            if (correctCRC)
+            if (correctCRC) {
                 correct++;
+                lastGoodFrame = frame_bytes;
+            }
+
             m10Parser->changeData(frame_bytes, correctCRC);
             m10Parser->printFrame();
+
+            if (!correctCRC && tryRepair)
+                m10Parser->changeData(lastGoodFrame, true);
         }
     }
     if (dispResult)
@@ -198,6 +203,12 @@ int M10Decoder::decodeMessage(double initialPos) {
     if (ret == EOF_INT)
         return EOF_INT;
 
+    if (tryRepair) {
+        frame_bytes = m10Parser->replaceWithPrevious(frame_bytes);
+        if (checkCRC())
+            return 0;
+    }
+
     if (trySign) {
         // Reset the index
         curIndex = 0;
@@ -206,9 +217,15 @@ int M10Decoder::decodeMessage(double initialPos) {
             return 0;
         if (ret == EOF_INT)
             return EOF_INT;
+
+        if (tryRepair) {
+            frame_bytes = m10Parser->replaceWithPrevious(frame_bytes);
+            if (checkCRC())
+                return 0;
+        }
     }
 
-    return 0;
+    return 1;
 }
 
 int M10Decoder::decodeMethodCompare(double initialPos) {
@@ -273,6 +290,7 @@ int M10Decoder::decodeMethodCompare(double initialPos) {
             bit0 = 1;
         }
     }
+    bits2bytes();
     return !checkCRC();
 }
 
@@ -340,7 +358,14 @@ int M10Decoder::decodeMethodSign(double initialPos) {
             bit0 = 1;
         }
     }
+    bits2bytes();
     return !checkCRC();
+}
+
+void M10Decoder::setRaw(bool b) {
+    dispRaw = b;
+    m10GTop->setRaw(b);
+    m10Ptu->setRaw(b);
 }
 
 int M10Decoder::read_wav_header() {

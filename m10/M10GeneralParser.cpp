@@ -70,5 +70,8 @@ std::string M10GeneralParser::getSerialNumber() {
     return "";
 }
 
+std::array<unsigned char, DATA_LENGTH> M10GeneralParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
+    return data;
+}
 
 

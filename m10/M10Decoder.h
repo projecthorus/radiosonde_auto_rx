@@ -32,10 +32,11 @@ public:
     virtual double findFrameStart();
     virtual int decodeMessage(double initialPos);
     
-    void setRaw(bool b) {dispRaw = b;}
+    void setRaw(bool b);
     void setDispResult(bool b) {dispResult = b;}
     void setChannel(int c) {targetedChannel = c;}
     void setTryMethodSign(bool b) {trySign = b;}
+    void setTryMethodRepair(bool b) {tryRepair = b;}
     void setVerboseLevel(int level) {verboseLevel = level;}
 private:
     int decodeMethodCompare(double initialPos);
@@ -55,6 +56,7 @@ private:
     bool dispResult = false;
     bool dispRaw = false;
     bool trySign = false;
+    bool tryRepair = false;
     int verboseLevel = 0;
     int targetedChannel = 0;
     int sample_rate = 0;
@@ -72,6 +74,7 @@ private:
     
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
     std::array<unsigned char, (DATA_LENGTH)*8> frame_bits;
+    std::array<unsigned char, DATA_LENGTH> lastGoodFrame;
 };
 
 #endif /* M10DECODER_H */

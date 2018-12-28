@@ -18,6 +18,7 @@ public:
     M10GeneralParser();
     virtual ~M10GeneralParser();
     virtual void changeData(std::array<unsigned char, DATA_LENGTH> data, bool good);
+    void setRaw(bool b) {dispRaw = b;}
     virtual double getLatitude();
     virtual double getLongitude();
     virtual double getAltitude();
@@ -31,11 +32,15 @@ public:
     virtual double getHorizontalSpeed();
     virtual double getDirection();
     virtual std::string getSerialNumber();
+    std::array<unsigned char, DATA_LENGTH> getFrameBytes() {return frame_bytes;}
+    
+    virtual std::array<unsigned char, DATA_LENGTH> replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data);
     
     virtual void printFrame() = 0;
 protected:
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
     bool correctCRC;
+    bool dispRaw = false;
 };
 
 #endif /* M10GENERALDECODER_H */

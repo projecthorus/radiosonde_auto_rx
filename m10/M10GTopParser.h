@@ -35,6 +35,7 @@ public:
     virtual double getHumidity();
     virtual double getDp();
     virtual std::string getSerialNumber();
+    virtual std::string getdxlSerialNumber();
     
     void printFrame();
 private:

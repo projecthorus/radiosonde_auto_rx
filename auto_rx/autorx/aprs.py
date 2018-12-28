@@ -49,7 +49,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
                 _object_name = "DF6" + _id_suffix
         elif 'M10' in sonde_data['type']:
             # Use the generated id same as dxlARPS
-            _object_name = sonde_data['id']
+            _object_name = sonde_data['dxlid']
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.

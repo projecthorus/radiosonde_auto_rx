@@ -21,6 +21,9 @@
 
 #include "M10PtuParser.h"
 
+char M10PtuParser::similarData[] = "xxxx----------------------xxxxxxxxxxxxxxxxxxxxxxxxxxx---xxxxxxx--xxxx-----xx----xxxxx------xxxxxxx---";
+char M10PtuParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xx-";
+
 M10PtuParser::M10PtuParser() {
 }
 
@@ -295,27 +298,39 @@ std::string M10PtuParser::getSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
-    //char SN[12];
+    char SN[12];
 
-    /*for (i = 0; i < 11; i++)
+    for (i = 0; i < 11; i++)
         SN[i] = ' ';
-    SN[11] = '\0';*/
+    SN[11] = '\0';
 
     for (i = 0; i < 5; i++) {
         byte = frame_bytes[0x5D + i];
         sn_bytes[i] = byte;
     }
 
-    // More meaningfull way
-    /*byte = sn_bytes[2];
+    byte = sn_bytes[2];
     sprintf(SN, "%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);*/
+    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+
+    return SN;
+}
+
+std::string M10PtuParser::getdxlSerialNumber() {
+    int i;
+    unsigned byte;
+    unsigned short sn_bytes[5];
+
+    for (i = 0; i < 5; i++) {
+        byte = frame_bytes[0x5D + i];
+        sn_bytes[i] = byte;
+    }
 
     // The way used by dxlARPS used for compatibility.
     uint32_t id;
     char ids[9];
-     
+
     id = (uint32_t) (((uint32_t) ((uint32_t) (uint8_t)
             sn_bytes[4] + 256UL * (uint32_t) (uint8_t)
             sn_bytes[3] + 65536UL * (uint32_t) (uint8_t)
@@ -338,38 +353,63 @@ std::string M10PtuParser::getSerialNumber() {
     return ids;
 }
 
+std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
+    for (int i = 0; i < FRAME_LEN; ++i) {
+        if (similarData[i] == 'x') {
+            if(data[i] != frame_bytes[i])
+                data[i] = frame_bytes[i];
+            data[i] = frame_bytes[i];
+        }
+    }
+    return data;
+}
+
 void M10PtuParser::printFrame() {
-    setenv("TZ", "", 1); // Set local timezone to UTC
-    time_t frame = 0;
-    struct tm timeinfo;
+    if (dispRaw) {
+        for (int i = 0; i < FRAME_LEN; ++i) {
+            if (insertSpaces[i] == 'x')
+                printf(" ");
+            printf("%02X", frame_bytes[i]);
+        }
+        if (correctCRC)
+            printf(" [OK]");
+        else
+            printf(" [NO]");
+        printf("\n");
+    } else {
+        setenv("TZ", "", 1); // Set local timezone to UTC
+        time_t frame = 0;
+        struct tm timeinfo;
 
-    timeinfo.tm_hour = getHours();
-    timeinfo.tm_min = getMinutes();
-    timeinfo.tm_sec = getSeconds();
-    timeinfo.tm_mday = getDay();
-    timeinfo.tm_mon = getMonth() - 1;
-    timeinfo.tm_year = getYear() - 1900;
-    timeinfo.tm_isdst = 0;
+        timeinfo.tm_hour = getHours();
+        timeinfo.tm_min = getMinutes();
+        timeinfo.tm_sec = getSeconds();
+        timeinfo.tm_mday = getDay();
+        timeinfo.tm_mon = getMonth() - 1;
+        timeinfo.tm_year = getYear() - 1900;
+        timeinfo.tm_isdst = 0;
 
-    frame = mktime(&timeinfo);
+        frame = mktime(&timeinfo);
 
-    // Decoder sensible to comma at the end, strict json
-    printf("{ "
-            "\"sub_type\": \"%s\", "
-            "\"frame\": %ld, "
-            "\"id\": \"%s\", "
-            "\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", "
-            "\"lat\": %.5f, "
-            "\"lon\": %.5f, "
-            "\"alt\": %.2f, "
-            "\"vel_h\": %.5f, "
-            "\"heading\": %.5f, "
-            "\"vel_v\": %.2f, "
-            "\"temp\": %.1f, "
-            "\"crc\": %d "
-            "}\n",
-            "Ptu", frame, getSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
-            getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), correctCRC);
+        // Decoder sensible to comma at the end, strict json
+        printf("{ "
+                "\"sub_type\": \"%s\", "
+                "\"frame\": %ld, "
+                "\"id\": \"%s\", "
+                "\"dxlid\": \"%s\", "
+                "\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", "
+                "\"lat\": %.5f, "
+                "\"lon\": %.5f, "
+                "\"alt\": %.2f, "
+                "\"vel_h\": %.5f, "
+                "\"heading\": %.5f, "
+                "\"vel_v\": %.2f, "
+                "\"temp\": %.1f, "
+                "\"crc\": %d "
+                "}\n",
+                "Ptu", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
+                getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), correctCRC);
+    }
 }
 
 /*
