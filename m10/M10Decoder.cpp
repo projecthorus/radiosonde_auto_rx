@@ -21,49 +21,47 @@ M10Decoder::~M10Decoder() {
     delete m10GTop;
     delete m10Ptu;
 
-    if (samplesPerBit != 0)
+    if (audioFile)
         delete frameSamples;
+
+    if (audioFile)
+        delete audioFile;
 }
 
 int M10Decoder::startDecode(std::string fname) {
     filename = fname;
-    if (filename == "" || filename == "-")
-        fp = stdin;
-    else
-        fp = fopen(filename.c_str(), "rb");
+    int error = 0;
 
-    if (fp == NULL) {
-        fprintf(stderr, "%s could not be opened.\n", filename.c_str());
-        return -1;
+    audioFile = new AudioFile(fname, baudRate, &error);
+
+    if (error) {
+        return error;
     }
 
-    if (read_wav_header()) {
-        fprintf(stderr, "Could not read the header.\n");
-        return -1;
-    }
+    samplesPerBit = audioFile->getSamplesPerBit();
 
     samplesBufLength = (DATA_LENGTH * 8 + 100) * samplesPerBit * 2;
     frameSamples = new std::vector<int>(samplesBufLength);
 
     double res = 1;
-    int c = 0;
-    int correct = 0;
     bool supported = true;
-    while (res) {
+    while (res != EOF_INT) {
         res = findFrameStart();
-        if (res == 0)
+        if (res == EOF_INT)
             break;
-        c++;
+
+        totalFrames++;
         if (decodeMessage(res) == EOF_INT)
             break;
 
-        long sondeType = ((long) frame_bytes[0] << 16) + ((long) frame_bytes[1] << 8) + (long) frame_bytes[2];
+        long sondeType = ((long) frame_bytes[1] << 8) + (long) frame_bytes[2];
+        frameLength = frame_bytes[0];
         supported = true;
         switch (sondeType) {
-            case 0x64AF02:
+            case 0xAF02:
                 m10Parser = m10GTop;
                 break;
-            case 0x649F20:
+            case 0x9F20:
                 m10Parser = m10Ptu;
                 break;
             default:
@@ -77,19 +75,26 @@ int M10Decoder::startDecode(std::string fname) {
                 continue;
             }
             if (correctCRC) {
-                correct++;
+                correctFrames++;
                 lastGoodFrame = frame_bytes;
             }
 
             m10Parser->changeData(frame_bytes, correctCRC);
             m10Parser->printFrame();
 
-            if (!correctCRC && tryRepair)
-                m10Parser->changeData(lastGoodFrame, true);
+            if (!correctCRC) {
+                if (correctFrames == 0 && tryStats) // Add the frame to the record
+                    m10Parser->addToStats();
+                else if (tryRepair && correctFrames != 0) // Put the last correct to repair
+                    m10Parser->changeData(lastGoodFrame, correctFrames > 0);
+            }
         }
     }
+    if (tryStats && verboseLevel >= 1)
+        m10Parser->printStatsFrame();
+
     if (dispResult)
-        fprintf(stderr, "Result of %i/%i decoding\n", correct, c);
+        fprintf(stderr, "Result of %i/%i decoding\n", correctFrames, totalFrames);
     return 0;
 }
 
@@ -108,11 +113,12 @@ double M10Decoder::findFrameStart() {
     int smallBufLen = (int) (samplesPerBit * 5.);
     std::vector<int> vals(smallBufLen);
     int valIndex = 0;
+    double activeSum = 0;
     for (int j = 0; 1; ++j) {
-        v = readSignedSample(false);
+        v = audioFile->readSignedSample();
         vals[valIndex++ % smallBufLen] = v;
         if (v == EOF_INT)
-            return 0;
+            return EOF_INT;
         // Average over the last 6 samples to comply with a global offset
         activeSum = (activeSum + (double) v)*(samplesPerBit * AVG_NUM) / (samplesPerBit * AVG_NUM + 1.);
         v = v - activeSum / (samplesPerBit * AVG_NUM);
@@ -127,36 +133,31 @@ double M10Decoder::findFrameStart() {
             else
                 decoded[currentIndex] = '0';
 
+            // Store the position of the start of the bit
             posData[currentIndex] = (double) j - (1. - (double) i / round((double) len / samplesPerBit))*(double) len;
 
             char normal = 1;
             char inv = 1;
             int headerIndex = 0;
-            // currentIndex to the end
-            for (int l = currentIndex + 1; l < headerLength; ++l) {
-                if (decoded[l] == header[headerIndex])
-                    inv = 0;
-                else
-                    normal = 0;
-                headerIndex++;
-            }
-            // The start to currentIndex
-            for (int l = 0; l < currentIndex; ++l) {
-                if (decoded[l] == header[headerIndex])
-                    inv = 0;
-                else
-                    normal = 0;
-                headerIndex++;
-            }
-            if (normal || inv) {
-                // Calculate the real position of the data averaging over the 16 samples
-                double pos = 0;
-                for (int k = currentIndex; k < headerLength; ++k)
-                    pos += posData[k] + (double) (headerLength - k) * samplesPerBit;
-                for (int k = 0; k < currentIndex; ++k)
-                    pos += posData[k] + (double) (headerLength - k) * samplesPerBit;
 
-                pos /= headerLength;
+            // Check if the header is correct
+            for (int k = 0; k < headerLength; ++k) {
+                if (decoded[(k + currentIndex + 1) % headerLength] == header[headerIndex])
+                    inv = 0;
+                else
+                    normal = 0;
+                headerIndex++;
+            }
+
+            if (normal || inv) {
+                // Calculate the real position of the data averaging over the headerLength samples
+                double pos = 0;
+                for (int k = 0; k < headerLength; ++k) {
+                    pos += posData[(k + currentIndex + 1) % headerLength] + (double) (headerLength - k) * samplesPerBit;
+                    //fprintf(stderr, "%.2f\n", posData[(k + currentIndex + 1) % headerLength] + (double) (headerLength - k) * samplesPerBit);
+                }
+
+                pos /= (double) headerLength;
 
                 int tmpIndex = 0;
                 valIndex--;
@@ -171,8 +172,8 @@ double M10Decoder::findFrameStart() {
                     frameSamples->at(curIndex) = vals.at(tmpIndex);
                 }
 
-                pos = pos - (int) pos;
-                return pos;
+                // Only the weight of the first bit is useful, they are stored already
+                return pos - (int) pos;
             }
 
             currentIndex = (currentIndex + 1) % headerLength;
@@ -180,13 +181,13 @@ double M10Decoder::findFrameStart() {
         len = 0;
         prevV = v;
     }
-    return 0;
 }
 
 int M10Decoder::decodeMessage(double initialPos) {
+    std::array<unsigned char, DATA_LENGTH> frameBackup;
     int v;
     for (; curIndex < samplesBufLength; ++curIndex) {
-        v = readSignedSample(false);
+        v = audioFile->readSignedSample();
         if (v == EOF_INT)
             return EOF_INT;
         frameSamples->at(curIndex) = v;
@@ -203,10 +204,12 @@ int M10Decoder::decodeMessage(double initialPos) {
     if (ret == EOF_INT)
         return EOF_INT;
 
-    if (tryRepair) {
+    if ((tryRepair && correctFrames != 0) || (correctFrames == 0 && tryStats)) {
+        frameBackup = frame_bytes;
         frame_bytes = m10Parser->replaceWithPrevious(frame_bytes);
         if (checkCRC())
             return 0;
+        frame_bytes = frameBackup;
     }
 
     if (trySign) {
@@ -218,10 +221,12 @@ int M10Decoder::decodeMessage(double initialPos) {
         if (ret == EOF_INT)
             return EOF_INT;
 
-        if (tryRepair) {
+        if ((tryRepair && correctFrames != 0) || (correctFrames == 0 && tryStats)) {
+            frameBackup = frame_bytes;
             frame_bytes = m10Parser->replaceWithPrevious(frame_bytes);
             if (checkCRC())
                 return 0;
+            frame_bytes = frameBackup;
         }
     }
 
@@ -233,9 +238,8 @@ int M10Decoder::decodeMethodCompare(double initialPos) {
 
     double j = initialPos;
     double sum = 0;
-    int val = readSignedSample(); // Read the first value
-    fpos_t tmp;
-    fgetpos(fp, &tmp);
+    int val = getNextBufferValue(); // Read the first value
+
     if (val == EOF_INT)
         return EOF_INT;
     for (int k = 0; k < FRAME_LEN * 8 + AUX_LEN * 8 + 8; ++k) { // Iterate through needed bits
@@ -243,12 +247,12 @@ int M10Decoder::decodeMethodCompare(double initialPos) {
         // Add the first part of the value weighted correctly
         sum = (1. - (j - floor(j)))*(double) val;
         for (int i = ceil(j); i < j + samplesPerBit - 1; ++i) { // Full vals in the middle
-            val = readSignedSample();
+            val = getNextBufferValue();
             if (val == EOF_INT)
                 return EOF_INT;
             sum += (double) val;
         }
-        val = readSignedSample();
+        val = getNextBufferValue();
         if (val == EOF_INT)
             return EOF_INT;
         // Add the rest of the value
@@ -261,12 +265,12 @@ int M10Decoder::decodeMethodCompare(double initialPos) {
         // Same for the second bit
         sum = (1 - (j - floor(j)))*(double) val;
         for (int i = ceil(j); i < j + samplesPerBit - 1; ++i) { // Full vals in the middle
-            val = readSignedSample();
+            val = getNextBufferValue();
             if (val == EOF_INT)
                 return EOF_INT;
             sum += (double) val;
         }
-        val = readSignedSample();
+        val = getNextBufferValue();
         if (val == EOF_INT)
             return EOF_INT;
         sum += (j + samplesPerBit - floor(j + samplesPerBit))*(double) val;
@@ -299,9 +303,8 @@ int M10Decoder::decodeMethodSign(double initialPos) {
 
     double j = initialPos;
     double sum = 0;
-    int val = readSignedSampleNormalized(); // Read the first value
-    fpos_t tmp;
-    fgetpos(fp, &tmp);
+    int val = audioFile->averageNormalizeSample(getNextBufferValue()); // Read the first value
+
     if (val == EOF_INT)
         return EOF_INT;
     for (int k = 0; k < FRAME_LEN * 8 + AUX_LEN * 8 + 8; ++k) { // Iterate through needed bits
@@ -309,13 +312,13 @@ int M10Decoder::decodeMethodSign(double initialPos) {
         // Add the first part of the value weighted correctly
         sum = (1. - (j - floor(j)))*(double) val;
         for (int i = ceil(j); i < j + samplesPerBit - 1; ++i) { // Full vals in the middle
-            val = readSignedSampleNormalized();
+            val = audioFile->averageNormalizeSample(getNextBufferValue());
             if (val == EOF_INT)
                 return EOF_INT;
             sum += val;
         }
 
-        val = readSignedSampleNormalized();
+        val = audioFile->averageNormalizeSample(getNextBufferValue());
         if (val == EOF_INT)
             return EOF_INT;
 
@@ -329,12 +332,12 @@ int M10Decoder::decodeMethodSign(double initialPos) {
         // Same for the second bit
         sum = (1 - (j - floor(j)))*(double) val;
         for (int i = ceil(j); i < j + samplesPerBit - 1; ++i) { // Full vals in the middle
-            val = readSignedSampleNormalized();
+            val = audioFile->averageNormalizeSample(getNextBufferValue());
             if (val == EOF_INT)
                 return EOF_INT;
             sum += (double) val;
         }
-        val = readSignedSampleNormalized();
+        val = audioFile->averageNormalizeSample(getNextBufferValue());
         if (val == EOF_INT)
             return EOF_INT;
         sum += (j + samplesPerBit - floor(j + samplesPerBit))*(double) val;
@@ -368,125 +371,24 @@ void M10Decoder::setRaw(bool b) {
     m10Ptu->setRaw(b);
 }
 
-int M10Decoder::read_wav_header() {
-    char txt[4 + 1] = "\0\0\0\0";
-    unsigned char dat[4];
-    int byte, p = 0;
-
-    if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "RIFF", 4)) return -1;
-    if (fread(txt, 1, 4, fp) < 4) return -1;
-    // pos_WAVE = 8L
-    if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "WAVE", 4)) return -1;
-    // pos_fmt = 12L
-    for (;;) {
-        if ((byte = fgetc(fp)) == EOF) return -1;
-        txt[p % 4] = byte;
-        p++;
-        if (p == 4) p = 0;
-        if (findstr(txt, "fmt ", p) == 4) break;
-    }
-    if (fread(dat, 1, 4, fp) < 4) return -1;
-    if (fread(dat, 1, 2, fp) < 2) return -1;
-
-    if (fread(dat, 1, 2, fp) < 2) return -1;
-    channels = dat[0] + (dat[1] << 8);
-
-    if (fread(dat, 1, 4, fp) < 4) return -1;
-    memcpy(&sample_rate, dat, 4); //sample_rate = dat[0]|(dat[1]<<8)|(dat[2]<<16)|(dat[3]<<24);
-
-    if (fread(dat, 1, 4, fp) < 4) return -1;
-    if (fread(dat, 1, 2, fp) < 2) return -1;
-    //byte = dat[0] + (dat[1] << 8);
-
-    if (fread(dat, 1, 2, fp) < 2) return -1;
-    bits_sample = dat[0] + (dat[1] << 8);
-
-    // pos_dat = 36L + info
-    for (;;) {
-        if ((byte = fgetc(fp)) == EOF) return -1;
-        txt[p % 4] = byte;
-        p++;
-        if (p == 4) p = 0;
-        if (findstr(txt, "data", p) == 4) break;
-    }
-    if (fread(dat, 1, 4, fp) < 4) return -1;
-
-
-    fprintf(stderr, "sample_rate: %d\n", sample_rate);
-    fprintf(stderr, "bits       : %d\n", bits_sample);
-    fprintf(stderr, "channels   : %d\n", channels);
-
-    if ((bits_sample != 8) && (bits_sample != 16)) return -1;
-
-    samplesPerBit = sample_rate / (double) baudRate;
-
-    fprintf(stderr, "samples/bit: %.2f\n", samplesPerBit);
-
-    return 0;
-}
-
-int M10Decoder::readSignedSample(bool buffer) {
-    if (buffer) {
-        if (curIndex < samplesBufLength)
-            return frameSamples->at(curIndex++);
-        else {
-            fprintf(stderr, "Error, end of buffer.\n");
-            return EOF_INT;
-        }
-    }
-
-    int byte, i, sample = 0, s = 0; // EOF -> 0x1000000
-
-    for (i = 0; i < channels; i++) {
-        // i = 0: links bzw. mono
-        byte = fgetc(fp);
-        if (byte == EOF) return EOF_INT;
-        if (i == targetedChannel) sample = byte;
-
-        if (bits_sample == 16) {
-            byte = fgetc(fp);
-            if (byte == EOF) return EOF_INT;
-            if (i == targetedChannel) sample += byte << 8;
-        }
-
-    }
-
-    if (bits_sample == 8) s = sample - 128; // 8bit: 00..FF, centerpoint 0x80=128
-    if (bits_sample == 16) s = (short) sample;
-
-    return s;
-}
-
-int M10Decoder::readSignedSampleNormalized(bool buffer) {
-    int v = readSignedSample(buffer);
-    if (v == EOF_INT)
+int M10Decoder::getNextBufferValue() {
+    if (curIndex < samplesBufLength)
+        return frameSamples->at(curIndex++);
+    else {
+        fprintf(stderr, "Error, end of buffer.\n");
         return EOF_INT;
-    // Average over the last 6 samples to comply with a global offset
-    activeSum = (activeSum + (double) v)*(samplesPerBit * AVG_NUM) / (samplesPerBit * AVG_NUM + 1.);
-    v = v - activeSum / (samplesPerBit * AVG_NUM);
-    return v > 0 ? 1 : -1;
-
-}
-
-int M10Decoder::findstr(char* buf, const char* str, int pos) {
-    int i;
-    for (i = 0; i < 4; i++) {
-        if (buf[(pos + i) % 4] != str[i]) break;
     }
-    return i;
 }
 
 bool M10Decoder::checkCRC() {
     int i, cs;
 
     cs = 0;
-    for (i = 0; i < pos_Check; i++) {
+    for (i = 0; i < frameLength-1; i++) {
         cs = update_checkM10(cs, frame_bytes[i]);
     }
 
-    return ((cs & 0xFFFF) != 0) && ((cs & 0xFFFF) == ((frame_bytes[pos_Check] << 8) | frame_bytes[pos_Check + 1]));
+    return ((cs & 0xFFFF) != 0) && ((cs & 0xFFFF) == ((frame_bytes[frameLength-1] << 8) | frame_bytes[frameLength]));
 }
 
 int M10Decoder::update_checkM10(int c, unsigned short b) {

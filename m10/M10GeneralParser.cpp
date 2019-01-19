@@ -6,6 +6,7 @@
  */
 
 #include "M10GeneralParser.h"
+#include "M10PtuParser.h"
 
 M10GeneralParser::M10GeneralParser() {
 }
@@ -16,6 +17,7 @@ M10GeneralParser::~M10GeneralParser() {
 void M10GeneralParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
     correctCRC = good;
     frame_bytes = data;
+    frameLength = frame_bytes[0];
 }
 
 double M10GeneralParser::getLatitude() {
@@ -74,4 +76,30 @@ std::array<unsigned char, DATA_LENGTH> M10GeneralParser::replaceWithPrevious(std
     return data;
 }
 
+void M10GeneralParser::addToStats() {
+    for (int i = 0; i < DATA_LENGTH; ++i) {
+        ++statValues[i][frame_bytes[i]];
+    }
+}
 
+void M10GeneralParser::printStatsFrame() {
+    u_short valMax;
+    u_short posMax;
+
+    for (int i = 0; i < FRAME_LEN; ++i) {
+        valMax = 0;
+        posMax = 0;
+        for (u_short k = 0; k < 0xFF+1; ++k) { // Find maximum
+            if (statValues[i][k] > valMax) {
+                valMax = statValues[i][k];
+                posMax = k;
+            }
+        }
+        frame_bytes[i] = posMax;
+    }
+    
+    changeData(frame_bytes, false);
+    
+    printf("Stats frame:\n");
+    printFrame();
+}

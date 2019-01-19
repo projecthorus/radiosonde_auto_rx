@@ -17,12 +17,12 @@
 
 #define AVG_NUM 5.
 
-#include <stdio.h>
 #include <string>
 #include <cstring>
 #include <cmath>
 #include <vector>
 #include "M10GeneralParser.h"
+#include "AudioFile.h"
 
 class M10Decoder {
 public:
@@ -37,14 +37,13 @@ public:
     void setChannel(int c) {targetedChannel = c;}
     void setTryMethodSign(bool b) {trySign = b;}
     void setTryMethodRepair(bool b) {tryRepair = b;}
+    void setTryStats(bool b) {tryStats = b;}
     void setVerboseLevel(int level) {verboseLevel = level;}
-private:
+    
+protected:
     int decodeMethodCompare(double initialPos);
     int decodeMethodSign(double initialPos);
-    int read_wav_header();
-    int readSignedSample(bool buffer = true);
-    int readSignedSampleNormalized(bool buffer = true);
-    int findstr(char *buf, const char *str, int pos);
+    int getNextBufferValue();
     bool checkCRC();
     int update_checkM10(int c, unsigned short b);
     void bits2bytes();
@@ -52,25 +51,27 @@ private:
     M10GeneralParser *m10Parser;
     M10GeneralParser *m10GTop;
     M10GeneralParser *m10Ptu;
-    FILE *fp;
+    
+    AudioFile *audioFile;
+    
     bool dispResult = false;
     bool dispRaw = false;
     bool trySign = false;
     bool tryRepair = false;
+    bool tryStats = false;
     int verboseLevel = 0;
     int targetedChannel = 0;
-    int sample_rate = 0;
-    int bits_sample = 0;
-    int channels = 0;
     double samplesPerBit = 0;
     double baudRate = 9615;
-    double activeSum = 0;
     static char header[];
     std::string filename;
     
     std::vector<int> *frameSamples;
     int curIndex = 0;
     int samplesBufLength = 0;
+    int correctFrames = 0;
+    int totalFrames = 0;
+    int frameLength = 0;
     
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
     std::array<unsigned char, (DATA_LENGTH)*8> frame_bits;

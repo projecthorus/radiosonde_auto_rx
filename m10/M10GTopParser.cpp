@@ -29,8 +29,7 @@ M10GTopParser::~M10GTopParser() {
 }
 
 void M10GTopParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
-    correctCRC = good;
-    frame_bytes = data;
+    M10GeneralParser::changeData(data, good);
 
     int i;
     unsigned short bytes[4];
@@ -236,7 +235,7 @@ std::string M10GTopParser::getdxlSerialNumber() {
 
 void M10GTopParser::printFrame() {
     if (dispRaw) {
-        for (int i = 0; i < FRAME_LEN; ++i) {
+        for (int i = 0; i < frameLength + 1; ++i) {
             printf("%02X", frame_bytes[i]);
         }
         if (correctCRC)

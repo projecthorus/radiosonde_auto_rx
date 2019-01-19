@@ -27,9 +27,10 @@ int main(int argc, char** argv) {
             fprintf(stderr, "  options:\n");
             fprintf(stderr, "       -v, --verbose Display even when CRC is wrong\n");
             fprintf(stderr, "       -R Show result at the end decoded/total\n");
-            fprintf(stderr, "       -r Display raw information\n");
+            fprintf(stderr, "       -r, --raw Display raw information\n");
             fprintf(stderr, "       -b Try alternative method after main method if it failed\n");
             fprintf(stderr, "       -b2 Try to repair data with the previous line\n");
+            fprintf(stderr, "       -s Try to repair data with stats if no data has been correctly decoded\n");
             fprintf(stderr, "       --ch2 Decode the second channel\n");
             
             return 0;
@@ -41,12 +42,13 @@ int main(int argc, char** argv) {
             decoder.setTryMethodSign(true);
         } else if (strcmp(*argv, "-b2") == 0) {
             decoder.setTryMethodRepair(true);
+        } else if (strcmp(*argv, "-s") == 0) {
+            decoder.setTryStats(true);
         } else if (strcmp(*argv, "-R") == 0) {
             decoder.setDispResult(true);
         } else if (strcmp(*argv, "--ch2") == 0) {
-            decoder.setChannel(1);
-        }// right channel (default: 0=left)
-        else {
+            decoder.setChannel(1); // right channel (default: 0=left)
+        } else {
             filename = *argv;
         }
         ++argv;

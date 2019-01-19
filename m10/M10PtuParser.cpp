@@ -22,7 +22,7 @@
 #include "M10PtuParser.h"
 
 char M10PtuParser::similarData[] = "xxxx----------------------xxxxxxxxxxxxxxxxxxxxxxxxxxx---xxxxxxx--xxxx-----xx----xxxxx------xxxxxxx---";
-char M10PtuParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xx-";
+char M10PtuParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xxxx-x-------------x";
 
 M10PtuParser::M10PtuParser() {
 }
@@ -31,8 +31,7 @@ M10PtuParser::~M10PtuParser() {
 }
 
 void M10PtuParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
-    correctCRC = good;
-    frame_bytes = data;
+    M10GeneralParser::changeData(data, good);
 
     int i;
     unsigned byte;
@@ -248,7 +247,7 @@ double M10PtuParser::getTemperature() {
 
     unsigned char scT; // {0,1,2}, range/scale voltage divider
     unsigned short ADC_RT; // ADC12 P6.7(A7) , adr_0377h,adr_0376h
-    unsigned short Tcal[2]; // adr_1000h[scT*4]
+    //unsigned short Tcal[2]; // adr_1000h[scT*4]
 
     float adc_max = 4095.0; // ADC12
     float x, R;
@@ -257,8 +256,8 @@ double M10PtuParser::getTemperature() {
     scT = frame_bytes[0x3E]; // adr_0455h
     ADC_RT = (frame_bytes[0x40] << 8) | frame_bytes[0x3F];
     ADC_RT -= 0xA000;
-    Tcal[0] = (frame_bytes[0x42] << 8) | frame_bytes[0x41];
-    Tcal[1] = (frame_bytes[0x44] << 8) | frame_bytes[0x43];
+    //Tcal[0] = (frame_bytes[0x42] << 8) | frame_bytes[0x41]; // Unused for now
+    //Tcal[1] = (frame_bytes[0x44] << 8) | frame_bytes[0x43];
 
     x = (adc_max - ADC_RT) / ADC_RT; // (Vcc-Vout)/Vout
     if (scT < 3)
@@ -354,11 +353,31 @@ std::string M10PtuParser::getdxlSerialNumber() {
 }
 
 std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
-    for (int i = 0; i < FRAME_LEN; ++i) {
-        if (similarData[i] == 'x') {
-            if(data[i] != frame_bytes[i])
+    u_short valMax;
+    u_short posMax;
+
+    if (!correctCRC) { // Use probabilities
+        int threshold = statValues[0][0x64] / 2; // more than 50%
+        if (threshold > 4) { // Meaning less under 4 values
+            for (int i = 0; i < FRAME_LEN; ++i) {
+                if (similarData[i] == 'x') {
+                    valMax = 0;
+                    posMax = 0;
+                    for (u_short k = 0; k < 0xFF + 1; ++k) { // Find maximum
+                        if (statValues[i][k] > valMax) {
+                            valMax = statValues[i][k];
+                            posMax = k;
+                        }
+                    }
+                    data[i] = posMax;
+                }
+            }
+        }
+    } else { // Use correct frame
+        for (int i = 0; i < FRAME_LEN; ++i) {
+            if (similarData[i] == 'x') {
                 data[i] = frame_bytes[i];
-            data[i] = frame_bytes[i];
+            }
         }
     }
     return data;
@@ -366,7 +385,7 @@ std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::ar
 
 void M10PtuParser::printFrame() {
     if (dispRaw) {
-        for (int i = 0; i < FRAME_LEN; ++i) {
+        for (int i = 0; i < frameLength + 1; ++i) {
             if (insertSpaces[i] == 'x')
                 printf(" ");
             printf("%02X", frame_bytes[i]);
