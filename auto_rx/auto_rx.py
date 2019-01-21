@@ -351,7 +351,7 @@ def telemetry_filter(telemetry):
     # TODO: Check if this valid for DFM06s, and find out what's up with the 8-digit DFM09 callsigns.
     dfm_callsign_valid = re.match(r'DFM0[69]-\d{6}', _serial)
 
-    if vaisala_callsign_valid or dfm_callsign_valid:
+    if vaisala_callsign_valid or dfm_callsign_valid or 'M10' in telemetry['type']:
         return True
     else:
         logging.warning("Payload ID %s does not match regex. Discarding." % telemetry['id'])
