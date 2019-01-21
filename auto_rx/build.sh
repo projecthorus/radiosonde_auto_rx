@@ -17,7 +17,7 @@ gcc rs41dm_dft.c demod_dft.o -lm -o rs41ecc -I../ecc/ -I../rs41
 gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc -I../ecc/ -I../dfm
 # Build M10 decoder
 cd ../m10/
-g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GTopParser.cpp M10PtuParser.cpp AudioFile.cpp -lm -o m10
+g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GTopParser.cpp M10PtuParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
 
 # Copy all necessary files into this directory.

@@ -41,7 +41,7 @@ public:
     virtual void printFrame() = 0;
 protected:
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
-    std::array<std::array<u_short, 0xFF+1>, DATA_LENGTH> statValues = {};
+    std::array<std::array<unsigned short, 0xFF+1>, DATA_LENGTH> statValues = {};
     bool correctCRC;
     bool dispRaw = false;
     int frameLength = 0;

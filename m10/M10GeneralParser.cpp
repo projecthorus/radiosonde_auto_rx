@@ -5,6 +5,9 @@
  * Created on December 12, 2018, 10:52 PM
  */
 
+#include <string>
+#include <sstream>
+#include <iostream>
 #include "M10GeneralParser.h"
 #include "M10PtuParser.h"
 
@@ -83,13 +86,13 @@ void M10GeneralParser::addToStats() {
 }
 
 void M10GeneralParser::printStatsFrame() {
-    u_short valMax;
-    u_short posMax;
+    unsigned short valMax;
+    unsigned short posMax;
 
     for (int i = 0; i < FRAME_LEN; ++i) {
         valMax = 0;
         posMax = 0;
-        for (u_short k = 0; k < 0xFF+1; ++k) { // Find maximum
+        for (unsigned short k = 0; k < 0xFF+1; ++k) { // Find maximum
             if (statValues[i][k] > valMax) {
                 valMax = statValues[i][k];
                 posMax = k;

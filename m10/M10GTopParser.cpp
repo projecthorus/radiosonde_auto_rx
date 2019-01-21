@@ -21,6 +21,9 @@
 
 #include "M10GTopParser.h"
 #include <ctime>
+#include <string>
+#include <sstream>
+#include <iostream>
 
 M10GTopParser::M10GTopParser() {
 }

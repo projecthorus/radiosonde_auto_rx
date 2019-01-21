@@ -20,6 +20,9 @@
 #define pos_Check     (stdFLEN-1)  // 2 byte*/
 
 #include "M10PtuParser.h"
+#include <string>
+#include <sstream>
+#include <iostream>
 
 char M10PtuParser::similarData[] = "xxxx----------------------xxxxxxxxxxxxxxxxxxxxxxxxxxx---xxxxxxx--xxxx-----xx----xxxxx------xxxxxxx---";
 char M10PtuParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xxxx-x-------------x";
@@ -353,8 +356,8 @@ std::string M10PtuParser::getdxlSerialNumber() {
 }
 
 std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
-    u_short valMax;
-    u_short posMax;
+    unsigned short valMax;
+    unsigned short posMax;
 
     if (!correctCRC) { // Use probabilities
         int threshold = statValues[0][0x64] / 2; // more than 50%
@@ -363,7 +366,7 @@ std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::ar
                 if (similarData[i] == 'x') {
                     valMax = 0;
                     posMax = 0;
-                    for (u_short k = 0; k < 0xFF + 1; ++k) { // Find maximum
+                    for (unsigned short k = 0; k < 0xFF + 1; ++k) { // Find maximum
                         if (statValues[i][k] > valMax) {
                             valMax = statValues[i][k];
                             posMax = k;
