@@ -95,11 +95,12 @@ class EmailNotification(object):
                 msg += '\n'
                 msg += 'Callsign:  %s\n' % _id
                 msg += 'Type:      %s\n' % telemetry['type']
-                msg += 'Frequency: %s MHz\n' % telemetry['freq']
+                msg += 'Frequency: %s\n' % telemetry['freq']
                 msg += 'Position:  %.5f,%.5f\n' % (telemetry['lat'], telemetry['lon'])
                 msg += 'Altitude:  %dm\n' % round(telemetry['alt'])
                 msg += '\n'
-                msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
+                #msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
+                msg += 'https://sondehub.org/%s\n' % _id
 
                 msg = MIMEText(msg, 'plain', 'UTF-8')
                 msg['Subject'] = 'Sonde launch detected: ' + _id
