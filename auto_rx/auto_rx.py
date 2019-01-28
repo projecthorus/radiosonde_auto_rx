@@ -365,7 +365,7 @@ def main():
 
     # Command line arguments.
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c" ,"--config", default="/data/station.cfg", help="Receive Station Configuration File. Default: station.cfg")
+    parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File. Default: station.cfg")
     parser.add_argument("-l" ,"--log", default="./log/", help="Receive Station Log Path. Default: ./log/")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.")
     parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
