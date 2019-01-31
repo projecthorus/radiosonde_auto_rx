@@ -395,7 +395,9 @@ def main():
         print("Invalid logging path, using default. Does the folder exist?")
 
     # Configure logging
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime(logging_path+"%Y%m%d-%H%M%S_system.log"), level=logging_level)
+    _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
+    _log_path = os.path.join(logging_path, _log_suffix)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=_log_path, level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)

@@ -5,7 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
-__version__ = "20181227"
+__version__ = "20190131"
 
 # Global Variables
 
