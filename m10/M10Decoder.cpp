@@ -15,13 +15,16 @@ M10Decoder::M10Decoder() {
     m10GTop = new M10GTopParser();
     m10Ptu = new M10PtuParser();
     m10Parser = m10GTop;
+    
+    frameSamples = NULL;
+    audioFile = NULL;
 }
 
 M10Decoder::~M10Decoder() {
     delete m10GTop;
     delete m10Ptu;
 
-    if (audioFile)
+    if (frameSamples)
         delete frameSamples;
 
     if (audioFile)
