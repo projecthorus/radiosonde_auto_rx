@@ -15,6 +15,7 @@ import re
 import sys
 import time
 import traceback
+import os
 
 import autorx
 from autorx.scan import SondeScanner
@@ -86,7 +87,7 @@ def allocate_sdr(check_only = False, task_description = ""):
                 # Otherwise, set the SDR as in-use.
                 autorx.sdr_list[_idx]['in_use'] = True
                 logging.info("SDR #%s has been allocated to %s." % (str(_idx), task_description))
-            
+
             return _idx
 
     # Otherwise, no SDRs are free.
@@ -139,7 +140,7 @@ def start_scanner():
 
         # Add a reference into the sdr_list entry
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list['SCAN']['task']
-    
+
     # Indicate to the web client that the task list has been updated.
     flask_emit_event('task_event')
 
@@ -301,7 +302,7 @@ def stop_all():
 
 
 def telemetry_filter(telemetry):
-    """ Filter incoming radiosonde telemetry based on various factors, 
+    """ Filter incoming radiosonde telemetry based on various factors,
         - Invalid Position
         - Invalid Altitude
         - Abnormal range from receiver.
@@ -362,9 +363,10 @@ def main():
     """ Main Loop """
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris
 
-    # Command line arguments. 
+    # Command line arguments.
     parser = argparse.ArgumentParser()
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File. Default: station.cfg")
+    parser.add_argument("-l" ,"--log", default="./log/", help="Receive Station Log Path. Default: ./log/")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.")
     parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
@@ -382,9 +384,18 @@ def main():
     if args.verbose:
         logging_level = logging.DEBUG
 
+    # Define the default logging path
+    logging_path = "./log/"
+
+    # Validate the user supplied log path
+    if os.path.isdir(args.log):
+        logging_path = os.path.abspath(args.log)
+    else:
+        #Using print because logging may not be established yet
+        print("Invalid logging path, using default. Does the folder exist?")
 
     # Configure logging
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime("log/%Y%m%d-%H%M%S_system.log"), level=logging_level)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=datetime.datetime.utcnow().strftime(logging_path+"%Y%m%d-%H%M%S_system.log"), level=logging_level)
     stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(stdout_format)
@@ -430,7 +441,7 @@ def main():
     # Start our exporter options
     # Telemetry Logger
     if config['per_sonde_log']:
-        _logger = TelemetryLogger(log_directory="./log/")
+        _logger = TelemetryLogger(log_directory=logging_path)
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
 
@@ -456,7 +467,7 @@ def main():
             _habitat_user_position = None
         else:
             _habitat_user_position = (config['station_lat'], config['station_lon'], config['station_alt'])
- 
+
         _habitat = HabitatUploader(
             user_callsign = config['habitat_uploader_callsign'],
             user_antenna = config['habitat_uploader_antenna'],
@@ -496,7 +507,7 @@ def main():
         exporter_objects.append(_aprs)
         exporter_functions.append(_aprs.add)
 
-    # OziExplorer 
+    # OziExplorer
     if config['ozi_enabled'] or config['payload_summary_enabled']:
         if config['ozi_enabled']:
             _ozi_port = config['ozi_port']
@@ -517,7 +528,7 @@ def main():
         exporter_functions.append(_ozimux.add)
 
 
-    # Rotator 
+    # Rotator
     if config['rotator_enabled']:
         _rotator = Rotator(
             station_position = [config['station_lat'], config['station_lon'], config['station_alt']],
@@ -529,7 +540,7 @@ def main():
             rotator_homing_delay = config['rotator_homing_delay'],
             rotator_home_position = [config['rotator_home_azimuth'], config['rotator_home_elevation']]
             )
-        
+
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
 
@@ -543,7 +554,7 @@ def main():
     # Note the start time.
     _start_time = time.time()
 
-    # Loop. 
+    # Loop.
     while True:
         # Check for finished tasks.
         clean_task_list()
@@ -577,4 +588,3 @@ if __name__ == "__main__":
         print("Main Loop Error - %s" % str(e))
         stop_flask(port=config['web_port'])
         stop_all()
-
