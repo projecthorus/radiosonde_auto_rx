@@ -191,8 +191,8 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     else:
         gain_param = ''
 
-    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
-    rx_test_command += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
+    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
+    rx_test_command += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
     rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null >/dev/null"
 
     logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
@@ -218,8 +218,8 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     if (ret_code & 0x80) > 0: 
         # If the inverted bit is set, we have to do some munging of the return code to get the sonde type.
         ret_code = abs(-1 * (0x100 - ret_code))
-        # Currently ignoring the inverted flag, as rs_detect appears to detect some sondes as inverted incorrectly. 
-        #inv = "-"
+
+        inv = "-"
 
     else:
         ret_code = abs(ret_code)

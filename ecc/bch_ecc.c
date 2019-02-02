@@ -10,7 +10,13 @@
 
    Vaisala RS92, RS41:
        RS(255, 231), t=12
+       f=X^8+X^4+X^3+X^2+1, b=0
        g(X) = (X-alpha^0)...(X-alpha^(2t-1))
+
+   LMS6:
+       RS(255, 223), t=16 (CCSDS)
+       f=X^8+X^7+X^2+X+1, b=112
+       g(X) = (X-(alpha^11)^112)...(X-(alpha^11)^(112+2t-1))
 
    Meisei:
        bin.BCH(63, 51), t=2
@@ -66,6 +72,10 @@ static GF_t GF256RS = { 0x11D,  // RS-GF(2^8): X^8 + X^4 + X^3 + X^2 + 1 : 0x11D
                         256,    // 2^8
                         0x02 }; // generator: alpha = X
 
+static GF_t GF256RSccsds = { 0x187,  // RS-GF(2^8): X^8 + X^7 + X^2 + X + 1 : 0x187
+                             256,    // 2^8
+                             0x02 }; // generator: alpha = X
+
 static GF_t GF64BCH = { 0x43,   // BCH-GF(2^6): X^6 + X + 1 : 0x43
                         64,     // 2^6
                         0x02 }; // generator: alpha = X
@@ -85,12 +95,14 @@ typedef struct {
     ui8_t R;  // RS: R=2t, BCH: R<=mt
     ui8_t K;  // K=N-R
     ui8_t b;
+    ui8_t p; ui8_t ip; // p*ip = 1 mod N
     ui8_t g[MAX_DEG+1];  // ohne g[] eventuell als init_return
 } RS_t;
 
 
-static RS_t RS256 = { 255, 12, 24, 231, 0, {0}};
-static RS_t BCH64 = {  63,  2, 12,  51, 1, {0}};
+static RS_t RS256 = { 255, 12, 24, 231, 0, 1, 1, {0}};
+static RS_t RS256ccsds = { 255, 16, 32, 223, 112, 11, 116, {0}};
+static RS_t BCH64 = {  63,  2, 12,  51, 1, 1, 1, {0}};
 
 
 static GF_t GF;
@@ -627,7 +639,7 @@ int era_sigma(int n, ui8_t era_pos[], ui8_t *sigma) {
     sig[0] = 1;
     Xa[0] = 1;
     for (i = 0; i < n; i++) { // n <= 2*RS.t
-        a_i = exp_a[era_pos[i] % (GF.ord-1)];
+        a_i = exp_a[(RS.p*era_pos[i]) % (GF.ord-1)];
         Xa[1] = a_i;  // Xalp[0..1]: (1-alpha^(j_)X)
         poly_mul(sig, Xa, sig);
     }
@@ -642,9 +654,9 @@ int syndromes(ui8_t cw[], ui8_t *S) {
     int i, errors = 0;
     ui8_t a_i;
 
-    // syndromes: e_j=S(alpha^(b+i))
+    // syndromes: e_j=S((alpha^p)^(b+i))  (wie in g(X))
     for (i = 0; i < 2*RS.t; i++) {
-        a_i = exp_a[(RS.b+i) % (GF.ord-1)];  // alpha^(b+i)
+        a_i = exp_a[(RS.p*(RS.b+i)) % (GF.ord-1)];  // (alpha^p)^(b+i)
         S[i] = poly_eval(cw, a_i);
         if (S[i]) errors = 1;
     }
@@ -718,7 +730,7 @@ int rs_init_RS255() {
     GF = GF256RS;
     check_gen = GF_genTab( GF, exp_a, log_a);
 
-    RS = RS256; // N=255, t=12, b=0
+    RS = RS256; // N=255, t=12, b=0, p=1
     for (i = 0; i <= MAX_DEG; i++) RS.g[i] = 0;
     for (i = 0; i <= MAX_DEG; i++) Xalp[i] = 0;
 
@@ -730,6 +742,55 @@ int rs_init_RS255() {
         poly_mul(RS.g, Xalp, RS.g);
     }
 
+    return check_gen;
+}
+
+int rs_init_RS255ccsds() {
+    int i, check_gen;
+    ui8_t Xalp[MAX_DEG+1];
+
+    GF = GF256RSccsds;
+    check_gen = GF_genTab( GF, exp_a, log_a);
+
+    RS = RS256ccsds; // N=255, t=16, b=112, p=11
+    for (i = 0; i <= MAX_DEG; i++) RS.g[i] = 0;
+    for (i = 0; i <= MAX_DEG; i++) Xalp[i] = 0;
+
+    // beta=alpha^p primitive root of g(X)
+    // beta^ip=alpha  // N=255, p=11 -> ip=116
+    for (i = 1; i < GF.ord-1; i++) {
+        if ( (RS.p * i) % (GF.ord-1) == 1 ) {
+            RS.ip = i;
+            break;
+        }
+    }
+
+    // g(X)=(X-(alpha^p)^b)...(X-(alpha^p)^(b+2t-1)), b=112
+    RS.g[0] = 0x01;
+    Xalp[1] = 0x01; // X
+    for (i = 0; i < 2*RS.t; i++) {
+        Xalp[0] = exp_a[(RS.p*(RS.b+i)) % (GF.ord-1)];  // Xalp[0..1]: X - (alpha^p)^(b+i)
+        poly_mul(RS.g, Xalp, RS.g);
+    }
+/*
+    RS.g[ 0] = RS.g[32] = exp_a[0];
+    RS.g[ 1] = RS.g[31] = exp_a[249];
+    RS.g[ 2] = RS.g[30] = exp_a[59];
+    RS.g[ 3] = RS.g[29] = exp_a[66];
+    RS.g[ 4] = RS.g[28] = exp_a[4];
+    RS.g[ 5] = RS.g[27] = exp_a[43];
+    RS.g[ 6] = RS.g[26] = exp_a[126];
+    RS.g[ 7] = RS.g[25] = exp_a[251];
+    RS.g[ 8] = RS.g[24] = exp_a[97];
+    RS.g[ 9] = RS.g[23] = exp_a[30];
+    RS.g[10] = RS.g[22] = exp_a[3];
+    RS.g[11] = RS.g[21] = exp_a[213];
+    RS.g[12] = RS.g[20] = exp_a[50];
+    RS.g[13] = RS.g[19] = exp_a[66];
+    RS.g[14] = RS.g[18] = exp_a[170];
+    RS.g[15] = RS.g[17] = exp_a[5];
+    RS.g[16] = exp_a[24];
+*/
     return check_gen;
 }
 
@@ -761,7 +822,7 @@ int rs_encode(ui8_t cw[]) {
     return 0;
 }
 
-// 2*Errors + Erasure <= 2*RS.t
+// 2*Errors + Erasure <= 2*t
 int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
                      ui8_t *err_pos, ui8_t *err_val) {
     ui8_t x, gamma;
@@ -793,7 +854,7 @@ int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
     if (nera > 0) {
         era_sigma(nera, era_pos, sigma);
         poly_mul(sigma, S, S);
-        for (i = 2*RS.t; i <= MAX_DEG; i++) S[i] = 0; // S = sig*S mod x^12
+        for (i = 2*RS.t; i <= MAX_DEG; i++) S[i] = 0; // S = sig*S mod x^2t
     }
 
     if (errera)
@@ -823,7 +884,8 @@ int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
             x = (ui8_t)i;    // roll-over
             if (poly_eval(sigLam, x) == 0) { // Lambda(x)=0 fuer x in erasures[] moeglich
                 // error location index
-                err_pos[nerr] = log_a[GF_inv(x)];
+                ui8_t x1 = GF_inv(x);
+                err_pos[nerr] = (log_a[x1]*RS.ip) % (GF.ord-1);
                 // error value;   bin-BCH: err_val=1
                 err_val[nerr] = forney(x, Omega, sigLam);
                 //err_val[nerr] == 0, wenn era_val[pos]=0, d.h. cw[pos] schon korrekt
@@ -832,7 +894,7 @@ int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
             if (nerr >= deg_sigLam) break;
         }
 
-        // 2*Errors + Erasure <= 2*RS.t
+        // 2*Errors + Erasure <= 2*t
         if (nerr < deg_sigLam) errera = -1; // uncorrectable errors
         else {
             errera = nerr;
@@ -843,7 +905,7 @@ int rs_decode_ErrEra(ui8_t cw[], int nera, ui8_t era_pos[],
     return errera;
 }
 
-// Errors <= RS.t
+// Errors <= t
 int rs_decode(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
     ui8_t tmp[1] = {0};
     return rs_decode_ErrEra(cw, 0, tmp, err_pos, err_val);
