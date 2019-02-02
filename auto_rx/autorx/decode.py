@@ -120,6 +120,14 @@ class SondeDecoder(object):
         # This will become our decoder thread.
         self.decoder = None
 
+        # Detect if we have an 'inverted' sonde.
+        if self.sonde_type.startswith('-'):
+            self.inverted = True
+            # Strip off the leading '-' character'
+            self.sonde_type = self.sonde_type[1:]
+        else:
+            self.inverted = False
+
         # Check if the sonde type is valid.
         if self.sonde_type not in self.VALID_SONDE_TYPES:
             self.log_error("Unsupported sonde type: %s" % self.sonde_type)
@@ -201,7 +209,7 @@ class SondeDecoder(object):
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
-            decode_cmd += "./rs41ecc --crc --ecc --ptu 2>/dev/null"
+            decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -232,16 +240,30 @@ class SondeDecoder(object):
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
-            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel %s 2>/dev/null" % _rs92_gps_data
+            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
-            # DFM06/DFM09 Sondes
+            # DFM06/DFM09 Sondes.
+
+            # We need to handle inversion of DFM sondes in a bit of an odd way.
+            # Using our current receive chain (rtl_fm), rs_detect will detect:
+            # DFM06's as non-inverted ('DFM')
+            # DFM09's as inverted ('-DFM')
+            # HOWEVER, dfm09dm_ecc makes the assumption that the incoming signal is a DFM09, and
+            # inverts by default.
+            # So, to be able to support DFM06s, we need to flip the invert flag.
+            self.inverted = not self.inverted
+
+            if self.inverted:
+                _invert_flag = "-i"
+            else:
+                _invert_flag = ""
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc 2>/dev/null"
+            decode_cmd += "./dfm09ecc -vv --ecc --json %s 2>/dev/null" % _invert_flag
 			
         elif self.sonde_type == "M10":
             # M10 Sondes
@@ -250,7 +272,6 @@ class SondeDecoder(object):
             decode_cmd += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
-
 
         else:
             # Should never get here.
@@ -264,6 +285,8 @@ class SondeDecoder(object):
         
         # Timeout Counter. 
         _last_packet = time.time()
+
+        self.log_debug("Decoder Command: %s" % self.decoder_command )
 
         # Start the thread.
         self.decode_process = subprocess.Popen(self.decoder_command, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
@@ -370,7 +393,7 @@ class SondeDecoder(object):
             try:
                 _telemetry['datetime_dt'] = parse(_telemetry['datetime'])
             except Exception as e:
-                self.log_error("Invalid date/time in telemetry dict - %s" % str(e))
+                self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock" % str(e))
                 return False
 
             # Add in the sonde frequency and type fields.
