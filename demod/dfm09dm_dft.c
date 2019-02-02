@@ -47,7 +47,7 @@ gpx_t gpx;
 char dat_str[9][13+1];
 
 // Buffer to store sonde ID
-char sonde_id[] = "DFMxx-xxxxxx";
+char sonde_id[] = "DFMxx-xxxxxxxx";
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
