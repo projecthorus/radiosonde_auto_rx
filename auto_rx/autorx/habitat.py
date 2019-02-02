@@ -526,7 +526,8 @@ class HabitatUploader(object):
         while _retries < self.upload_retries:
             # Run the request.
             try:
-                _req = requests.put(_url, data=json.dumps(_data), timeout=self.upload_timeout)
+                headers = {"User-Agent": "autorx-" + auto_rx_version}
+                _req = requests.put(_url, data=json.dumps(_data), timeout=self.upload_timeout, headers=headers)
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
                 break
@@ -542,7 +543,7 @@ class HabitatUploader(object):
                 time.sleep(random.random()*self.upload_retry_interval)
                 _retries += 1
             else:
-                self.log_error("Error uploading to Habitat. Status Code: %d." % _req.status_code)
+                self.log_error("Error uploading to Habitat. Status Code: %d %s." % (_req.status_code, _req.text))
                 break
 
         if _retries == self.upload_retries:
