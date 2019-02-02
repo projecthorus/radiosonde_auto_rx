@@ -79,7 +79,9 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_aux = 0,      // Aux/Ozon
     option_der = 0,      // linErr
     option_ths = 0,
+    option_json = 0,     // JSON output (auto_rx)
     rawin = 0;
+int wav_channel = 0;     // audio channel: left
 double dop_limit = 9.9;
 double d_err = 10000;
 
@@ -1142,12 +1144,16 @@ int print_position() {  // GPS-Hoehe ueber Ellipsoid
                 }
             }
         }
-        // Print out telemetry data as JSON, even if we don't have a valid GPS lock.
-        if (!err1 && !err2){
-            if (gpx.aux[0] != 0 || gpx.aux[1] != 0 || gpx.aux[2] != 0 || gpx.aux[3] != 0) {
-                printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"aux\": \"%04x%04x%04x%04x\"}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU , gpx.aux[0], gpx.aux[1], gpx.aux[2], gpx.aux[3]);
-            } else {
-                printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
+
+        if (option_json)
+        {
+            // Print out telemetry data as JSON, even if we don't have a valid GPS lock.
+            if (!err1 && !err2){
+                if (gpx.aux[0] != 0 || gpx.aux[1] != 0 || gpx.aux[2] != 0 || gpx.aux[3] != 0) {
+                    printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"aux\": \"%04x%04x%04x%04x\"}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU , gpx.aux[0], gpx.aux[1], gpx.aux[2], gpx.aux[3]);
+                } else {
+                    printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
+                }
             }
         }
 
@@ -1262,6 +1268,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       --crc        (CRC check GPS)\n");
             fprintf(stderr, "       --ecc        (Reed-Solomon)\n");
             fprintf(stderr, "       --ths <x>    (peak threshold; default=%.1f)\n", thres);
+            fprintf(stderr, "       --json       (JSON output)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "--vel") == 0) ) {
@@ -1335,6 +1342,8 @@ int main(int argc, char *argv[]) {
         else if (strcmp(*argv, "-g2") == 0) { option_vergps = 2; }  //  verbose2 GPS (bancroft)
         else if (strcmp(*argv, "-gg") == 0) { option_vergps = 8; }  // vverbose GPS
         else if (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if (strcmp(*argv, "--json") == 0) { option_json = 1; } // JSON output (for auto_rx)
+        else if (strcmp(*argv, "--ch2") == 0) { wav_channel = 1; }  // right channel (default: 0=left)
         else if (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
@@ -1379,7 +1388,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    spb = read_wav_header(fp, (float)BAUD_RATE);
+    spb = read_wav_header(fp, (float)BAUD_RATE, wav_channel);
     if ( spb < 0 ) {
         fclose(fp);
         fprintf(stderr, "error: wav header\n");

@@ -218,8 +218,8 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     if (ret_code & 0x80) > 0: 
         # If the inverted bit is set, we have to do some munging of the return code to get the sonde type.
         ret_code = abs(-1 * (0x100 - ret_code))
-        # Currently ignoring the inverted flag, as rs_detect appears to detect some sondes as inverted incorrectly. 
-        #inv = "-"
+
+        inv = "-"
 
     else:
         ret_code = abs(ret_code)

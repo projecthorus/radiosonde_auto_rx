@@ -231,11 +231,21 @@ def handle_scan_results():
                 # Already decoding this sonde, continue.
                 continue
             else:
-                logging.info("Detected new %s sonde on %.3f MHz!" % (_type, _freq/1e6))
+
+                # Handle an inverted sonde detection.
+                if _type.startswith('-'):
+                    _inverted = " (Inverted)"
+                    _check_type = _type[1:]
+                else:
+                    _check_type = _type
+                    _inverted = ""
+
+                # Note: We don't indicate if it's been detected as inverted here.
+                logging.info("Detected new %s sonde on %.3f MHz!" % (_check_type, _freq/1e6))
 
                 # Break if we don't support this sonde type.
-                if (_type not in VALID_SONDE_TYPES):
-                    logging.error("Unsupported sonde type: %s" % _type)
+                if (_check_type not in VALID_SONDE_TYPES):
+                    logging.error("Unsupported sonde type: %s" % _check_type)
                     continue
 
                 if allocate_sdr(check_only=True) is not None :
@@ -355,7 +365,12 @@ def telemetry_filter(telemetry):
     if vaisala_callsign_valid or dfm_callsign_valid or 'M10' in telemetry['type']:
         return True
     else:
-        logging.warning("Payload ID %s does not match regex. Discarding." % telemetry['id'])
+        _id_msg = "Payload ID %s is invalid." % telemetry['id']
+        # Add in a note about DFM sondes and their oddness...
+        if 'DFM' in telemetry['id']:
+            _id_msg += " Note: DFM sondes may take a while to get an ID."
+
+        logging.warning(_id_msg)
         return False
 
 
