@@ -18,7 +18,7 @@ gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc -I../ecc/ -I../dfm
 # Build M10 decoder
 echo "Building M10 Demodulator."
 cd ../m10/
-g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GTopParser.cpp M10PtuParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
+g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
 
 # Copy all necessary files into this directory.

@@ -1,5 +1,5 @@
 /* 
- * File:   M10GTop.cpp
+ * File:   M10Gtop.cpp
  * Author: Viproz
  * Used code from rs1729
  * Created on December 13, 2018, 4:39 PM
@@ -19,21 +19,21 @@
 #define pos_SN         0x5D  // 2+3 byte
 #define pos_Check     (stdFLEN-1)  // 2 byte*/
 
-#include "M10PtuParser.h"
+#include "M10TrimbleParser.h"
 #include <string>
 #include <sstream>
 #include <iostream>
 
-char M10PtuParser::similarData[] = "xxxx----------------------xxxxxxxxxxxxxxxxxxxxxxxxxxx---xxxxxxx--xxxx-----xx----xxxxx------xxxxxxx---";
-char M10PtuParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xxxx-x-------------x";
+char M10TrimbleParser::similarData[] = "xxxx----------------------xxxxxxxxxxxxxxxxxxxxxxxxxxx---xxxxxxx--xxxx-----xx----xxxxx------xxxxxxx---";
+char M10TrimbleParser::insertSpaces[] = "---xx-x-x-x---x---x---x---x-----x-x-----------x---x--x--x-----xx-x-x-x-xx-x-x-x-x----x---x-x-x----xxxx-x-------------x";
 
-M10PtuParser::M10PtuParser() {
+M10TrimbleParser::M10TrimbleParser() {
 }
 
-M10PtuParser::~M10PtuParser() {
+M10TrimbleParser::~M10TrimbleParser() {
 }
 
-void M10PtuParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
+void M10TrimbleParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
     M10GeneralParser::changeData(data, good);
 
     int i;
@@ -64,7 +64,7 @@ void M10PtuParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool 
     gps2Date(week, time / 1000, &year, &month, &day);
 }
 
-double M10PtuParser::getLatitude() {
+double M10TrimbleParser::getLatitude() {
     int i;
     unsigned byte;
     unsigned short gpslat_bytes[4];
@@ -83,7 +83,7 @@ double M10PtuParser::getLatitude() {
     return gpslat / B60B60;
 }
 
-double M10PtuParser::getLongitude() {
+double M10TrimbleParser::getLongitude() {
     int i;
     unsigned byte;
     unsigned short gpslon_bytes[4];
@@ -102,7 +102,7 @@ double M10PtuParser::getLongitude() {
     return gpslon / B60B60;
 }
 
-double M10PtuParser::getAltitude() {
+double M10TrimbleParser::getAltitude() {
     int i;
     unsigned byte;
     unsigned short gpsalt_bytes[4];
@@ -120,31 +120,31 @@ double M10PtuParser::getAltitude() {
     return gpsalt / 1000.0;
 }
 
-int M10PtuParser::getDay() {
+int M10TrimbleParser::getDay() {
     return day;
 }
 
-int M10PtuParser::getMonth() {
+int M10TrimbleParser::getMonth() {
     return month;
 }
 
-int M10PtuParser::getYear() {
+int M10TrimbleParser::getYear() {
     return year;
 }
 
-int M10PtuParser::getHours() {
+int M10TrimbleParser::getHours() {
     return (time / 1000 % (24 * 3600)) / 3600;
 }
 
-int M10PtuParser::getMinutes() {
+int M10TrimbleParser::getMinutes() {
     return ((time / 1000 % (24 * 3600)) % 3600) / 60;
 }
 
-int M10PtuParser::getSeconds() {
+int M10TrimbleParser::getSeconds() {
     return (time / 1000 % (24 * 3600)) % 60;
 }
 
-double M10PtuParser::getVerticalSpeed() {
+double M10TrimbleParser::getVerticalSpeed() {
     int i;
     unsigned byte;
     unsigned short gpsVel_bytes[2];
@@ -159,7 +159,7 @@ double M10PtuParser::getVerticalSpeed() {
     return vel16 / ms2kn100;
 }
 
-double M10PtuParser::getHorizontalSpeed() {
+double M10TrimbleParser::getHorizontalSpeed() {
     int i;
     unsigned byte;
     unsigned short gpsVel_bytes[2];
@@ -184,7 +184,7 @@ double M10PtuParser::getHorizontalSpeed() {
     return sqrt(vx * vx + vy * vy);
 }
 
-double M10PtuParser::getDirection() {
+double M10TrimbleParser::getDirection() {
     int i;
     unsigned byte;
     unsigned short gpsVel_bytes[2];
@@ -212,7 +212,7 @@ double M10PtuParser::getDirection() {
     return dir;
 }
 
-double M10PtuParser::getTemperature() {
+double M10TrimbleParser::getTemperature() {
     // NTC-Thermistor Shibaura PB5-41E
     // T00 = 273.15 +  0.0 , R00 = 15e3
     // T25 = 273.15 + 25.0 , R25 = 5.369e3
@@ -288,23 +288,23 @@ double M10PtuParser::getTemperature() {
     return T - 273.15; // Celsius
 }
 
-double M10PtuParser::getHumidity() {
+double M10TrimbleParser::getHumidity() {
     return 0;
 }
 
-double M10PtuParser::getDp() {
+double M10TrimbleParser::getDp() {
     return 0;
 }
 
-std::string M10PtuParser::getSerialNumber() {
+std::string M10TrimbleParser::getSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
-    char SN[12];
+    char SN[18];
 
-    for (i = 0; i < 11; i++)
+    for (i = 0; i < 17; i++)
         SN[i] = ' ';
-    SN[11] = '\0';
+    SN[17] = '\0';
 
     for (i = 0; i < 5; i++) {
         byte = frame_bytes[0x5D + i];
@@ -312,14 +312,14 @@ std::string M10PtuParser::getSerialNumber() {
     }
 
     byte = sn_bytes[2];
-    sprintf(SN, "%1X%02u", (byte >> 4)&0xF, byte & 0xF);
+    sprintf(SN, "M10-T-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+    sprintf(SN + 9, "-%1X-%1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
 
     return SN;
 }
 
-std::string M10PtuParser::getdxlSerialNumber() {
+std::string M10TrimbleParser::getdxlSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
@@ -355,7 +355,7 @@ std::string M10PtuParser::getdxlSerialNumber() {
     return ids;
 }
 
-std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
+std::array<unsigned char, DATA_LENGTH> M10TrimbleParser::replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data) {
     unsigned short valMax;
     unsigned short posMax;
 
@@ -386,7 +386,7 @@ std::array<unsigned char, DATA_LENGTH> M10PtuParser::replaceWithPrevious(std::ar
     return data;
 }
 
-void M10PtuParser::printFrame() {
+void M10TrimbleParser::printFrame() {
     if (dispRaw) {
         for (int i = 0; i < frameLength + 1; ++i) {
             if (insertSpaces[i] == 'x')
@@ -412,6 +412,12 @@ void M10PtuParser::printFrame() {
         timeinfo.tm_isdst = 0;
 
         frame = mktime(&timeinfo);
+		
+		// Aux data tag if the payload lenght is long
+		std::string auxstr = "";
+		if(frame_bytes[0x00] != 0x64) {
+            auxstr = "\"aux\": -1, ";
+        }
 
         // Decoder sensible to comma at the end, strict json
         printf("{ "
@@ -420,6 +426,7 @@ void M10PtuParser::printFrame() {
                 "\"id\": \"%s\", "
                 "\"dxlid\": \"%s\", "
                 "\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", "
+				"%s" // Aux data
                 "\"lat\": %.5f, "
                 "\"lon\": %.5f, "
                 "\"alt\": %.2f, "
@@ -429,7 +436,7 @@ void M10PtuParser::printFrame() {
                 "\"temp\": %.1f, "
                 "\"crc\": %d "
                 "}\n",
-                "Ptu", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
+                "Trimble", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), auxstr.c_str(), getLatitude(), getLongitude(),
                 getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), correctCRC);
     }
 }
@@ -439,7 +446,7 @@ void M10PtuParser::printFrame() {
  * - Adapted from sci.astro FAQ.
  * - Ignores UTC leap seconds.
  */
-void M10PtuParser::gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
+void M10TrimbleParser::gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day) {
 
     long GpsDays, Mjd;
     long J, C, Y, M;

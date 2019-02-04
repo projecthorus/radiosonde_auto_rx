@@ -6,23 +6,23 @@
  */
 
 #include "M10Decoder.h"
-#include "M10GTopParser.h"
-#include "M10PtuParser.h"
+#include "M10GtopParser.h"
+#include "M10TrimbleParser.h"
 
 char M10Decoder::header[] = "10011001100110010100110010011001";
 
 M10Decoder::M10Decoder() {
-    m10GTop = new M10GTopParser();
-    m10Ptu = new M10PtuParser();
-    m10Parser = m10GTop;
+    m10Gtop = new M10GtopParser();
+    m10Trimble = new M10TrimbleParser();
+    m10Parser = m10Gtop;
     
     frameSamples = NULL;
     audioFile = NULL;
 }
 
 M10Decoder::~M10Decoder() {
-    delete m10GTop;
-    delete m10Ptu;
+    delete m10Gtop;
+    delete m10Trimble;
 
     if (frameSamples)
         delete frameSamples;
@@ -62,10 +62,10 @@ int M10Decoder::startDecode(std::string fname) {
         supported = true;
         switch (sondeType) {
             case 0xAF02:
-                m10Parser = m10GTop;
+                m10Parser = m10Gtop;
                 break;
             case 0x9F20:
-                m10Parser = m10Ptu;
+                m10Parser = m10Trimble;
                 break;
             default:
                 supported = false;
@@ -370,8 +370,8 @@ int M10Decoder::decodeMethodSign(double initialPos) {
 
 void M10Decoder::setRaw(bool b) {
     dispRaw = b;
-    m10GTop->setRaw(b);
-    m10Ptu->setRaw(b);
+    m10Gtop->setRaw(b);
+    m10Trimble->setRaw(b);
 }
 
 int M10Decoder::getNextBufferValue() {

@@ -9,7 +9,7 @@
 #include <sstream>
 #include <iostream>
 #include "M10GeneralParser.h"
-#include "M10PtuParser.h"
+#include "M10TrimbleParser.h"
 
 M10GeneralParser::M10GeneralParser() {
 }

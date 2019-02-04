@@ -49,8 +49,8 @@ protected:
     void bits2bytes();
 
     M10GeneralParser *m10Parser;
-    M10GeneralParser *m10GTop;
-    M10GeneralParser *m10Ptu;
+    M10GeneralParser *m10Gtop;
+    M10GeneralParser *m10Trimble;
     
     AudioFile *audioFile;
     
