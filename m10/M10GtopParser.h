@@ -1,5 +1,5 @@
 /* 
- * File:   M10GTop.h
+ * File:   M10Gtop.h
  * Author: Viproz
  * Used code from rs1729
  * Created on December 13, 2018, 4:39 PM
@@ -14,10 +14,10 @@
 #include <math.h>
 #include "M10GeneralParser.h"
 
-class M10GTopParser : public M10GeneralParser {
+class M10GtopParser : public M10GeneralParser {
 public:
-    M10GTopParser();
-    virtual ~M10GTopParser();
+    M10GtopParser();
+    virtual ~M10GtopParser();
     virtual void changeData(std::array<unsigned char, DATA_LENGTH> data, bool good);
     virtual double getLatitude();
     virtual double getLongitude();

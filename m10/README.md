@@ -2,7 +2,7 @@
 ## Radiosonde M10
 
 #### Compile
-  `g++ -O M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GTopParser.cpp M10PtuParser.cpp -o m10`
+  `g++ -O M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp -o m10`
 
 #### Usage
 `./m10 [options] filename`<br />

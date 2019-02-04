@@ -1,5 +1,5 @@
 /* 
- * File:   M10GTop.cpp
+ * File:   M10Gtop.cpp
  * Author: Viproz
  * Used code from rs1729
  * Created on December 13, 2018, 4:39 PM
@@ -19,19 +19,19 @@
 #define pos_SN         0x5D  // 2+3 byte
 #define pos_Check     (stdFLEN-1)  // 2 byte*/
 
-#include "M10GTopParser.h"
+#include "M10GtopParser.h"
 #include <ctime>
 #include <string>
 #include <sstream>
 #include <iostream>
 
-M10GTopParser::M10GTopParser() {
+M10GtopParser::M10GtopParser() {
 }
 
-M10GTopParser::~M10GTopParser() {
+M10GtopParser::~M10GtopParser() {
 }
 
-void M10GTopParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
+void M10GtopParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool good) {
     M10GeneralParser::changeData(data, good);
 
     int i;
@@ -49,7 +49,7 @@ void M10GTopParser::changeData(std::array<unsigned char, DATA_LENGTH> data, bool
     date = val;
 }
 
-double M10GTopParser::getLatitude() {
+double M10GtopParser::getLatitude() {
     int i;
     unsigned short bytes[4];
     int val;
@@ -62,7 +62,7 @@ double M10GTopParser::getLatitude() {
     return val / 1e6;
 }
 
-double M10GTopParser::getLongitude() {
+double M10GtopParser::getLongitude() {
     int i;
     unsigned short bytes[4];
     int val;
@@ -75,7 +75,7 @@ double M10GTopParser::getLongitude() {
     return val / 1e6;
 }
 
-double M10GTopParser::getAltitude() {
+double M10GtopParser::getAltitude() {
     int i;
     unsigned short bytes[4];
     int val;
@@ -89,31 +89,31 @@ double M10GTopParser::getAltitude() {
     return val / 1e2;
 }
 
-int M10GTopParser::getDay() {
+int M10GtopParser::getDay() {
     return date / 10000;
 }
 
-int M10GTopParser::getMonth() {
+int M10GtopParser::getMonth() {
     return (date % 10000) / 100;
 }
 
-int M10GTopParser::getYear() {
+int M10GtopParser::getYear() {
     return date % 100 + 2000;
 }
 
-int M10GTopParser::getHours() {
+int M10GtopParser::getHours() {
     return time / 10000;
 }
 
-int M10GTopParser::getMinutes() {
+int M10GtopParser::getMinutes() {
     return (time % 10000) / 100;
 }
 
-int M10GTopParser::getSeconds() {
+int M10GtopParser::getSeconds() {
     return time % 100;
 }
 
-double M10GTopParser::getVerticalSpeed() {
+double M10GtopParser::getVerticalSpeed() {
     int i;
     unsigned short bytes[2];
     short vel16;
@@ -124,7 +124,7 @@ double M10GTopParser::getVerticalSpeed() {
     return vel16 / 1e2; // up
 }
 
-double M10GTopParser::getHorizontalSpeed() {
+double M10GtopParser::getHorizontalSpeed() {
     int i;
     unsigned short bytes[2];
     short vel16;
@@ -143,7 +143,7 @@ double M10GTopParser::getHorizontalSpeed() {
     return sqrt(vx * vx + vy * vy);
 }
 
-double M10GTopParser::getDirection() {
+double M10GtopParser::getDirection() {
     int i;
     unsigned short bytes[2];
     short vel16;
@@ -165,27 +165,27 @@ double M10GTopParser::getDirection() {
     return dir;
 }
 
-double M10GTopParser::getTemperature() {
+double M10GtopParser::getTemperature() {
     return 0;
 }
 
-double M10GTopParser::getHumidity() {
+double M10GtopParser::getHumidity() {
     return 0;
 }
 
-double M10GTopParser::getDp() {
+double M10GtopParser::getDp() {
     return 0;
 }
 
-std::string M10GTopParser::getSerialNumber() {
+std::string M10GtopParser::getSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
-    char SN[12];
+    char SN[18];
 
-    for (i = 0; i < 11; i++)
+    for (i = 0; i < 17; i++)
         SN[i] = ' ';
-    SN[11] = '\0';
+    SN[17] = '\0';
 
     for (i = 0; i < 5; i++) {
         byte = frame_bytes[0x5D + i];
@@ -193,14 +193,14 @@ std::string M10GTopParser::getSerialNumber() {
     }
 
     byte = sn_bytes[2];
-    sprintf(SN, "%1X%02u", (byte >> 4)&0xF, byte & 0xF);
+    sprintf(SN, "M10-G-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+    sprintf(SN + 9, "-%1X-%1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
 
     return SN;
 }
 
-std::string M10GTopParser::getdxlSerialNumber() {
+std::string M10GtopParser::getdxlSerialNumber() {
     int i;
     unsigned byte;
     unsigned short sn_bytes[5];
@@ -236,7 +236,7 @@ std::string M10GTopParser::getdxlSerialNumber() {
     return ids;
 }
 
-void M10GTopParser::printFrame() {
+void M10GtopParser::printFrame() {
     if (dispRaw) {
         for (int i = 0; i < frameLength + 1; ++i) {
             printf("%02X", frame_bytes[i]);
@@ -276,7 +276,7 @@ void M10GTopParser::printFrame() {
                 //"\"temp\": %.1f "
                 "\"crc\": %d "
                 "}\n",
-                "GTop", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
+                "Gtop", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
                 getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/, correctCRC);
     }
 }
