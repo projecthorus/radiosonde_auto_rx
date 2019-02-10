@@ -8,10 +8,10 @@ This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set
 There is also a web interface provided (defaults to port 5000), allowing display of station status and basic tracking of the sonde position.
 
 Currently we support the following radiosonde types:
-* Vaisala RS92SGP
-* Vaisala RS41SGP
+* Vaisala RS92
+* Vaisala RS41
 * Graw DFM06/DFM09
-* Meteomodem M10
+* Meteomodem M10 (Thanks Viproz!)
 
 Support for other radiosondes may be added as required (please send us sondes to test with!)
 
