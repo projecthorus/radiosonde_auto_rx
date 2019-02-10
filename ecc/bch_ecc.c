@@ -104,6 +104,9 @@ static RS_t RS256 = { 255, 12, 24, 231, 0, 1, 1, {0}};
 static RS_t RS256ccsds = { 255, 16, 32, 223, 112, 11, 116, {0}};
 static RS_t BCH64 = {  63,  2, 12,  51, 1, 1, 1, {0}};
 
+// static RS_t RS16_0 = { 15, 3, 6,  9, 0, 1, 1, {0}};
+static RS_t RS16ccsds = { 15, 2, 4, 11, 6, 1, 1, {0}};
+
 
 static GF_t GF;
 static RS_t RS;
@@ -810,15 +813,40 @@ int rs_init_BCH64() {
     return check_gen;
 }
 
+int rs_init_RS15ccsds() {
+    int i, check_gen;
+    ui8_t Xalp[MAX_DEG+1];
+
+    GF = GF16RS;
+    check_gen = GF_genTab( GF, exp_a, log_a);
+
+    //RS = RS16_0; // N=15, t=3, b=0, p=1
+    RS = RS16ccsds; // N=15, t=2, b=6, p=1
+    for (i = 0; i <= MAX_DEG; i++) RS.g[i] = 0;
+    for (i = 0; i <= MAX_DEG; i++) Xalp[i] = 0;
+
+    // g(X)=(X-alpha^b)...(X-alpha^(b+2t-1))
+    RS.g[0] = 0x01;
+    Xalp[1] = 0x01; // X
+    for (i = 0; i < 2*RS.t; i++) {
+        Xalp[0] = exp_a[(RS.b+i) % (GF.ord-1)];  // Xalp[0..1]: X - alpha^(b+i)
+        poly_mul(RS.g, Xalp, RS.g);
+    }
+
+    return check_gen;
+}
+
 int rs_encode(ui8_t cw[]) {
     int j;
-    ui8_t parity[MAX_DEG+1],
+    ui8_t __cw[MAX_DEG+1],
+          parity[MAX_DEG+1],
           d[MAX_DEG+1];
-    for (j = 0; j < RS.R; j++) cw[j] = 0;
     for (j = 0; j <= MAX_DEG; j++) parity[j] = 0;
-    poly_divmod(cw, RS.g, d, parity);
+    for (j = 0; j <= MAX_DEG; j++) __cw[j] = 0;
+    for (j = RS.R; j < RS.N; j++) __cw[j] = cw[j];
+    poly_divmod(__cw, RS.g, d, parity);
     //if (poly_deg(parity) >= RS.R) return -1;
-    for (j = 0; j <= poly_deg(parity); j++) cw[j] = parity[j];
+    for (j = 0; j < RS.R; j++) cw[j] = parity[j];
     return 0;
 }
 
