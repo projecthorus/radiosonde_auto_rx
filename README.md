@@ -11,6 +11,7 @@ Currently we support the following radiosonde types:
 * Vaisala RS92SGP
 * Vaisala RS41SGP
 * Graw DFM06/DFM09
+* Meteomodem M10
 
 Support for other radiosondes may be added as required (please send us sondes to test with!)
 
@@ -24,7 +25,8 @@ The latest version can make use of multiple RTLSDRs to allow for tracking of man
 
 Refer to the wiki for the [latest updates, and installation/setup instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
-#### Please note this software is under constant development. Please update (git pull) regularly!
+**This software is under regular development. Please [update regularly](https://github.com/projecthorus/radiosonde_auto_rx/wiki/Performing-Updates) to get bug-fixes and improvements!**
+
 
 ### Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
