@@ -2,10 +2,10 @@
 /*
  *  rs41
  *  sync header: correlation/matched filter
- *  files: rs41dm_dft.c bch_ecc.c demod_dft.h demod_dft.c
+ *  files: rs41dm_iq.c bch_ecc.c demod_iq.h demod_iq.c
  *  compile:
- *      gcc -c demod_dft.c
- *      gcc rs41dm_dft.c demod_dft.o -lm -o rs41dm_dft
+ *      gcc -c demod_iq.c
+ *      gcc rs41dm_iq.c demod_iq.o -lm -o rs41dm_iq
  *
  *  author: zilog80
  */
@@ -27,7 +27,7 @@ typedef short i16_t;
 typedef int   i32_t;
 
 //#include "demod_dft.c"
-#include "demod_dft.h"
+#include "demod_iq.h"
 
 #include "bch_ecc.c"  // RS/ecc/
 
@@ -69,7 +69,9 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_sat = 0,      // GPS sat data
     option_ptu = 0,
     option_ths = 0,
-    option_json = 0,     // JSON output (auto_rx)
+    option_iq = 0,
+    option_ofs = 0,
+    option_dbg = 0,
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
 
@@ -1038,17 +1040,6 @@ int print_position(int ec) {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
-
-            if (option_json){
-                // Print JSON output required by auto_rx.
-                if (!err1 && !err2 && !err3){
-                    if (option_ptu && !err0 && gpx.T > -273.0) {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.T );
-                    } else {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
-                    }
-                }
-            }
         }
         if (option_ptu && !err0) {
             if (gpx.T > -273.0) printf("  T=%.1fC ", gpx.T);
@@ -1184,6 +1175,7 @@ int main(int argc, char *argv[]) {
 
     int bitofs = 0;
     int symlen = 1;
+    int shift = 2;
 
 
 #ifdef CYGWIN
@@ -1204,7 +1196,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "       --ecc        (Reed-Solomon)\n");
             fprintf(stderr, "       --std        (std framelen)\n");
             fprintf(stderr, "       --ths <x>    (peak threshold; default=%.1f)\n", thres);
-            fprintf(stderr, "       --json       (JSON output)\n");
+            fprintf(stderr, "       --iq0,2,3    (IQ data)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -1227,7 +1219,6 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--std2") == 0) { frmlen = 518; }  // NDATA_LEN+XDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { option_ptu = 1; }
-        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; }
         else if   (strcmp(*argv, "--ch2") == 0) { wav_channel = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
@@ -1236,6 +1227,20 @@ int main(int argc, char *argv[]) {
             }
             else return -1;
         }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift > 6) shift = 6;
+                if (shift < -2) shift = -2;
+            }
+            else return -1;
+        }
+        else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
+        else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
+        else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; } // iq2==iq3
+        else if   (strcmp(*argv, "--ofs") == 0) { option_ofs = 1; }
+        else if   (strcmp(*argv, "--dbg") == 0) { option_dbg = 1; }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -1247,6 +1252,9 @@ int main(int argc, char *argv[]) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+
+    if (option_iq) wav_channel = 0;
 
 
     spb = read_wav_header(fp, (float)BAUD_RATE, wav_channel);
@@ -1264,11 +1272,11 @@ int main(int argc, char *argv[]) {
         rs_init_RS255();
     }
 
-
+    // rs41: BT=0.5, h=0.8,1.0 ?
     symlen = 1;
     headerlen = strlen(header);
-    bitofs = 2; // +1 .. +2
-    K = init_buffers(header, headerlen, 2); // shape=2
+    bitofs = shift; // +0 .. +3    // FM: +1 , IQ: +2
+    K = init_buffers(header, headerlen, 0.5, option_iq); // BT=0.5  (IQ-Int: BT > 0.5 ?)
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
         return -1;
@@ -1308,6 +1316,16 @@ int main(int argc, char *argv[]) {
 
                 if (header_found) {
 
+                    if (/*preamble &&*/ option_ofs)
+                    {
+                        float freq = 0.0;
+                        float snr = 0.0;
+                        get_fqofs(headerlen, mv_pos, &freq, &snr);
+                        if (option_dbg) {
+                            fprintf(stderr, "fq-ofs: %+.2f Hz    snr: %.2f dB\n", freq, snr);
+                        }
+                    }
+
                     byte_count = FRAMESTART;
                     bit_count = 0; // byte_count*8-HEADLEN
                     bitpos = 0;
@@ -1316,7 +1334,12 @@ int main(int argc, char *argv[]) {
                     ft_len = frmlen;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        if (option_iq) {
+                            bitQ = read_IDsbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        }
+                        else {
+                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        }
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;

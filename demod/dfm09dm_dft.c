@@ -32,7 +32,7 @@ typedef struct {
     int frnr;
     int sonde_typ;
     ui32_t SN6;
-    ui32_t SN9;
+    ui32_t SN;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int std; int min; float sek;
@@ -47,7 +47,7 @@ gpx_t gpx;
 char dat_str[9][13+1];
 
 // Buffer to store sonde ID
-char sonde_id[] = "DFMxx-xxxxxx";
+char sonde_id[] = "DFMxx-xxxxxxxx";
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
@@ -55,7 +55,11 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_ecc = 0,
     option_ptu = 0,
     option_ths = 0,
+    option_json = 0,    // JSON blob output (for auto_rx)
     wavloaded = 0;
+int wav_channel = 0;     // audio channel: left
+
+int ptu_out = 0;
 
 int start = 0;
 
@@ -198,7 +202,7 @@ int dat_out(ui8_t *dat_bits) {
 
     if (fr_id == 1) {
         // 00..31: ? GPS-Sats in Sicht?
-        msek = bits2val(dat_bits+32, 16);
+        msek = bits2val(dat_bits+32, 16);  // UTC (= GPS - 18sec  ab 1.1.2017)
         gpx.sek = msek/1000.0;
     }
 
@@ -329,7 +333,7 @@ float get_Temp2(float *meas) { // meas[0..4]
     R = (f-f1)/g;                    // meas[0,3,4] > 0 ?
     if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
 
-    if (option_ptu && option_verbose == 2) {
+    if (option_ptu && ptu_out && option_verbose == 2) {
         printf("  (Rso: %.1f , Rb: %.1f)", Rs_o/1e3, Rb/1e3);
     }
 
@@ -376,22 +380,30 @@ float get_Temp4(float *meas) { // meas[0..4]
 }
 
 
-#define SNbit 0x0100
+#define RSNbit 0x0100  // radiosonde DFM-06,DFM-09
+#define PSNbit 0x0200  // pilotsonde PS-15
 int conf_out(ui8_t *conf_bits) {
     int conf_id;
     int ret = 0;
     int val, hl;
+    ui32_t SN6, SN;
     static int chAbit, chA[2];
-    ui32_t SN6, SN9;
+    static int chCbit, chC[2];
+    static int chDbit, chD[2];
+    static int ch7bit, ch7[2];
+    static ui32_t SN_A, SN_C, SN_D, SN_7;
 
     conf_id = bits2val(conf_bits, 4);
 
-    //if (conf_id > 6) gpx.SN6 = 0;  //// gpx.sonde_typ & 0xF = 9; // SNbit?
-
-    if ((gpx.sonde_typ & 0xFF) < 9  &&  conf_id == 6) {
-        SN6 = bits2val(conf_bits+4, 4*6);  // DFM-06: Kanal 6
-        if ( SN6 == gpx.SN6 ) {            // nur Nibble-Werte 0..9
-            gpx.sonde_typ = SNbit | 6;
+    // gibt es Kanaele > 6 (2-teilige ID)?
+    // if (conf_id > 6) gpx.SN6 = 0;  // -> DFM-09,PS-15  // SNbit?
+    //
+    // SN/ID immer im letzten Kanal?
+    if ((gpx.sonde_typ & 0xF) < 7  &&  conf_id == 6) {
+        SN6 = bits2val(conf_bits+4, 4*6);    // DFM-06: Kanal 6
+        if ( SN6 == gpx.SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
+            gpx.sonde_typ = RSNbit | 6;
+            ptu_out = 6;
             ret = 6;
         }
         else {
@@ -401,20 +413,82 @@ int conf_out(ui8_t *conf_bits) {
     }
     if (conf_id == 0xA) {  // 0xACxxxxy
         val = bits2val(conf_bits+8, 4*5);
-        hl =  (val & 1) == 0;
+        hl =  (val & 1);  // val&0xF 0,1?
         chA[hl] = (val >> 4) & 0xFFFF;
         chAbit |= 1 << hl;
         if (chAbit == 3) {  // DFM-09: Kanal A
-            SN9 = (chA[1] << 16) | chA[0];
-            if ( SN9 == gpx.SN9 ) {
-                gpx.sonde_typ = SNbit | 9;
+            SN = (chA[0] << 16) | chA[1];
+            if ( SN == SN_A ) {
+                gpx.sonde_typ = RSNbit | 0xA;
+                gpx.SN = SN;
+                ptu_out = 9;
                 ret = 9;
             }
             else {
                 gpx.sonde_typ = 0;
             }
-            gpx.SN9 = SN9;
+            SN_A = SN;
             chAbit = 0;
+        }
+    }
+    if (conf_id == 0xC) {  // 0xCCxxxxy
+        val = bits2val(conf_bits+8, 4*5);
+        hl =  (val & 1);
+        chC[hl] = (val >> 4) & 0xFFFF;
+        chCbit |= 1 << hl;
+        if (chCbit == 3) {  // DFM-17? Kanal C
+            SN = (chC[0] << 16) | chC[1];
+            if ( SN == SN_C ) {
+                gpx.sonde_typ = RSNbit | 0xC;
+                gpx.SN = SN;
+                ptu_out = 9;
+                ret = 17;
+            }
+            else {
+                gpx.sonde_typ = 0;
+            }
+            SN_C = SN;
+            chCbit = 0;
+        }
+    }
+    if (conf_id == 0xD) {  // 0xDCxxxxy
+        val = bits2val(conf_bits+8, 4*5);
+        hl =  (val & 1);
+        chD[hl] = (val >> 4) & 0xFFFF;
+        chDbit |= 1 << hl;
+        if (chDbit == 3) {  // DFM-17? Kanal D
+            SN = (chD[0] << 16) | chD[1];
+            if ( SN == SN_D ) {
+                gpx.sonde_typ = RSNbit | 0xD;
+                gpx.SN = SN;
+                ptu_out = 9;
+                ret = 18;
+            }
+            else {
+                gpx.sonde_typ = 0;
+            }
+            SN_D = SN;
+            chDbit = 0;
+        }
+    }
+    if (conf_id == 0x7) {  // 0x70xxxxy
+        val = bits2val(conf_bits+8, 4*5);
+        hl =  (val & 1);
+        ch7[hl] = (val >> 4) & 0xFFFF;
+        ch7bit |= 1 << hl;
+        if (ch7bit == 3) {  // PS-15: Kanal 7
+            SN = (ch7[0] << 16) | ch7[1];
+            if ( SN == SN_7 ) {
+                gpx.sonde_typ = PSNbit | 0x7;
+                gpx.SN = SN;
+                ptu_out = 0;
+                ret = 15;
+            }
+            else {
+                gpx.sonde_typ = 0;
+            }
+            SN_7 = SN;
+            ch7bit = 0;
         }
     }
 
@@ -430,7 +504,7 @@ int conf_out(ui8_t *conf_bits) {
     }
 
     // STM32-status: Bat, MCU-Temp
-    if ((gpx.sonde_typ & 0xFF) == 9) { // DFM-09 (STM32)
+    if ((gpx.sonde_typ & 0xF) == 0xA) { // DFM-09 (STM32)
         if (conf_id == 0x5) { // voltage
             val = bits2val(conf_bits+8, 4*4);
             gpx.status[0] = val/1000.0;
@@ -469,7 +543,7 @@ void print_gpx() {
           printf(" vH: %5.2f ", gpx.horiV);
           printf(" D: %5.1f ", gpx.dir);
           printf(" vV: %5.2f ", gpx.vertV);
-          if (option_ptu) {
+          if (option_ptu  &&  ptu_out) {
               float t = get_Temp(gpx.meas24);
               if (t > -270.0) printf("  T=%.1fC ", t);
               if (option_verbose == 2) {
@@ -482,31 +556,47 @@ void print_gpx() {
                   printf(" f4: %.2f ", gpx.meas24[4]);
               }
           }
-          if (option_verbose == 2  &&  (gpx.sonde_typ & 0xFF) == 9) {
+          if (option_verbose == 2  &&  (gpx.sonde_typ & 0xF) == 0xA) {
               printf("  U: %.2fV ", gpx.status[0]);
               printf("  Ti: %.1fK ", gpx.status[1]);
           }
-          if (option_verbose  &&  (gpx.sonde_typ & SNbit))
+          if ( option_verbose )
           {
-              if ((gpx.sonde_typ & 0xFF) == 6) {
-                  printf(" (ID%1d:%06X) ", gpx.sonde_typ & 0xF, gpx.SN6);
-                  sprintf(sonde_id, "DFM06-%06X", gpx.SN6);
+              if (gpx.sonde_typ & RSNbit)
+              {
+                  if ((gpx.sonde_typ & 0xF) == 6) { // DFM-06
+                      printf(" (ID6:%06X) ", gpx.SN6);
+                      sprintf(sonde_id, "DFM06-%06X", gpx.SN6);
+                  }
+                  if ((gpx.sonde_typ & 0xF) == 0xA) { // DFM-09
+                      printf(" (ID9:%06u) ", gpx.SN);
+                      sprintf(sonde_id, "DFM09-%06u", gpx.SN);
+                  }
+                  if ((gpx.sonde_typ & 0xF) == 0xC || // DFM-17?
+                      (gpx.sonde_typ & 0xF) == 0xD ) {
+                      printf(" (ID-%1X:%06u) ", gpx.sonde_typ & 0xF, gpx.SN);
+                      sprintf(sonde_id, "DFM17-%06u", gpx.SN);
+                  }
+                  gpx.sonde_typ ^= RSNbit;
               }
-              if ((gpx.sonde_typ & 0xFF) == 9) {
-                  printf(" (ID%1d:%06u) ", gpx.sonde_typ & 0xF, gpx.SN9);
-                  sprintf(sonde_id, "DFM09-%06u", gpx.SN9);
+              if (gpx.sonde_typ & PSNbit) {
+                  if ((gpx.sonde_typ & 0xF) == 0x7) { // PS-15?
+                      printf(" (ID15:%06u) ", gpx.SN);
+                      sprintf(sonde_id, "DFM15-%06u", gpx.SN);
+                  }
+                  gpx.sonde_typ ^= PSNbit;
               }
-              gpx.sonde_typ ^= SNbit;
           }
       }
       printf("\n");
 
-      // Print JSON blob
-      // Get temperature
-      float t = get_Temp(gpx.meas24);
-      printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, sonde_id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.horiV, gpx.dir, gpx.vertV, t );
-
-    
+      if (option_json)
+      {
+          // Print JSON blob
+          // Get temperature
+          float t = get_Temp(gpx.meas24);
+          printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, sonde_id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.horiV, gpx.dir, gpx.vertV, t );
+      }
 
   }
 }
@@ -636,6 +726,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "       -i, --invert\n");
             fprintf(stderr, "       --ecc        (Hamming ECC)\n");
             fprintf(stderr, "       --ths <x>    (peak threshold; default=%.1f)\n", thres);
+            fprintf(stderr, "       --json       (JSON output)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -652,7 +743,9 @@ int main(int argc, char **argv) {
             option_inv = 0x1;
         }
         else if ( (strcmp(*argv, "--ecc") == 0) ) { option_ecc = 1; }
-        else if ( (strcmp(*argv, "--ptu") == 0) ) { option_ptu = 1; }
+        else if ( (strcmp(*argv, "--json") == 0) ) { option_json = 1; }
+        else if ( (strcmp(*argv, "--ptu") == 0) ) { option_ptu = 1;  ptu_out = 1; }
+        else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
             if (*argv) {
@@ -673,7 +766,7 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
-    spb = read_wav_header(fp, (float)BAUD_RATE);
+    spb = read_wav_header(fp, (float)BAUD_RATE, wav_channel);
     if ( spb < 0 ) {
         fclose(fp);
         fprintf(stderr, "error: wav header\n");
