@@ -647,9 +647,8 @@ int get_GPS1() {
     err = check_CRC(pos_GPS1, pck_GPS1);
     if (err) gpx.crc |= crc_GPS1;
 
-    //err = 0;
-    err |= get_GPSweek();
-    err |= get_GPStime();
+    err |= get_GPSweek(); // no plausibility-check
+    err |= get_GPStime(); // no plausibility-check
 
     return err;
 }
@@ -726,7 +725,7 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.alt = alt;
-    if ((alt < -1000) || (alt > 80000)) return -3;
+    if ((alt < -1000) || (alt > 80000)) return -3; // plausibility-check: altitude, if ecef=(0,0,0)
 
 
     // ECEF-Velocities
@@ -765,7 +764,7 @@ int get_GPS3() {
     err = check_CRC(pos_GPS3, pck_GPS3);
     if (err) gpx.crc |= crc_GPS3;
 
-    err |= get_GPSkoord();
+    err |= get_GPSkoord(); // plausibility-check: altitude, if ecef=(0,0,0)
 
     return err;
 }
@@ -1038,64 +1037,62 @@ int print_position(int ec) {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
             }
-
-            if (option_json){
-                // Print JSON output required by auto_rx.
-                if (!err1 && !err2 && !err3){
-                    if (option_ptu && !err0 && gpx.T > -273.0) {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.T );
-                    } else {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
-                    }
-                }
-            }
         }
         if (option_ptu && !err0) {
             if (gpx.T > -273.0) printf("  T=%.1fC ", gpx.T);
         }
 
 
-        //if (output)
-        {
-            if (option_crc) {
-                fprintf(stdout, " # ");
-                if (option_ecc && ec >= 0 && (gpx.crc & 0x1F) != 0) {
-                    int pos, blk, len, crc;   // unexpected blocks
-                    int flen = NDATA_LEN;
-                    if (frametype() < 0) flen += XDATA_LEN;
-                    pos = pos_FRAME;
-                    while (pos < flen-1) {
-                        blk = frame[pos];     // 0x80XX: encrypted block
-                        len = frame[pos+1];   // 0x76XX: 00-padding block
-                        crc = check_CRC(pos, blk<<8);
-                        fprintf(stdout, " %02X%02X", frame[pos], frame[pos+1]);
-                        fprintf(stdout, "[%d]", crc&1);
-                        pos = pos+2+len+2;
-                    }
+        if (option_crc) { // show CRC-checks (and RS-check)
+            fprintf(stdout, " # ");
+            if (option_ecc && ec >= 0 && (gpx.crc & 0x1F) != 0) {
+                int pos, blk, len, crc;   // unexpected blocks
+                int flen = NDATA_LEN;
+                if (frametype() < 0) flen += XDATA_LEN;
+                pos = pos_FRAME;
+                while (pos < flen-1) {
+                    blk = frame[pos];     // 0x80XX: encrypted block
+                    len = frame[pos+1];   // 0x76XX: 00-padding block
+                    crc = check_CRC(pos, blk<<8);
+                    fprintf(stdout, " %02X%02X", frame[pos], frame[pos+1]);
+                    fprintf(stdout, "[%d]", crc&1);
+                    pos = pos+2+len+2;
                 }
-                else {
-                    fprintf(stdout, "[");
-                    for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
-                    fprintf(stdout, "]");
-                }
-                if (option_ecc == 2) {
-                    if (ec > 0) fprintf(stdout, " (%d)", ec);
-                    if (ec < 0) {
-                        if      (ec == -1)  fprintf(stdout, " (-+)");
-                        else if (ec == -2)  fprintf(stdout, " (+-)");
-                        else   /*ec == -3*/ fprintf(stdout, " (--)");
-                    }
+            }
+            else {
+                fprintf(stdout, "[");
+                for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
+                fprintf(stdout, "]");
+            }
+            if (option_ecc == 2) {
+                if (ec > 0) fprintf(stdout, " (%d)", ec);
+                if (ec < 0) {
+                    if      (ec == -1)  fprintf(stdout, " (-+)");
+                    else if (ec == -2)  fprintf(stdout, " (+-)");
+                    else   /*ec == -3*/ fprintf(stdout, " (--)");
                 }
             }
         }
 
         get_Calconf(output);
 
-        //if (output)
-        {
-            if (option_verbose > 1) get_Aux();
-            fprintf(stdout, "\n");  // fflush(stdout);
+        if (option_verbose > 1) get_Aux();
+
+        fprintf(stdout, "\n");  // fflush(stdout);
+
+
+        if (option_json) {
+            // Print JSON output required by auto_rx.
+            if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
+                if (option_ptu && !err0 && gpx.T > -273.0) {
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.T );
+                } else {
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
+                }
+                printf("\n");
+            }
         }
+
     }
 
     err |=  err1 | err3;
@@ -1227,7 +1224,7 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--std2") == 0) { frmlen = 518; }  // NDATA_LEN+XDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { option_ptu = 1; }
-        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; }
+        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; option_ecc = 2; option_crc = 1; }
         else if   (strcmp(*argv, "--ch2") == 0) { wav_channel = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
