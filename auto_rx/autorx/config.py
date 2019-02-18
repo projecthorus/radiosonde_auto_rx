@@ -284,8 +284,8 @@ def read_auto_rx_config(filename):
 			return None
 
 		# TODO: Revisit this limitation once the OziPlotter output sub-module is complete.
-		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['ozi_enabled'] or auto_rx_config['payload_summary_enabled']):
-			logging.critical("Chase car outputs (OziPlotter/Payload Summary) enabled in a multi-SDR configuration.")
+		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and auto_rx_config['ozi_enabled']:
+			logging.critical("Oziplotter output enabled in a multi-SDR configuration.")
 			return None
 
 
