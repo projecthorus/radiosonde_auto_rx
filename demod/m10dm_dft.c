@@ -781,6 +781,8 @@ int print_frame(int pos) {
 
 int main(int argc, char **argv) {
 
+    int spike = 0;
+
     FILE *fp = NULL;
     char *fpname = NULL;
     float spb = 0.0;
@@ -840,6 +842,9 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "--dc") == 0) ) {
             option_dc = 1;
+        }
+        else if ( (strcmp(*argv, "--spike") == 0) ) {
+            spike = 1;
         }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
@@ -906,8 +911,8 @@ int main(int argc, char **argv) {
                 herrs = headcmp(1, rawheader, headerlen, mv_pos, mv<0, option_dc); // header nicht manchester!
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(1, rawheader, headerlen, mv_pos+1, mv<0, option_dc);
-                    //int herr2 = headcmp(1, rawheader, headerlen, mv_pos-1, mv<0, option_dc);
+                    herr1 = headcmp(1, rawheader, headerlen, mv_pos+1, mv<0, 0); // nur 1x dc
+                    //int herr2 = headcmp(1, rawheader, headerlen, mv_pos-1, mv<0, 0);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;
@@ -924,7 +929,7 @@ int main(int argc, char **argv) {
 
                     while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
                         header_found = !(pos>=BITFRAME_LEN-10);
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
+                        bitQ = read_spkbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found, spike); // symlen=2, return: zeroX/bit
                         if (bitQ == EOF) { break; }
                         frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
                         pos++;
@@ -940,7 +945,7 @@ int main(int argc, char **argv) {
                     // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
                     if (option_verbose < 3) { // && (regulare frame) // print_frame-return?
                         while ( bitpos < 5*BITFRAME_LEN ) {
-                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, 0); // symlen=2, return: zeroX/bit
+                            bitQ = read_spkbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, 0, spike); // symlen=2, return: zeroX/bit
                             if ( bitQ == EOF) break;
                             bitpos++;
                         }

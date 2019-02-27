@@ -47,6 +47,7 @@ rscfg_t cfg_rs41 = { 41, (320-56)/2, 56, 8, 8, 320};
 typedef struct {
     int frnr;
     char id[9];
+    ui8_t numSV;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int wday;
@@ -326,6 +327,23 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 
 #define crc_ZERO     (1<<6)  // LEN variable
 #define pck_ZERO     0x7600
+#define pck_ZEROstd  0x7611  // NDATA std-frm, no aux
+#define pos_ZEROstd   0x12B  // pos_AUX(0)
+
+
+/*
+  frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
+  frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
+*/
+int frametype() { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
+    int i;
+    ui8_t b = frame[pos_FRAME-1];
+    int ft = 0;
+    for (i = 0; i < 4; i++) {
+        ft += ((b>>i)&1) - ((b>>(i+4))&1);
+    }
+    return ft;
+}
 
 
 ui8_t calibytes[51*16];
@@ -345,7 +363,7 @@ int get_SatData() {
     int i, n;
     int sv;
     ui32_t minPR;
-    int Nfix;
+    int numSV;
     double pDOP, sAcc;
 
     fprintf(stdout, "[%d]\n", u2(frame+pos_FrameNb));
@@ -377,10 +395,10 @@ int get_SatData() {
                      (i16_t)u2(frame+pos_GPSecefV+2),
                      (i16_t)u2(frame+pos_GPSecefV+4));
 
-    Nfix = frame[pos_numSats];
-    sAcc = frame[pos_sAcc]/10.0;
-    pDOP = frame[pos_pDOP]/10.0;
-    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", Nfix, sAcc, pDOP);
+    numSV = frame[pos_numSats];
+    sAcc = frame[pos_sAcc]/10.0; if (frame[pos_sAcc] == 0xFF) sAcc = -1.0;
+    pDOP = frame[pos_pDOP]/10.0; if (frame[pos_pDOP] == 0xFF) pDOP = -1.0;
+    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
 
 
     fprintf(stdout, "CRC: ");
@@ -749,6 +767,8 @@ int get_GPSkoord() {
     if (dir < 0) dir += 360;
     gpx.vD = dir;
 
+    gpx.numSV = frame[pos_numSats];
+
     return 0;
 }
 
@@ -778,6 +798,8 @@ int get_Aux() {
     count7E = 0;
     pos7E = pos_AUX;
 
+    if (frametype(gpx) > 0) return 0; //pos7E == pos7611 ...
+
     // 7Exx: xdata
     while ( pos7E < FRAME_LEN  &&  framebyte(pos7E) == 0x7E ) {
 
@@ -790,7 +812,8 @@ int get_Aux() {
 
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
-                fprintf(stdout, "%c", framebyte(pos7E+2+i));
+                ui8_t c = framebyte(pos7E+2+i);
+                if (c > 0x1E) fprintf(stdout, "%c", c);
             }
             count7E++;
             pos7E += 2+auxlen+2;
@@ -880,20 +903,6 @@ int get_Calconf(int out) {
     return 0;
 }
 
-/*
-  frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
-  frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
-*/
-int frametype() { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
-    int i;
-    ui8_t b = frame[pos_FRAME-1];
-    int ft = 0;
-    for (i = 0; i < 4; i++) {
-        ft += ((b>>i)&1) - ((b>>(i+4))&1);
-    }
-    return ft;
-}
-
 /* ------------------------------------------------------------------------------------ */
 /*
    (uses fec-lib by KA9Q)
@@ -946,14 +955,25 @@ int rs41_ecc(int frmlen) {
     errors2 = rs_decode(cw2, err_pos2, err_val2);
 
 
-    if (option_ecc == 2 && (errors1 < 0 || errors2 < 0)) {
+    if (option_ecc == 2 && (errors1 < 0 || errors2 < 0))
+    {   // 2nd pass
         frame[pos_FRAME] = (pck_FRAME>>8)&0xFF; frame[pos_FRAME+1] = pck_FRAME&0xFF;
         frame[pos_PTU]   = (pck_PTU  >>8)&0xFF; frame[pos_PTU  +1] = pck_PTU  &0xFF;
         frame[pos_GPS1]  = (pck_GPS1 >>8)&0xFF; frame[pos_GPS1 +1] = pck_GPS1 &0xFF;
         frame[pos_GPS2]  = (pck_GPS2 >>8)&0xFF; frame[pos_GPS2 +1] = pck_GPS2 &0xFF;
         frame[pos_GPS3]  = (pck_GPS3 >>8)&0xFF; frame[pos_GPS3 +1] = pck_GPS3 &0xFF;
-        if (frametype() < -2) {
+        // AUX-frames mit vielen Fehlern besser mit 00 auffuellen
+        // std-O3-AUX-frame: NDATA+7
+        if (frametype() < -2) {  // ft >= 0: NDATA_LEN , ft < 0: FRAME_LEN
             for (i = NDATA_LEN + 7; i < FRAME_LEN-2; i++) frame[i] = 0;
+        }
+        else { // std-frm (len=320): std_ZERO-frame (7611 00..00 ECC7)
+            for (i = NDATA_LEN; i < FRAME_LEN; i++) frame[i] = 0;
+            frame[pos_ZEROstd  ] = 0x76;  // pck_ZEROstd
+            frame[pos_ZEROstd+1] = 0x11;  // pck_ZEROstd
+            for (i = pos_ZEROstd+2; i < NDATA_LEN-2; i++) frame[i] = 0;
+            frame[NDATA_LEN-2] = 0xEC;    // crc(pck_ZEROstd)
+            frame[NDATA_LEN-1] = 0xC7;    // crc(pck_ZEROstd)
         }
         for (i = 0; i < rs_K; i++) cw1[rs_R+i] = frame[cfg_rs41.msgpos+2*i  ];
         for (i = 0; i < rs_K; i++) cw2[rs_R+i] = frame[cfg_rs41.msgpos+2*i+1];
@@ -1036,6 +1056,7 @@ int print_position(int ec) {
             {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
+                if (option_verbose == 3) fprintf(stdout," numSV: %02d ", gpx.numSV);
             }
         }
         if (option_ptu && !err0) {
@@ -1085,9 +1106,9 @@ int print_position(int ec) {
             // Print JSON output required by auto_rx.
             if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.T );
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T );
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV );
                 }
                 printf("\n");
             }
@@ -1142,7 +1163,14 @@ void print_frame(int len) {
         }
         if (option_ecc) {
             if (ec >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            if (option_ecc == 2 && ec > 0) fprintf(stdout, " (%d)", ec);
+            if (option_ecc == 2) {
+                if (ec > 0) fprintf(stdout, " (%d)", ec);
+                if (ec < 0) {
+                    if      (ec == -1)  fprintf(stdout, " (-+)");
+                    else if (ec == -2)  fprintf(stdout, " (+-)");
+                    else   /*ec == -3*/ fprintf(stdout, " (--)");
+                }
+            }
         }
         fprintf(stdout, "\n");
     }
@@ -1179,8 +1207,8 @@ int main(int argc, char *argv[]) {
 
     float thres = 0.7;
 
-    int bitofs = 0;
     int symlen = 1;
+    int bitofs = 2;
 
 
 #ifdef CYGWIN
@@ -1338,8 +1366,9 @@ int main(int argc, char *argv[]) {
                             Qerror_count += 1;
                         }
                     }
-                    header_found = 0;
+
                     print_frame(ft_len);
+                    header_found = 0;
 
                     while ( bit_count < BITS*(FRAME_LEN-8+24) ) {
                         bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit

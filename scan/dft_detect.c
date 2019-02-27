@@ -22,8 +22,8 @@ static int wav_channel = 0;     // audio channel: left
 
 
 //int  dfm_bps = 2500;
-static char dfm_header[] = "01100101011001101010010110101010";
-
+static char dfm_header[] = "10011010100110010101101001010101"; // DFM-09
+                        // "01100101011001101010010110101010"; // DFM-06
 //int  vai_bps = 4800;
 static char rs41_header[] = "00001000011011010101001110001000"
                             "01000100011010010100100000011111";
@@ -54,7 +54,7 @@ static char imet_preamble[] = "11110000111100001111000011110000"
 
 //int  imet1ab_bps = 9600; // 1200 bits/sec
 static char imet1ab_header[] = "11110000111100001111000011110000"
-                    // "11110000""10101100110010101100101010101100"
+                  // "11110000""10101100110010101100101010101100"
                      "11110000""10101100110010101100101010101100";
 
 
@@ -83,14 +83,14 @@ typedef struct {
     float thres;
     float complex *Fm;
     char *type;
-    unsigned char tn;
+    ui8_t tn; // signed?
 } rsheader_t;
 
 #define Nrs 9
 #define idxAB 7
 #define idxRS 8
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, NULL, "DFM",  2},
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
     { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, NULL, "RS41", 3},
     { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, NULL, "RS92", 4},
     { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, NULL, "LMS6", 8},
@@ -594,7 +594,7 @@ static int init_buffers() {
                 b += b0*pulse(t+1, sigma);
             }
 
-            if (pos < hLen) {
+            if (pos < hLen-1) {
                 b2 = ((bits[pos+1] & 0x1) - 0.5)*2.0;
                 b += b2*pulse(t-1, sigma);
             }
@@ -661,6 +661,7 @@ int main(int argc, char **argv) {
     int header_found = 0;
     int herrs;
     float thres = 0.76;
+    float tl = -1.0;
 
     int j_max;
     float mv_max;
@@ -682,11 +683,14 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
-        else if ( (strcmp(*argv, "--dc") == 0) ) {
-            option_dc = 1;
-        }
+        //else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
         else if ( (strcmp(*argv, "-s") == 0) || (strcmp(*argv, "--silent") == 0) ) {
             option_silent = 1;
+        }
+        else if ( (strcmp(*argv, "-t") == 0) || (strcmp(*argv, "--time") == 0) ) {
+            ++argv;
+            if (*argv) tl = atof(*argv);
+            else return -50;
         }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
@@ -695,13 +699,13 @@ int main(int argc, char **argv) {
                 thres = atof(*argv);
                 for (j = 0; j < Nrs; j++) rs_hdr[j].thres = thres;
             }
-            else return -1;
+            else return -50;
         }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
                 fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
-                return -1;
+                return -50;
             }
             wavloaded = 1;
         }
@@ -714,14 +718,14 @@ int main(int argc, char **argv) {
     if ( j < 0 ) {
         fclose(fp);
         fprintf(stderr, "error: wav header\n");
-        return -1;
+        return -50;
     }
 
 
     K = init_buffers();
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
-        return -1;
+        return -50;
     };
 
     for (j = 0; j < Nrs; j++) {
@@ -733,6 +737,8 @@ int main(int argc, char **argv) {
     k = 0;
 
     while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+
+        if (tl > 0 && sample_in > (tl+1)*sample_rate) break;  // (int)sample_out < 0
 
         k += 1;
 
@@ -754,7 +760,7 @@ int main(int argc, char **argv) {
             if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
                 if (mv_pos[j] > mv0_pos[j]) {
 
-                    herrs = headcmp(1, rs_hdr[j].header, rs_hdr[j].hLen, mv_pos[j], mv[j]<0, option_dc, rs_hdr[j].spb);
+                    herrs = headcmp(1, rs_hdr[j].header, rs_hdr[j].hLen, mv_pos[j], mv[j]<0, 0, rs_hdr[j].spb);
                     if (herrs < 2) {  // max 1 bitfehler in header
 
                         if ( strncmp(rs_hdr[j].type, "IMET", 4) == 0 )
@@ -843,7 +849,7 @@ int main(int argc, char **argv) {
 
                         if (header_found) {
                             if (!option_silent) {
-                                fprintf(stdout, "sample: %d\n", mv_pos[j]);
+                                if (option_verbose) fprintf(stdout, "sample: %d\n", mv_pos[j]);
                                 fprintf(stdout, "%s: %.4f\n", rs_hdr[j].type, mv[j]);
                             }
                             if ((j < 3) && mv[j] < 0) header_found = -1;

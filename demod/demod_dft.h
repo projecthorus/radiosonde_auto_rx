@@ -2,6 +2,7 @@
 float read_wav_header(FILE*, float, int);
 int f32buf_sample(FILE*, int, int);
 int read_sbit(FILE*, int, int*, int, int, int, int);
+int read_spkbit(FILE*, int, int*, int, int, int, int, int);
 int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv, int ofs, int reset, int cm);
 float header_level(char hdr[], int hLen, unsigned int pos, int inv);
 
