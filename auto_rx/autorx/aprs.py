@@ -42,13 +42,25 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
         elif sonde_data['type'] == 'DFM':
             # The DFM sonde IDs are too long to use directly.
             # Grab the last six digits of the sonde ID (which is the serial number)
+            # TODO: Align this with whatever other decoders do.
             _id_suffix = sonde_data['id'][-6:]
             if "DFM09" in sonde_data['id']:
                 _object_name = "DF9" + _id_suffix
-            else:
+                sonde_data['type'] = 'DFM09'
+            elif "DFM06" in sonde_data['id']:
                 _object_name = "DF6" + _id_suffix
+                sonde_data['type'] = 'DFM06'
+            elif "DFM15" in sonde_data['id']:
+                _object_name = "DF5" + _id_suffix
+                sonde_data['type'] = 'DFM15'
+            elif "DFM17" in sonde_data['id']:
+                _object_name = "DF7" + _id_suffix
+                sonde_data['type'] = 'DFM17'
+            else:
+                return (None, None)
+
         elif 'M10' in sonde_data['type']:
-            # Use the generated id same as dxlARPS
+            # Use the generated id same as dxlAPRS
             _object_name = sonde_data['dxlid']
         # New Sonde types will be added in here.
         else:
@@ -564,6 +576,26 @@ class APRSUploader(object):
         """
         logging.warning("APRS-IS - %s" % line)
 
+
+
+if __name__ == "__main__":
+    # Some unit tests for the APRS packet generation code.
+    # ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
+    test_telem = [
+        {'id':'DFM06-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'DFM09-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'DFM15-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'DFM17-12345678', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'N1234567', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'M1234567', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS92', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        ]
+
+
+    comment_field = "Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://bit.ly/2Bj4Sfk"
+
+    for _telem in test_telem:
+        out_str = telemetry_to_aprs_position(_telem, object_name="<id>", aprs_comment=comment_field, position_report=False)
+        print(out_str)
 
 
 
