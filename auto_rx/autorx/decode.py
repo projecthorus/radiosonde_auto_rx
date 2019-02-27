@@ -246,12 +246,13 @@ class SondeDecoder(object):
             # DFM06/DFM09 Sondes.
             # As of 2019-02-10, dfm09ecc auto-detects if the signal is inverted,
             # so we don't need to specify an invert flag.
+            # 2019-02-27: Added the --dist flag, which should reduce bad positions a bit.
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc --json --auto 2>/dev/null"
+            decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
         elif self.sonde_type == "M10":
             # M10 Sondes
