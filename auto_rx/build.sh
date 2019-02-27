@@ -6,7 +6,6 @@
 # Build rs_detect.
 echo "Building rs_detect"
 cd ../scan/
-gcc rs_detect.c -lm -o rs_detect
 gcc dft_detect.c -lm -o dft_detect
 
 echo "Building RS92/RS41/DFM Demodulators"

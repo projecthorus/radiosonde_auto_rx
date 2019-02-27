@@ -414,6 +414,61 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     return 0;
 }
 
+int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int cm, int spike) {
+// symlen==2: manchester2 10->0,01->1: 2.bit
+
+    static double bitgrenze;
+    static unsigned long scount;
+
+    float sample;
+    float avg;
+    float ths = 0.5, scale = 0.27;
+
+    double sum = 0.0;
+
+    if (reset) {
+        scount = 0;
+        bitgrenze = 0;
+    }
+
+    if (symlen == 2) {
+        bitgrenze += samples_per_bit;
+        do {
+            if (buffered > 0) buffered -= 1;
+            else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+
+            sample = bufs[(sample_out-buffered + ofs + M) % M];
+            avg = 0.5*(bufs[(sample_out-buffered-1 + ofs + M) % M]
+                      +bufs[(sample_out-buffered+1 + ofs + M) % M]);
+            if (spike && fabs(sample - avg) > ths) sample = avg + scale*(sample - avg); // spikes
+
+            sum -= sample;
+
+            scount++;
+        } while (scount < bitgrenze);  // n < samples_per_bit
+    }
+
+    bitgrenze += samples_per_bit;
+    do {
+        if (buffered > 0) buffered -= 1;
+        else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+
+        sample = bufs[(sample_out-buffered + ofs + M) % M];
+        avg = 0.5*(bufs[(sample_out-buffered-1 + ofs + M) % M]
+                  +bufs[(sample_out-buffered+1 + ofs + M) % M]);
+        if (spike && fabs(sample - avg) > ths) sample = avg + scale*(sample - avg); // spikes
+
+        sum += sample;
+
+        scount++;
+    } while (scount < bitgrenze);  // n < samples_per_bit
+
+    if (sum >= 0) *bit = 1;
+    else          *bit = 0;
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 
 int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv, int ofs, int reset, int cm) {
