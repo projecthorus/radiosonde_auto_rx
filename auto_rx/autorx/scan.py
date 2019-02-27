@@ -204,6 +204,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
 
     try:
         FNULL = open(os.devnull, 'w')
+        _start = time.time()
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
     except subprocess.CalledProcessError as e:
@@ -212,16 +213,25 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         if e.returncode >= 2:
             ret_output = e.output
         else:
+            _runtime = time.time() - _start
+            logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
             return None
     except Exception as e:
         # Something broke when running the detection function.
         logging.error("Scanner #%s - Error when running dft_detect - %s" % (str(device_idx), str(e)))
         return None
 
+
+    _runtime = time.time() - _start
+    logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
+
     # Check for no output from dft_detect.
     if ret_output is None or ret_output == "":
         #logging.error("Scanner - dft_detect returned no output?")
         return None
+
+
+
 
     # dft_detect return codes:
     # 2 = DFM
