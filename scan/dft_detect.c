@@ -238,8 +238,12 @@ static int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned in
 
     dc = 0.0;
 
+#ifdef ZEROPAD
     if (rshd.N + K > N_DFT/2 - 2) return -1;
-    if (sample_in < delay+rshd.N+K) return -2;
+#else
+    if (rshd.N + K > N_DFT) return -1;
+#endif
+//    if (sample_in < delay+rshd.N+K) return -2;
 
     if (pos == 0) pos = sample_out;
 
@@ -379,7 +383,7 @@ static int f32read_sample(FILE *fp, float *s) {
 }
 
 
-static int f32buf_sample(FILE *fp, int inv, int cm) {
+static int f32buf_sample(FILE *fp, int inv) {
     float s = 0.0;
     float xneu, xalt;
 
@@ -397,11 +401,6 @@ static int f32buf_sample(FILE *fp, int inv, int cm) {
     qsum += (xneu - xalt)*(xneu + xalt);  // + xneu*xneu - xalt*xalt
     qs[sample_in % M] = qsum;
 */
-
-    if (0 && cm) {
-        // direct correlation
-    }
-
 
     sample_out = sample_in - delay;
 
@@ -510,6 +509,7 @@ static int init_buffers() {
     double b0, b1, b2, b;
     float normMatch;
 
+    int p2 = 1;
     int K, NN;
     int n, k;
     float *match = NULL;
@@ -532,21 +532,25 @@ static int init_buffers() {
 
     NN = hLen * sample_rate/2500.0 + 0.5; // max(hLen*spb)
 
-    M = 3*NN;
+    M = 2*NN;
     //if (samples_per_bit < 6) M = 6*N;
 
     delay = NN/16;
     sample_in = 0;
 
+    p2 = 1;
+    while (p2 < M) p2 <<= 1;
+    while (p2 < 0x2000) p2 <<= 1;  // or 0x4000, if sample not too short
+    M = p2;
+    N_DFT = p2;
+#ifdef ZEROPAD
+    M -= 1;
+    N_DFT <<= 1;
+#endif
+    LOG2N = log(N_DFT)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
+    //while ((1 << LOG2N) < N_DFT) LOG2N++;  // better N_DFT = (1 << LOG2N) ...
+
     K = M-NN - delay; // N+K < M
-
-    LOG2N = 2 + (int)(log(NN+K)/log(2));
-    N_DFT = 1 << LOG2N;
-
-    while (NN + K > N_DFT/2 - 2) {
-        LOG2N  += 1;
-        N_DFT <<= 1;
-    }
 
     Nvar = NN; // wenn Nvar fuer xnorm, dann Nvar=rshd.N
 
@@ -736,7 +740,7 @@ int main(int argc, char **argv) {
 
     k = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         if (tl > 0 && sample_in > (tl+1)*sample_rate) break;  // (int)sample_out < 0
 
@@ -744,6 +748,9 @@ int main(int argc, char **argv) {
 
         if (k >= K-4) {
             for (j = 0; j < Nrs-2; j++) {
+#ifdef NOC34C50
+                if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) continue;
+#endif
                 mv0_pos[j] = mv_pos[j];
                 mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr[j]);
             }
@@ -779,7 +786,7 @@ int main(int argc, char **argv) {
                             n = 0;
                             while (n < sample_rate) { // 1 sec
 
-                                if (f32buf_sample(fp, option_inv, 1) == EOF) break;//goto ende;
+                                if (f32buf_sample(fp, option_inv) == EOF) break;//goto ende;
 
                                 xn[n % D] = bufs[sample_out % M];
                                 n++;
@@ -821,7 +828,7 @@ int main(int argc, char **argv) {
 
                                 // detect header/polarity
                                 k = 0;
-                                while ( n < 4*sample_rate && f32buf_sample(fp, option_inv, 1) != EOF ) {
+                                while ( n < 4*sample_rate && f32buf_sample(fp, option_inv) != EOF ) {
 
                                     n += 1;
                                     k += 1;
