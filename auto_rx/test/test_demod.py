@@ -98,7 +98,7 @@ processing_type = {
         # Decimate to a 24 kHz bandwidth, demodulator, then interpolate back up to 48 kHz.
         'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
         # Decode using rs41ecc
-        'decode': "../dft_detect3 2>/dev/null",
+        'decode': "../dft_detect 2>/dev/null",
         # Grep out the line containing the detected sonde type.
         "post_process" : " | grep \:"
     },

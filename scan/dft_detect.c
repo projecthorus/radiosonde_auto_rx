@@ -547,8 +547,8 @@ static int init_buffers() {
     M -= 1;
     N_DFT <<= 1;
 #endif
-    LOG2N = log(N_DFT)/log(2);
-    //while ((1 << LOG2N) < N_DFT) LOGN++;
+    LOG2N = log(N_DFT)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
+    //while ((1 << LOG2N) < N_DFT) LOG2N++;  // better N_DFT = (1 << LOG2N) ...
 
     K = M-NN - delay; // N+K < M
 
