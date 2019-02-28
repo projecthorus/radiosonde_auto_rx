@@ -4,7 +4,7 @@
 #
 
 # Build rs_detect.
-echo "Building rs_detect"
+echo "Building dft_detect"
 cd ../scan/
 gcc dft_detect.c -lm -o dft_detect -DNOC34C50
 
