@@ -10,6 +10,7 @@ import glob
 import argparse
 import os
 import sys
+import time
 import subprocess
 
 
@@ -97,7 +98,7 @@ processing_type = {
         # Decimate to a 24 kHz bandwidth, demodulator, then interpolate back up to 48 kHz.
         'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
         # Decode using rs41ecc
-        'decode': "../dft_detect 2>/dev/null",
+        'decode': "../dft_detect3 2>/dev/null",
         # Grep out the line containing the detected sonde type.
         "post_process" : " | grep \:"
     },
@@ -134,7 +135,7 @@ processing_type = {
 
 
 
-def run_analysis(mode, file_list, shift=0.0):
+def run_analysis(mode, file_list, shift=0.0, verbose=False):
 
     _mode = processing_type[mode]
 
@@ -163,11 +164,17 @@ def run_analysis(mode, file_list, shift=0.0):
 
         # Run the command.
         try:
+            _start = time.time()
             _output = subprocess.check_output(_cmd, shell=True, stderr=None)
         except:
             _output = "error"
 
+        _runtime = time.time() - _start
+
         print("%s, %s" % (os.path.basename(_file), _output.strip()))
+
+        if verbose:
+            print("Runtime: %.1d" % _runtime)
 
 
 
@@ -176,6 +183,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--mode", type=str, default="rs41_csdr_fm_decode", help="Operation mode.")
     parser.add_argument("-f", "--files", type=str, default="./generated/*.bin", help="Glob-path to files to run over.")
+    parser.add_argument("-v", "--verbose", action='store_true', default=False, help="Show additional debug info.")
     parser.add_argument("--shift", type=float, default=0.0, help="Shift the signal-under test by x Hz. Default is 0.")
     args = parser.parse_args()
 
@@ -195,4 +203,4 @@ if __name__ == "__main__":
     # Sort the list of files.
     _file_list.sort()
 
-    run_analysis(args.mode, _file_list, shift=args.shift)
+    run_analysis(args.mode, _file_list, shift=args.shift, verbose=args.verbose)
