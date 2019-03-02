@@ -157,7 +157,6 @@ processing_type = {
 # Build this, but do NOT install it. Instead, copy the rtl_fm from build/src to the *this* directory, and re-name it to rtl_fm_stdin
 # You still need a RTLSDR connected to be able to run this.
 #
-#
 # tsrc is available at http://svn.code.sf.net/p/freetel/code/codec2-dev/misc/tsrc.c
 # HOWEVER there is a bug which makes it neglect the -c (complex) option.
 # Change line 59 to read: int channels = 2;

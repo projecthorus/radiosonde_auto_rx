@@ -33,7 +33,7 @@ We can see that the M10 radiosonde has a very high correlation score against noi
 
 Note that as we don't have any LMS6 IQ samples at the moment, we will not be including LMS6 results in any further analysis.
 
-## Threshold Experimentings
+## Threshold Experiments
 Using these minimum threshold figures, the next aim is to determine thresholds which result in no false detections of other sonde types. We can do this by running dft_detect over all the calibrated-SNR samples and observing the resultant correlation scores.
 
 We start out with thresholds set 0.1 higher than the 'correlation noise floor'. The following plots show the correlation score for each set of radiosonde samples (RS41, RS92, DFM, M10), vs Eb/N0. The dotted points indicate a point in which the correlation score exceeds the threshold, and hence we considered a sonde type to be detected.
