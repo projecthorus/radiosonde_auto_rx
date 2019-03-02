@@ -1,4 +1,4 @@
-# 2019-03-01 Detector Change: rs_detect to dft_detect
+# 2019-03-02 Detector Change: rs_detect to dft_detect
 
 Mark Jessop - 2019-03-02
 

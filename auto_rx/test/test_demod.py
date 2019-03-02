@@ -18,98 +18,98 @@ import subprocess
 # Dictionary of available processing types.
 
 processing_type = {
-    # RS41 Decoding
-    'rs41_csdr': {
-        # Decode a RS41 using a CSDR processing chain to do FM demodulation
-        # Decimate to 48 khz, filter, then demodulate.
-        #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.08 0.08 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
-        #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 12 khz channel, filter, demod, then interpolate back up to 48 kHz
-        'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.3 0.3 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decode using rs41ecc
-        # Remove --ecc to see how much work the RS decoding is doing!
-        'decode': "../rs41ecc --ptu --crc --ecc 2>/dev/null",
-        # Count the number of telemetry lines that have no bit errors
-        "post_process" : " | grep 00000 | wc -l",
-        'files' : "./generated/rs41*.bin"
-    },
-    # RS92 Decoding
-    'rs92_csdr': {
-        # Decode a RS92 using a CSDR processing chain to do FM demodulation
-        # Decimate to 48 khz, filter to +/-4.8kHz, then demodulate. - WORKS BEST
-        'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.10 0.10 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
-        #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 12 khz channel, demod, then interpolate back up to 48 kHz.
-        #'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decode using rs92ecc
-        'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
-        # Count the number of telemetry lines.
-        "post_process" : " | grep M2513116 | wc -l",
-        'files' : "./generated/rs92*.bin"
-    },
-    # DFM Decoding
-    'dfm_csdr': {
-        # Decode a DFM using a CSDR processing chain to do FM demodulation
-        # Decimate to 48 khz, filter to +/-6kHz, then demodulate.
-        #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.12 0.12 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
-        #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 12 khz channel, demod, then interpolate back up to 48 kHz. - WORKS BEST
-        'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decode using rs41ecc
-        'decode': "../dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null",
-        # Count the number of telemetry lines.
-        "post_process" : " | grep frame |  wc -l",
-        'files' : "./generated/dfm*.bin"
-    },
-    #   M10 Radiosonde decoding.
-    'm10_csdr': {
-        # M10 Decoding
-        # Use a CSDR processing chain to do FM demodulation
-        # Decimate to 48 khz, filter, then demodulate. - WORKS BEST
-        'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
-        #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-        # Decode using rs41ecc
-        'decode': "../m10 -b -b2 2>/dev/null",
-        # Count the number of telemetry lines.
-        "post_process" : "| wc -l",
-        'files' : "./generated/m10*.bin"
-    },
-    #   rs_detect - Sonde Detection.
-    #   Current approach in auto_rx uses rtl_fm with a 22 khz sample rate (channel bw?) setting,
-    #   then resamples up to 48 khz sampes to feed into rs_detect.
-    #
-    'rs_detect_csdr': {
-        # Use a CSDR processing chain to do FM demodulation
-        # Using a ~22kHz wide filter, and 20 Hz high-pass
-        # Decimate to 48 khz, filter to ~22 kHz BW, then demod.
-        # rs_detect seem to like this better than the decimation approach.
-        #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
-        # Decimate to 24 khz before passing into the FM demod. This is roughly equivalent to rtl_fm -r 22k
-        'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
-        # Decode using rs41ecc
-        'decode': "../rs_detect -z -t 8 2> /dev/null",
-        # Grep out the line containing the detected sonde type.
-        "post_process" : " | grep found",
-        'files' : "./generated/*.bin"
-    },
+    # # RS41 Decoding
+    # 'rs41_csdr': {
+    #     # Decode a RS41 using a CSDR processing chain to do FM demodulation
+    #     # Decimate to 48 khz, filter, then demodulate.
+    #     #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.08 0.08 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
+    #     #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 12 khz channel, filter, demod, then interpolate back up to 48 kHz
+    #     'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.3 0.3 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decode using rs41ecc
+    #     # Remove --ecc to see how much work the RS decoding is doing!
+    #     'decode': "../rs41ecc --ptu --crc --ecc 2>/dev/null",
+    #     # Count the number of telemetry lines that have no bit errors
+    #     "post_process" : " | grep 00000 | wc -l",
+    #     'files' : "./generated/rs41*.bin"
+    # },
+    # # RS92 Decoding
+    # 'rs92_csdr': {
+    #     # Decode a RS92 using a CSDR processing chain to do FM demodulation
+    #     # Decimate to 48 khz, filter to +/-4.8kHz, then demodulate. - WORKS BEST
+    #     'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.10 0.10 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
+    #     #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 12 khz channel, demod, then interpolate back up to 48 kHz.
+    #     #'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decode using rs92ecc
+    #     'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
+    #     # Count the number of telemetry lines.
+    #     "post_process" : " | grep M2513116 | wc -l",
+    #     'files' : "./generated/rs92*.bin"
+    # },
+    # # DFM Decoding
+    # 'dfm_csdr': {
+    #     # Decode a DFM using a CSDR processing chain to do FM demodulation
+    #     # Decimate to 48 khz, filter to +/-6kHz, then demodulate.
+    #     #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.12 0.12 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
+    #     #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 12 khz channel, demod, then interpolate back up to 48 kHz. - WORKS BEST
+    #     'demod' : "| csdr fir_decimate_cc 8 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 4 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decode using rs41ecc
+    #     'decode': "../dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null",
+    #     # Count the number of telemetry lines.
+    #     "post_process" : " | grep frame |  wc -l",
+    #     'files' : "./generated/dfm*.bin"
+    # },
+    # #   M10 Radiosonde decoding.
+    # 'm10_csdr': {
+    #     # M10 Decoding
+    #     # Use a CSDR processing chain to do FM demodulation
+    #     # Decimate to 48 khz, filter, then demodulate. - WORKS BEST
+    #     'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 24 kHz channel, demod, then interpolate back up to 48 kHz.
+    #     #'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    #     # Decode using rs41ecc
+    #     'decode': "../m10 -b -b2 2>/dev/null",
+    #     # Count the number of telemetry lines.
+    #     "post_process" : "| wc -l",
+    #     'files' : "./generated/m10*.bin"
+    # },
+    # #   rs_detect - Sonde Detection.
+    # #   Current approach in auto_rx uses rtl_fm with a 22 khz sample rate (channel bw?) setting,
+    # #   then resamples up to 48 khz sampes to feed into rs_detect.
+    # #
+    # 'rs_detect_csdr': {
+    #     # Use a CSDR processing chain to do FM demodulation
+    #     # Using a ~22kHz wide filter, and 20 Hz high-pass
+    #     # Decimate to 48 khz, filter to ~22 kHz BW, then demod.
+    #     # rs_detect seem to like this better than the decimation approach.
+    #     #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
+    #     # Decimate to 24 khz before passing into the FM demod. This is roughly equivalent to rtl_fm -r 22k
+    #     'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
+    #     # Decode using rs41ecc
+    #     'decode': "../rs_detect -z -t 8 2> /dev/null",
+    #     # Grep out the line containing the detected sonde type.
+    #     "post_process" : " | grep found",
+    #     'files' : "./generated/*.bin"
+    # },
     #   dft_detect - Sonde detection using DFT correlation
     #   
-    'dft_detect_csdr': {
-        # Use a CSDR processing chain to do FM demodulation
-        # Filter to 22 khz channel bandwidth, then demodulate.
-        #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null| ",
-        # Decimate to a 24 kHz bandwidth, demodulator, then interpolate back up to 48 kHz.
-        'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
-        # Decode using rs41ecc
-        'decode': "../dft_detect 2>/dev/null",
-        # Grep out the line containing the detected sonde type.
-        "post_process" : " | grep \:",
-        'files' : "./generated/*.bin"
-    },
+    # 'dft_detect_csdr': {
+    #     # Use a CSDR processing chain to do FM demodulation
+    #     # Filter to 22 khz channel bandwidth, then demodulate.
+    #     #'demod' : "| csdr fir_decimate_cc 2 0.005 HAMMING 2>/dev/null | csdr bandpass_fir_fft_cc -0.23 0.23 0.05 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null| ",
+    #     # Decimate to a 24 kHz bandwidth, demodulator, then interpolate back up to 48 kHz.
+    #     'demod' : "| csdr fir_decimate_cc 4 0.005 HAMMING 2>/dev/null | csdr fmdemod_quadri_cf | csdr limit_ff | csdr rational_resampler_ff 2 1 0.005 HAMMING | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null| ",
+    #     # Decode using rs41ecc
+    #     'decode': "../dft_detect 2>/dev/null",
+    #     # Grep out the line containing the detected sonde type.
+    #     "post_process" : " | grep \:",
+    #     'files' : "./generated/*.bin"
+    # },
 
     # #
     # # FSK-DEMOD DECODING
@@ -218,15 +218,17 @@ else:
 
 _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
 _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |" % int(_fm_rate)
+_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
 
 
 processing_type['rs92_rtlfm'] = {
     'demod': _demod_command,
     # Decode using rs92ecc
     'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
+    #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
     # Count the number of telemetry lines.
     "post_process" : " | grep M2513116 | wc -l",
+    #"post_process" : " | grep \"errors: 0\" | wc -l",
     'files' : "./generated/rs92*.bin" 
 }
 
@@ -252,9 +254,11 @@ _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - hi
 
 processing_type['dfm_rtlfm'] = {
     'demod': _demod_command,
-    'decode': "../dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null",
+    'decode': "../dfm09ecc -vv --json --dist --auto 2>/dev/null", # ECC
+    #'decode': "../dfm09ecc -vv --ecc -r --auto 2>/dev/null", # No-ECC
     # Count the number of telemetry lines.
-    "post_process" : " | grep frame |  wc -l",
+    "post_process" : " | grep frame |  wc -l", # ECC
+    #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
     'files' : "./generated/dfm*.bin"
 }
 
@@ -286,61 +290,61 @@ processing_type['m10_rtlfm'] = {
     'files' : "./generated/m10*.bin"
 }
 
-# RS_Detect
-_fm_rate = 22000
-#_fm_rate = 15000
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# # RS_Detect
+# _fm_rate = 22000
+# #_fm_rate = 15000
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
 
-_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
 
-processing_type['rs_detect_rtlfm'] = {
-    'demod': _demod_command,
-    'decode': "../rs_detect -z -t 8 2> /dev/null",
-    # Grep out the line containing the detected sonde type.
-    "post_process" : " | grep found",
-    'files' : "./generated/*.bin"
-}
+# processing_type['rs_detect_rtlfm'] = {
+#     'demod': _demod_command,
+#     'decode': "../rs_detect -z -t 8 2> /dev/null",
+#     # Grep out the line containing the detected sonde type.
+#     "post_process" : " | grep found",
+#     'files' : "./generated/*.bin"
+# }
 
-# DFT_Detect
-_fm_rate = 22000
-#_fm_rate = 15000
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# # DFT_Detect
+# _fm_rate = 22000
+# #_fm_rate = 15000
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
 
-_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
 
-processing_type['dft_detect_rtlfm'] = {
-    'demod': _demod_command,
-    'decode': "../dft_detect 2>/dev/null",
-    # Grep out the line containing the detected sonde type.
-    "post_process" : " | grep \:",
-    'files' : "./generated/*.bin"
-}
+# processing_type['dft_detect_rtlfm'] = {
+#     'demod': _demod_command,
+#     'decode': "../dft_detect 2>/dev/null",
+#     # Grep out the line containing the detected sonde type.
+#     "post_process" : " | grep \:",
+#     'files' : "./generated/*.bin"
+# }
 
 
 
