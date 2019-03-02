@@ -30,7 +30,7 @@ Now there is the ability to do controlled, repeatable performance tests, the cha
 **rs_detect + rtl_fm 15 kHz sample rate**
 
 SNR | RS41 | RS92 | DFM | M10
------------------------------
+----|------|------|-----|----
 10 | NO | NO | NO| M10
 10.5 | RS41 | NO | NO | M10
 11 | NO | RS92 | NO | M10
@@ -55,7 +55,7 @@ SNR | RS41 | RS92 | DFM | M10
 **rs_detect + rtl_fm 22 kHz sample rate**
 
 SNR | RS41 | RS92 | DFM | M10
------------------------------
+----|------|------|-----|----
 10 | NO | NO | NO | M10
 10.5 | NO | NO | NO | M10
 11 | NO | NO | NO | M10
@@ -87,7 +87,7 @@ The following shows the detection performance when rs_detect is replaced with df
 **dft_detect + rtl_fm 22 kHz sample rate**
 
 SNR | RS41 | RS92 | DFM | M10
------------------------------
+----|------|------|-----|----
 5 | NO | NO | NO | M10
 5.5 | NO | NO | NO | M10
 6 | NO | NO | NO | M10
