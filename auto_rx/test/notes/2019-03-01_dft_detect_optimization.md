@@ -2,6 +2,8 @@
 
 Mark Jessop - 2019-03-02
 
+**Note: The following is valid for dft_detect as configured in commit 4e48867. Further changes to dft_detect may require re-analysis of the threshold values.**
+
 auto_rx uses the [dft_detect](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c) utility, developed by rs1729. This utility accepts fm-demodulated samples (fs=48kHz, unsigned 8-bit) and correlates the incoming samples against a set of known radiosonde packet headers.
 
 The incoming sample stream is considered to contain a radiosonde signal when the correlation score for a particular radiosonde type header exceeds a threshold, defined in the code [here](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c#L92). 
