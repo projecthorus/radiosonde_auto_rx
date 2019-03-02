@@ -21,7 +21,7 @@ FM Demodulation is performed with the following rtl_fm sample rates:
 The traces for the error-corrected decoders (RS41, RS92, DFM), exhibit the typical 'cliff' response, with the PER going from 1.0 to 0 in only a few dB.
 
 A few things to look into:
-* This is a plot of *packet*-error-rate. Can we get a measure of the number of bits in a 'packet' (whatever that may be for each sonde; it may mean multiple frames) to be able to estimate a *bit*-error-rate?
+* This is a plot of *packet*-error-rate. Can we get a measure of the number of bits in a 'packet' (whatever that may be for each sonde; it may mean multiple frames) to be able to estimate a *bit*-error-rate? How does this compare to theoretical FSK modem performance?
 * Why is ths RS92 'cliff' offset from the others? Are the packets bigger? Is there something sub-optimal in the demodulation chain?
 * Further investigation into what the rtl_fm samples rates mean for pre-FM-demod filter bandwidth is required, to ensure they are set optimally.
 * Double and triple-checking of the Eb/N0 calculations in `generate_lowsnr.py`, to be sure we're generating our low-Eb/N0 samples correctly.
