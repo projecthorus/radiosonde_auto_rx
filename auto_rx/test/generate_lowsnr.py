@@ -23,7 +23,7 @@ GENERATED_DIR = "./generated"
 
 # Range of Eb/N0 SNRs to produce.
 # 10-20 dB seems to be the range where the demodulators fall over.
-EBNO_RANGE = np.arange(10,20,0.5)
+EBNO_RANGE = np.arange(5,20.5,0.5)
 
 # Normalise the samples to +/- 1.0! 
 # If we don't do this, bad things can happen later down the track...
@@ -115,7 +115,7 @@ if __name__ == '__main__':
         for ebno in EBNO_RANGE:
             _data_noise = add_noise(_data, variance=_var, baud_rate=_baud_rate, ebno=ebno, fs=_fs)
 
-            _out_file = _source.split('.bin')[0] + "_%.1fdB"%ebno + ".bin"
+            _out_file = _source.split('.bin')[0] + "_%04.1fdB"%ebno + ".bin"
 
             save_sample(_data_noise, _out_file)
             print("Saved file: %s" % _out_file)

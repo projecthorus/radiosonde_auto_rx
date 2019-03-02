@@ -17,7 +17,8 @@ static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_inv = 0,      // invertiert Signal
            option_dc = 0,
            option_silent = 0,
-           wavloaded = 0;
+           wavloaded = 0,
+           option_debug = 0;
 static int wav_channel = 0;     // audio channel: left
 
 
@@ -90,11 +91,11 @@ typedef struct {
 #define idxAB 7
 #define idxRS 8
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, NULL, "RS41", 3},
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, NULL, "RS92", 4},
-    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, NULL, "LMS6", 8},
-    { 9600, 0, 0, m10_header,     1.0, 0.0, 0.76, NULL, "M10",  5},
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, NULL, "DFM9", 2}, // DFM6: -2 (unsigned) - was 0.65
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, NULL, "RS41", 3}, // was 0.70
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, NULL, "RS92", 4}, // was 0.70
+    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, NULL, "LMS6", 8}, //
+    { 9600, 0, 0, m10_header,     1.0, 0.0, 0.75, NULL, "M10",  5},
     { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, NULL, "C34C50", 9},  // C34/C50 2900 Hz tone
     { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, NULL, "IMET", 6},    // IMET1AB=7, IMET1RS=8
     { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, NULL, "IMET1AB", 6},
@@ -658,7 +659,7 @@ int main(int argc, char **argv) {
 
     int j;
     int k, K;
-    float mv[Nrs];
+    float mv[Nrs], mv_max_arr[Nrs];
     unsigned int mv_pos[Nrs], mv0_pos[Nrs];
     int mp[Nrs];
 
@@ -689,6 +690,10 @@ int main(int argc, char **argv) {
         }
         //else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
         else if ( (strcmp(*argv, "-s") == 0) || (strcmp(*argv, "--silent") == 0) ) {
+            option_silent = 1;
+        }
+        else if ( (strcmp(*argv, "--debug") == 0) ) {
+            option_debug = 1;
             option_silent = 1;
         }
         else if ( (strcmp(*argv, "-t") == 0) || (strcmp(*argv, "--time") == 0) ) {
@@ -736,6 +741,7 @@ int main(int argc, char **argv) {
         mv[j] = 0;
         mv_pos[j] = 0;
         mp[j] = 0;
+        mv_max_arr[j] = 0;
     }
 
     k = 0;
@@ -852,7 +858,9 @@ int main(int argc, char **argv) {
                                 }
                             }
                         }
-                        else header_found = 1;
+                        else{
+                            if (!option_debug) header_found = 1; // Might need to disable this for debug mode.
+                        }
 
                         if (header_found) {
                             if (!option_silent) {
@@ -866,12 +874,25 @@ int main(int argc, char **argv) {
             }
         }
 
+        // Store maximum correlation scores
+        for (j = 0; j < Nrs; j++){
+            if (mv[j] > mv_max_arr[j]){
+                mv_max_arr[j] = mv[j];
+            }
+        }
+
         if (header_found) break;
         header_found = 0;
         for (j = 0; j < Nrs; j++) mv[j] = 0.0;
     }
 
 ende:
+    if (option_debug) {
+        //fprintf(stdout, "\nCorrelation scores for all types:\n");
+        for (j=0; j<Nrs; j++){
+            fprintf(stdout, "%s, %.4f, %.4f\n", rs_hdr[j].type, mv_max_arr[j], rs_hdr[j].thres);
+        }
+    }
     free_buffers();
     fclose(fp);
 
