@@ -5,7 +5,7 @@ Mark Jessop - 2019-03-02
 auto_rx uses the [dft_detect](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c) utility, developed by rs1729. This utility accepts fm-demodulated samples (fs=48kHz, unsigned 8-bit) and correlates the incoming samples against a set of known radiosonde packet headers.
 
 The incoming sample stream is considered to contain a radiosonde signal when the correlation score for a particular radiosonde type header exceeds a threshold, defined in the code [here](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c#L92). 
-These threshold values need to be set selected such that detection occurs at the lowest signal SNR as possible, though without producing false positive, or mis-detections.
+These threshold values need to be selected such that detection occurs at the lowest signal SNR as possible, though without producing false positive, or mis-detections.
 
 To assist with selection of these thresholds, an investigation was performed where dft_detect was run over a set of radiosonde samples, with calibrated SNRs (Eb/N0) between 5dB and 20 dB (using generate_lowsnr.py). dft_detect was also run over noise samples.
 
