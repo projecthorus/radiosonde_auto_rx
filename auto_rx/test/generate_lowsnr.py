@@ -7,7 +7,8 @@
 #
 #   The generated files will end up in the 'generated' directory.
 #
-#   Mark Jessop 2019-02
+#   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
+#   Released under GNU GPL v3 or later
 #
 import numpy as np
 import os
@@ -22,8 +23,11 @@ GENERATED_DIR = "./generated"
 
 # Range of Eb/N0 SNRs to produce.
 # 10-20 dB seems to be the range where the demodulators fall over.
-EBNO_RANGE = np.arange(10,20,0.5)
+EBNO_RANGE = np.arange(5,20.5,0.5)
 
+# Normalise the samples to +/- 1.0! 
+# If we don't do this, bad things can happen later down the track...
+NORMALISE = True
 
 # List of samples
 # [filename, baud_date, threshold, sample_rate]
@@ -33,10 +37,10 @@ EBNO_RANGE = np.arange(10,20,0.5)
 # sample_rate = input file sample rate.
 
 SAMPLES = [
-    ['rs41_96k_float.bin', 4800, -25.0, 96000], 
+    ['rs41_96k_float.bin', 4800, -20.0, 96000], 
     ['rs92_96k_float.bin', 2400, -100, 96000], # No threshold set, as signal is continuous.
     ['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
-    ['m10_96k_float.bin', 9616, -18.0, 96000]  # Really weird baud rate. WARNING - Samples output by this are a bit questionable at the moment.
+    ['m10_96k_float.bin', 9616, -10.0, 96000]  # Really weird baud rate.
 ]
 
 
@@ -78,7 +82,13 @@ def add_noise(data, variance, baud_rate, ebno, fs=96000,  bitspersymbol=1.0):
     _rand_i = np.sqrt(_noise_variance/2.0)*np.random.randn(len(data))
     _rand_q = np.sqrt(_noise_variance/2.0)*np.random.randn(len(data))
 
-    return (data + (1j*_rand_i + _rand_q))
+    _noisy = (data + (1j*_rand_i + _rand_q))
+
+    if NORMALISE:
+        print("Normalised to 1.0")
+        return _noisy/np.max(np.abs(_noisy))
+    else:
+        return _noisy
 
 
 
@@ -105,7 +115,7 @@ if __name__ == '__main__':
         for ebno in EBNO_RANGE:
             _data_noise = add_noise(_data, variance=_var, baud_rate=_baud_rate, ebno=ebno, fs=_fs)
 
-            _out_file = _source.split('.bin')[0] + "_%.1fdB"%ebno + ".bin"
+            _out_file = _source.split('.bin')[0] + "_%04.1fdB"%ebno + ".bin"
 
             save_sample(_data_noise, _out_file)
             print("Saved file: %s" % _out_file)

@@ -1,13 +1,27 @@
 # Radiosonde Demodulator Testing Scripts
 
+These scripts are used to test the signal processing performance of the scripts used in the radiosonde_auto_rx project. Our aim is to ensure performance is not degraded by any updates to the software.
+
+## Dependencies
 For these scripts to work, we need:
  * The following directories created: samples, generated
- * The various demodulator binaries (rs41ecc, rs_detect, etc... ) located in ../ Currently using:
+ * The various demodulator binaries (rs41ecc, dft_detect, etc... ) located in ../ Currently using:
    * dfm09ecc, m10 (from radiosonde_auto_rx), rs41ecc, rs92ecc, rs_detect, dft_detect
    * The above can just be built using the auto_rx build.sh script.
  * CSDR installed and available on $PATH: https://github.com/simonyiszk/csdr
  * The base high-snr samples located in ./samples/. These can be downloaded from http://rfhead.net/sondes/sonde_samples.tar.gz
  * Python (2, will probably work in 3), with numpy available.
+
+To perform the tests involving rtl_fm, we require tsrc (from codec2-dev/unittest) and Viproz's hacked rtl_fm to work.
+Viproz's rtl_fm is available from here: https://github.com/Viproz/rtl-sdr/
+Build this, but do NOT install it. Instead, copy the rtl_fm from build/src to the *this* directory, and re-name it to rtl_fm_stdin
+You still need a RTLSDR connected to be able to run this.
+
+tsrc is available at http://svn.code.sf.net/p/freetel/code/codec2-dev/misc/tsrc.c
+HOWEVER there is a bug which makes it neglect the -c (complex) option.
+Change line 59 to read: int channels = 2;
+and compile with gcc tsrc.c -o tsrc -lm -lsamplerate
+Then copy this file to *this* directory.
 
 ## generate_lowsnr.py
 This script generates a set of low-SNR samples based on the base high-SNR samples in ./samples/
@@ -42,10 +56,10 @@ Check the processing_type dict in the script for the differnet demodulation opti
 Example:
 ```
 # Demodulate all RS41 samples.
-$ python test_demod.py -m rs41_csdr_fm_decode -f "../generated/rs41*.bin"
+$ python test_demod.py -m rs41_csdr_fm_decode -f "./generated/rs41*.bin"
 
 # Run dft_detect across all samples.
-# python test_demod.py -m csdr_fm_dftdetect -f "../generated/*.bin"
+# python test_demod.py -m csdr_fm_dftdetect -f "./generated/*.bin"
 ```
 
 The output is a csv of: filename, result
@@ -60,14 +74,18 @@ Depending on the mode, the result could be a packet count, or it could be a succ
 - Converted to 96k float IQ using: cat rs41_960k.bin | csdr convert_u8_f | csdr fir_decimate_cc 10 0.005 HAMMING > rs41_96k_float.bin
 
 
-rs41_96k_float.bin - Vaisala RS41, Serial Number N3920808, 120 packets
-rs92_96k_float.bin - Vaisala RS92, Serial Number M2513116, 120 packets
-dfm09_96k_float.bin - Graw DFM09, Serial Number 637797, 96 Packets
-m10_96k_float.bin - Meteomodem M10, 120 packets
-imet4_96k_float.bin - iMet-4, Serial Number 15236, 119 packets
+* rs41_96k_float.bin - Vaisala RS41, Serial Number N3920808, 120 packets
+* rs92_96k_float.bin - Vaisala RS92, Serial Number M2513116, 120 packets
+* dfm09_96k_float.bin - Graw DFM09, Serial Number 637797, 96 Packets
+* m10_96k_float.bin - Meteomodem M10, 120 packets
+* imet4_96k_float.bin - iMet-4, Serial Number 15236, 119 packets
+
+There are also a set of noise samples available [here](http://rfhead.net/sondes/noise_samples.tar.gz), which are useful for checking the detector scripts for false positives.
 
 
 # Older Notes
+
+These notes are here for legacy reasons, in case they are useful for future work.
 
 ## Reading data into Python
 ```
