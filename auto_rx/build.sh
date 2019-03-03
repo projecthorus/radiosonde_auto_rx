@@ -24,7 +24,6 @@ g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimblePars
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
 cd ../auto_rx/
-cp ../scan/rs_detect .
 cp ../scan/dft_detect .
 cp ../demod/rs92ecc .
 cp ../demod/rs41ecc .
