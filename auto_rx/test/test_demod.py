@@ -146,6 +146,19 @@ processing_type = {
     #     "post_process" : "| wc -l",
     #     'files' : "./generated/m10"
     # },
+
+    'dfm_fsk_demod': {
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        #../dfm09ecc -vv --json --dist --auto
+
+        'demod': '| csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../dfm09ecc -vv --json --dist --auto 2>/dev/null',
+        "post_process" : " | grep frame |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/dfm*.bin"
+    }
 }
 
 

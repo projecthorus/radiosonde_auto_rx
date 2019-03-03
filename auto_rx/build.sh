@@ -20,6 +20,14 @@ echo "Building M10 Demodulator."
 cd ../m10/
 g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
+echo "Building fsk-demod utils from codec2"
+cd ../utils/
+gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
+# Build tsrc
+
+#gcc tsrc.c -o tsrc -lm -lsamplerate
+gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
+
 
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
@@ -30,5 +38,7 @@ cp ../demod/rs92ecc .
 cp ../demod/rs41ecc .
 cp ../demod/dfm09ecc .
 cp ../m10/m10 .
+cp ../utils/fsk_demod .
+cp ../utils/tsrc .
 
 echo "Done!"
