@@ -454,7 +454,7 @@ void M10TrimbleParser::printFrame() {
                 "\"dxlid\": \"%s\", "
                 "\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", "
                 "%s" // Aux data
-                "\"satelites\": %d, "
+                "\"satellites\": %d, "
                 "\"lat\": %.5f, "
                 "\"lon\": %.5f, "
                 "\"alt\": %.2f, "
