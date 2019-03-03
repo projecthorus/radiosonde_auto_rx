@@ -22,11 +22,12 @@ g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimblePars
 
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
+# This produces a static build of fsk_demod
 gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
 # Build tsrc
-
-#gcc tsrc.c -o tsrc -lm -lsamplerate
-gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
+gcc tsrc.c -o tsrc -lm -lsamplerate
+# If running under OSX, you may need to uncomment the following line to be able to find libsamplerate.
+#gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
 
 
 # Copy all necessary files into this directory.
