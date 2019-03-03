@@ -15,10 +15,9 @@ typedef int   i32_t;
 
 static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_inv = 0,      // invertiert Signal
-           option_dc = 0,
+           //option_dc = 0,
            option_silent = 0,
-           wavloaded = 0,
-           option_debug = 0;
+           wavloaded = 0;
 static int wav_channel = 0;     // audio channel: left
 
 
@@ -77,11 +76,12 @@ static char c34_preheader[] =
 typedef struct {
     int bps;  // header: here bps means baudrate ...
     int hLen;
-    int N;
+    int L;
     char *header;
     float BT;
     float spb;
     float thres;
+    int herrs;
     float complex *Fm;
     char *type;
     ui8_t tn; // signed?
@@ -91,15 +91,15 @@ typedef struct {
 #define idxAB 7
 #define idxRS 8
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, NULL, "DFM9", 2}, // DFM6: -2 (unsigned) - was 0.65
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, NULL, "RS41", 3}, // was 0.70
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, NULL, "RS92", 4}, // was 0.70
-    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, NULL, "LMS6", 8}, //
-    { 9600, 0, 0, m10_header,     1.0, 0.0, 0.75, NULL, "M10",  5},
-    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, NULL, "C34C50", 9},  // C34/C50 2900 Hz tone
-    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, NULL, "IMET", 6},    // IMET1AB=7, IMET1RS=8
-    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, NULL, "IMET1AB", 6},
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, NULL, "IMET1RS", 7}  // IMET4
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, 2, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, 2, NULL, "RS41", 3},
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, 3, NULL, "RS92", 4},
+    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, 2, NULL, "LMS6", 8},
+    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.75, 2, NULL, "M10",  5},
+    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50", 9},  // C34/C50 2900 Hz tone
+    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMET", 6},    // IMET1AB=7, IMET1RS=8
+    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", 6},
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", 7}  // IMET4
 };
 
 
@@ -112,6 +112,7 @@ static rsheader_t rs_hdr[Nrs] = {
 //       - pulse-shaping
 //           m10: 00110011 at 9600 bps
 //           rs41: 0 1 0 1 at 4800 bps
+// - after header, m10-baudrate < rs41-baudrate
 // - m10 top-carrier, fm-mean/average
 // - m10-header ..110(1)0110011()011.. bit shuffle
 // - m10 frame byte[1]=type(M2K2,M10,M10+)
@@ -129,7 +130,7 @@ static int wav_ch = 0;  // 0: links bzw. mono; 1: rechts
 
 static unsigned int sample_in, sample_out, delay;
 
-static int M; // N
+static int M;
 
 static float *bufs  = NULL;
 
@@ -230,60 +231,60 @@ static float get_bufmu(int ofs) {
 }
 
 
-static int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned int *maxvpos, rsheader_t rshd) {
+static int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned int *maxvpos, rsheader_t *rshd) {
     int i;
     int mp = -1;
     float mx = 0.0;
+    float mx2 = 0.0;
+    float re_cx = 0.0;
     double xnorm = 1;
     unsigned int mpos = 0;
 
     dc = 0.0;
 
-#ifdef ZEROPAD
-    if (rshd.N + K > N_DFT/2 - 2) return -1;
-#else
-    if (rshd.N + K > N_DFT) return -1;
-#endif
-//    if (sample_in < delay+rshd.N+K) return -2;
+    if (K + rshd->L > N_DFT) return -1;
+//    if (sample_out < rshd->L) return -2; // nur falls K-4 < L
 
     if (pos == 0) pos = sample_out;
 
-
-    for (i = 0; i < rshd.N+K; i++) xn[i] = bufs[(pos+M -(rshd.N+K-1) + i) % M];
+    for (i = 0; i < K+rshd->L; i++) xn[i] = bufs[(pos+M -(K+rshd->L-1) + i) % M];
     while (i < N_DFT) xn[i++] = 0.0;
 
     dft(xn, X);
 
-    dc = get_bufmu(pos-sample_out); //oder: dc = creal(X[0])/N_DFT;
+    dc = get_bufmu(pos-sample_out); //oder: dc = creal(X[0])/(K+rshd->L) = avg(xn) // zu lang (M10)
 
-    for (i = 0; i < N_DFT; i++) Z[i] = X[i]*rshd.Fm[i];
+    for (i = 0; i < N_DFT; i++) Z[i] = X[i]*rshd->Fm[i];
 
     Nidft(Z, cx);
 
 
-    if (abs) {
-        for (i = rshd.N; i < rshd.N+K; i++) {
-            if (fabs(creal(cx[i])) > fabs(mx)) {  // imag(cx)=0
-                mx = creal(cx[i]);
-                mp = i;
-            }
+    // relativ Peak - Normierung erst zum Schluss;
+    // dann jedoch nicht zwingend corr-Max wenn FM-Amplitude bzw. norm(x) nicht konstant
+    // (z.B. rs41 Signal-Pausen). Moeglicherweise wird dann wahres corr-Max in dem
+    //  K-Fenster nicht erkannt, deshalb K nicht zu gross waehlen.
+    //
+    mx2 = 0.0;                                 // t = L-1
+    for (i = rshd->L-1; i < K+rshd->L; i++) {  // i=t .. i=t+K < t+1+K
+        re_cx = creal(cx[i]);  // imag(cx)=0
+        //if (fabs(re_cx) > fabs(mx)) {
+        if (re_cx*re_cx > mx2) {
+            mx = re_cx;
+            mx2 = mx*mx;
+            mp = i;
         }
     }
-    else {
-        for (i = rshd.N; i < rshd.N+K; i++) {
-            if (creal(cx[i]) > mx) {  // imag(cx)=0
-                mx = creal(cx[i]);
-                mp = i;
-            }
-        }
+    if (abs == 0) {
+        // mx = 0;
     }
-    if (mp == rshd.N || mp == rshd.N+K-1) return -4; // Randwert
+    if (mp == rshd->L-1 || mp == K+rshd->L-1) return -4; // Randwert
+    //  mp == t            mp == K+t
 
-    mpos = pos - ( rshd.N+K-1 - mp );
+    mpos = pos - (K + rshd->L-1) + mp; // t = L-1
 
     //xnorm = sqrt(qs[(mpos + 2*M) % M]);
-    xnorm = 0.0;
-    for (i = 0; i < rshd.N; i++) xnorm += bufs[(mpos-i + M) % M]*bufs[(mpos-i + M) % M];
+    xnorm = 0.0;                           //xn[mp-t + i]
+    for (i = 0; i < rshd->L; i++) xnorm += bufs[(mpos-i + M) % M]*bufs[(mpos-i + M) % M];
     xnorm = sqrt(xnorm);
 
     mx /= xnorm*N_DFT;
@@ -410,7 +411,7 @@ static int f32buf_sample(FILE *fp, int inv) {
     return 0;
 }
 
-static int read_bufbit(int symlen, char *bits, unsigned int mvp, int reset, float spb) {
+static int read_bufbit(int symlen, char *bits, unsigned int mvp, int reset, float dc, float spb) {
 // symlen==2: manchester2 0->10,1->01->1: 2.bit
 
     static unsigned int rcount;
@@ -423,17 +424,19 @@ static int read_bufbit(int symlen, char *bits, unsigned int mvp, int reset, floa
         rbitgrenze = 0;
     }
 
+    // bei symlen=2 (Manchester) kein dc noetig,
+    // allerdings M10-header mit symlen=1
 
     rbitgrenze += spb;
     do {
-        sum += bufs[(rcount + mvp + M) % M];
+        sum += bufs[(rcount + mvp + M) % M] - dc;
         rcount++;
     } while (rcount < rbitgrenze);  // n < spb
 
     if (symlen == 2) {
         rbitgrenze += spb;
         do {
-            sum -= bufs[(rcount + mvp + M) % M];
+            sum -= bufs[(rcount + mvp + M) % M] - dc;
             rcount++;
         } while (rcount < rbitgrenze);  // n < spb
     }
@@ -451,27 +454,36 @@ static int read_bufbit(int symlen, char *bits, unsigned int mvp, int reset, floa
     return 0;
 }
 
-static int headcmp(int symlen, char *hdr, int len, unsigned int mvp, int inv, int option_dc, float spb) {
+static int headcmp(int symlen, unsigned int mvp, int inv, rsheader_t *rshd) {
     int errs = 0;
     int pos;
     int step = 1;
     char sign = 0;
+    int len = 0;
 
+    float dc = 0.0;
+/*
+    if (option_dc)
+    {
+        len = rshd->L;
+        for (pos = 0; pos < len; pos++) {
+            dc += bufs[(mvp - 1 - pos + M) % M];
+        }
+        dc /= (float)len;
+    }
+*/
     if (symlen != 1) step = 2;
     if (inv) sign=1;
 
+    len = rshd->hLen;
     for (pos = 0; pos < len; pos += step) {
-        read_bufbit(symlen, rawbits+pos, mvp+1-(int)(len*spb), pos==0, spb);
+        read_bufbit(symlen, rawbits+pos, mvp+1-(int)(rshd->hLen*rshd->spb), pos==0, dc, rshd->spb);
     }
     rawbits[pos] = '\0';
 
     while (len > 0) {
-        if ((rawbits[len-1]^sign) != hdr[len-1]) errs += 1;
+        if ((rawbits[len-1]^sign) != rshd->header[len-1]) errs += 1;
         len--;
-    }
-
-    if (option_dc && errs < 3) {
-        dc_ofs += dc;
     }
 
     return errs;
@@ -511,7 +523,7 @@ static int init_buffers() {
     float normMatch;
 
     int p2 = 1;
-    int K, NN;
+    int K, L;
     int n, k;
     float *match = NULL;
     float *m = NULL;
@@ -523,37 +535,36 @@ static int init_buffers() {
     float spb = 0.0;
 
     int hLen = 0;
+    int Lmax = 0;
 
     for (j = 0; j < Nrs; j++) {
         rs_hdr[j].spb = sample_rate/(float)rs_hdr[j].bps;
         rs_hdr[j].hLen = strlen(rs_hdr[j].header);
-        rs_hdr[j].N = rs_hdr[j].hLen * rs_hdr[j].spb + 0.5;
+        rs_hdr[j].L = rs_hdr[j].hLen * rs_hdr[j].spb + 0.5;
         if (rs_hdr[j].hLen > hLen) hLen = rs_hdr[j].hLen;
+        if (rs_hdr[j].L > Lmax) Lmax = rs_hdr[j].L;
     }
 
-    NN = hLen * sample_rate/2500.0 + 0.5; // max(hLen*spb)
+    // L = hLen * sample_rate/2500.0 + 0.5; // max(hLen*spb)
+    L = 2*Lmax;
 
-    M = 2*NN;
+    M = 3*L;
     //if (samples_per_bit < 6) M = 6*N;
 
-    delay = NN/16;
     sample_in = 0;
 
     p2 = 1;
     while (p2 < M) p2 <<= 1;
     while (p2 < 0x2000) p2 <<= 1;  // or 0x4000, if sample not too short
-    M = p2;
     N_DFT = p2;
-#ifdef ZEROPAD
-    M -= 1;
-    N_DFT <<= 1;
-#endif
+    K = N_DFT - L;
     LOG2N = log(N_DFT)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
     //while ((1 << LOG2N) < N_DFT) LOG2N++;  // better N_DFT = (1 << LOG2N) ...
 
-    K = M-NN - delay; // N+K < M
+    delay = L/16;
+    M = N_DFT + delay + 8; // L+K < M
 
-    Nvar = NN; // wenn Nvar fuer xnorm, dann Nvar=rshd.N
+    Nvar = Lmax; // wenn Nvar fuer xnorm, dann Nvar=rshd.L
 
     rawbits = (char *)calloc( hLen+1, sizeof(char)); if (rawbits == NULL) return -100;
     bufs  = (float *)calloc( M+1, sizeof(float)); if (bufs  == NULL) return -100;
@@ -575,7 +586,7 @@ static int init_buffers() {
         ew[n] = cexp(-I*M_PI/(float)k);
     }
 
-    match = (float *)calloc( NN+1, sizeof(float)); if (match == NULL) return -1;
+    match = (float *)calloc( L+1, sizeof(float)); if (match == NULL) return -1;
     m = (float *)calloc(N_DFT+1, sizeof(float));  if (m  == NULL) return -1;
 
 
@@ -586,7 +597,7 @@ static int init_buffers() {
         spb = rs_hdr[j].spb;
         sigma = sqrt(log(2)) / (2*M_PI*rs_hdr[j].BT);
 
-        for (i = 0; i < rs_hdr[j].N; i++) {
+        for (i = 0; i < rs_hdr[j].L; i++) {
 
             pos = i/spb;
             t = (i - pos*spb)/spb - 0.5;
@@ -607,12 +618,12 @@ static int init_buffers() {
             match[i] = b;
         }
 
-        normMatch = sqrt(norm2_match(match, rs_hdr[j].N));
-        for (i = 0; i < rs_hdr[j].N; i++) {
+        normMatch = sqrt(norm2_match(match, rs_hdr[j].L));
+        for (i = 0; i < rs_hdr[j].L; i++) {
             match[i] /= normMatch;
         }
 
-        for (i = 0; i < rs_hdr[j].N; i++) m[rs_hdr[j].N-1 - i] = match[i];
+        for (i = 0; i < rs_hdr[j].L; i++) m[rs_hdr[j].L-1 - i] = match[i]; // t = L-1
         while (i < N_DFT) m[i++] = 0.0;
         dft(m, rs_hdr[j].Fm);
 
@@ -659,7 +670,7 @@ int main(int argc, char **argv) {
 
     int j;
     int k, K;
-    float mv[Nrs], mv_max_arr[Nrs];
+    float mv[Nrs];
     unsigned int mv_pos[Nrs], mv0_pos[Nrs];
     int mp[Nrs];
 
@@ -690,10 +701,6 @@ int main(int argc, char **argv) {
         }
         //else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
         else if ( (strcmp(*argv, "-s") == 0) || (strcmp(*argv, "--silent") == 0) ) {
-            option_silent = 1;
-        }
-        else if ( (strcmp(*argv, "--debug") == 0) ) {
-            option_debug = 1;
             option_silent = 1;
         }
         else if ( (strcmp(*argv, "-t") == 0) || (strcmp(*argv, "--time") == 0) ) {
@@ -741,7 +748,6 @@ int main(int argc, char **argv) {
         mv[j] = 0;
         mv_pos[j] = 0;
         mp[j] = 0;
-        mv_max_arr[j] = 0;
     }
 
     k = 0;
@@ -758,7 +764,7 @@ int main(int argc, char **argv) {
                 if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) continue;
 #endif
                 mv0_pos[j] = mv_pos[j];
-                mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr[j]);
+                mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr+j);
             }
             k = 0;
         }
@@ -773,8 +779,8 @@ int main(int argc, char **argv) {
             if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
                 if (mv_pos[j] > mv0_pos[j]) {
 
-                    herrs = headcmp(1, rs_hdr[j].header, rs_hdr[j].hLen, mv_pos[j], mv[j]<0, 0, rs_hdr[j].spb);
-                    if (herrs < 2) {  // max 1 bitfehler in header
+                    herrs = headcmp(1, mv_pos[j], mv[j]<0, rs_hdr+j);
+                    if (herrs < rs_hdr[j].herrs) {  // max bit-errors in header
 
                         if ( strncmp(rs_hdr[j].type, "IMET", 4) == 0 )
                         {
@@ -841,7 +847,7 @@ int main(int argc, char **argv) {
 
                                     if (k >= K-4) {
                                         mv0_pos[j] = mv_pos[j];
-                                        mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr[j]);
+                                        mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr+j);
                                         k = 0;
                                     }
                                     else {
@@ -858,8 +864,8 @@ int main(int argc, char **argv) {
                                 }
                             }
                         }
-                        else{
-                            if (!option_debug) header_found = 1; // Might need to disable this for debug mode.
+                        else {
+                            header_found = 1;
                         }
 
                         if (header_found) {
@@ -874,25 +880,12 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Store maximum correlation scores
-        for (j = 0; j < Nrs; j++){
-            if (mv[j] > mv_max_arr[j]){
-                mv_max_arr[j] = mv[j];
-            }
-        }
-
         if (header_found) break;
         header_found = 0;
         for (j = 0; j < Nrs; j++) mv[j] = 0.0;
     }
 
 ende:
-    if (option_debug) {
-        //fprintf(stdout, "\nCorrelation scores for all types:\n");
-        for (j=0; j<Nrs; j++){
-            fprintf(stdout, "%s, %.4f, %.4f\n", rs_hdr[j].type, mv_max_arr[j], rs_hdr[j].thres);
-        }
-    }
     free_buffers();
     fclose(fp);
 
