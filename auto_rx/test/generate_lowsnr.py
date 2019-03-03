@@ -73,7 +73,7 @@ def add_noise(data, variance, baud_rate, ebno, fs=96000,  bitspersymbol=1.0):
     # Add calibrated noise to a sample.
 
     # Calculate Eb/No in linear units.
-    _ebno = 10.0**(ebno/10.0)
+    _ebno = 10.0**((ebno)/10.0)
 
     # Calculate the noise variance we need to add
     _noise_variance = variance*fs/(baud_rate*_ebno*bitspersymbol)
@@ -82,7 +82,7 @@ def add_noise(data, variance, baud_rate, ebno, fs=96000,  bitspersymbol=1.0):
     _rand_i = np.sqrt(_noise_variance/2.0)*np.random.randn(len(data))
     _rand_q = np.sqrt(_noise_variance/2.0)*np.random.randn(len(data))
 
-    _noisy = (data + (1j*_rand_i + _rand_q))
+    _noisy = (data + (_rand_i + 1j*_rand_q))
 
     if NORMALISE:
         print("Normalised to 1.0")
