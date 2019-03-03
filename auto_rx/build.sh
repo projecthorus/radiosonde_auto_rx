@@ -32,7 +32,6 @@ gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
 cd ../auto_rx/
-cp ../scan/rs_detect .
 cp ../scan/dft_detect .
 cp ../demod/rs92ecc .
 cp ../demod/rs41ecc .
