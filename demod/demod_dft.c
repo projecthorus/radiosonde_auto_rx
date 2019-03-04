@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <complex.h>
 
 
 typedef unsigned char  ui8_t;
@@ -27,7 +28,7 @@ typedef int   i32_t;
 static unsigned int sample_in, sample_out, delay;
 static int buffered = 0;
 
-static int N, M;
+static int L, M;
 
 static float *match = NULL,
              *bufs  = NULL;
@@ -45,7 +46,6 @@ static float dc = 0.0;
 
 /* ------------------------------------------------------------------------------------ */
 
-#include <complex.h>
 
 static int LOG2N, N_DFT;
 
@@ -106,53 +106,54 @@ static void Nidft(float complex *Z, float complex *z) {
 
 /* ------------------------------------------------------------------------------------ */
 
-int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned int *maxvpos) {
+int getCorrDFT(int K, unsigned int pos, float *maxv, unsigned int *maxvpos) {
     int i;
     int mp = -1;
     float mx = 0.0;
+    float mx2 = 0.0;
+    float re_cx = 0.0;
     float xnorm = 1;
     unsigned int mpos = 0;
 
     dc = 0.0;
 
-    if (N + K > N_DFT/2 - 2) return -1;
-    if (sample_in < delay+N+K) return -2;
+    if (K + L > N_DFT) return -1;
+    if (sample_out < L) return -2;
 
     if (pos == 0) pos = sample_out;
 
 
-    for (i = 0; i < N+K; i++) xn[i] = bufs[(pos+M -(N+K-1) + i) % M];
+    for (i = 0; i < K+L; i++) xn[i] = bufs[(pos+M -(K+L-1) + i) % M];
     while (i < N_DFT) xn[i++] = 0.0;
 
     dft(xn, X);
 
-    dc = get_bufmu(pos-sample_out); //oder: dc = creal(X[0])/N_DFT;
+    dc = get_bufmu(pos-sample_out); //oder: dc = creal(X[0])/(K+L);
 
     for (i = 0; i < N_DFT; i++) Z[i] = X[i]*Fm[i];
 
     Nidft(Z, cx);
 
 
-    if (abs) {
-        for (i = N; i < N+K; i++) {
-            if (fabs(creal(cx[i])) > fabs(mx)) {  // imag(cx)=0
-                mx = creal(cx[i]);
-                mp = i;
-            }
+    // relativ Peak - Normierung erst zum Schluss;
+    // dann jedoch nicht zwingend corr-Max wenn FM-Amplitude bzw. norm(x) nicht konstant
+    // (z.B. rs41 Signal-Pausen). Moeglicherweise wird dann wahres corr-Max in dem
+    //  K-Fenster nicht erkannt, deshalb K nicht zu gross waehlen.
+    //
+    mx2 = 0.0;                     // t = L-1
+    for (i = L-1; i < K+L; i++) {  // i=t .. i=t+K < t+1+K
+        re_cx = creal(cx[i]);  // imag(cx)=0
+        if (re_cx*re_cx > mx2) {
+            mx = re_cx;
+            mx2 = mx*mx;
+            mp = i;
         }
     }
-    else {
-        for (i = N; i < N+K; i++) {
-            if (creal(cx[i]) > mx) {  // imag(cx)=0
-                mx = creal(cx[i]);
-                mp = i;
-            }
-        }
-    }
-    if (mp == N || mp == N+K-1) return -4; // Randwert
+    if (mp == L-1 || mp == K+L-1) return -4; // Randwert
+    //  mp == t      mp == K+t
 
-    mpos = pos - ( N+K-1 - mp );
-    xnorm = sqrt(qs[(mpos + 2*M) % M]);
+    mpos = pos - (K + L-1) + mp;
+    xnorm = sqrt(qs[(mpos + 2*M) % M]); // Nvar = L
     mx /= xnorm*N_DFT;
 
     *maxv = mx;
@@ -270,7 +271,7 @@ float get_bufmu(int ofs) {
     return mu;
 }
 
-int f32buf_sample(FILE *fp, int inv, int cm) {
+int f32buf_sample(FILE *fp, int inv) {
     float s = 0.0;
     float xneu, xalt;
 
@@ -286,11 +287,6 @@ int f32buf_sample(FILE *fp, int inv, int cm) {
     qsum += (xneu - xalt)*(xneu + xalt);  // + xneu*xneu - xalt*xalt
     xs[sample_in % M] = xsum;
     qs[sample_in % M] = qsum;
-
-
-    if (0 && cm) {
-        // direct correlation
-    }
 
 
     sample_out = sample_in - delay;
@@ -369,7 +365,7 @@ int headcmp(int symlen, char *hdr, int len, unsigned int mvp, int inv, int optio
 
 /* -------------------------------------------------------------------------- */
 
-int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int cm) {
+int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset) {
 // symlen==2: manchester2 10->0,01->1: 2.bit
 
     static double bitgrenze;
@@ -388,7 +384,7 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
         bitgrenze += samples_per_bit;
         do {
             if (buffered > 0) buffered -= 1;
-            else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+            else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
             sample = bufs[(sample_out-buffered + ofs + M) % M];
             sum -= sample;
@@ -400,7 +396,7 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     bitgrenze += samples_per_bit;
     do {
         if (buffered > 0) buffered -= 1;
-        else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+        else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
         sample = bufs[(sample_out-buffered + ofs + M) % M];
         sum += sample;
@@ -414,7 +410,7 @@ int read_sbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int c
     return 0;
 }
 
-int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int cm, int spike) {
+int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int spike) {
 // symlen==2: manchester2 10->0,01->1: 2.bit
 
     static double bitgrenze;
@@ -435,7 +431,7 @@ int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int
         bitgrenze += samples_per_bit;
         do {
             if (buffered > 0) buffered -= 1;
-            else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+            else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
             sample = bufs[(sample_out-buffered + ofs + M) % M];
             avg = 0.5*(bufs[(sample_out-buffered-1 + ofs + M) % M]
@@ -451,7 +447,7 @@ int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int
     bitgrenze += samples_per_bit;
     do {
         if (buffered > 0) buffered -= 1;
-        else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+        else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
         sample = bufs[(sample_out-buffered + ofs + M) % M];
         avg = 0.5*(bufs[(sample_out-buffered-1 + ofs + M) % M]
@@ -471,7 +467,7 @@ int read_spkbit(FILE *fp, int symlen, int *bit, int inv, int ofs, int reset, int
 
 /* -------------------------------------------------------------------------- */
 
-int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv, int ofs, int reset, int cm) {
+int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv, int ofs, int reset) {
 // symlen==2: manchester2 10->0,01->1: 2.bit
 
     static double bitgrenze;
@@ -491,7 +487,7 @@ int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv
         bitgrenze += samples_per_bit;
         do {
             if (buffered > 0) buffered -= 1;
-            else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+            else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
             sample = bufs[(sample_out-buffered + ofs + M) % M];
             if (scount > bitgrenze-samples_per_bit  &&  scount < bitgrenze-2)
@@ -506,7 +502,7 @@ int read_softbit(FILE *fp, int symlen, int *bit, float *sb, float level, int inv
     bitgrenze += samples_per_bit;
     do {
         if (buffered > 0) buffered -= 1;
-        else if (f32buf_sample(fp, inv, cm) == EOF) return EOF;
+        else if (f32buf_sample(fp, inv) == EOF) return EOF;
 
         sample = bufs[(sample_out-buffered + ofs + M) % M];
         if (scount > bitgrenze-samples_per_bit  &&  scount < bitgrenze-2)
@@ -541,9 +537,9 @@ float header_level(char hdr[], int hLen, unsigned int pos, int inv) {
 
     n = 0;
     bitn = 0;
-    while ( bitn < hLen && (n < N) ) {
+    while ( bitn < hLen && (n < L) ) {
         sgn = (hdr[bitn]&1)*2-1; // {'0','1'} -> {-1,1}
-        s = bufs[(pos-N + n + M) % M];
+        s = bufs[(pos-L + n + M) % M];
         if (inv) s = -s;
         sum += s * sgn;
         n++;
@@ -560,7 +556,7 @@ float header_level(char hdr[], int hLen, unsigned int pos, int inv) {
 static double norm2_match() {
     int i;
     double x, y = 0.0;
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < L; i++) {
         x = match[i];
         y += x*x;
     }
@@ -576,24 +572,40 @@ int init_buffers(char hdr[], int hLen, int shape) {
 
     float alpha, sqalp, a = 1.0;
 
+    int p2 = 1;
     int K;
     int n, k;
     float *m = NULL;
 
 
-    N = hLen * samples_per_bit + 0.5;
-    M = 3*N;
-    if (samples_per_bit < 6) M = 6*N;
-    Nvar = N; //N/2; // = N/k
+    L = hLen * samples_per_bit + 0.5;
+    M = 3*L;
+    // if (samples_per_bit < 6) M = 6*L;
+
+    sample_in = 0;
+
+    p2 = 1;
+    while (p2 < M) p2 <<= 1;
+    while (p2 < 0x2000) p2 <<= 1;  // or 0x4000, if sample not too short
+    M = p2;
+    N_DFT = p2;
+    LOG2N = log(N_DFT)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
+    //while ((1 << LOG2N) < N_DFT) LOG2N++;  // better N_DFT = (1 << LOG2N) ...
+
+    delay = L/16;
+    K = M-L - delay; // L+K < M
+
+    Nvar = L; //L/2; // = L/k
+
 
     bufs  = (float *)calloc( M+1, sizeof(float)); if (bufs  == NULL) return -100;
-    match = (float *)calloc( N+1, sizeof(float)); if (match == NULL) return -100;
+    match = (float *)calloc( L+1, sizeof(float)); if (match == NULL) return -100;
 
     xs = (float *)calloc( M+1, sizeof(float)); if (xs == NULL) return -100;
     qs = (float *)calloc( M+1, sizeof(float)); if (qs == NULL) return -100;
 
 
-    rawbits = (char *)calloc( N+1, sizeof(char)); if (rawbits == NULL) return -100;
+    rawbits = (char *)calloc( 2*hLen+1, sizeof(char)); if (rawbits == NULL) return -100;
 
     for (i = 0; i < M; i++) bufs[i] = 0.0;
 
@@ -601,7 +613,7 @@ int init_buffers(char hdr[], int hLen, int shape) {
     sqalp = sqrt(alpha/M_PI);
     //a = sqalp;
 
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < L; i++) {
         pos = i/samples_per_bit;
         x = (i - pos*samples_per_bit)*2.0/samples_per_bit - 1;
         a = sqalp;
@@ -629,22 +641,8 @@ int init_buffers(char hdr[], int hLen, int shape) {
     }
 
     normMatch = sqrt(norm2_match());
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < L; i++) {
         match[i] /= normMatch;
-    }
-
-
-    delay = N/16;
-    sample_in = 0;
-
-    K = M-N - delay; //N/2 - delay;  // N+K < M
-
-    LOG2N = 2 + (int)(log(N+K)/log(2));
-    N_DFT = 1 << LOG2N;
-
-    while (N + K > N_DFT/2 - 2) {
-        LOG2N  += 1;
-        N_DFT <<= 1;
     }
 
 
@@ -662,7 +660,7 @@ int init_buffers(char hdr[], int hLen, int shape) {
     }
 
     m = calloc(N_DFT+1, sizeof(float));  if (m  == NULL) return -1;
-    for (i = 0; i < N; i++) m[N-1 - i] = match[i];
+    for (i = 0; i < L; i++) m[L-1 - i] = match[i]; // t = L-1
     while (i < N_DFT) m[i++] = 0.0;
     dft(m, Fm);
 

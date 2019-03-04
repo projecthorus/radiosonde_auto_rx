@@ -1,15 +1,15 @@
 
 /*
- *  LMS6
+ *  LMSx
  *  (403 MHz)
  *
  *  sync header: correlation/matched filter
- *  files: lms6dm_dft.c demod_dft.h demod_dft.c bch_ecc.c
+ *  files: lmsXdm_dft.c demod_dft.h demod_dft.c bch_ecc.c
  *  compile:
  *      gcc -c demod_dft.c
- *      gcc lms6dm_dft.c demod_dft.o -lm -o lms6dm_dft
+ *      gcc lmsXdm_dft.c demod_dft.o -lm -o lmsXdm_dft
  *  usage:
- *      ./lms6dm_dft -v --vit --ecc <audio.wav>
+ *      ./lmsXdm_dft -v --vit --ecc <audio.wav>
  *
  *  author: zilog80
  */
@@ -46,7 +46,7 @@ int wav_channel = 0;     // audio channel: left
 
 /* -------------------------------------------------------------------------- */
 
-#define BAUD_RATE   4800
+#define BAUD_RATE   (4797.7)  // = 4800 / (48023/48000) ?
 
 #define BITS 8
 #define HEADOFS  0 //16
@@ -58,13 +58,15 @@ char rawheader[] = "0101011000001000""0001110010010111""0001101010100111""001111
 ui8_t rs_sync[] = { 0x00, 0x58, 0xf3, 0x3f, 0xb8};
 // 0x58f33fb8 little-endian <-> 0x1ACFFC1D big-endian bytes
 
+#define FRAME_LEN  (300)  // 4800baud, 16bits/byte
 #define SYNC_LEN 5
 #define FRM_LEN    (223)
 #define PAR_LEN    (32)
 #define FRMBUF_LEN (3*FRM_LEN)
 #define BLOCKSTART (SYNC_LEN*BITS*2)
 #define BLOCK_LEN  (FRM_LEN+PAR_LEN+SYNC_LEN)  // 255+5 = 260
-#define RAWBITBLOCK_LEN ((BLOCK_LEN+1)*BITS*2) // (+1 tail)
+//#define RAWBITBLOCK_LEN ((BLOCK_LEN+1)*BITS*2) // (+1 tail)
+#define RAWBITBLOCK_LEN ((300)*BITS*2)
 
 //                                                      (00)               58                f3                3f                b8
 char  blk_rawbits[RAWBITBLOCK_LEN+SYNC_LEN*BITS*2 +8] = "0000000000000000""0000001101011101""0100100111000010""0100111111110010""0110100001101011";
@@ -77,16 +79,16 @@ float  soft_rawbits[RAWBITBLOCK_LEN+SYNC_LEN*BITS*2 +8] =
    -1.0,  1.0, -1.0, -1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, -1.0, -1.0,  1.0, -1.0,
    -1.0,  1.0,  1.0, -1.0,  1.0, -1.0, -1.0, -1.0, -1.0,  1.0,  1.0, -1.0,  1.0, -1.0,  1.0,  1.0 };
 
-ui8_t block_bytes[BLOCK_LEN+8];
+ui8_t block_bytes[FRAME_LEN+8];  // BLOCK_LEN + 40
 
 
-ui8_t frm_sync[] = { 0x24, 0x54, 0x00, 0x00};
+//ui8_t frm_sync[] = { 0x24, 0x54, 0x00, 0x00};
+ui8_t frm_sync[] = { 0x24, 0x46, 0x05, 0x00};
 ui8_t frame[FRM_LEN] = { 0x24, 0x54, 0x00, 0x00}; // dataheader
 
 ui8_t *p_frame = frame;
 
 
-#define FRAME_LEN       (300)  // 4800baud, 16bits/byte
 #define BITFRAME_LEN    (FRAME_LEN*BITS)
 #define RAWBITFRAME_LEN (BITFRAME_LEN*2)
 #define OVERLAP 64
@@ -485,9 +487,9 @@ gpx_t gpx0 = { 0 };
 #define pos_GPSlon   (OFS+0x12)  // 4 byte
 #define pos_GPSalt   (OFS+0x16)  // 4 byte
 //GPS Velocity East-North-Up (ENU)
-#define pos_GPSvO    (OFS+0x1A)  // 3 byte
-#define pos_GPSvN    (OFS+0x1D)  // 3 byte
-#define pos_GPSvV    (OFS+0x20)  // 3 byte
+#define pos_GPSvO    (OFS+0x1A)  // 2 byte
+#define pos_GPSvN    (OFS+0x1C)  // 2 byte
+#define pos_GPSvV    (OFS+0x1E)  // 2 byte
 
 
 int get_SondeSN() {
@@ -548,7 +550,7 @@ int get_GPStime() {
     day = gpstime / (24 * 3600);
     gpstime %= (24*3600);
 
-    if ((day < 0) || (day > 6)) return -1;
+    //if ((day < 0) || (day > 6)) return -1;
 
     gpx.wday = day;
     gpx.std = gpstime / 3600;
@@ -577,7 +579,7 @@ int get_GPSlat() {
     for (i = 0; i < 4; i++) {
         gpslat |= gpslat_bytes[i] << (8*(3-i));
     }
-    lat = gpslat / B60B60;
+    lat = gpslat / 1e7; //  / B60B60;
     gpx.lat = lat;
 
     return 0;
@@ -600,7 +602,7 @@ int get_GPSlon() {
     for (i = 0; i < 4; i++) {
         gpslon |= gpslon_bytes[i] << (8*(3-i));
     }
-    lon = gpslon / B60B60;
+    lon = gpslon / 1e7; //   B60B60;
     gpx.lon = lon;
 
     return 0;
@@ -623,7 +625,7 @@ int get_GPSalt() {
     for (i = 0; i < 4; i++) {
         gpsheight |= gpsheight_bytes[i] << (8*(3-i));
     }
-    height = gpsheight / 1000.0;
+    height = gpsheight / 100.0;
     gpx.h = height;
 
     if (height < -100 || height > 60000) return -1;
@@ -685,6 +687,44 @@ int get_GPSvel24() {
     return 0;
 }
 
+int get_GPSvel16() {
+    int i;
+    unsigned byte;
+    ui8_t gpsVel_bytes[2];
+    short vel16;
+    double vx, vy, vz, dir; //, alpha;
+
+    for (i = 0; i < 2; i++) {
+        byte = p_frame[pos_GPSvO + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vx = vel16 / 1e2; // ost
+
+    for (i = 0; i < 2; i++) {
+        byte = p_frame[pos_GPSvN + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vy= vel16 / 1e2; // nord
+
+    for (i = 0; i < 2; i++) {
+        byte = p_frame[pos_GPSvV + i];
+        if (byte > 0xFF) return -1;
+        gpsVel_bytes[i] = byte;
+    }
+    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vz = vel16 / 1e2; // hoch
+
+    gpx.vH = vx;
+    gpx.vD = vy;
+    gpx.vV = vz;
+
+    return 0;
+}
+
 
 // RS(255,223)-CCSDS
 #define rs_N 255
@@ -715,9 +755,7 @@ void print_frame(int crc_err, int len) {
             get_SondeSN();
             if (option_verbose) printf(" (%7d) ", gpx.sn);
             printf(" [%5d] ", gpx.frnr);
-            printf("%s ", weekday[gpx.wday]);
-            printf("(%02d:%02d:%06.3f) ", gpx.std, gpx.min, gpx.sek); // falls Rundung auf 60s: Ueberlauf
-
+            //
             get_GPSlat();
             get_GPSlon();
             err = get_GPSalt();
@@ -727,8 +765,7 @@ void print_frame(int crc_err, int len) {
                 printf(" alt: %.2fm ", gpx.h);
                 //if (option_verbose)
                 {
-                    get_GPSvel24();
-                    //if (option_verbose == 2) printf("  (%.1f ,%.1f,%.1f) ", gpx.vE, gpx.vN, gpx.vU);
+                    get_GPSvel16();
                     printf("  vH: %.1fm/s  D: %.1f°  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vV);
                 }
             }
@@ -780,74 +817,56 @@ void proc_frame(int len) {
     blen = bits2bytes(frame_bits, block_bytes);
     for (j = blen; j < flen; j++) block_bytes[j] = 0;
 
+    sf = 0;
+    blk_pos = SYNC_LEN;
+    for (j = 0; j < 4; j++) sf += (block_bytes[SYNC_LEN+j] == frm_sync[j]);
+    if (sf < 4) { // scan 1..40 ?
+        sf = 0;
+        for (j = 0; j < 4; j++) sf += (block_bytes[SYNC_LEN+35+j] == frm_sync[j]);
+        if (sf == 4)  blk_pos = SYNC_LEN+35;
+        else {
+            sf = 0;
+            for (j = 0; j < 4; j++) sf += (block_bytes[SYNC_LEN+40+j] == frm_sync[j]);
+            if (sf == 4)  blk_pos = SYNC_LEN+40; // 300-260
+        }
+    }
 
-    if (option_ecc) {
-        for (j = 0; j < rs_N; j++) rs_cw[rs_N-1-j] = block_bytes[SYNC_LEN+j];
+    if (blen > 100 && option_ecc) {
+        for (j = 0; j < rs_N; j++) rs_cw[rs_N-1-j] = block_bytes[blk_pos+j];
         errs = lms6_ecc(rs_cw);
-        for (j = 0; j < rs_N; j++) block_bytes[SYNC_LEN+j] = rs_cw[rs_N-1-j];
+        for (j = 0; j < rs_N; j++) block_bytes[blk_pos+j] = rs_cw[rs_N-1-j];
     }
 
     if (option_raw == 2) {
         for (i = 0; i < flen; i++) printf("%02x ", block_bytes[i]);
-        if (option_ecc) printf("(%d)", errs);
+        if (blen > 100 && option_ecc) printf("(%d)", errs);
         printf("\n");
     }
-    else if (option_raw == 4  &&  option_ecc) {
-        for (i = 0; i < rs_N; i++) printf("%02x", block_bytes[SYNC_LEN+i]);
+    else if (option_raw == 4  &&  option_ecc && blen > 100) {
+        for (i = 0; i < rs_N; i++) printf("%02x", block_bytes[blk_pos+i]);
         printf(" (%d)", errs);
         printf("\n");
     }
     else if (option_raw == 8) {
-        if (option_vit == 1) {
+        if (option_vit) {
             for (i = 0; i < len; i++) printf("%c", vit_rawbits[i]); printf("\n");
-        }
-        else if (option_vit == 2) {
-            for (i = 0; i < len; i++) printf("%c", vits_rawbits[i]); printf("\n");
         }
         else {
             for (i = 0; i < len; i++) printf("%c", blk_rawbits[i]); printf("\n");
         }
     }
 
-    blk_pos = SYNC_LEN;
+    for (j = 0; j < rs_K; j++) frame[j] = block_bytes[blk_pos+j];
 
-    while ( blk_pos-SYNC_LEN < FRM_LEN ) {
+    crc_err = check_CRC(p_frame);
 
-        if (sf == 0) {
-            while ( blk_pos-SYNC_LEN < FRM_LEN ) {
-                sf = 0;
-                for (j = 0; j < 4; j++) sf += (block_bytes[blk_pos+j] == frm_sync[j]);
-                if (sf == 4)  {
-                    frm_pos = 0;
-                    break;
-                }
-                blk_pos++;
-            }
-        }
-
-        if ( sf  &&  frm_pos < FRM_LEN ) {
-            frame[frm_pos] = block_bytes[blk_pos];
-            frm_pos++;
-            blk_pos++;
-        }
-
-        if (frm_pos == FRM_LEN) {
-
-            crc_err = check_CRC(p_frame);
-
-            if (option_raw == 1) {
-                for (i = 0; i < FRM_LEN; i++) printf("%02x ", p_frame[i]);
-                if (crc_err==0) printf(" [OK]"); else printf(" [NO]");
-                printf("\n");
-            }
-
-            if (option_raw == 0) print_frame(crc_err, len);
-
-            frm_pos = 0;
-            sf = 0;
-        }
-
+    if (option_raw == 1) {
+        for (i = 0; i < FRM_LEN; i++) printf("%02x ", p_frame[i]);
+        if (crc_err==0) printf(" [OK]"); else printf(" [NO]");
+        printf("\n");
     }
+
+    if (option_raw == 0) print_frame(crc_err, len);
 
 }
 
@@ -1037,7 +1056,7 @@ int main(int argc, char **argv) {
                     if (mv > 0) bc = 0; else bc = 1;
 
                     while ( pos < RAWBITBLOCK_LEN ) {
-
+                        header_found = !(pos>=RAWBITBLOCK_LEN-10);
                         //bitQ = read_sbit(fp, symlen, &rbit, option_inv, bitofs, bitpos==0); // symlen=1
                         bitQ = read_softbit(fp, symlen, &rbit, &sb, level, option_inv, bitofs, bitpos==0); // symlen=1
                         if (bitQ == EOF) { break; }
