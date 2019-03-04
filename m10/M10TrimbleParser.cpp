@@ -144,6 +144,14 @@ int M10TrimbleParser::getSeconds() {
     return (time / 1000 % (24 * 3600)) % 60;
 }
 
+int M10TrimbleParser::getSatellites() {
+    unsigned char sats;
+
+    sats = frame_bytes[30];
+
+    return sats;
+}
+
 double M10TrimbleParser::getVerticalSpeed() {
     int i;
     unsigned byte;
@@ -296,6 +304,15 @@ double M10TrimbleParser::getDp() {
     return 0;
 }
 
+double M10TrimbleParser::getBatteryLevel() {
+    unsigned short batLvl;
+    
+    batLvl = (frame_bytes[70] << 8) | frame_bytes[69];
+    
+    // Thanks F5MVO for the formula !
+    return (double)batLvl/1000.*6.62;
+}
+
 std::string M10TrimbleParser::getSerialNumber() {
     int i;
     unsigned byte;
@@ -311,6 +328,16 @@ std::string M10TrimbleParser::getSerialNumber() {
         sn_bytes[i] = byte;
     }
 
+    /*
+     * The serial number is in the form M10-A-BCC-D-EEEE
+     * - A is the frame type, T for Trimble, the original GPS used for this modulation
+     * G for Gtop GPS
+     * - B is the year of fabrication (8 = 2018)
+     * - CC is the month of fabrication
+     * - D is the product type, 2 is production type
+     * - EEEE is the RS serial number
+     */
+    
     byte = sn_bytes[2];
     sprintf(SN, "M10-T-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
@@ -412,10 +439,10 @@ void M10TrimbleParser::printFrame() {
         timeinfo.tm_isdst = 0;
 
         frame = mktime(&timeinfo);
-		
-		// Aux data tag if the payload lenght is long
-		std::string auxstr = "";
-		if(frame_bytes[0x00] != 0x64) {
+
+        // Aux data tag if the payload lenght is long
+        std::string auxstr = "";
+        if (frame_bytes[0x00] != 0x64) {
             auxstr = "\"aux\": -1, ";
         }
 
@@ -426,7 +453,8 @@ void M10TrimbleParser::printFrame() {
                 "\"id\": \"%s\", "
                 "\"dxlid\": \"%s\", "
                 "\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", "
-				"%s" // Aux data
+                "%s" // Aux data
+                "\"satellites\": %d, "
                 "\"lat\": %.5f, "
                 "\"lon\": %.5f, "
                 "\"alt\": %.2f, "
@@ -434,10 +462,12 @@ void M10TrimbleParser::printFrame() {
                 "\"heading\": %.5f, "
                 "\"vel_v\": %.2f, "
                 "\"temp\": %.1f, "
+                "\"battery\": %.2f, "
                 "\"crc\": %d "
                 "}\n",
-                "Trimble", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), auxstr.c_str(), getLatitude(), getLongitude(),
-                getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), correctCRC);
+                "Trimble", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), 
+                auxstr.c_str(), getSatellites(), getLatitude(), getLongitude(),
+                getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), getBatteryLevel(), correctCRC);
     }
 }
 
