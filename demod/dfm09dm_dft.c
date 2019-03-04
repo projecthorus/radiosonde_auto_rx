@@ -686,7 +686,7 @@ void print_gpx() {
             }
         }
         else {
-            if (option_auto && option_verbose >= 2) printf("[%c] ", option_inv?'-':'+');
+            if (option_auto && option_verbose >= 2) printf("<%c> ", option_inv?'-':'+');
             printf("[%3d] ", gpx.frnr);
             printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
             printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
@@ -851,8 +851,9 @@ int main(int argc, char **argv) {
 
     float thres = 0.65;
 
-    int bitofs = 0;
     int symlen = 2;
+    int bitofs = 2; // +1 .. +2
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -904,6 +905,15 @@ int main(int argc, char **argv) {
             }
             else return -1;
         }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
+            }
+            else return -1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -932,8 +942,9 @@ int main(int argc, char **argv) {
 
 
     symlen = 2;
+    bitofs += shift;
+
     headerlen = strlen(rawheader);
-    bitofs = 2; // +1 .. +2
     K = init_buffers(rawheader, headerlen, 0); // shape=0 (alt. shape=1)
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
@@ -941,14 +952,16 @@ int main(int argc, char **argv) {
     };
 
     k = 0;
-    mv = 0; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(option_auto, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
+            if (option_auto == 0 && mv < 0) mv = 0;
             k = 0;
         }
         else {
@@ -993,8 +1006,7 @@ int main(int argc, char **argv) {
                     while ( frm < nfrms ) { // nfrms=1,2,4,8
                         frm_cnt = mv_pos/(spb*2.0*BITFRAME_LEN) + frm;
                         while ( pos < BITFRAME_LEN ) {
-                            header_found = !(frm==nfrms-1 && pos>=BITFRAME_LEN-10);
-                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
+                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0); // symlen=2
                             if (bitQ == EOF) { frm = nfrms; break; }
                             frame_bits[pos] = 0x30 + bit;
                             pos++;

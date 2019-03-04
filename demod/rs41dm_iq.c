@@ -33,6 +33,7 @@ typedef struct {
     i8_t ecc;  // Reed-Solomon ECC
     i8_t sat;  // GPS sat data
     i8_t ptu;  // PTU: temperature
+    i8_t jsn;  // JSON output (auto_rx)
 } option_t;
 
 typedef struct {
@@ -789,7 +790,7 @@ static int get_Aux(gpx_t *gpx) {
 
             if ( auxcrc == crc16(gpx, pos7E+2, auxlen) ) {
                 if (count7E == 0) fprintf(stdout, "\n # xdata = ");
-                else { fprintf(stdout, " # "); gpx->xdata[n++] = '#'; }
+                else { fprintf(stdout, " # "); gpx->xdata[n++] = '#'; } // aux separator
 
                 //fprintf(stdout, " # %02x : ", gpx->frame[pos7E+2]);
                 for (i = 1; i < auxlen; i++) {
@@ -1073,9 +1074,28 @@ static int print_position(gpx_t *gpx, int ec) {
 
         get_Calconf(gpx, output);
 
-        if (gpx->option.vbs > 1) gpx->aux = get_Aux(gpx);
+        if (gpx->option.vbs > 1 || gpx->option.jsn) {
+            gpx->aux = get_Aux(gpx);
+            //if (gpx->aux) fprintf(stdout, "\n%d: %s", gpx->aux, gpx->xdata);
+        }
 
         fprintf(stdout, "\n");  // fflush(stdout);
+
+
+        if (gpx->option.jsn) {
+            // Print JSON output required by auto_rx.
+            if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
+                printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",  gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vU, gpx->numSV );
+                if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
+                    printf(", \"temp\":%.1f",  gpx->T );
+                }
+                if (gpx->aux) { // <=> gpx->xdata[0]!='\0'
+                    printf(", \"aux\":\"%s\"",  gpx->xdata );
+                }
+                printf(" }\n");
+                printf("\n");
+            }
+        }
 
     }
 
@@ -1210,6 +1230,11 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--ecc2") == 0) { gpx.option.ecc = 2; }
         else if   (strcmp(*argv, "--sat") == 0) { gpx.option.sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { gpx.option.ptu = 1; }
+        else if   (strcmp(*argv, "--json") == 0) {
+            gpx.option.jsn = 1;
+            gpx.option.ecc = 2;
+            gpx.option.crc = 1;
+        }
         else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
@@ -1310,7 +1335,7 @@ int main(int argc, char *argv[]) {
             k += 1;
             if (k >= dsp.K-4) {
                 mv0_pos = mv_pos;
-                mp = getCorrDFT(&dsp, 0, 0, &mv, &mv_pos);
+                mp = getCorrDFT(&dsp, 0, &mv, &mv_pos);
                 k = 0;
             }
             else {
@@ -1340,10 +1365,10 @@ int main(int argc, char *argv[]) {
 
                         while ( byte_count < FRAME_LEN ) {
                             if (option_iq >= 2) {
-                                bitQ = read_slbit(&dsp, symlen, &bit, option_inv, bitofs, bit_count, 1.0);
+                                bitQ = read_slbit(&dsp, symlen, &bit, option_inv, bitofs, bit_count, 1.0, 0);
                             }
                             else {
-                                bitQ = read_slbit(&dsp, symlen, &bit, option_inv, bitofs, bit_count, -1);
+                                bitQ = read_slbit(&dsp, symlen, &bit, option_inv, bitofs, bit_count, -1, 0);
                             }
                             if ( bitQ == EOF) break;
                             bit_count += 1;

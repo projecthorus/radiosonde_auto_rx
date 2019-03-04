@@ -789,7 +789,7 @@ int get_GPS3() {
     return err;
 }
 
-int get_Aux(char* aux_data) {
+int get_Aux() {
 //
 // "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
 //
@@ -813,7 +813,6 @@ int get_Aux(char* aux_data) {
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
                 ui8_t c = framebyte(pos7E+2+i);
-                aux_data[i-1] = c;
                 if (c > 0x1E) fprintf(stdout, "%c", c);
             }
             count7E++;
@@ -1098,26 +1097,18 @@ int print_position(int ec) {
 
         get_Calconf(output);
 
-        char aux_data[FRAME_LEN] = "";
-        if (option_verbose > 1 || option_json) get_Aux(aux_data);
+        if (option_verbose > 1) get_Aux();
 
         fprintf(stdout, "\n");  // fflush(stdout);
 
 
         if (option_json) {
-            char auxbuffer[FRAME_LEN] = "";
-            fprintf(stdout, "\n");  // fflush(stdout) as get_Aux prints to stdout
             // Print JSON output required by auto_rx.
             if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
-                if ( strlen(aux_data) > 0 ){
-                    strcpy( auxbuffer, ", \"aux\":\"");
-                    strcpy( auxbuffer+9, aux_data);
-                    strcpy( auxbuffer+strlen(aux_data)+8, "\"\0" );
-                }
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T );
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV );
                 }
                 printf("\n");
             }
@@ -1218,6 +1209,7 @@ int main(int argc, char *argv[]) {
 
     int symlen = 1;
     int bitofs = 2;
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -1270,6 +1262,15 @@ int main(int argc, char *argv[]) {
             }
             else return -1;
         }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
+            }
+            else return -1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -1300,8 +1301,9 @@ int main(int argc, char *argv[]) {
 
 
     symlen = 1;
+    bitofs += shift;
+
     headerlen = strlen(header);
-    bitofs = 2; // +1 .. +2
     K = init_buffers(header, headerlen, 2); // shape=2
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
@@ -1310,14 +1312,15 @@ int main(int argc, char *argv[]) {
 
 
     k = 0;
-    mv = -1; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
             k = 0;
         }
         else {
@@ -1350,7 +1353,7 @@ int main(int argc, char *argv[]) {
                     ft_len = frmlen;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0); // symlen=1
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
@@ -1380,7 +1383,7 @@ int main(int argc, char *argv[]) {
                     header_found = 0;
 
                     while ( bit_count < BITS*(FRAME_LEN-8+24) ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0); // symlen=1
                         if ( bitQ == EOF) break;
                         bit_count++;
                     }
