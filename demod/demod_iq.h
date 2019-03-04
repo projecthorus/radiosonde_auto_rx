@@ -43,7 +43,7 @@ typedef struct {
     ui32_t sample_out;
     ui32_t delay;
     int buffered;
-    int N;
+    int L;
     int M;
     int K;
     float *match;
@@ -100,9 +100,9 @@ typedef struct {
 
 float read_wav_header(pcm_t *, FILE *);
 int f32buf_sample(dsp_t *, int);
-int read_slbit(dsp_t *, int, int*, int, int, int, float);
+int read_slbit(dsp_t *, int, int*, int, int, int, float, int);
 
-int getCorrDFT(dsp_t *, int, ui32_t, float *, ui32_t *);
+int getCorrDFT(dsp_t *, ui32_t, float *, ui32_t *);
 int headcmp(dsp_t *, int, ui32_t, int, int);
 int get_fqofs_rs41(dsp_t *, ui32_t, float *, float *);
 float get_bufvar(dsp_t *, int);

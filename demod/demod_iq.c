@@ -137,57 +137,63 @@ static int dft_window(dft_t *dft, int w) {
 
 /* ------------------------------------------------------------------------------------ */
 
-int getCorrDFT(dsp_t *dsp, int abs, ui32_t pos, float *maxv, ui32_t *maxvpos) {
+int getCorrDFT(dsp_t *dsp, ui32_t pos, float *maxv, ui32_t *maxvpos) {
     int i;
     int mp = -1;
     float mx = 0.0;
+    float mx2 = 0.0;
+    float re_cx = 0.0;
     float xnorm = 1;
     ui32_t mpos = 0;
 
 
     dsp->dc = 0.0;
 
-    if (dsp->N + dsp->K > dsp->DFT.N/2 - 2) return -1;
-    if (dsp->sample_in < dsp->delay + dsp->N + dsp->K) return -2;
+    if (dsp->K + dsp->L > dsp->DFT.N) return -1;
+    if (dsp->sample_out < dsp->L) return -2;
 
     if (pos == 0) pos = dsp->sample_out;
 
-    dsp->dc = get_bufmu(dsp, pos - dsp->sample_out); //oder unten: dft_dc = creal(X[0])/DFT_N;
+    dsp->dc = get_bufmu(dsp, pos - dsp->sample_out); //oder unten: dft_dc = creal(X[0])/(K+L);
     // wenn richtige Stelle (Varianz pruefen, kein M10-carrier?), dann von bufs[] subtrahieren
 
 
-    for (i = 0; i < dsp->N + dsp->K; i++) (dsp->DFT).xn[i] = dsp->bufs[(pos+dsp->M -(dsp->N + dsp->K - 1) + i) % dsp->M];
-    while (i < (dsp->DFT).N) (dsp->DFT).xn[i++] = 0.0;
+    for (i = 0; i < dsp->K + dsp->L; i++) (dsp->DFT).xn[i] = dsp->bufs[(pos+dsp->M -(dsp->K + dsp->L-1) + i) % dsp->M];
+    while (i < dsp->DFT.N) (dsp->DFT).xn[i++] = 0.0;
 
-    rdft(&dsp->DFT, (dsp->DFT).xn, (dsp->DFT).X);
+    rdft(&dsp->DFT, dsp->DFT.xn, dsp->DFT.X);
 
-    // dft_dc = creal((dsp->DFT).X[0])/(dsp->DFT).N;
+    // dft_dc = creal(dsp->DFT.X[0])/dsp->DFT.N;
 
-    for (i = 0; i < (dsp->DFT).N; i++) (dsp->DFT).Z[i] = (dsp->DFT).X[i]*(dsp->DFT).Fm[i];
+    for (i = 0; i < dsp->DFT.N; i++) dsp->DFT.Z[i] = dsp->DFT.X[i]*dsp->DFT.Fm[i];
 
-    Nidft(&dsp->DFT, (dsp->DFT).Z, (dsp->DFT).cx);
+    Nidft(&dsp->DFT, dsp->DFT.Z, dsp->DFT.cx);
 
 
-    if (abs) {
-        for (i = dsp->N; i < dsp->N + dsp->K; i++) {
-            if (fabs(creal((dsp->DFT).cx[i])) > fabs(mx)) {  // imag(cx)=0
-                mx = creal((dsp->DFT).cx[i]);
-                mp = i;
-            }
+    // relativ Peak - Normierung erst zum Schluss;
+    // dann jedoch nicht zwingend corr-Max wenn FM-Amplitude bzw. norm(x) nicht konstant
+    // (z.B. rs41 Signal-Pausen). Moeglicherweise wird dann wahres corr-Max in dem
+    //  K-Fenster nicht erkannt, deshalb K nicht zu gross waehlen.
+    //
+    mx2 = 0.0;                                      // t = L-1
+    for (i = dsp->L-1; i < dsp->K + dsp->L; i++) {  // i=t .. i=t+K < t+1+K
+        re_cx = creal(dsp->DFT.cx[i]);  // imag(cx)=0
+        if (re_cx*re_cx > mx2) {
+            mx = re_cx;
+            mx2 = mx*mx;
+            mp = i;
         }
     }
-    else {
-        for (i = dsp->N; i < dsp->N + dsp->K; i++) {
-            if (creal((dsp->DFT).cx[i]) > mx) {  // imag(cx)=0
-                mx = creal((dsp->DFT).cx[i]);
-                mp = i;
-            }
-        }
-    }
-    if (mp == dsp->N || mp == dsp->N + dsp->K - 1) return -4; // Randwert
+    if (mp == dsp->L-1 || mp == dsp->K + dsp->L-1) return -4; // Randwert
+    //  mp == t           mp == K+t
 
-    mpos = pos - ( dsp->N + dsp->K - 1 - mp );
-    xnorm = sqrt(dsp->qs[(mpos + 2*dsp->M) % dsp->M]);
+    mpos = pos - (dsp->K + dsp->L-1) + mp; // t = L-1
+
+    //xnorm = sqrt(dsp->qs[(mpos + 2*dsp->M) % dsp->M]); // Nvar = L
+    xnorm = 0.0;
+    for (i = 0; i < dsp->L; i++) xnorm += dsp->bufs[(mpos-i + dsp->M) % dsp->M]*dsp->bufs[(mpos-i + dsp->M) % dsp->M];
+    xnorm = sqrt(xnorm);
+
     mx /= xnorm*(dsp->DFT).N;
 
     *maxv = mx;
@@ -462,14 +468,14 @@ int headcmp(dsp_t *dsp, int symlen, ui32_t mvp, int inv, int option_dc) {
     int pos;
     int step = 1;
     char sign = 0;
-    int len = dsp->hdrlen;
+    int len = dsp->hdrlen/symlen;
 
     if (symlen != 1) step = 2;
     if (inv) sign=1;
 
-    for (pos = 0; pos < len; pos += step) {        // N = dsp->hdrlen * dsp->sps + 0.5;
-        //read_bufbit(dsp, symlen, dsp->rawbits+pos, mvp+1-(int)(len*dsp->sps), pos);
-        read_bufbit(dsp, symlen, dsp->rawbits+pos, mvp+1-dsp->N, pos);
+    for (pos = 0; pos < len; pos++) {              // L = dsp->hdrlen * dsp->sps + 0.5;
+        //read_bufbit(dsp, symlen, dsp->rawbits+pos*step, mvp+1-(int)(len*dsp->sps), pos);
+        read_bufbit(dsp, symlen, dsp->rawbits+pos*step, mvp+1-dsp->L, pos);
     }
     dsp->rawbits[pos] = '\0';
 
@@ -527,18 +533,21 @@ int get_fqofs_rs41(dsp_t *dsp, ui32_t mvp, float *freq, float *snr) {
 
 /* -------------------------------------------------------------------------- */
 
-int read_slbit(dsp_t *dsp, int symlen, int *bit, int inv, int ofs, int pos, float l) {
+int read_slbit(dsp_t *dsp, int symlen, int *bit, int inv, int ofs, int pos, float l, int spike) {
 // symlen==2: manchester2 10->0,01->1: 2.bit
 
     float bitgrenze = pos*symlen*dsp->sps;
-    ui32_t scount = bitgrenze+0.99; // ceil
+    ui32_t scount = ceil(bitgrenze);//+0.99; // dfm?
 
     float sample;
+    float avg;
+    float ths = 0.5, scale = 0.27;
 
     double sum = 0.0;
     double mid;
     //double l = 0.5 .. 1.0 .. sps/2;
 
+    if (pos == 0) scount = 0;
 
     if (symlen == 2) {
         mid = bitgrenze + (dsp->sps-1)/2.0;
@@ -548,6 +557,9 @@ int read_slbit(dsp_t *dsp, int symlen, int *bit, int inv, int ofs, int pos, floa
             else if (f32buf_sample(dsp, inv) == EOF) return EOF;
 
             sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+            avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                      +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+            if (spike && fabs(sample - avg) > ths) sample = avg + scale*(sample - avg); // spikes
 
             if ( l < 0 || (mid-l < scount && scount < mid+l)) sum -= sample;
 
@@ -562,6 +574,9 @@ int read_slbit(dsp_t *dsp, int symlen, int *bit, int inv, int ofs, int pos, floa
         else if (f32buf_sample(dsp, inv) == EOF) return EOF;
 
         sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+        avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                  +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+        if (spike && fabs(sample - avg) > ths) sample = avg + scale*(sample - avg); // spikes
 
         if ( l < 0 || (mid-l < scount && scount < mid+l)) sum += sample;
 
@@ -609,29 +624,51 @@ int init_buffers(dsp_t *dsp) {
     float normMatch;
     double sigma = sqrt(log(2)) / (2*M_PI*dsp->BT);
 
-    int K, N, M;
+    int p2 = 1;
+    int K, L, M;
     int n, k;
     float *m = NULL;
 
 
-    N = dsp->hdrlen * dsp->sps + 0.5;
-    M = 3*N;
-    if (dsp->sps < 6) M = 6*N;
+    L = dsp->hdrlen * dsp->sps + 0.5;
+    M = 3*L;
+    //if (dsp->sps < 6) M = 6*L;
+
+    dsp->delay = L/16;
+    dsp->sample_in = 0;
+
+    p2 = 1;
+    while (p2 < M) p2 <<= 1;
+    while (p2 < 0x2000) p2 <<= 1;  // or 0x4000, if sample not too short
+    M = p2;
+    dsp->DFT.N = p2;
+    dsp->DFT.LOG2N = log(dsp->DFT.N)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
+    //while ((1 << dsp->DFT.LOG2N) < dsp->DFT.N) dsp->DFT.LOG2N++;  // better N = (1 << LOG2N) ...
+
+    K = M-L - dsp->delay; // L+K < M
+
+    dsp->DFT.sr = dsp->sr;
+
+    dsp->K = K;
+    dsp->L = L;
+    dsp->M = M;
+
+    dsp->Nvar = L; // wenn Nvar fuer xnorm, dann Nvar=rshd.L
 
 
     dsp->bufs  = (float *)calloc( M+1, sizeof(float)); if (dsp->bufs  == NULL) return -100;
-    dsp->match = (float *)calloc( N+1, sizeof(float)); if (dsp->match == NULL) return -100;
+    dsp->match = (float *)calloc( L+1, sizeof(float)); if (dsp->match == NULL) return -100;
 
     dsp->xs = (float *)calloc( M+1, sizeof(float)); if (dsp->xs == NULL) return -100;
     dsp->qs = (float *)calloc( M+1, sizeof(float)); if (dsp->qs == NULL) return -100;
 
-    dsp->rawbits = (char *)calloc( N+1, sizeof(char)); if (dsp->rawbits == NULL) return -100;
+    dsp->rawbits = (char *)calloc( 2*dsp->hdrlen+1, sizeof(char)); if (dsp->rawbits == NULL) return -100;
 
 
     for (i = 0; i < M; i++) dsp->bufs[i] = 0.0;
 
 
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < L; i++) {
         pos = i/dsp->sps;
         t = (i - pos*dsp->sps)/dsp->sps - 0.5;
 
@@ -651,30 +688,11 @@ int init_buffers(dsp_t *dsp) {
         dsp->match[i] = b;
     }
 
-    normMatch = sqrt( norm2_vect(dsp->match, N) );
-    for (i = 0; i < N; i++) {
+    normMatch = sqrt( norm2_vect(dsp->match, L) );
+    for (i = 0; i < L; i++) {
         dsp->match[i] /= normMatch;
     }
 
-
-    dsp->N = N;
-    dsp->M = M;
-    dsp->Nvar = N; //N/2; // = N/k
-
-    dsp->delay = N/16;
-    dsp->sample_in = 0;
-
-    K = M - N - dsp->delay; //N/2 - delay;  // N+K < M
-    dsp->K = K;
-
-    dsp->DFT.sr = dsp->sr;
-    dsp->DFT.LOG2N = 2 + (int)(log(N+K)/log(2));
-    dsp->DFT.N = 1 << dsp->DFT.LOG2N;
-
-    while (N + K > dsp->DFT.N/2 - 2) {
-        dsp->DFT.LOG2N  += 1;
-        dsp->DFT.N <<= 1;
-    }
 
     dsp->DFT.xn = calloc(dsp->DFT.N+1, sizeof(float));  if (dsp->DFT.xn == NULL) return -1;
 
@@ -690,7 +708,7 @@ int init_buffers(dsp_t *dsp) {
     // b) N2 < N (interpolation)
     dsp->DFT.win = calloc(dsp->DFT.N+1, sizeof(float complex));  if (dsp->DFT.win == NULL) return -1; // float real
     dsp->DFT.N2 = dsp->DFT.N;
-    //dsp->DFT.N2 = dsp->DFT.N/2 - 1; // DFT_N=2^log2N
+    //dsp->DFT.N2 = dsp->DFT.N/2 - 1; // N=2^log2N
     dft_window(&dsp->DFT, 1);
 
     for (n = 0; n < dsp->DFT.LOG2N; n++) {
@@ -699,7 +717,7 @@ int init_buffers(dsp_t *dsp) {
     }
 
     m = calloc(dsp->DFT.N+1, sizeof(float));  if (m  == NULL) return -1;
-    for (i = 0; i < N; i++) m[N-1 - i] = dsp->match[i];
+    for (i = 0; i < L; i++) m[L-1 - i] = dsp->match[i]; // t = L-1
     while (i < dsp->DFT.N) m[i++] = 0.0;
     rdft(&dsp->DFT, m, dsp->DFT.Fm);
 
@@ -709,13 +727,7 @@ int init_buffers(dsp_t *dsp) {
     if (dsp->opt_iq)
     {
         if (dsp->nch < 2) return -1;
-/*
-        N2 = dsp->sps*256+0.5;
-        while ( (1 << LOG2N) < N2 ) LOG2N++;
-        LOG2N++;
-        N = (1 << LOG2N);
-        N_IQBUF = N2 + sps*(64+16);
-*/
+
         dsp->N_IQBUF = dsp->DFT.N;
         dsp->raw_iqbuf = calloc(dsp->N_IQBUF+1, sizeof(float complex));  if (dsp->raw_iqbuf == NULL) return -1;
         dsp->rot_iqbuf = calloc(dsp->N_IQBUF+1, sizeof(float complex));  if (dsp->rot_iqbuf == NULL) return -1;
