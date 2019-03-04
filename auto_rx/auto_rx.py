@@ -334,7 +334,14 @@ def telemetry_filter(telemetry):
         logging.warning("Sonde %s position breached altitude cap by %d m." % (telemetry['id'], _altitude_breach))
         return False
 
-    # Third check - is the payload more than x km from our listening station.
+
+    # Third check: Number of satellites visible.
+    if 'sats' in telemetry:
+        if telemetry['sats'] < 4:
+            logging.warning("Sonde %s can only see %d SVs - discarding position as bad." % (telemetry['id'],telemetry['sats']))
+            return False
+
+    # Fourth check - is the payload more than x km from our listening station.
     # Only run this check if a station location has been provided.
     if (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
         # Calculate the distance from the station to the payload.

@@ -192,6 +192,16 @@ std::string M10GtopParser::getSerialNumber() {
         sn_bytes[i] = byte;
     }
 
+    /*
+     * The serial number is in the form M10-A-BCC-D-EEEE
+     * - A is the frame type, T for Trimble, the original GPS used for this modulation
+     * G for Gtop GPS
+     * - B is the year of fabrication (8 = 2018)
+     * - CC is the month of fabrication
+     * - D is the product type, 2 is production type
+     * - EEEE is the RS serial number
+     */
+
     byte = sn_bytes[2];
     sprintf(SN, "M10-G-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
