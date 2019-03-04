@@ -28,12 +28,14 @@ public:
     virtual int getHours();
     virtual int getMinutes();
     virtual int getSeconds();
+    virtual int getSatellites();
     virtual double getVerticalSpeed();
     virtual double getHorizontalSpeed();
     virtual double getDirection();
     virtual double getTemperature();
     virtual double getHumidity();
     virtual double getDp();
+    virtual double getBatteryLevel();
     virtual std::string getSerialNumber();
     virtual std::string getdxlSerialNumber();
     
