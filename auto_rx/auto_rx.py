@@ -392,6 +392,7 @@ def main():
     parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
     parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file when decoding RS92 Sondes.")
+    parser.add_argument("--systemlog", action='store_true', default=False, help="Write a auto_rx system log-file to ./log/ (default=False)")
     args = parser.parse_args()
 
     # Copy out timeout value, and convert to seconds,
@@ -418,17 +419,28 @@ def main():
     # Configure logging
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=_log_path, level=logging_level)
-    stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(stdout_format)
-    logging.getLogger().addHandler(stdout_handler)
 
+    if args.systemlog:
+        # Only write out a logs to a system log file if we have been asked to.
+        # Systemd will capture and logrotate our logs anyway, so writing to our own log file is less useful.
+        logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=_log_path, level=logging_level)
+        logging.info("Opened new system log file: %s" % _log_path)
+        # Also add a separate stdout logger.
+        stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(stdout_format)
+        logging.getLogger().addHandler(stdout_handler)
+    else:
+        # Otherwise, we only need the stdout logger, which if we don't specify a filename to logging.basicConfig,
+        # is the default...
+        logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging_level)
+
+    # Add the web interface logging handler.
     web_handler = WebHandler()
     logging.getLogger().addHandler(web_handler)
 
 
-    # Set the requests/socketio logger to only display critical log messages.
+    # Set the requests/socketio loggers (and related) to only display critical log messages.
     logging.getLogger("requests").setLevel(logging.CRITICAL)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
