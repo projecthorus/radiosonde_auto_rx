@@ -17,6 +17,7 @@ static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_inv = 0,      // invertiert Signal
            //option_dc = 0,
            option_silent = 0,
+           option_cont = 0,
            wavloaded = 0;
 static int wav_channel = 0;     // audio channel: left
 
@@ -231,7 +232,7 @@ static float get_bufmu(int ofs) {
 }
 
 
-static int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned int *maxvpos, rsheader_t *rshd) {
+static int getCorrDFT(int K, unsigned int pos, float *maxv, unsigned int *maxvpos, rsheader_t *rshd) {
     int i;
     int mp = -1;
     float mx = 0.0;
@@ -273,9 +274,6 @@ static int getCorrDFT(int abs, int K, unsigned int pos, float *maxv, unsigned in
             mx2 = mx*mx;
             mp = i;
         }
-    }
-    if (abs == 0) {
-        // mx = 0;
     }
     if (mp == rshd->L-1 || mp == K+rshd->L-1) return -4; // Randwert
     //  mp == t            mp == K+t
@@ -703,6 +701,9 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-s") == 0) || (strcmp(*argv, "--silent") == 0) ) {
             option_silent = 1;
         }
+        else if ( (strcmp(*argv, "-c") == 0) || (strcmp(*argv, "--cnt") == 0) ) {
+            option_cont = 1;
+        }
         else if ( (strcmp(*argv, "-t") == 0) || (strcmp(*argv, "--time") == 0) ) {
             ++argv;
             if (*argv) tl = atof(*argv);
@@ -749,6 +750,8 @@ int main(int argc, char **argv) {
         mv_pos[j] = 0;
         mp[j] = 0;
     }
+    j_max = 0;
+    mv_max = 0.0;
 
     k = 0;
 
@@ -764,7 +767,7 @@ int main(int argc, char **argv) {
                 if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) continue;
 #endif
                 mv0_pos[j] = mv_pos[j];
-                mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr+j);
+                mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
             }
             k = 0;
         }
@@ -847,7 +850,7 @@ int main(int argc, char **argv) {
 
                                     if (k >= K-4) {
                                         mv0_pos[j] = mv_pos[j];
-                                        mp[j] = getCorrDFT(-1, K, 0, mv+j, mv_pos+j, rs_hdr+j);
+                                        mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
                                         k = 0;
                                     }
                                     else {
@@ -873,14 +876,19 @@ int main(int argc, char **argv) {
                                 if (option_verbose) fprintf(stdout, "sample: %d\n", mv_pos[j]);
                                 fprintf(stdout, "%s: %.4f\n", rs_hdr[j].type, mv[j]);
                             }
-                            if ((j < 3) && mv[j] < 0) header_found = -1;
+                            // if ((j < 3) && mv[j] < 0) header_found = -1;
+
+                            if ( fabs(mv_max) < fabs(mv[j]) ) { // j-weights?
+                                mv_max = mv[j];
+                                j_max = j;
+                            }
                         }
                     }
                 }
             }
         }
 
-        if (header_found) break;
+        if (header_found && !option_cont) break;
         header_found = 0;
         for (j = 0; j < Nrs; j++) mv[j] = 0.0;
     }
@@ -891,18 +899,12 @@ ende:
 
     // return only best result
     // latest: j
-    k = j;
-    j_max = 0;
-    mv_max = 0.0;
-    for (j = 0; j < Nrs; j++) {
-        if ( fabs(mv_max) < fabs(mv[j]) ) {
-            mv_max = mv[j];
-            j_max = j;
-        }
+    if (mv_max) {
+        if (mv_max < 0 && j_max < 3) header_found = -1;
+        else header_found = 1;
     }
+    else header_found = 0;
 
-
-    // rs_hdr[k].tn
     return (header_found * rs_hdr[j_max].tn);
 }
 
