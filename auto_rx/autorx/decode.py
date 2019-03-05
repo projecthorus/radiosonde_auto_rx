@@ -212,11 +212,15 @@ class SondeDecoder(object):
             #decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
-            _offset = 0.25 # Place the sonde frequency 
+            _baud_rate = 4800
+            _offset = 0.25 # Place the sonde frequency in the centre of the passband.
+            _lower = int(0.025 * _sdr_rate) # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
-            decode_cmd += "./fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 %d 4800 - - 2>stats.txt | python ./test/bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|" % _sdr_rate
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
 
