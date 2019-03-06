@@ -11,15 +11,23 @@ import sys
 import time
 import subprocess
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 _filename = sys.argv[1]
 
+if len(sys.argv)>2:
+	_sps = int(sys.argv[2])
+	_x_label = "Seconds"
+else:
+	_sps = 1
+	_x_label = "Sample Number"
 
 _ebno = []
 _fest1 = []
 _fest2 = []
 _ppm = []
+_time = []
 
 
 _f = open(_filename,'r')
@@ -32,7 +40,7 @@ for _line in _f:
 	try:
 		_data = json.loads(_line)
 	except Exception as e:
-		print("Line parsing error: %s" % str(e))
+		#print("Line parsing error: %s" % str(e))
 		continue
 
 	_ebno.append(_data['EbNodB'])
@@ -40,27 +48,35 @@ for _line in _f:
 	_fest2.append(_data['f2_est'])
 	_ppm.append(_data['ppm'])
 
+	if _time == []:
+		_time = [0]
+	else:
+		_time.append(_time[-1]+1.0/_sps)
+
+
+_ebno_max = pd.Series(_ebno).rolling(10).max().dropna().tolist()
+
 
 plt.figure()
 
-plt.plot(_ebno)
-plt.xlabel("Sample Number")
+plt.plot(_time[:len(_ebno_max)],_ebno_max)
+plt.xlabel(_x_label)
 plt.ylabel("Eb/N0 (dB)")
 plt.title("Eb/N0")
 
 plt.figure()
 
-plt.plot(_fest1, label="f1 est")
-plt.plot(_fest2, label="f2 est")
+plt.plot(_time,_fest1, label="f1 est")
+plt.plot(_time,_fest2, label="f2 est")
 plt.legend()
-plt.xlabel("Sample Number")
+plt.xlabel(_x_label)
 plt.ylabel("Frequency (Hz)")
 plt.title("Frequency Estimator Outputs")
 
 
 plt.figure()
-plt.plot(_ppm)
-plt.xlabel("Sample Number")
+plt.plot(_time,_ppm)
+plt.xlabel(_x_label)
 plt.ylabel("PPM")
 plt.title("Demod PPM Estimate")
 
