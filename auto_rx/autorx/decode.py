@@ -357,7 +357,7 @@ class SondeDecoder(object):
 
         else:
             try:
-                _telemetry = json.loads(data)
+                _telemetry = json.loads(data.decode('ascii'))
             except Exception as e:
                 self.log_debug("Line could not be parsed as JSON - %s" % str(e))
                 return False
