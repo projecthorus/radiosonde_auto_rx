@@ -207,11 +207,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         _start = time.time()
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
+        ret_output = ret_output.decode('utf8')
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
         # logging.debug("Scanner - dfm_detect return code: %s" % e.returncode)
         if e.returncode >= 2:
-            ret_output = e.output
+            ret_output = e.output.decode('utf8')
         else:
             _runtime = time.time() - _start
             logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)

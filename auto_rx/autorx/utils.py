@@ -341,6 +341,8 @@ def lsusb():
         FNULL = open(os.devnull, 'w')
         lsusb_raw_output = subprocess.check_output(['lsusb', '-v'], stderr=FNULL)
         FNULL.close()
+        # Convert from bytes.
+        lsusb_raw_output = lsusb_raw_output.decode('utf8')
     except Exception as e:
         logging.error("lsusb parse error - %s" % str(e))
         return
