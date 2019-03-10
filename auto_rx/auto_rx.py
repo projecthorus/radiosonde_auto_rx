@@ -278,7 +278,7 @@ def clean_task_list():
             continue
 
         if _running == False:
-            # This task has stopped. Release it's associated SDR.
+            # This task has stopped. Release its associated SDR.
             autorx.sdr_list[_task_sdr]['in_use'] = False
             autorx.sdr_list[_task_sdr]['task'] = None
             # Pop the task from the task list.
@@ -389,6 +389,7 @@ def main():
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File. Default: station.cfg")
     parser.add_argument("-l" ,"--log", default="./log/", help="Receive Station Log Path. Default: ./log/")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.")
+    parser.add_argument("-m", "--type", type=str, default=None, help="Immediately start a decoder for a provided sonde type (RS41, RS92, DFM, M10, etc)")
     parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
     parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file when decoding RS92 Sondes.")
@@ -588,6 +589,13 @@ def main():
 
     # Note the start time.
     _start_time = time.time()
+
+    # If a sonde type has been provided, insert an entry into the scan results,
+    # and immediately start a decoder. If decoding fails, then we continue into
+    # the main scanning loop.
+    if args.type != None:
+        scan_results.put([[args.frequency*1e6, args.type]])
+        handle_scan_results()
 
     # Loop.
     while True:
