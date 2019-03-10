@@ -789,7 +789,7 @@ int get_GPS3() {
     return err;
 }
 
-int get_Aux() {
+int get_Aux(char* aux_data) {
 //
 // "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
 //
@@ -797,6 +797,8 @@ int get_Aux() {
 
     count7E = 0;
     pos7E = pos_AUX;
+
+    int aux_string_counter = 0;
 
     if (frametype(gpx) > 0) return 0; //pos7E == pos7611 ...
 
@@ -813,8 +815,12 @@ int get_Aux() {
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
                 ui8_t c = framebyte(pos7E+2+i);
+                aux_data[aux_string_counter] = c;
+                aux_string_counter++;
                 if (c > 0x1E) fprintf(stdout, "%c", c);
             }
+            aux_data[aux_string_counter] = '#';
+            aux_string_counter++;
             count7E++;
             pos7E += 2+auxlen+2;
         }
@@ -1097,18 +1103,27 @@ int print_position(int ec) {
 
         get_Calconf(output);
 
-        if (option_verbose > 1) get_Aux();
+        char aux_data[FRAME_LEN] = "";
+        if (option_verbose > 1 || option_json) get_Aux(aux_data);
 
-        fprintf(stdout, "\n");  // fflush(stdout);
+        fprintf(stdout, "\n");  // flush(stdout);
 
 
         if (option_json) {
+            char auxbuffer[FRAME_LEN] = "";
+            fprintf(stdout, "\n");  // flush(stdout) as get_Aux prints to stdout
+
             // Print JSON output required by auto_rx.
             if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
+                if ( strlen(aux_data) > 0 ){
+                    strcpy( auxbuffer, ", \"aux\":\"");
+                    strcpy( auxbuffer+9, aux_data);
+                    strcpy( auxbuffer+strlen(aux_data)+9, "\"\0" );
+                }
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T );
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T, auxbuffer);
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV );
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, auxbuffer);
                 }
                 printf("\n");
             }
@@ -1402,4 +1417,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
