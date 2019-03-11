@@ -203,6 +203,10 @@ class SondeDecoder(object):
             gain_param = ''
 
 
+        # Emit demodulator statistics every X modem frames.
+        _stats_rate = 10
+
+
         if self.sonde_type == "RS41":
             # RS41 Decoder command.
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
@@ -213,7 +217,7 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
@@ -258,7 +262,7 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
@@ -275,7 +279,7 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
@@ -289,8 +293,8 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
-            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null| " % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
 
