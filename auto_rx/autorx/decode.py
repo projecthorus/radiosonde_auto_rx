@@ -236,10 +236,19 @@ class SondeDecoder(object):
             else:
                 _rs92_gps_data = "-e %s" % self.rs92_ephemeris
 
+            # Adjust the receive bandwidth based on the band the scanning is occuring in.
+            if self.sonde_freq < 1000e6:
+                # 400-406 MHz sondes - use a 12 kHz FM demod bandwidth.
+                _rx_bw = 12000
+            else:
+                # 1680 MHz sondes - use a 28 kHz FM demod bandwidth.
+                # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
+                _rx_bw = 28000
+
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _rx_bw, self.sonde_freq)
+            decode_cmd += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |" % _rx_bw
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":

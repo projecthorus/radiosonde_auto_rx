@@ -40,7 +40,8 @@ SAMPLES = [
     ['rs41_96k_float.bin', 4800, -20.0, 96000], 
     ['rs92_96k_float.bin', 2400, -100, 96000], # No threshold set, as signal is continuous.
     ['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
-    ['m10_96k_float.bin', 9616, -10.0, 96000]  # Really weird baud rate.
+    ['m10_96k_float.bin', 9616, -10.0, 96000],  # Really weird baud rate.
+    #['rsngp_96k_float.bin', 2400, -100.0, 96000]  # RS92-NGP - wider bandwidth.
 ]
 
 
