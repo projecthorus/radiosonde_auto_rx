@@ -191,15 +191,23 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     else:
         gain_param = ''
 
+    # Adjust the detection bandwidth based on the band the scanning is occuring in.
+    if frequency < 1000e6:
+        # 400-406 MHz sondes - use a 22 kHz detection bandwidth.
+        _rx_bw = 22000
+    else:
+        # 1680 MHz sondes - use a 28 kHz detection bandwidth.
+        # NOTE: This is an initial stab in the dark at a setting for this band.
+        _rx_bw = 28000
+
     # Sample Source (rtl_fm)
-    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
+    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
     # Sample filtering
-    rx_test_command += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
+    rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |" % _rx_bw
     # Sample decoding / detection
     rx_test_command += os.path.join(rs_path,"dft_detect") + " 2>/dev/null"
 
-    #print(rx_test_command)
-
+    logging.debug("Scanner #%s - Using detection command: %s" % (str(device_idx), rx_test_command))
     logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
 
     try:
