@@ -205,12 +205,6 @@ class SondeDecoder(object):
 
         if self.sonde_type == "RS41":
             # RS41 Decoder command.
-            # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 401500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu --json
-            # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            #decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            #decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
-            #decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
-
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
             _baud_rate = 4800
             _offset = 0.25 # Place the sonde frequency in the centre of the passband.
@@ -249,19 +243,23 @@ class SondeDecoder(object):
             else:
                 _rs92_gps_data = "-e %s" % self.rs92_ephemeris
 
-            # Adjust the receive bandwidth based on the band the scanning is occuring in.
-            if self.sonde_freq < 1000e6:
-                # 400-406 MHz sondes - use a 12 kHz FM demod bandwidth.
-                _rx_bw = 12000
-            else:
-                # 1680 MHz sondes - use a 28 kHz FM demod bandwidth.
-                # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
-                _rx_bw = 28000
 
-            # Now construct the decoder command.
-            # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _rx_bw, self.sonde_freq)
-            decode_cmd += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |" % _rx_bw
+            if self.sonde_freq > 1000e6:
+                # Use a higher IQ rate for 1680 MHz sondes, at the expensive of some CPU usage.
+                _sdr_rate = 96000
+            else:
+                # On 400 MHz, use 48 khz - RS92s dont drift far enough to need any more than this.
+                _sdr_rate = 48000
+
+            _baud_rate = 4800
+            _offset = 0.25 # Place the sonde frequency in the centre of the passband.
+            _lower = int(0.025 * _sdr_rate) # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate*_offset)
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
@@ -269,18 +267,30 @@ class SondeDecoder(object):
             # As of 2019-02-10, dfm09ecc auto-detects if the signal is inverted,
             # so we don't need to specify an invert flag.
             # 2019-02-27: Added the --dist flag, which should reduce bad positions a bit.
+            _sdr_rate = 50000
+            _baud_rate = 2500
+            _offset = 0.25 # Place the sonde frequency in the centre of the passband.
+            _lower = int(0.025 * _sdr_rate) # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
-            # DFM decoder
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
         elif self.sonde_type == "M10":
             # M10 Sondes
+            _sdr_rate = 48080
+            _baud_rate = 9616
+            _offset = 0.25 # Place the sonde frequency in the centre of the passband.
+            _lower = int(0.025 * _sdr_rate) # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            decode_cmd += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=10 2 %d %d - - 2>stats.txt " % (_lower, _upper, _sdr_rate, _baud_rate)
+            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
 
