@@ -781,6 +781,8 @@ int print_frame(int pos) {
 
 int main(int argc, char **argv) {
 
+    int spike = 0;
+
     FILE *fp = NULL;
     char *fpname = NULL;
     float spb = 0.0;
@@ -800,8 +802,9 @@ int main(int argc, char **argv) {
 
     float thres = 0.76;
 
-    int bitofs = 0;
     int symlen = 2;
+    int bitofs = 0; // 0 .. +2
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -841,11 +844,23 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--dc") == 0) ) {
             option_dc = 1;
         }
+        else if ( (strcmp(*argv, "--spike") == 0) ) {
+            spike = 1;
+        }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
+            }
+            else return -1;
+        }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
             }
             else return -1;
         }
@@ -874,8 +889,9 @@ int main(int argc, char **argv) {
 
 
     symlen = 2;
+    bitofs += shift;
+
     headerlen = strlen(rawheader);
-    bitofs = 0; // 0 .. +2
     K = init_buffers(rawheader, headerlen, 1); // shape=0 (alt. shape=1)
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
@@ -884,14 +900,15 @@ int main(int argc, char **argv) {
 
 
     k = 0;
-    mv = -1; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(-1, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
             k = 0;
         }
         else {
@@ -906,8 +923,8 @@ int main(int argc, char **argv) {
                 herrs = headcmp(1, rawheader, headerlen, mv_pos, mv<0, option_dc); // header nicht manchester!
                 herr1 = 0;
                 if (herrs <= 3 && herrs > 0) {
-                    herr1 = headcmp(1, rawheader, headerlen, mv_pos+1, mv<0, option_dc);
-                    //int herr2 = headcmp(1, rawheader, headerlen, mv_pos-1, mv<0, option_dc);
+                    herr1 = headcmp(1, rawheader, headerlen, mv_pos+1, mv<0, 0); // nur 1x dc
+                    //int herr2 = headcmp(1, rawheader, headerlen, mv_pos-1, mv<0, 0);
                     if (herr1 < herrs) {
                         herrs = herr1;
                         herr1 = 1;
@@ -920,11 +937,10 @@ int main(int argc, char **argv) {
                     bitpos = 0;
                     pos = 0;
                     pos /= 2;
-                    bit0 = '0';
+                    bit0 = '0'; // oder: mv[j] > 0
 
                     while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
-                        header_found = !(pos>=BITFRAME_LEN-10);
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
+                        bitQ = read_spkbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, spike); // symlen=2
                         if (bitQ == EOF) { break; }
                         frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
                         pos++;
@@ -940,7 +956,7 @@ int main(int argc, char **argv) {
                     // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
                     if (option_verbose < 3) { // && (regulare frame) // print_frame-return?
                         while ( bitpos < 5*BITFRAME_LEN ) {
-                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, 0); // symlen=2, return: zeroX/bit
+                            bitQ = read_spkbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, spike); // symlen=2
                             if ( bitQ == EOF) break;
                             bitpos++;
                         }

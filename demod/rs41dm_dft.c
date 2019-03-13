@@ -47,6 +47,7 @@ rscfg_t cfg_rs41 = { 41, (320-56)/2, 56, 8, 8, 320};
 typedef struct {
     int frnr;
     char id[9];
+    ui8_t numSV;
     int week; int gpssec;
     int jahr; int monat; int tag;
     int wday;
@@ -326,6 +327,23 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 
 #define crc_ZERO     (1<<6)  // LEN variable
 #define pck_ZERO     0x7600
+#define pck_ZEROstd  0x7611  // NDATA std-frm, no aux
+#define pos_ZEROstd   0x12B  // pos_AUX(0)
+
+
+/*
+  frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
+  frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
+*/
+int frametype() { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
+    int i;
+    ui8_t b = frame[pos_FRAME-1];
+    int ft = 0;
+    for (i = 0; i < 4; i++) {
+        ft += ((b>>i)&1) - ((b>>(i+4))&1);
+    }
+    return ft;
+}
 
 
 ui8_t calibytes[51*16];
@@ -345,7 +363,7 @@ int get_SatData() {
     int i, n;
     int sv;
     ui32_t minPR;
-    int Nfix;
+    int numSV;
     double pDOP, sAcc;
 
     fprintf(stdout, "[%d]\n", u2(frame+pos_FrameNb));
@@ -377,10 +395,10 @@ int get_SatData() {
                      (i16_t)u2(frame+pos_GPSecefV+2),
                      (i16_t)u2(frame+pos_GPSecefV+4));
 
-    Nfix = frame[pos_numSats];
-    sAcc = frame[pos_sAcc]/10.0;
-    pDOP = frame[pos_pDOP]/10.0;
-    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", Nfix, sAcc, pDOP);
+    numSV = frame[pos_numSats];
+    sAcc = frame[pos_sAcc]/10.0; if (frame[pos_sAcc] == 0xFF) sAcc = -1.0;
+    pDOP = frame[pos_pDOP]/10.0; if (frame[pos_pDOP] == 0xFF) pDOP = -1.0;
+    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
 
 
     fprintf(stdout, "CRC: ");
@@ -647,9 +665,8 @@ int get_GPS1() {
     err = check_CRC(pos_GPS1, pck_GPS1);
     if (err) gpx.crc |= crc_GPS1;
 
-    //err = 0;
-    err |= get_GPSweek();
-    err |= get_GPStime();
+    err |= get_GPSweek(); // no plausibility-check
+    err |= get_GPStime(); // no plausibility-check
 
     return err;
 }
@@ -726,7 +743,7 @@ int get_GPSkoord() {
     gpx.lat = lat;
     gpx.lon = lon;
     gpx.alt = alt;
-    if ((alt < -1000) || (alt > 80000)) return -3;
+    if ((alt < -1000) || (alt > 80000)) return -3; // plausibility-check: altitude, if ecef=(0,0,0)
 
 
     // ECEF-Velocities
@@ -750,6 +767,8 @@ int get_GPSkoord() {
     if (dir < 0) dir += 360;
     gpx.vD = dir;
 
+    gpx.numSV = frame[pos_numSats];
+
     return 0;
 }
 
@@ -765,12 +784,12 @@ int get_GPS3() {
     err = check_CRC(pos_GPS3, pck_GPS3);
     if (err) gpx.crc |= crc_GPS3;
 
-    err |= get_GPSkoord();
+    err |= get_GPSkoord(); // plausibility-check: altitude, if ecef=(0,0,0)
 
     return err;
 }
 
-int get_Aux() {
+int get_Aux(char* aux_data) {
 //
 // "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
 //
@@ -778,6 +797,10 @@ int get_Aux() {
 
     count7E = 0;
     pos7E = pos_AUX;
+
+    int aux_string_counter = 0;
+
+    if (frametype(gpx) > 0) return 0; //pos7E == pos7611 ...
 
     // 7Exx: xdata
     while ( pos7E < FRAME_LEN  &&  framebyte(pos7E) == 0x7E ) {
@@ -791,8 +814,13 @@ int get_Aux() {
 
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
-                fprintf(stdout, "%c", framebyte(pos7E+2+i));
+                ui8_t c = framebyte(pos7E+2+i);
+                aux_data[aux_string_counter] = c;
+                aux_string_counter++;
+                if (c > 0x1E) fprintf(stdout, "%c", c);
             }
+            aux_data[aux_string_counter] = '#';
+            aux_string_counter++;
             count7E++;
             pos7E += 2+auxlen+2;
         }
@@ -881,20 +909,6 @@ int get_Calconf(int out) {
     return 0;
 }
 
-/*
-  frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
-  frame[pos_FRAME-1] == 0xF0: len == FRAME_LEN(518)
-*/
-int frametype() { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
-    int i;
-    ui8_t b = frame[pos_FRAME-1];
-    int ft = 0;
-    for (i = 0; i < 4; i++) {
-        ft += ((b>>i)&1) - ((b>>(i+4))&1);
-    }
-    return ft;
-}
-
 /* ------------------------------------------------------------------------------------ */
 /*
    (uses fec-lib by KA9Q)
@@ -947,14 +961,25 @@ int rs41_ecc(int frmlen) {
     errors2 = rs_decode(cw2, err_pos2, err_val2);
 
 
-    if (option_ecc == 2 && (errors1 < 0 || errors2 < 0)) {
+    if (option_ecc == 2 && (errors1 < 0 || errors2 < 0))
+    {   // 2nd pass
         frame[pos_FRAME] = (pck_FRAME>>8)&0xFF; frame[pos_FRAME+1] = pck_FRAME&0xFF;
         frame[pos_PTU]   = (pck_PTU  >>8)&0xFF; frame[pos_PTU  +1] = pck_PTU  &0xFF;
         frame[pos_GPS1]  = (pck_GPS1 >>8)&0xFF; frame[pos_GPS1 +1] = pck_GPS1 &0xFF;
         frame[pos_GPS2]  = (pck_GPS2 >>8)&0xFF; frame[pos_GPS2 +1] = pck_GPS2 &0xFF;
         frame[pos_GPS3]  = (pck_GPS3 >>8)&0xFF; frame[pos_GPS3 +1] = pck_GPS3 &0xFF;
-        if (frametype() < -2) {
+        // AUX-frames mit vielen Fehlern besser mit 00 auffuellen
+        // std-O3-AUX-frame: NDATA+7
+        if (frametype() < -2) {  // ft >= 0: NDATA_LEN , ft < 0: FRAME_LEN
             for (i = NDATA_LEN + 7; i < FRAME_LEN-2; i++) frame[i] = 0;
+        }
+        else { // std-frm (len=320): std_ZERO-frame (7611 00..00 ECC7)
+            for (i = NDATA_LEN; i < FRAME_LEN; i++) frame[i] = 0;
+            frame[pos_ZEROstd  ] = 0x76;  // pck_ZEROstd
+            frame[pos_ZEROstd+1] = 0x11;  // pck_ZEROstd
+            for (i = pos_ZEROstd+2; i < NDATA_LEN-2; i++) frame[i] = 0;
+            frame[NDATA_LEN-2] = 0xEC;    // crc(pck_ZEROstd)
+            frame[NDATA_LEN-1] = 0xC7;    // crc(pck_ZEROstd)
         }
         for (i = 0; i < rs_K; i++) cw1[rs_R+i] = frame[cfg_rs41.msgpos+2*i  ];
         for (i = 0; i < rs_K; i++) cw2[rs_R+i] = frame[cfg_rs41.msgpos+2*i+1];
@@ -1037,17 +1062,7 @@ int print_position(int ec) {
             {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
                 fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
-            }
-
-            if (option_json){
-                // Print JSON output required by auto_rx.
-                if (!err1 && !err2 && !err3){
-                    if (option_ptu && !err0 && gpx.T > -273.0) {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.T );
-                    } else {
-                        printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU );
-                    }
-                }
+                if (option_verbose == 3) fprintf(stdout," numSV: %02d ", gpx.numSV);
             }
         }
         if (option_ptu && !err0) {
@@ -1055,47 +1070,65 @@ int print_position(int ec) {
         }
 
 
-        //if (output)
-        {
-            if (option_crc) {
-                fprintf(stdout, " # ");
-                if (option_ecc && ec >= 0 && (gpx.crc & 0x1F) != 0) {
-                    int pos, blk, len, crc;   // unexpected blocks
-                    int flen = NDATA_LEN;
-                    if (frametype() < 0) flen += XDATA_LEN;
-                    pos = pos_FRAME;
-                    while (pos < flen-1) {
-                        blk = frame[pos];     // 0x80XX: encrypted block
-                        len = frame[pos+1];   // 0x76XX: 00-padding block
-                        crc = check_CRC(pos, blk<<8);
-                        fprintf(stdout, " %02X%02X", frame[pos], frame[pos+1]);
-                        fprintf(stdout, "[%d]", crc&1);
-                        pos = pos+2+len+2;
-                    }
+        if (option_crc) { // show CRC-checks (and RS-check)
+            fprintf(stdout, " # ");
+            if (option_ecc && ec >= 0 && (gpx.crc & 0x1F) != 0) {
+                int pos, blk, len, crc;   // unexpected blocks
+                int flen = NDATA_LEN;
+                if (frametype() < 0) flen += XDATA_LEN;
+                pos = pos_FRAME;
+                while (pos < flen-1) {
+                    blk = frame[pos];     // 0x80XX: encrypted block
+                    len = frame[pos+1];   // 0x76XX: 00-padding block
+                    crc = check_CRC(pos, blk<<8);
+                    fprintf(stdout, " %02X%02X", frame[pos], frame[pos+1]);
+                    fprintf(stdout, "[%d]", crc&1);
+                    pos = pos+2+len+2;
                 }
-                else {
-                    fprintf(stdout, "[");
-                    for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
-                    fprintf(stdout, "]");
-                }
-                if (option_ecc == 2) {
-                    if (ec > 0) fprintf(stdout, " (%d)", ec);
-                    if (ec < 0) {
-                        if      (ec == -1)  fprintf(stdout, " (-+)");
-                        else if (ec == -2)  fprintf(stdout, " (+-)");
-                        else   /*ec == -3*/ fprintf(stdout, " (--)");
-                    }
+            }
+            else {
+                fprintf(stdout, "[");
+                for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx.crc>>i)&1);
+                fprintf(stdout, "]");
+            }
+            if (option_ecc == 2) {
+                if (ec > 0) fprintf(stdout, " (%d)", ec);
+                if (ec < 0) {
+                    if      (ec == -1)  fprintf(stdout, " (-+)");
+                    else if (ec == -2)  fprintf(stdout, " (+-)");
+                    else   /*ec == -3*/ fprintf(stdout, " (--)");
                 }
             }
         }
 
         get_Calconf(output);
 
-        //if (output)
-        {
-            if (option_verbose > 1) get_Aux();
-            fprintf(stdout, "\n");  // fflush(stdout);
+        char aux_data[FRAME_LEN] = "";
+        if (option_verbose > 1 || option_json) get_Aux(aux_data);
+
+        fprintf(stdout, "\n");  // flush(stdout);
+
+
+        if (option_json) {
+            char auxbuffer[FRAME_LEN] = "";
+            fprintf(stdout, "\n");  // flush(stdout) as get_Aux prints to stdout
+
+            // Print JSON output required by auto_rx.
+            if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
+                if ( strlen(aux_data) > 0 ){
+                    strcpy( auxbuffer, ", \"aux\":\"");
+                    strcpy( auxbuffer+9, aux_data);
+                    strcpy( auxbuffer+strlen(aux_data)+9, "\"\0" );
+                }
+                if (option_ptu && !err0 && gpx.T > -273.0) {
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T, auxbuffer);
+                } else {
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, auxbuffer);
+                }
+                printf("\n");
+            }
         }
+
     }
 
     err |=  err1 | err3;
@@ -1145,7 +1178,14 @@ void print_frame(int len) {
         }
         if (option_ecc) {
             if (ec >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            if (option_ecc == 2 && ec > 0) fprintf(stdout, " (%d)", ec);
+            if (option_ecc == 2) {
+                if (ec > 0) fprintf(stdout, " (%d)", ec);
+                if (ec < 0) {
+                    if      (ec == -1)  fprintf(stdout, " (-+)");
+                    else if (ec == -2)  fprintf(stdout, " (+-)");
+                    else   /*ec == -3*/ fprintf(stdout, " (--)");
+                }
+            }
         }
         fprintf(stdout, "\n");
     }
@@ -1182,8 +1222,9 @@ int main(int argc, char *argv[]) {
 
     float thres = 0.7;
 
-    int bitofs = 0;
     int symlen = 1;
+    int bitofs = 2;
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -1227,12 +1268,21 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--std2") == 0) { frmlen = 518; }  // NDATA_LEN+XDATA_LEN
         else if   (strcmp(*argv, "--sat") == 0) { option_sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { option_ptu = 1; }
-        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; }
+        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; option_ecc = 2; option_crc = 1; }
         else if   (strcmp(*argv, "--ch2") == 0) { wav_channel = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
+            }
+            else return -1;
+        }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
             }
             else return -1;
         }
@@ -1266,8 +1316,9 @@ int main(int argc, char *argv[]) {
 
 
     symlen = 1;
+    bitofs += shift;
+
     headerlen = strlen(header);
-    bitofs = 2; // +1 .. +2
     K = init_buffers(header, headerlen, 2); // shape=2
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
@@ -1276,14 +1327,15 @@ int main(int argc, char *argv[]) {
 
 
     k = 0;
-    mv = -1; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
             k = 0;
         }
         else {
@@ -1316,7 +1368,7 @@ int main(int argc, char *argv[]) {
                     ft_len = frmlen;
 
                     while ( byte_count < frmlen ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0); // symlen=1
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;
@@ -1341,11 +1393,12 @@ int main(int argc, char *argv[]) {
                             Qerror_count += 1;
                         }
                     }
-                    header_found = 0;
+
                     print_frame(ft_len);
+                    header_found = 0;
 
                     while ( bit_count < BITS*(FRAME_LEN-8+24) ) {
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, 0); // symlen=1, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0); // symlen=1
                         if ( bitQ == EOF) break;
                         bit_count++;
                     }
@@ -1364,4 +1417,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-

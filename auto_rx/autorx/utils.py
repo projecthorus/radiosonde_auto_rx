@@ -26,7 +26,7 @@ except ImportError:
 
 
 # List of binaries we check for on startup
-REQUIRED_RS_UTILS = ['rs_detect', 'rs41ecc', 'rs92ecc', 'dfm09ecc', 'm10']
+REQUIRED_RS_UTILS = ['dft_detect', 'rs41ecc', 'rs92ecc', 'dfm09ecc', 'm10']
 
 def check_rs_utils():
     """ Check the required RS decoder binaries exist
@@ -341,6 +341,8 @@ def lsusb():
         FNULL = open(os.devnull, 'w')
         lsusb_raw_output = subprocess.check_output(['lsusb', '-v'], stderr=FNULL)
         FNULL.close()
+        # Convert from bytes.
+        lsusb_raw_output = lsusb_raw_output.decode('utf8')
     except Exception as e:
         logging.error("lsusb parse error - %s" % str(e))
         return

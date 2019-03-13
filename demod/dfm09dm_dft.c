@@ -40,22 +40,33 @@ typedef struct {
     double dir; double horiV; double vertV;
     float meas24[5];
     float status[2];
+    float _frmcnt;
+    char sonde_id[16]; // "ID__:xxxxxxxx\0\0"
 } gpx_t;
 
 gpx_t gpx;
 
+typedef struct {
+    int ec;
+    float ts;
+} pcksts_t;
+
+pcksts_t pck[9];
+
 char dat_str[9][13+1];
 
-// Buffer to store sonde ID
-char sonde_id[] = "DFMxx-xxxxxxxx";
+// JSON Buffer to store sonde ID
+char json_sonde_id[] = "DFMxx-xxxxxxxx\0\0";
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_inv = 0,      // invertiert Signal
+    option_auto = 0,
+    option_dist = 0,     // continuous pcks 0..8
     option_ecc = 0,
     option_ptu = 0,
     option_ths = 0,
-    option_json = 0,    // JSON blob output (for auto_rx)
+    option_json = 0,     // JSON blob output (for auto_rx)
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
 
@@ -154,9 +165,13 @@ int check(ui8_t code[8]) {
 
 int hamming(ui8_t *ham, int L, ui8_t *sym) {
     int i, j;
-    int ret = 0;               // L = 7, 13
+    int ecc = 0, ret = 0;      // L = 7, 13
     for (i = 0; i < L; i++) {  // L * 2 nibble (data+parity)
-        if (option_ecc) ret |= check(ham+B*i);
+        if (option_ecc) {
+            ecc = check(ham+B*i);
+            if (ecc > 0) ret |= (1<<i);
+            if (ecc < 0) ret |= ecc; // -1
+        }
         for (j = 0; j < S; j++) {  // systematic: bits 0..S-1 data
             sym[S*i+j] = ham[B*i+j];
         }
@@ -173,7 +188,7 @@ char nib2chr(ui8_t nib) {
     return c;
 }
 
-int dat_out(ui8_t *dat_bits) {
+int dat_out(ui8_t *dat_bits, int ec) {
     int i, ret = 0;
     static int fr_id;
     // int jahr = 0, monat = 0, tag = 0, std = 0, min = 0;
@@ -185,17 +200,29 @@ int dat_out(ui8_t *dat_bits) {
 
     fr_id = bits2val(dat_bits+48, 4);
 
-
-    if (fr_id >= 0  && fr_id <= 8) {
+    if (fr_id >= 0 && fr_id <= 8) {
         for (i = 0; i < 13; i++) {
             nib = bits2val(dat_bits+4*i, 4);
             dat_str[fr_id][i] = nib2chr(nib);
         }
         dat_str[fr_id][13] = '\0';
+
+        pck[fr_id].ts = gpx._frmcnt; // time_stamp,frame_count,...
+        if (option_ecc) {
+            pck[fr_id].ec = ec; // option_ecc laesst -1 garnicht durch
+            if (ec > 0) {
+                ui8_t ecn = 0;
+                for (i = 0; i < 15; i++) {
+                    if ( (ec>>i)&1 ) ecn++;
+                }
+                pck[fr_id].ec = ecn;
+                if ((option_dist || option_json) && ecn > 4) pck[fr_id].ec = -2; // threshold: #errors > 4
+            }
+        }
     }
 
     if (fr_id == 0) {
-        start = 1;
+        start = 0x1000;
         frnr = bits2val(dat_bits+24, 8);
         gpx.frnr = frnr;
     }
@@ -230,10 +257,10 @@ int dat_out(ui8_t *dat_bits) {
     if (fr_id == 5) {
     }
 
-    if (fr_id == 6) {
+    if (fr_id == 6) { // sat data
     }
 
-    if (fr_id == 7) {
+    if (fr_id == 7) { // sat data
     }
 
     if (fr_id == 8) {
@@ -333,7 +360,7 @@ float get_Temp2(float *meas) { // meas[0..4]
     R = (f-f1)/g;                    // meas[0,3,4] > 0 ?
     if (R > 0)  T = 1/(1/T0 + 1/B0 * log(R/R0));
 
-    if (option_ptu && ptu_out && option_verbose == 2) {
+    if (option_ptu && ptu_out && option_verbose == 3) {
         printf("  (Rso: %.1f , Rb: %.1f)", Rs_o/1e3, Rb/1e3);
     }
 
@@ -380,117 +407,212 @@ float get_Temp4(float *meas) { // meas[0..4]
 }
 
 
-#define RSNbit 0x0100  // radiosonde DFM-06,DFM-09
-#define PSNbit 0x0200  // pilotsonde PS-15
-int conf_out(ui8_t *conf_bits) {
-    int conf_id;
+#define SNbit 0x0100
+int conf_out(ui8_t *conf_bits, int ec) {
     int ret = 0;
-    int val, hl;
+    int val;
+    ui8_t conf_id;
+    ui8_t hl;
     ui32_t SN6, SN;
     static int chAbit, chA[2];
     static int chCbit, chC[2];
     static int chDbit, chD[2];
     static int ch7bit, ch7[2];
     static ui32_t SN_A, SN_C, SN_D, SN_7;
+    static ui8_t max_ch;
+    static ui8_t nul_ch;
+    static ui8_t sn2_ch, sn_ch;
+    static ui32_t SN_X;
+    static int chXbit, chX[2];
+    static ui8_t dfm6typ;
 
     conf_id = bits2val(conf_bits, 4);
 
-    // gibt es Kanaele > 6 (2-teilige ID)?
-    // if (conf_id > 6) gpx.SN6 = 0;  // -> DFM-09,PS-15  // SNbit?
-    //
-    // SN/ID immer im letzten Kanal?
-    if ((gpx.sonde_typ & 0xF) < 7  &&  conf_id == 6) {
-        SN6 = bits2val(conf_bits+4, 4*6);    // DFM-06: Kanal 6
-        if ( SN6 == gpx.SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
-            gpx.sonde_typ = RSNbit | 6;
-            ptu_out = 6;
-            ret = 6;
-        }
-        else {
-            gpx.sonde_typ = 0;
-        }
-        gpx.SN6 = SN6;
+    if (conf_id > 4 && bits2val(conf_bits+8, 4*5) == 0) nul_ch = bits2val(conf_bits, 8);
+
+    dfm6typ = ((nul_ch & 0xF0)==0x50) && (nul_ch & 0x0F);
+    if (dfm6typ) ptu_out = 6;
+    if (dfm6typ  && (gpx.sonde_typ & 0xF) > 6)
+    {   // reset if 0x5A, 0x5B (DFM-06)
+        gpx.sonde_typ = 0;
+        max_ch = conf_id;
     }
-    if (conf_id == 0xA) {  // 0xACxxxxy
-        val = bits2val(conf_bits+8, 4*5);
-        hl =  (val & 1);  // val&0xF 0,1?
-        chA[hl] = (val >> 4) & 0xFFFF;
-        chAbit |= 1 << hl;
-        if (chAbit == 3) {  // DFM-09: Kanal A
-            SN = (chA[0] << 16) | chA[1];
-            if ( SN == SN_A ) {
-                gpx.sonde_typ = RSNbit | 0xA;
-                gpx.SN = SN;
-                ptu_out = 9;
-                ret = 9;
+
+    if (conf_id > 4 && conf_id > max_ch) max_ch = conf_id; // mind. 5 Kanaele // reset? lower 0xsCaaaab?
+
+    if (conf_id > 4 && conf_id == (nul_ch>>4)+1)
+    {
+        sn2_ch = bits2val(conf_bits, 8);
+
+        if (option_auto)
+        {
+            sn_ch = ((sn2_ch>>4) & 0xF);
+            if (conf_id == sn_ch)
+            {
+                if ( (nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
+                    SN6 = bits2val(conf_bits+4, 4*6);   // DFM-06: Kanal 6
+                    if (SN6 == gpx.SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
+                        gpx.sonde_typ = SNbit | 6;
+                        ptu_out = 6;
+                        sprintf(gpx.sonde_id, "ID06:%6X", gpx.SN6);
+                        sprintf(json_sonde_id, "DFM06-%6X", gpx.SN6);
+                    }
+                    else { // reset
+                        gpx.sonde_typ = 0;
+                        sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
+                    }
+                    gpx.SN6 = SN6;
+                }
+                else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
+                         || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
+                {
+                    val = bits2val(conf_bits+8, 4*5);
+                    hl =  (val & 1);
+                    chX[hl] = (val >> 4) & 0xFFFF;
+                    chXbit |= 1 << hl;
+                    if (chXbit == 3) {
+                        SN = (chX[0] << 16) | chX[1];
+                        if ( SN == SN_X || SN_X == 0 ) {
+
+                            gpx.sonde_typ = SNbit | sn_ch;
+                            gpx.SN = SN;
+
+                            if (sn_ch == 0xA /*&& (sn2_ch & 0xF) == 0xC*/) ptu_out = 9; else ptu_out = 0;
+                            // PS-15 ? (sn2_ch & 0xF) == 0x0 :  ptu_out = 0
+                            // DFM-17? (sn_ch == 0xC) ptu_out = 9 ? // test 0xD ...?
+
+                            if ( (gpx.sonde_typ & 0xF) == 0xA) {
+                                sprintf(gpx.sonde_id, "ID09:%6u", gpx.SN);
+                                sprintf(json_sonde_id, "DFM09-%6u", gpx.SN);
+                            }
+                            else {
+                                sprintf(gpx.sonde_id, "ID-%1X:%6u", gpx.sonde_typ & 0xF, gpx.SN);
+                                sprintf(json_sonde_id, "DFMx%1X-%6u", gpx.sonde_typ & 0xF,gpx.SN);
+                            }
+                        }
+                        else { // reset
+                            gpx.sonde_typ = 0;
+                            sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
+                        }
+                        SN_X = SN;
+                        chXbit = 0;
+                    }
+                }
+                ret = (gpx.sonde_typ & 0xF);
+            }
+        }
+    }
+
+    if (option_auto == 0) {
+
+        // gibt es Kanaele > 6 (2-teilige ID)?
+        // if (conf_id > 6) gpx.SN6 = 0;  // -> DFM-09,PS-15  // SNbit?
+        //
+        // SN/ID immer im letzten Kanal? davor xy00000-Kanal? (mind. 1)
+        if ((gpx.sonde_typ & 0xF) < 7  &&  conf_id == 6) {
+            SN6 = bits2val(conf_bits+4, 4*6);   // DFM-06: Kanal 6
+            if (SN6 == gpx.SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
+                gpx.sonde_typ = SNbit | 6;
+                ptu_out = 6;
+                ret = 6;
+                sprintf(gpx.sonde_id, "ID06:%6X", gpx.SN6);
+                sprintf(json_sonde_id, "DFM06-%6X", gpx.SN6);
             }
             else {
                 gpx.sonde_typ = 0;
             }
-            SN_A = SN;
-            chAbit = 0;
+            gpx.SN6 = SN6;
+        }
+        if (conf_id == 0xA) {  // 0xACxxxxy ,  DFM-09
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 1);  // val&0xF 0,1?
+            chA[hl] = (val >> 4) & 0xFFFF;
+            chAbit |= 1 << hl;
+            if (chAbit == 3) {  // DFM-09: Kanal A
+                SN = (chA[0] << 16) | chA[1];
+                if ( SN == SN_A ) {
+                    gpx.sonde_typ = SNbit | 0xA;
+                    gpx.SN = SN;
+                    ptu_out = 9;
+                    ret = 9;
+                    sprintf(gpx.sonde_id, "ID09:%6u", gpx.SN);
+                    sprintf(json_sonde_id, "DFM09-%6u", gpx.SN);
+                }
+                else {
+                    gpx.sonde_typ = 0;
+                }
+                SN_A = SN;
+                chAbit = 0;
+            }
+        }
+        if (conf_id == 0xC) {  // 0xCCxxxxy ,  DFM-17?
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 1);
+            chC[hl] = (val >> 4) & 0xFFFF;
+            chCbit |= 1 << hl;
+            if (chCbit == 3) {  // DFM-17? Kanal C
+                SN = (chC[0] << 16) | chC[1];
+                if ( SN == SN_C ) {
+                    gpx.sonde_typ = SNbit | 0xC;
+                    gpx.SN = SN;
+                    ptu_out = 9; // ?
+                    ret = 17;
+                    sprintf(gpx.sonde_id, "ID-%1X:%6u", gpx.sonde_typ & 0xF, gpx.SN);
+                    sprintf(json_sonde_id, "DFM17-%6u", gpx.SN);
+                }
+                else {
+                    gpx.sonde_typ = 0;
+                }
+                SN_C = SN;
+                chCbit = 0;
+            }
+        }
+        if (conf_id == 0xD) {  // 0xDCxxxxy ,  DFM-17?
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 1);
+            chD[hl] = (val >> 4) & 0xFFFF;
+            chDbit |= 1 << hl;
+            if (chDbit == 3) {  // DFM-17? Kanal D
+                SN = (chD[0] << 16) | chD[1];
+                if ( SN == SN_D ) {
+                    gpx.sonde_typ = SNbit | 0xD;
+                    gpx.SN = SN;
+                    ptu_out = 0; // ...
+                    ret = 18;
+                    sprintf(gpx.sonde_id, "ID-%1X:%6u", gpx.sonde_typ & 0xF, gpx.SN);
+                    sprintf(json_sonde_id, "DFM17-%6u", gpx.SN);
+                }
+                else {
+                    gpx.sonde_typ = 0;
+                }
+                SN_D = SN;
+                chDbit = 0;
+            }
+        }
+        if (conf_id == 0x7) {  // 0x70xxxxy ,  pilotsonde PS-15?
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 1);
+            ch7[hl] = (val >> 4) & 0xFFFF;
+            ch7bit |= 1 << hl;
+            if (ch7bit == 3) {  // PS-15: Kanal 7
+                SN = (ch7[0] << 16) | ch7[1];
+                if ( SN == SN_7 ) {
+                    gpx.sonde_typ = SNbit | 0x7;
+                    gpx.SN = SN;
+                    ptu_out = 0;
+                    ret = 15;
+                    sprintf(gpx.sonde_id, "ID15:%6u", gpx.SN);
+                    sprintf(json_sonde_id, "DFM15-%6u", gpx.SN);
+                }
+                else {
+                    gpx.sonde_typ = 0;
+                }
+                SN_7 = SN;
+                ch7bit = 0;
+            }
         }
     }
-    if (conf_id == 0xC) {  // 0xCCxxxxy
-        val = bits2val(conf_bits+8, 4*5);
-        hl =  (val & 1);
-        chC[hl] = (val >> 4) & 0xFFFF;
-        chCbit |= 1 << hl;
-        if (chCbit == 3) {  // DFM-17? Kanal C
-            SN = (chC[0] << 16) | chC[1];
-            if ( SN == SN_C ) {
-                gpx.sonde_typ = RSNbit | 0xC;
-                gpx.SN = SN;
-                ptu_out = 9;
-                ret = 17;
-            }
-            else {
-                gpx.sonde_typ = 0;
-            }
-            SN_C = SN;
-            chCbit = 0;
-        }
-    }
-    if (conf_id == 0xD) {  // 0xDCxxxxy
-        val = bits2val(conf_bits+8, 4*5);
-        hl =  (val & 1);
-        chD[hl] = (val >> 4) & 0xFFFF;
-        chDbit |= 1 << hl;
-        if (chDbit == 3) {  // DFM-17? Kanal D
-            SN = (chD[0] << 16) | chD[1];
-            if ( SN == SN_D ) {
-                gpx.sonde_typ = RSNbit | 0xD;
-                gpx.SN = SN;
-                ptu_out = 9;
-                ret = 18;
-            }
-            else {
-                gpx.sonde_typ = 0;
-            }
-            SN_D = SN;
-            chDbit = 0;
-        }
-    }
-    if (conf_id == 0x7) {  // 0x70xxxxy
-        val = bits2val(conf_bits+8, 4*5);
-        hl =  (val & 1);
-        ch7[hl] = (val >> 4) & 0xFFFF;
-        ch7bit |= 1 << hl;
-        if (ch7bit == 3) {  // PS-15: Kanal 7
-            SN = (ch7[0] << 16) | ch7[1];
-            if ( SN == SN_7 ) {
-                gpx.sonde_typ = PSNbit | 0x7;
-                gpx.SN = SN;
-                ptu_out = 0;
-                ret = 15;
-            }
-            else {
-                gpx.sonde_typ = 0;
-            }
-            SN_7 = SN;
-            ch7bit = 0;
-        }
-    }
+
 
     if (conf_id >= 0 && conf_id <= 4) {
         val = bits2val(conf_bits+4, 4*6);
@@ -519,95 +641,116 @@ int conf_out(ui8_t *conf_bits) {
 }
 
 void print_gpx() {
-  int i, j;
+    int i, j;
+    int contgps = 0;
+    int output = 0;
+    int jsonout = 0;
 
-  if (start) {
 
-      if (option_raw == 2) {
-           for (i = 0; i < 9; i++) {
-               printf(" %s", dat_str[i]);
-           }
-           for (i = 0; i < 9; i++) {
-               for (j = 0; j < 13; j++) dat_str[i][j] = ' ';
-           }
-      }
-      else {
-          //if (option_auto && option_verbose) printf("[%c] ", option_inv?'-':'+');
-          printf("[%3d] ", gpx.frnr);
-          printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
-          printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
-          printf("  ");
-          printf("lat: %.6f  ", gpx.lat);
-          printf("lon: %.6f  ", gpx.lon);
-          printf("alt: %.1f  ", gpx.alt);
-          printf(" vH: %5.2f ", gpx.horiV);
-          printf(" D: %5.1f ", gpx.dir);
-          printf(" vV: %5.2f ", gpx.vertV);
-          if (option_ptu  &&  ptu_out) {
-              float t = get_Temp(gpx.meas24);
-              if (t > -270.0) printf("  T=%.1fC ", t);
-              if (option_verbose == 2) {
-                  float t2 = get_Temp2(gpx.meas24);
-                  float t4 = get_Temp4(gpx.meas24);
-                  if (t2 > -270.0) printf("  T2=%.1fC ", t2);
-                  if (t4 > -270.0) printf(" T4=%.1fC  ", t4);
-                  printf(" f0: %.2f ", gpx.meas24[0]);
-                  printf(" f3: %.2f ", gpx.meas24[3]);
-                  printf(" f4: %.2f ", gpx.meas24[4]);
-              }
-          }
-          if (option_verbose == 2  &&  (gpx.sonde_typ & 0xF) == 0xA) {
-              printf("  U: %.2fV ", gpx.status[0]);
-              printf("  Ti: %.1fK ", gpx.status[1]);
-          }
-          if ( option_verbose )
-          {
-              if (gpx.sonde_typ & RSNbit)
-              {
-                  if ((gpx.sonde_typ & 0xF) == 6) { // DFM-06
-                      printf(" (ID6:%06X) ", gpx.SN6);
-                      sprintf(sonde_id, "DFM06-%06X", gpx.SN6);
-                  }
-                  if ((gpx.sonde_typ & 0xF) == 0xA) { // DFM-09
-                      printf(" (ID9:%06u) ", gpx.SN);
-                      sprintf(sonde_id, "DFM09-%06u", gpx.SN);
-                  }
-                  if ((gpx.sonde_typ & 0xF) == 0xC || // DFM-17?
-                      (gpx.sonde_typ & 0xF) == 0xD ) {
-                      printf(" (ID-%1X:%06u) ", gpx.sonde_typ & 0xF, gpx.SN);
-                      sprintf(sonde_id, "DFM17-%06u", gpx.SN);
-                  }
-                  gpx.sonde_typ ^= RSNbit;
-              }
-              if (gpx.sonde_typ & PSNbit) {
-                  if ((gpx.sonde_typ & 0xF) == 0x7) { // PS-15?
-                      printf(" (ID15:%06u) ", gpx.SN);
-                      sprintf(sonde_id, "DFM15-%06u", gpx.SN);
-                  }
-                  gpx.sonde_typ ^= PSNbit;
-              }
-          }
-      }
-      printf("\n");
+    output |= start;
 
-      if (option_json)
-      {
-          // Print JSON blob
-          // Get temperature
-          float t = get_Temp(gpx.meas24);
-          printf("\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"temp\":%.1f }\n",  gpx.frnr, sonde_id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.horiV, gpx.dir, gpx.vertV, t );
-      }
+    if (option_json && start == 0) { // JSON: initial reset
+        sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
+    }
 
-  }
+
+    for (i = 0; i < 9/*8*/; i++) { // trigger: pck8
+        if ( !( (option_dist || option_json) && pck[i].ec < 0) )
+        {
+            if (pck[8].ts - pck[i].ts < 6.0)  { output |= (1<<i); }
+        }
+        //if (option_dist && pck[i].ec < 0) { output &= ~(1<<i); }
+
+    }
+
+    jsonout = output;
+
+    contgps = ((output & 0x11F) == 0x11F); // 0,1,2,3,8
+
+    if (option_dist && !contgps) {
+        output = 0;
+    }
+    if (option_json && !contgps) {
+        jsonout = 0;
+    }
+
+    if (output & 0xF000) {
+
+        if (option_raw == 2) {
+            for (i = 0; i < 9; i++) {
+                printf(" %s", dat_str[i]);
+                if (option_ecc) printf(" (%1X) ", pck[i].ec&0xF);
+            }
+            for (i = 0; i < 9; i++) {
+                for (j = 0; j < 13; j++) dat_str[i][j] = ' ';
+            }
+        }
+        else {
+            if (option_auto && option_verbose >= 2) printf("<%c> ", option_inv?'-':'+');
+            printf("[%3d] ", gpx.frnr);
+            printf("%4d-%02d-%02d ", gpx.jahr, gpx.monat, gpx.tag);
+            printf("%02d:%02d:%04.1f ", gpx.std, gpx.min, gpx.sek);
+                                                 if (option_verbose >= 2 && option_ecc) printf("(%1X,%1X,%1X) ", pck[0].ec&0xF, pck[8].ec&0xF, pck[1].ec&0xF);
+            printf(" ");
+            printf(" lat: %.5f ", gpx.lat);      if (option_verbose >= 2 && option_ecc) printf("(%1X)  ", pck[2].ec&0xF);
+            printf(" lon: %.5f ", gpx.lon);      if (option_verbose >= 2 && option_ecc) printf("(%1X)  ", pck[3].ec&0xF);
+            printf(" alt: %.1f ", gpx.alt);      if (option_verbose >= 2 && option_ecc) printf("(%1X)  ", pck[4].ec&0xF);
+            printf(" vH: %5.2f ", gpx.horiV);
+            printf(" D: %5.1f ", gpx.dir);
+            printf(" vV: %5.2f ", gpx.vertV);
+            if (option_ptu  &&  ptu_out) {
+                float t = get_Temp(gpx.meas24);
+                if (t > -270.0) printf("  T=%.1fC ", t);
+                if (option_verbose == 3) {
+                    float t2 = get_Temp2(gpx.meas24);
+                    float t4 = get_Temp4(gpx.meas24);
+                    if (t2 > -270.0) printf("  T2=%.1fC ", t2);
+                    if (t4 > -270.0) printf(" T4=%.1fC  ", t4);
+                    printf(" f0: %.2f ", gpx.meas24[0]);
+                    printf(" f3: %.2f ", gpx.meas24[3]);
+                    printf(" f4: %.2f ", gpx.meas24[4]);
+                }
+            }
+            if (option_verbose == 3  &&  (gpx.sonde_typ & 0xF) == 0xA) {
+                printf("  U: %.2fV ", gpx.status[0]);
+                printf("  Ti: %.1fK ", gpx.status[1]);
+            }
+            if (option_verbose)
+            {
+                if (gpx.sonde_typ & SNbit) {
+                    printf(" (%s) ", gpx.sonde_id);
+                    gpx.sonde_typ ^= SNbit;
+                }
+            }
+        }
+        printf("\n");
+
+        if (option_json && jsonout)
+        {
+            // Print JSON blob     // valid sonde_ID?
+            printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                   gpx.frnr, json_sonde_id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.horiV, gpx.dir, gpx.vertV);
+            if (ptu_out) { // get temperature
+                float t = get_Temp(gpx.meas24); // ecc-valid temperature?
+                if (t > -270.0) printf(", \"temp\": %.1f", t);
+            }
+            printf(" }\n");
+            printf("\n");
+        }
+
+    }
+
+    for (i = 0; i < 9; i++) pck[i].ec = -1;
 }
 
-int print_frame() {
+int print_frame(float frmcnt) {
     int i;
     int nib = 0;
     int frid = -1;
     int ret0, ret1, ret2;
     int ret = 0;
 
+    gpx._frmcnt = frmcnt;
 
     deinterleave(frame_bits+CONF,  7, hamming_conf);
     deinterleave(frame_bits+DAT1, 13, hamming_dat1);
@@ -655,24 +798,24 @@ int print_frame() {
     else if (option_ecc) {
 
         if (ret0 == 0 || ret0 > 0) {
-            conf_out(block_conf);
+            conf_out(block_conf, ret0);
         }
         if (ret1 == 0 || ret1 > 0) {
-            frid = dat_out(block_dat1);
+            frid = dat_out(block_dat1, ret1);
             if (frid == 8) print_gpx();
         }
         if (ret2 == 0 || ret2 > 0) {
-            frid = dat_out(block_dat2);
+            frid = dat_out(block_dat2, ret2);
             if (frid == 8) print_gpx();
         }
 
     }
     else {
 
-        conf_out(block_conf);
-        frid = dat_out(block_dat1);
+        conf_out(block_conf, ret0);
+        frid = dat_out(block_dat1, ret1);
         if (frid == 8) print_gpx();
-        frid = dat_out(block_dat2);
+        frid = dat_out(block_dat2, ret2);
         if (frid == 8) print_gpx();
 
     }
@@ -699,15 +842,18 @@ int main(int argc, char **argv) {
     int headerlen = 0;
     int frm = 0, nfrms = 8; // nfrms=1,2,4,8
 
-    int k,K;
+    int k, K;
     float mv;
     unsigned int mv_pos, mv0_pos;
     int mp = 0;
 
-    float thres = 0.6;
+    float frm_cnt = 0.0;
 
-    int bitofs = 0;
+    float thres = 0.65;
+
     int symlen = 2;
+    int bitofs = 2; // +1 .. +2
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -732,7 +878,8 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
-        else if ( (strcmp(*argv, "-vv") == 0) ) { option_verbose = 2; }
+        else if ( (strcmp(*argv, "-vv" ) == 0) ) { option_verbose = 2; }
+        else if ( (strcmp(*argv, "-vvv") == 0) ) { option_verbose = 3; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             option_raw = 1;
         }
@@ -743,13 +890,27 @@ int main(int argc, char **argv) {
             option_inv = 0x1;
         }
         else if ( (strcmp(*argv, "--ecc") == 0) ) { option_ecc = 1; }
-        else if ( (strcmp(*argv, "--json") == 0) ) { option_json = 1; }
-        else if ( (strcmp(*argv, "--ptu") == 0) ) { option_ptu = 1;  ptu_out = 1; }
+        else if ( (strcmp(*argv, "--ptu") == 0) ) {
+            option_ptu = 1;
+            //ptu_out = 1; // force ptu (non PS-15)
+        }
+        else if ( (strcmp(*argv, "--auto") == 0) ) { option_auto = 1; }
+        else if ( (strcmp(*argv, "--dist") == 0) ) { option_dist = 1; option_ecc = 1; }
+        else if ( (strcmp(*argv, "--json") == 0) ) { option_json = 1; option_ecc = 1; }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
+            }
+            else return -1;
+        }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
             }
             else return -1;
         }
@@ -777,25 +938,30 @@ int main(int argc, char **argv) {
     }
 
 
+    for (k = 0; k < 9; k++) pck[k].ec = -1; // init ecc-status
+
+
     symlen = 2;
+    bitofs += shift;
+
     headerlen = strlen(rawheader);
-    bitofs = 2; // +1 .. +2
     K = init_buffers(rawheader, headerlen, 0); // shape=0 (alt. shape=1)
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
         return -1;
     };
 
-
     k = 0;
-    mv = -1; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
+            if (option_auto == 0 && mv < 0) mv = 0;
             k = 0;
         }
         else {
@@ -803,7 +969,8 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        if (mv > thres && mp > 0) {
+        if ( mp > 0 && (mv > thres || mv < -thres)) {
+
             if (mv_pos > mv0_pos) {
 
                 header_found = 0;
@@ -816,7 +983,16 @@ int main(int argc, char **argv) {
                         herr1 = 1;
                     }
                 }
-                if (herrs <= 1) header_found = 1; // herrs <= 1 bitfehler in header
+                if (herrs <= 1) {
+                    header_found = 1; // herrs <= 1 bitfehler in header
+                    if (mv < 0) header_found = -header_found;
+                }
+
+                if (header_found < 0) {
+                    // read_sbit(option_inv) buffer reset?
+                    if (option_auto) option_inv ^= 0x1;
+                    else header_found = 0;
+                }
 
                 if (header_found) {
 
@@ -824,18 +1000,20 @@ int main(int argc, char **argv) {
                     pos = headerlen;
                     pos /= 2;
 
+                    //if (fabs(mv) > 0.85) nfrms = 8; else nfrms = 4; // test OK/KO/NO count
+
                     frm = 0;
                     while ( frm < nfrms ) { // nfrms=1,2,4,8
+                        frm_cnt = mv_pos/(spb*2.0*BITFRAME_LEN) + frm;
                         while ( pos < BITFRAME_LEN ) {
-                            header_found = !(frm==nfrms-1 && pos>=BITFRAME_LEN-10);
-                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0, !header_found); // symlen=2, return: zeroX/bit
+                            bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bitpos==0); // symlen=2
                             if (bitQ == EOF) { frm = nfrms; break; }
                             frame_bits[pos] = 0x30 + bit;
                             pos++;
                             bitpos += 1;
                         }
                         frame_bits[pos] = '\0';
-                        ret = print_frame();
+                        ret = print_frame(frm_cnt);
                         if (pos < BITFRAME_LEN) break;
                         pos = 0;
                         frm += 1;

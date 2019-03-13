@@ -236,34 +236,32 @@ class SondeDecoder(object):
             else:
                 _rs92_gps_data = "-e %s" % self.rs92_ephemeris
 
+            # Adjust the receive bandwidth based on the band the scanning is occuring in.
+            if self.sonde_freq < 1000e6:
+                # 400-406 MHz sondes - use a 12 kHz FM demod bandwidth.
+                _rx_bw = 12000
+            else:
+                # 1680 MHz sondes - use a 28 kHz FM demod bandwidth.
+                # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
+                _rx_bw = 28000
+
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 12k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            decode_cmd += "sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |"
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _rx_bw, self.sonde_freq)
+            decode_cmd += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |" % _rx_bw
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
             # DFM06/DFM09 Sondes.
-
-            # We need to handle inversion of DFM sondes in a bit of an odd way.
-            # Using our current receive chain (rtl_fm), rs_detect will detect:
-            # DFM06's as non-inverted ('DFM')
-            # DFM09's as inverted ('-DFM')
-            # HOWEVER, dfm09dm_ecc makes the assumption that the incoming signal is a DFM09, and
-            # inverts by default.
-            # So, to be able to support DFM06s, we need to flip the invert flag.
-            self.inverted = not self.inverted
-
-            if self.inverted:
-                _invert_flag = "-i"
-            else:
-                _invert_flag = ""
+            # As of 2019-02-10, dfm09ecc auto-detects if the signal is inverted,
+            # so we don't need to specify an invert flag.
+            # 2019-02-27: Added the --dist flag, which should reduce bad positions a bit.
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc --json %s 2>/dev/null" % _invert_flag
+            decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
         elif self.sonde_type == "M10":
             # M10 Sondes
@@ -368,7 +366,7 @@ class SondeDecoder(object):
 
         else:
             try:
-                _telemetry = json.loads(data)
+                _telemetry = json.loads(data.decode('ascii'))
             except Exception as e:
                 self.log_debug("Line could not be parsed as JSON - %s" % str(e))
                 return False

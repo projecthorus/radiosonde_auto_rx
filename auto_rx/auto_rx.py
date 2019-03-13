@@ -278,7 +278,7 @@ def clean_task_list():
             continue
 
         if _running == False:
-            # This task has stopped. Release it's associated SDR.
+            # This task has stopped. Release its associated SDR.
             autorx.sdr_list[_task_sdr]['in_use'] = False
             autorx.sdr_list[_task_sdr]['task'] = None
             # Pop the task from the task list.
@@ -334,7 +334,14 @@ def telemetry_filter(telemetry):
         logging.warning("Sonde %s position breached altitude cap by %d m." % (telemetry['id'], _altitude_breach))
         return False
 
-    # Third check - is the payload more than x km from our listening station.
+
+    # Third check: Number of satellites visible.
+    if 'sats' in telemetry:
+        if telemetry['sats'] < 4:
+            logging.warning("Sonde %s can only see %d SVs - discarding position as bad." % (telemetry['id'],telemetry['sats']))
+            return False
+
+    # Fourth check - is the payload more than x km from our listening station.
     # Only run this check if a station location has been provided.
     if (config['station_lat'] != 0.0) and (config['station_lon'] != 0.0):
         # Calculate the distance from the station to the payload.
@@ -382,9 +389,11 @@ def main():
     parser.add_argument("-c" ,"--config", default="station.cfg", help="Receive Station Configuration File. Default: station.cfg")
     parser.add_argument("-l" ,"--log", default="./log/", help="Receive Station Log Path. Default: ./log/")
     parser.add_argument("-f", "--frequency", type=float, default=0.0, help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.")
+    parser.add_argument("-m", "--type", type=str, default=None, help="Immediately start a decoder for a provided sonde type (RS41, RS92, DFM, M10, etc)")
     parser.add_argument("-t", "--timeout", type=int, default=0, help="Close auto_rx system after N minutes. Use 0 to run continuously.")
     parser.add_argument("-v", "--verbose", help="Enable debug output.", action="store_true")
     parser.add_argument("-e", "--ephemeris", type=str, default="None", help="Use a manually obtained ephemeris file when decoding RS92 Sondes.")
+    parser.add_argument("--systemlog", action='store_true', default=False, help="Write a auto_rx system log-file to ./log/ (default=False)")
     args = parser.parse_args()
 
     # Copy out timeout value, and convert to seconds,
@@ -411,17 +420,28 @@ def main():
     # Configure logging
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=_log_path, level=logging_level)
-    stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(stdout_format)
-    logging.getLogger().addHandler(stdout_handler)
 
+    if args.systemlog:
+        # Only write out a logs to a system log file if we have been asked to.
+        # Systemd will capture and logrotate our logs anyway, so writing to our own log file is less useful.
+        logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', filename=_log_path, level=logging_level)
+        logging.info("Opened new system log file: %s" % _log_path)
+        # Also add a separate stdout logger.
+        stdout_format = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(stdout_format)
+        logging.getLogger().addHandler(stdout_handler)
+    else:
+        # Otherwise, we only need the stdout logger, which if we don't specify a filename to logging.basicConfig,
+        # is the default...
+        logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging_level)
+
+    # Add the web interface logging handler.
     web_handler = WebHandler()
     logging.getLogger().addHandler(web_handler)
 
 
-    # Set the requests/socketio logger to only display critical log messages.
+    # Set the requests/socketio loggers (and related) to only display critical log messages.
     logging.getLogger("requests").setLevel(logging.CRITICAL)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -569,6 +589,13 @@ def main():
 
     # Note the start time.
     _start_time = time.time()
+
+    # If a sonde type has been provided, insert an entry into the scan results,
+    # and immediately start a decoder. If decoding fails, then we continue into
+    # the main scanning loop.
+    if args.type != None:
+        scan_results.put([[args.frequency*1e6, args.type]])
+        handle_scan_results()
 
     # Loop.
     while True:

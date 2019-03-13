@@ -1240,8 +1240,9 @@ int main(int argc, char *argv[]) {
 
     float thres = 0.7;
 
-    int bitofs = 0;
     int symlen = 2;
+    int bitofs = 2; // +0 .. +3
+    int shift = 0;
 
 
 #ifdef CYGWIN
@@ -1342,12 +1343,21 @@ int main(int argc, char *argv[]) {
         else if (strcmp(*argv, "-g2") == 0) { option_vergps = 2; }  //  verbose2 GPS (bancroft)
         else if (strcmp(*argv, "-gg") == 0) { option_vergps = 8; }  // vverbose GPS
         else if (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
-        else if (strcmp(*argv, "--json") == 0) { option_json = 1; } // JSON output (for auto_rx)
+        else if (strcmp(*argv, "--json") == 0) {option_json = 1; option_ecc = 1; option_crc = 1; }
         else if (strcmp(*argv, "--ch2") == 0) { wav_channel = 1; }  // right channel (default: 0=left)
         else if (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
+            }
+            else return -1;
+        }
+        else if ( (strcmp(*argv, "-d") == 0) ) {
+            ++argv;
+            if (*argv) {
+                shift = atoi(*argv);
+                if (shift >  4) shift =  4;
+                if (shift < -4) shift = -4;
             }
             else return -1;
         }
@@ -1405,8 +1415,9 @@ int main(int argc, char *argv[]) {
 
 
     symlen = 2;
+    bitofs += shift;
+
     headerlen = strlen(rawheader);
-    bitofs = 2; // +1 .. +2
     K = init_buffers(rawheader, headerlen, 2); // shape=2
     if ( K < 0 ) {
         fprintf(stderr, "error: init buffers\n");
@@ -1414,14 +1425,15 @@ int main(int argc, char *argv[]) {
     };
 
     k = 0;
-    mv = -1; mv_pos = 0;
+    mv = 0;
+    mv_pos = 0;
 
-    while ( f32buf_sample(fp, option_inv, 1) != EOF ) {
+    while ( f32buf_sample(fp, option_inv) != EOF ) {
 
         k += 1;
         if (k >= K-4) {
             mv0_pos = mv_pos;
-            mp = getCorrDFT(0, K, 0, &mv, &mv_pos);
+            mp = getCorrDFT(K, 0, &mv, &mv_pos);
             k = 0;
         }
         else {
@@ -1451,8 +1463,7 @@ int main(int argc, char *argv[]) {
                     bitpos = 0;
 
                     while ( byte_count < FRAME_LEN ) {
-                        header_found = !(byte_count>=FRAME_LEN-2);
-                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0, !header_found); // symlen=2, return: zeroX/bit
+                        bitQ = read_sbit(fp, symlen, &bit, option_inv, bitofs, bit_count==0); // symlen=2
                         if ( bitQ == EOF) break;
                         bit_count += 1;
                         bitbuf[bitpos] = bit;

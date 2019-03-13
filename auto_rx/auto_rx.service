@@ -5,7 +5,7 @@ After=syslog.target
 [Service]
 ExecStart=/usr/bin/python /home/pi/radiosonde_auto_rx/auto_rx/auto_rx.py -t 0
 Restart=always
-RestartSec=3
+RestartSec=120
 WorkingDirectory=/home/pi/radiosonde_auto_rx/auto_rx/
 User=pi
 SyslogIdentifier=auto_rx

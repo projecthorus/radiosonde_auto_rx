@@ -191,54 +191,99 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     else:
         gain_param = ''
 
-    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, frequency) 
-    rx_test_command += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |"
-    rx_test_command += os.path.join(rs_path,"rs_detect") + " -z -t 8 2>/dev/null >/dev/null"
+    # Adjust the detection bandwidth based on the band the scanning is occuring in.
+    if frequency < 1000e6:
+        # 400-406 MHz sondes - use a 22 kHz detection bandwidth.
+        _rx_bw = 22000
+    else:
+        # 1680 MHz sondes - use a 28 kHz detection bandwidth.
+        # NOTE: This is an initial stab in the dark at a setting for this band.
+        _rx_bw = 28000
 
+    # Sample Source (rtl_fm)
+    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
+    # Sample filtering
+    rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |" % _rx_bw
+    # Sample decoding / detection
+    rx_test_command += os.path.join(rs_path,"dft_detect") + " 2>/dev/null"
+
+    logging.debug("Scanner #%s - Using detection command: %s" % (str(device_idx), rx_test_command))
     logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
 
     try:
         FNULL = open(os.devnull, 'w')
-        ret_code = subprocess.call(rx_test_command, shell=True, stderr=FNULL)
+        _start = time.time()
+        ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
+        ret_output = ret_output.decode('utf8')
+    except subprocess.CalledProcessError as e:
+        # dft_detect returns a code of 1 if no sonde is detected.
+        # logging.debug("Scanner - dfm_detect return code: %s" % e.returncode)
+        if e.returncode >= 2:
+            ret_output = e.output.decode('utf8')
+        else:
+            _runtime = time.time() - _start
+            logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
+            return None
     except Exception as e:
         # Something broke when running the detection function.
-        logging.error("Scanner #%s - Error when running rs_detect - %s" % (str(device_idx), str(e)))
+        logging.error("Scanner #%s - Error when running dft_detect - %s" % (str(device_idx), str(e)))
         return None
 
-    # Shift down by a byte... for some reason.
-    # NOTE: For some reason, we don't need to do this when using subprocess.call vs when using os.system.
-    # Should probably figure out why this is the case at some point.
-    #ret_code = ret_code >> 8
 
-    # Default is non-inverted FM.
-    inv = ""
+    _runtime = time.time() - _start
+    logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
 
-    # Check if the inverted bit is set
-    if (ret_code & 0x80) > 0: 
-        # If the inverted bit is set, we have to do some munging of the return code to get the sonde type.
-        ret_code = abs(-1 * (0x100 - ret_code))
+    # Check for no output from dft_detect.
+    if ret_output is None or ret_output == "":
+        #logging.error("Scanner - dft_detect returned no output?")
+        return None
 
-        inv = "-"
 
-    else:
-        ret_code = abs(ret_code)
 
-    if ret_code == 3:
-        logging.debug("Scanner #%s - Detected a RS41!" % str(device_idx))
-        return inv+"RS41"
-    elif ret_code == 4:
-        logging.debug("Scanner #%s - Detected a RS92!" % str(device_idx))
-        return inv+"RS92"
-    elif ret_code == 2:
-        logging.debug("Scanner #%s - Detected a DFM Sonde!" % str(device_idx))
-        return inv+"DFM"
-    elif ret_code == 5:
-        logging.debug("Scanner #%s - Detected a M10 Sonde!" % str(device_idx))
-        return inv+"M10"
-    elif ret_code == 6:
-        logging.debug("Scanner #%s - Detected a iMet Sonde! (Unsupported)" % str(device_idx))
-        return inv+"iMet"
+
+    # dft_detect return codes:
+    # 2 = DFM
+    # 3 = RS41
+    # 4 = RS92
+    # 5 = M10
+    # 6 = IMET (AB)
+    # 7 = IMET (RS)
+    # 8 = LMS6
+    # 9 = C34/C50
+
+    # Split the line into sonde type and correlation score.
+    _fields = ret_output.split(':')
+
+    if len(_fields) <2:
+        logging.error("Scanner - malformed output from dft_detect: %s" % ret_output.strip())
+        return None
+
+    _type = _fields[0]
+    _score = float(_fields[1].strip())
+
+
+    if 'RS41' in _type:
+        logging.debug("Scanner #%s - Detected a RS41! (Score: %.2f)" % (str(device_idx), _score))
+        return "RS41"
+    elif 'RS92' in _type:
+        logging.debug("Scanner #%s - Detected a RS92! (Score: %.2f)" % (str(device_idx), _score))
+        return "RS92"
+    elif 'DFM' in _type:
+        logging.debug("Scanner #%s - Detected a DFM Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        return "DFM"
+    elif 'M10' in _type:
+        logging.debug("Scanner #%s - Detected a M10 Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        return "M10"
+    elif 'IMET' in _type:
+        logging.debug("Scanner #%s - Detected a iMet Sonde! (Unsupported, type %s) (Score: %.2f)" % (str(device_idx), _type, _score))
+        return "iMet"
+    elif 'LMS6' in _type:
+        logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
+        return 'LMS6'
+    elif 'C34' in _type:
+        logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
+        return 'C34C50'
     else:
         return None
 
