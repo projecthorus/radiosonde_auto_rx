@@ -116,7 +116,7 @@ class TelemetryLogger(object):
         Args:
             telemetry (dict): Telemetry dictionary to process.
         """
-        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f\n" % (
+        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f" % (
             telemetry['datetime'],
             telemetry['id'],
             telemetry['frame'],
@@ -127,7 +127,21 @@ class TelemetryLogger(object):
             telemetry['type'],
             telemetry['freq_float'])
 
-        # TODO: Add Aux data, if it exists.
+        # Check for Burst/Kill timer data, and add in.
+        if 'bt' in telemetry:
+            if telemetry['bt'] != -1:
+                _log_line += ",BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
+
+            if (telemetry['kt'] != -1) and (telemetry['kt'] != 65535):
+                _log_line += ",KT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['kt']))
+
+        # Add Aux data, if it exists.
+        if 'aux' in telemetry:
+            _log_line += ",AUX %s" % telemetry['aux'].strip()
+
+
+        # Terminate the log line.
+        _log_line += "\n"
 
         return _log_line
 

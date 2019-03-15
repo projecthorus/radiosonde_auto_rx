@@ -85,6 +85,14 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
     # Add in a comment field, containing the sonde type, serial number, and frequency.
     _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], telemetry['freq'])
 
+    # Check for Burst/Kill timer data, and add in.
+    if 'bt' in telemetry:
+        if telemetry['bt'] != -1:
+            _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
+
+        if (telemetry['kt'] != -1) and (telemetry['kt'] != 65535):
+            _sentence += " KT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['kt']))
+
     # Add on any custom comment data if provided.
     if comment != None:
         comment = comment.replace(',','_')
