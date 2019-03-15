@@ -129,11 +129,8 @@ class TelemetryLogger(object):
 
         # Check for Burst/Kill timer data, and add in.
         if 'bt' in telemetry:
-            if telemetry['bt'] != -1:
+            if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
                 _log_line += ",BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
-
-            if (telemetry['kt'] != -1) and (telemetry['kt'] != 65535):
-                _log_line += ",KT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['kt']))
 
         # Add Aux data, if it exists.
         if 'aux' in telemetry:

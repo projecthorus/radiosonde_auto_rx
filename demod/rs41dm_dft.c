@@ -74,7 +74,6 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
 int burst_timer = -1;
-int burst_kill = -1;
 
 
 #define BITS    8
@@ -876,7 +875,6 @@ int get_Calconf(int out) {
             byte = framebyte(pos_Calburst);
             burst = byte;   // fw >= 0x4ef5, BK irrelevant? (burst-killtimer in 0x31?)
             int kt = frame[0x5A] + (frame[0x5B] << 8); // short?
-            burst_kill = kt;
             if (option_verbose == 3){
                 fprintf(stdout, ": BK %02X ", burst);
                 if ( kt != 0xFFFF ) fprintf(stdout, ": kt 0x%04x = %dsec = %.1fmin ", kt, kt, kt/60.0);
@@ -894,10 +892,17 @@ int get_Calconf(int out) {
 
         if (calfr == 0x31) {
             int bt = frame[0x59] + (frame[0x5A] << 8); // short?
-            burst_timer = bt;
             // fw >= 0x4ef5: default=[88 77]=0x7788sec=510min
             if (option_verbose == 3){
                 if ( bt != 0x0000 ) fprintf(stdout, ": bt 0x%04x = %dsec = %.1fmin ", bt, bt, bt/60.0);
+            }
+        }
+
+        if (calfr == 0x32) {
+            int bt = frame[pos_CalData+1] + (frame[pos_CalData+2] << 8); // short?
+            burst_timer = bt;
+            if (option_verbose == 3){
+                if ( bt != 0xFFFF ) fprintf(stdout, ": countdown timer 0x%04x = %dsec = %.1fmin ", bt, bt, bt/60.0);
             }
         }
 
@@ -1127,9 +1132,9 @@ int print_position(int ec) {
                     strcpy( auxbuffer+strlen(aux_data)+9, "\"\0" );
                 }
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"kt\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, burst_kill, gpx.T, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, gpx.T, auxbuffer);
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"kt\": %d %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, burst_kill, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, auxbuffer);
                 }
                 printf("\n");
             }
