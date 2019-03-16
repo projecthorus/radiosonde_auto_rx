@@ -28,7 +28,7 @@ try:
 except ImportError:
     # Running in a test scenario. Make a dummy flask_emit_event function.
     def flask_emit_event(event_name, data):
-        print("Running in a test scenatio, no data emitted to flask.")
+        print("Running in a test scenario, no data emitted to flask.")
         pass
 
 # Global for latest scan result
