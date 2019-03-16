@@ -16,11 +16,33 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_rawbits = 0,
     option_dft = 0,
+    option_json = 0,
     wavloaded = 0;
 
 // Bell202, 1200 baud (1200Hz/2200Hz), 8N1
 #define BAUD_RATE 1200
 
+
+typedef struct {
+    int frame;
+    int hour;
+    int min;
+    int sec;
+    float lat;
+    float lon;
+    int alt;
+    int sats;
+
+    float temp;
+    float pressure;
+    float humidity;
+    float batt;
+
+    int gps_valid;
+    int ptu_valid;
+} json_output_data_t;
+
+json_output_data_t json_data;
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -343,13 +365,14 @@ packet size = 18 bytes
 */
 #define pos_GPSlat  0x02  // 4 byte float
 #define pos_GPSlon  0x06  // 4 byte float
+#define pos_GPSsats 0x0C  // 1 byte
 #define pos_GPSalt  0x0A  // 2 byte int
 #define pos_GPStim  0x0D  // 3 byte
 #define pos_GPScrc  0x10  // 2 byte
 
 void print_GPS(int pos) {
     float lat, lon;
-    int alt;
+    int alt, sats;
     int std, min, sek;
     int crc1, crc2;
 
@@ -359,6 +382,7 @@ void print_GPS(int pos) {
     lat = *(float*)(byteframe+pos+pos_GPSlat);
     lon = *(float*)(byteframe+pos+pos_GPSlon);
     alt = ((byteframe+pos)[pos_GPSalt+1]<<8)+(byteframe+pos)[pos_GPSalt] - 5000;
+    sats = (byteframe+pos)[pos_GPSsats+0];
     std = (byteframe+pos)[pos_GPStim+0];
     min = (byteframe+pos)[pos_GPStim+1];
     sek = (byteframe+pos)[pos_GPStim+2];
@@ -367,11 +391,25 @@ void print_GPS(int pos) {
     fprintf(stdout, " lat: %.6f° ", lat);
     fprintf(stdout, " lon: %.6f° ", lon);
     fprintf(stdout, " alt: %dm ", alt);
+    fprintf(stdout, " sats: %d ", sats);
 
     fprintf(stdout, " # ");
     fprintf(stdout, " CRC: %04X ", crc1);
     fprintf(stdout, "- %04X ", crc2);
-    if (crc1 == crc2) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    if (crc1 == crc2){ 
+        fprintf(stdout, "[OK]");
+        json_data.gps_valid = 1;
+        json_data.lat = lat;
+        json_data.lon = lon;
+        json_data.alt = alt;
+        json_data.sats = sats;
+        json_data.hour = std;
+        json_data.min = min;
+        json_data.sec = sek;
+    }else{ 
+        fprintf(stdout, "[NO]");
+        json_data.gps_valid = 0;
+    }
 }
 
 
@@ -423,9 +461,30 @@ void print_ePTU(int pos) {
     fprintf(stdout, " # ");
     fprintf(stdout, " CRC: %04X ", crc1);
     fprintf(stdout, "- %04X ", crc2);
-    if (crc1 == crc2) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    if (crc1 == crc2){
+        fprintf(stdout, "[OK]"); 
+        json_data.frame = pcknum;
+        json_data.ptu_valid = 1;
+        json_data.temp = T/100.0;
+        json_data.humidity = U/100.0;
+        json_data.batt = bat/10.0;
+        json_data.pressure = P/100.0;
+    }else{
+        fprintf(stdout, "[NO]");
+        json_data.ptu_valid = 0;
+    }
 
 }
+
+
+void print_JSON(){
+    if(json_data.gps_valid && json_data.ptu_valid){
+        printf("{ \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"batt\":%.1f}\n",  json_data.frame, json_data.hour, json_data.min, json_data.sec, json_data.lat, json_data.lon, json_data.alt, json_data.sats, json_data.temp, json_data.humidity, json_data.pressure, json_data.batt);
+            
+    }
+
+}
+
 
 /* -------------------------------------------------------------------------- */
 
@@ -459,6 +518,8 @@ int print_frame(int len) {
             if ((byteframe[pos_GPScrc+2+0] == 0x01) && (byteframe[pos_GPScrc+2+1] == 0x04)) { // PTU Data Packet
                 print_ePTU(pos_GPScrc+2);  // packet offset in byteframe
                 fprintf(stdout, "\n");
+
+                if(option_json) print_JSON();
             }
 /*
             if ((byteframe[0] == 0x01) && (byteframe[1] == 0x04)) { // PTU Data Packet
@@ -510,6 +571,9 @@ int main(int argc, char *argv[]) {
         }
         else if ( (strcmp(*argv, "--rawbits") == 0) ) {
             option_rawbits = 1;
+        }
+        else if ( (strcmp(*argv, "--json") == 0) ) {
+            option_json = 1;
         }
         else if ( (strcmp(*argv, "-d1") == 0) || (strcmp(*argv, "--dft1") == 0) ) {
             option_dft = 1;
@@ -576,7 +640,6 @@ int main(int argc, char *argv[]) {
             }
 
             if (bit != bit0) {
-
                 pos0 = pos;
                 pos = sample_count;  //sample_count-(N-1)/2
 

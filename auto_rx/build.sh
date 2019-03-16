@@ -20,6 +20,9 @@ echo "Building M10 Demodulator."
 cd ../m10/
 g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
+echo "Building iMet Demodulator."
+cd ../imet/
+gcc imet1rs_dft.c -lm -o imet1rs_dft
 
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
@@ -29,5 +32,6 @@ cp ../demod/rs92ecc .
 cp ../demod/rs41ecc .
 cp ../demod/dfm09ecc .
 cp ../m10/m10 .
+cp ../imet/imet1rs_dft .
 
 echo "Done!"
