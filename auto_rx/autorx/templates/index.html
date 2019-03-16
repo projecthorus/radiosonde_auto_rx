@@ -177,8 +177,8 @@
                     {title:"Temp (°C)", field:"temp", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:false}
-                    // TODO: Azimuth, elevation, Range calculations.
+                    {title:"Range (km)", field:"range", headerSort:false},
+                    {title:"Other", field:"other", headerSort:false}
                 ]
             });
 
@@ -225,6 +225,15 @@
                         if ("habitat_enabled" in autorx_config){
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                            }
+                        }
+
+                        // Add data into the 'other' field.
+                        sonde_id_data.other = "";
+                        // Burst timer for RS41s
+                        if (sonde_id_data.hasOwnProperty('bt')){
+                            if ((sonde_id_data.bt >= 0) && (sonde_id_data.bt < 65535)) {
+                                sonde_id_data.other += "BT " + new Date(sonde_id_data.bt*1000).toISOString().substr(11, 8) + " ";
                             }
                         }
 
