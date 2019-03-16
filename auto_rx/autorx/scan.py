@@ -16,13 +16,20 @@ import traceback
 from threading import Thread
 from types import FunctionType, MethodType
 from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs, peak_decimation
-from .web import flask_emit_event
 try:
     # Python 2
     from StringIO import StringIO
 except ImportError:
     # Python 3
     from io import StringIO
+
+try:
+    from .web import flask_emit_event
+except ImportError:
+    # Running in a test scenario. Make a dummy flask_emit_event function.
+    def flask_emit_event(event_name, data):
+        print("Running in a test scenario, no data emitted to flask.")
+        pass
 
 # Global for latest scan result
 scan_result = {'freq':[], 'power':[], 'peak_freq':[], 'peak_lvl':[], 'timestamp':'No data yet.', 'threshold':0}
@@ -84,16 +91,29 @@ def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_p
         filename)
 
     logging.info("Scanner #%s - Running frequency scan." % str(device_idx))
-    #logging.debug("Scanner - Running command: %s" % rtl_power_cmd)
+    logging.debug("Scanner #%s - Running command: %s" % (str(device_idx), rtl_power_cmd))
 
     try:
-        FNULL = open(os.devnull, 'w')
-        subprocess.check_call(rtl_power_cmd, shell=True, stderr=FNULL)
-        FNULL.close()
-    except subprocess.CalledProcessError:
-        logging.critical("Scanner #%s - rtl_power call failed!" % str(device_idx))
+        _output = subprocess.check_output(rtl_power_cmd, shell=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        # Something went wrong...
+        logging.critical("Scanner #%s - rtl_power call failed with return code %s." % (str(device_idx), e.returncode))
+        # Look at the error output in a bit more details.
+        _output = e.output.decode('ascii')
+        if 'No supported devices found' in _output:
+            logging.critical("Scanner #%s - rtl_power could not find device with ID %s, is your configuration correct?" % (str(device_idx), str(device_idx)))
+        elif 'illegal option' in _output:
+            if bias:
+                logging.critical("Scanner #%s - rtl_power reported an illegal option was used. Are you using a rtl_power version with bias tee support?" % str(device_idx))
+            else:
+                logging.critical("Scanner #%s - rtl_power reported an illegal option was used. (This shouldn't happen... are you running an ancient version?)" % str(device_idx))
+        else:
+            # Something else odd happened, dump the entire error output to the log for further analysis.
+            logging.critical("Scanner #%s - rtl_power reported error: %s" % (str(device_idx),_output))
+
         return False
     else:
+        # No errors reported!
         return True
 
 
