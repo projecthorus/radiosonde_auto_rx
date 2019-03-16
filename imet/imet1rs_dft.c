@@ -640,7 +640,6 @@ int main(int argc, char *argv[]) {
             }
 
             if (bit != bit0) {
-
                 pos0 = pos;
                 pos = sample_count;  //sample_count-(N-1)/2
 
