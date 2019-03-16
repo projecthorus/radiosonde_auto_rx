@@ -230,14 +230,10 @@
 
                         // Add data into the 'other' field.
                         sonde_id_data.other = "";
+                        // Burst timer for RS41s
                         if (sonde_id_data.hasOwnProperty('bt')){
-                            if (sonde_id_data.bt >= 0){
+                            if ((sonde_id_data.bt >= 0) && (sonde_id_data.bt < 65535)) {
                                 sonde_id_data.other += "BT " + new Date(sonde_id_data.bt*1000).toISOString().substr(11, 8) + " ";
-                            }
-                        }
-                        if (sonde_id_data.hasOwnProperty('bt')){
-                            if ((sonde_id_data.kt >= 0) && (sonde_id_data.kt < 65535)) {
-                                sonde_id_data.other += "KT " + new Date(sonde_id_data.kt*1000).toISOString().substr(11, 8) + " ";
                             }
                         }
 
