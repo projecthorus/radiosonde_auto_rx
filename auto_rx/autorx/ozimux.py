@@ -36,6 +36,9 @@ class OziUploader(object):
     # We require the following fields to be present in the incoming telemetry dictionary data
     REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
 
+    # Extra fields we can pass on to other programs.
+    EXTRA_FIELDS = ['bt', 'humidity', 'sats']
+
 
     def __init__(self,
         ozimux_port = None,
@@ -141,6 +144,13 @@ class OziUploader(object):
                 'freq': telemetry['freq'],
                 'temp': telemetry['temp']
             }
+
+            # Add in any extra fields we may care about.
+            for _field in self.EXTRA_FIELDS:
+                if _field in telemetry:
+                    packet[_field] = telemetry[_field]
+
+
 
             # Set up our UDP socket
             _s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)

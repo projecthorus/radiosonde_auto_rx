@@ -20,6 +20,10 @@ echo "Building M10 Demodulator."
 cd ../m10/
 g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
+echo "Building iMet Demodulator."
+cd ../imet/
+gcc imet1rs_dft.c -lm -o imet1rs_dft
+
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
 # This produces a static build of fsk_demod
@@ -40,5 +44,6 @@ cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../utils/tsrc .
+cp ../imet/imet1rs_dft .
 
 echo "Done!"
