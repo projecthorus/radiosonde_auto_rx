@@ -221,11 +221,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         _rx_bw = 28000
 
     # Sample Source (rtl_fm)
-    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
+    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
     # Sample filtering
     rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |" % _rx_bw
     # Sample decoding / detection
-    rx_test_command += os.path.join(rs_path,"dft_detect") + " 2>/dev/null"
+    # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
+    rx_test_command += os.path.join(rs_path,"dft_detect") + " -t %d 2>/dev/null" % dwell_time
 
     logging.debug("Scanner #%s - Using detection command: %s" % (str(device_idx), rx_test_command))
     logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
@@ -239,11 +240,15 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
         # logging.debug("Scanner - dfm_detect return code: %s" % e.returncode)
-        if e.returncode >= 2:
+        if e.returncode == 124:
+            logging.error("Scanner #%s - dft_detect timed out." % str(device_idx))
+            raise IOError("Possible RTLSDR lockup.")
+
+        elif e.returncode >= 2:
             ret_output = e.output.decode('utf8')
         else:
             _runtime = time.time() - _start
-            logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
+            logging.debug("Scanner #%s - dft_detect exited in %.1f seconds with return code %d." % (str(device_idx), _runtime, e.returncode))
             return None
     except Exception as e:
         # Something broke when running the detection function.
@@ -252,7 +257,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
 
 
     _runtime = time.time() - _start
-    logging.debug("Scanner - dft_detect exited in %.1f seconds." % _runtime)
+    logging.debug("Scanner - dft_detect exited in %.1f seconds with return code 1." % _runtime)
 
     # Check for no output from dft_detect.
     if ret_output is None or ret_output == "":
@@ -336,6 +341,7 @@ class SondeScanner(object):
         detect_dwell_time = 5,
         scan_delay = 10,
         max_peaks = 10,
+        scan_check_interval = 10,
         rs_path = "./",
         sdr_power = "rtl_power",
         sdr_fm = "rtl_fm",
@@ -365,6 +371,7 @@ class SondeScanner(object):
             detect_dwell_time (int): Number of seconds to allow rs_detect to attempt to detect a sonde. Default = 5 seconds.
             scan_delay (int): Delay X seconds between scan runs.
             max_peaks (int): Maximum number of peaks to search over. Peaks are ordered by signal power before being limited to this number.
+            scan_check_interval (int): If we are using a whitelist, re-check the RTLSDR works every X scan runs.
             rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
             sdr_power (str): Path to rtl_power, or drop-in equivalent. Defaults to 'rtl_power'
             sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
@@ -404,6 +411,11 @@ class SondeScanner(object):
 
         # Error counter. 
         self.error_retries = 0
+
+        # Count how many scans we have performed.
+        self.scan_counter = 0
+        # If we run a whitelist, check the SDR every X scan loops.
+        self.scan_check_interval = scan_check_interval
 
         # This will become our scanner thread.
         self.sonde_scan_thread = None
@@ -454,6 +466,17 @@ class SondeScanner(object):
             if self.error_retries > self.SONDE_SCANNER_MAX_ERRORS:
                 self.log_error("Exceeded maximum number of consecutive RTLSDR errors. Closing scan thread.")
                 break
+
+            # If we are using a whitelist, we don't have an easy way of checking the RTLSDR
+            # is producing useful data, so, test it.
+            if len(self.whitelist) > 0:
+                self.scan_counter += 1
+                if (self.scan_counter % self.scan_check_interval) == 0:
+                    self.log_debug("Performing periodic check of RTLSDR.")
+                    _rtlsdr_ok = rtlsdr_test(self.device_idx)
+                    if not _rtlsdr_ok:
+                        self.log_error("Unrecoverable RTLSDR error. Closing scan thread.")
+                        break
 
             try:
                 _results = self.sonde_search()
