@@ -80,6 +80,7 @@ if __name__ == "__main__":
 	# Testing scripts for the above.
 
 	test_data = [
+		{'datetime':'23:59:58', 'frame': 50, 'freq': '402.000 MHz', 'local_dt': "2019-03-01T23:59:58Z"},
 		{'datetime':'23:59:58', 'frame': 50, 'freq': '402.000 MHz', 'local_dt': "2019-03-01T23:59:57Z"},
 		{'datetime':'23:59:58', 'frame': 50, 'freq': '402.000 MHz', 'local_dt': "2019-03-02T00:00:03Z"},
 		{'datetime':'00:00:00', 'frame': 52, 'freq': '402.000 MHz', 'local_dt': "2019-03-01T23:59:57Z"},
