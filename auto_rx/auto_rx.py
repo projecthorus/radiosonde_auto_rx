@@ -170,7 +170,7 @@ def start_decoder(freq, sonde_type):
 
     Args:
         freq (float): Radiosonde frequency in Hz.
-        sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM')
+        sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM', 'M10, 'iMet')
 
     """
     global config, RS_PATH, exporter_functions, rs92_ephemeris
@@ -368,7 +368,8 @@ def telemetry_filter(telemetry):
     # Regex to check DFM06/09/15/17 callsigns.
     dfm_callsign_valid = re.match(r'DFM[01][5679]-\d{6}', _serial)
 
-    if vaisala_callsign_valid or dfm_callsign_valid or 'M10' in telemetry['type']:
+    # If Vaisala or DFMs, check the callsigns are valid. If M10 or iMet, just pass it through.
+    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('iMet' in telemetry['type']):
         return True
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']

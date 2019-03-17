@@ -300,9 +300,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     elif 'M10' in _type:
         logging.debug("Scanner #%s - Detected a M10 Sonde! (Score: %.2f)" % (str(device_idx), _score))
         return "M10"
+    elif 'IMET1RS' in _type:
+        logging.debug("Scanner #%s - Detected a iMet-4 Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        return "iMet"     
     elif 'IMET' in _type:
-        logging.debug("Scanner #%s - Detected a iMet Sonde! (Unsupported, type %s) (Score: %.2f)" % (str(device_idx), _type, _score))
-        return "iMet"
+        logging.debug("Scanner #%s - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)" % (str(device_idx), _type, _score))
+        return _type
     elif 'LMS6' in _type:
         logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
         return 'LMS6'

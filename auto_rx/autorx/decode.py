@@ -17,9 +17,10 @@ from threading import Thread
 from types import FunctionType, MethodType
 from .utils import AsynchronousFileReader, rtlsdr_test
 from .gps import get_ephemeris, get_almanac
+from .sonde_specific import *
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet']
 
 
 class SondeDecoder(object):
@@ -56,12 +57,13 @@ class SondeDecoder(object):
     DECODER_OPTIONAL_FIELDS = {
         'temp'      : -273.0,
         'humidity'  : -1,
+        'batt'      : -1,
         'vel_h'     : 0.0,
         'vel_v'     : 0.0,
         'heading'   : 0.0
     }
 
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet']
 
     def __init__(self,
         sonde_type="None",
@@ -77,7 +79,9 @@ class SondeDecoder(object):
         timeout = 180,
         telem_filter = None,
 
-        rs92_ephemeris = None):
+        rs92_ephemeris = None,
+
+        imet_location = ""):
         """ Initialise and start a Sonde Decoder.
 
         Args:
@@ -98,6 +102,8 @@ class SondeDecoder(object):
                 not just lack-of-telemetry. This function is passed the telemetry dict, and must return a boolean based on the telemetry validity.
 
             rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
+
+            imet_location (str): OPTIONAL - A location field which is use in the generation of iMet unique ID.
         """
         # Thread running flag
         self.decoder_running = True
@@ -116,6 +122,7 @@ class SondeDecoder(object):
         self.telem_filter = telem_filter
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
+        self.imet_location = imet_location
 
         # This will become our decoder thread.
         self.decoder = None
@@ -298,6 +305,14 @@ class SondeDecoder(object):
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
 
+        elif self.sonde_type == "iMet":
+            # iMet-4 Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+            # iMet-4 (IMET1RS) decoder
+            decode_cmd += "./imet1rs_dft --json 2>/dev/null"
+
         else:
             # Should never get here.
             return None
@@ -380,7 +395,7 @@ class SondeDecoder(object):
 
         # Don't even try and decode lines which don't start with a '{'
         # These may be other output from the decoder, which we shouldn't try to parse.
-
+        
         # Catch 'bad' first characters.
         try:
             _first_char = data.decode('ascii')[0]
@@ -418,7 +433,7 @@ class SondeDecoder(object):
             try:
                 _telemetry['datetime_dt'] = parse(_telemetry['datetime'])
             except Exception as e:
-                self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock" % str(e))
+                self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock)" % str(e))
                 return False
 
             # Add in the sonde frequency and type fields.
@@ -433,6 +448,21 @@ class SondeDecoder(object):
             # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
+
+
+            # iMet Specific actions
+            if self.sonde_type == 'iMet':
+                # Check we have GPS lock.
+                if _telemetry['sats'] < 4:
+                    # No GPS lock means an invalid time, which means we can't accurately calculate a unique ID.
+                    self.log_error("iMet sonde has no GPS lock - discarding frame.")
+                    return False
+
+                # Fix up the time.
+                _telemetry['datetime_dt'] = imet_fix_datetime(_telemetry['datetime'])
+                # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
+                _telemetry['id'] = imet_unique_id(_telemetry, custom=self.imet_location)
+
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
