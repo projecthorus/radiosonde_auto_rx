@@ -479,8 +479,8 @@ void print_ePTU(int pos) {
 
 void print_JSON(){
     if(json_data.gps_valid && json_data.ptu_valid){
-        printf("{ \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"batt\":%.1f}\n",  json_data.frame, json_data.hour, json_data.min, json_data.sec, json_data.lat, json_data.lon, json_data.alt, json_data.sats, json_data.temp, json_data.humidity, json_data.pressure, json_data.batt);
-            
+        fprintf(stdout, "{ \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"batt\":%.1f}\n",  json_data.frame, json_data.hour, json_data.min, json_data.sec, json_data.lat, json_data.lon, json_data.alt, json_data.sats, json_data.temp, json_data.humidity, json_data.pressure, json_data.batt);
+        fflush(stdout);
     }
 
 }
