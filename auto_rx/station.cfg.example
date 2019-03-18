@@ -264,6 +264,8 @@ per_sonde_log = True
 # WEB INTERFACE SETTINNGS #
 ###########################
 [web]
+# Server Host - Can be set to :: to listen on IPv6
+web_host = 0.0.0.0
 # Server Port - Ports below 1024 can only be used if you run auto_rx as root (not recommended)
 web_port = 5000
 # Archive Age - How long to keep a sonde telemetry in memory for the web client to access, in minutes
