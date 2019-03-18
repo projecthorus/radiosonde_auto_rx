@@ -124,6 +124,12 @@ class SondeDecoder(object):
         self.rs92_ephemeris = rs92_ephemeris
         self.imet_location = imet_location
 
+        # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
+        # which don't necessarily have a consistent packet count to time increment ratio.
+        # This is a tradeoff between being able to handle multiple iMet sondes on a single frequency, and
+        # not flooding the various databases with sonde IDs in the case of a bad sonde.
+        self.imet_id = None
+
         # This will become our decoder thread.
         self.decoder = None
 
@@ -434,7 +440,11 @@ class SondeDecoder(object):
                 # Fix up the time.
                 _telemetry['datetime_dt'] = imet_fix_datetime(_telemetry['datetime'])
                 # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
-                _telemetry['id'] = imet_unique_id(_telemetry, custom=self.imet_location)
+                # Latch this ID and re-use it for the entire decode run.
+                if self.imet_id == None:
+                    self.imet_id = imet_unique_id(_telemetry, custom=self.imet_location)
+                
+                _telemetry['id'] = self.imet_id
 
 
             # If we have been provided a telemetry filter function, pass the telemetry data
