@@ -443,7 +443,7 @@ void M10TrimbleParser::printFrame() {
         // Aux data tag if the payload lenght is long
         std::string auxstr = "";
         if (frame_bytes[0x00] != 0x64) {
-            auxstr = "\"aux\": -1, ";
+            auxstr = "\"aux\": \"not_supported_yet\", ";
         }
 
         // Decoder sensible to comma at the end, strict json
