@@ -84,6 +84,7 @@ def read_auto_rx_config(filename):
 		'station_beacon_comment': "radiosonde_auto_rx SondeGate v<version>",
 		'station_beacon_icon': '/r',
 		# Web Settings,
+		'web_host'		: '0.0.0.0',
 		'web_port'		: 5000,
 		'web_archive_age': 120,
 		# Advanced Parameters
@@ -213,10 +214,12 @@ def read_auto_rx_config(filename):
 
 		# New settings added in 20180624.
 		try:
+			auto_rx_config['web_host'] = config.get('web', 'web_host')
 			auto_rx_config['web_port'] = config.getint('web', 'web_port')
 			auto_rx_config['web_archive_age'] = config.getint('web', 'archive_age')
 		except:
 			logging.error("Config - Missing Web Server settings. Using defaults.")
+			auto_rx_config['web_host'] = '0.0.0.0'
 			auto_rx_config['web_port'] = 5000
 			auto_rx_config['web_archive_age'] = 120
 
