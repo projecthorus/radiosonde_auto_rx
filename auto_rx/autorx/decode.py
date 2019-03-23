@@ -74,6 +74,8 @@ class SondeDecoder(object):
         ppm = 0,
         gain = -1,
         bias = False,
+        save_decode_audio = False,
+        save_decode_iq = False,
 
         exporter = None,
         timeout = 180,
@@ -94,6 +96,11 @@ class SondeDecoder(object):
             ppm (int): SDR Frequency accuracy correction, in ppm.
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
+
+            save_decode_audio (bool): If True, save the FM-demodulated audio to disk to decode_<device_idx>.wav.
+                                      Note: This may use up a lot of disk space!
+            save_decode_iq (bool): If True, save the decimated IQ stream (48 or 96k complex s16 samples) to disk to decode_IQ_<device_idx>.bin
+                                      Note: This will use up a lot of disk space!
 
             exporter (function, list): Either a function, or a list of functions, which accept a single dictionary. Fields described above.
             timeout (int): Timeout after X seconds of no valid data received from the decoder. Defaults to 180.
@@ -118,6 +125,8 @@ class SondeDecoder(object):
         self.ppm = ppm
         self.gain = gain
         self.bias = bias
+        self.save_decode_audio = save_decode_audio
+        self.save_decode_iq = save_decode_iq
 
         self.telem_filter = telem_filter
         self.timeout = timeout
@@ -222,6 +231,11 @@ class SondeDecoder(object):
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
         elif self.sonde_type == "RS92":
@@ -262,6 +276,11 @@ class SondeDecoder(object):
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _rx_bw, self.sonde_freq)
             decode_cmd += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2500 highpass 20 2>/dev/null |" % _rx_bw
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
@@ -273,6 +292,11 @@ class SondeDecoder(object):
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             # DFM decoder
             decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
@@ -281,6 +305,11 @@ class SondeDecoder(object):
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
 
@@ -289,6 +318,11 @@ class SondeDecoder(object):
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
 

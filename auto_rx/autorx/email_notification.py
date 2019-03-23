@@ -32,11 +32,12 @@ class EmailNotification(object):
     # We require the following fields to be present in the input telemetry dict.
     REQUIRED_FIELDS = [ 'id', 'lat', 'lon', 'alt', 'type', 'freq']
 
-    def __init__(self, smtp_server = 'localhost', mail_from = None, mail_to = None):
+    def __init__(self, smtp_server = 'localhost', mail_from = None, mail_to = None, mail_subject = None):
         """ Init a new E-Mail Notification Thread """
         self.smtp_server = smtp_server
         self.mail_from = mail_from
         self.mail_to = mail_to
+        self.mail_subject = mail_subject
 
         # Dictionary to track sonde IDs
         self.sondes = {}
@@ -103,7 +104,13 @@ class EmailNotification(object):
                 msg += 'https://sondehub.org/%s\n' % _id
 
                 msg = MIMEText(msg, 'plain', 'UTF-8')
-                msg['Subject'] = 'Sonde launch detected: ' + _id
+
+                # Construct subject
+                msg['Subject'] = self.mail_subject
+                msg['Subject'].replace('<id>', telemetry['id'])
+                msg['Subject'].replace('<type>', telemetry['type'])
+                msg['Subject'].replace('<freq>', telemetry['freq'])
+
                 msg['From'] = self.mail_from
                 msg['To'] = self.mail_to
                 msg["Date"] = formatdate()

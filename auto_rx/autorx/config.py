@@ -40,11 +40,12 @@ def read_auto_rx_config(filename):
 	auto_rx_config = {
 		# Log Settings
 		'per_sonde_log' : True,
-                # Email Settings
-                'email_enabled': False,
-                'email_smtp_server': 'localhost',
-                'email_from': 'sonde@localhost',
-                'email_to': None,
+        # Email Settings
+        'email_enabled': False,
+        'email_smtp_server': 'localhost',
+        'email_from': 'sonde@localhost',
+        'email_to': None,
+        'email_subject': "<type> Sonde launch detected on <freq>: <id>",
 		# SDR Settings
 		'sdr_fm': 'rtl_fm',
 		'sdr_power': 'rtl_power',
@@ -114,7 +115,11 @@ def read_auto_rx_config(filename):
 		'ozi_update_rate': 5,
 		'ozi_port'		: 55681,
 		'payload_summary_enabled': False,
-		'payload_summary_port' : 55672
+		'payload_summary_port' : 55672,
+		# Debugging settings
+		'save_detection_audio' : False,
+		'save_decode_audio' : False,
+		'save_decode_iq' : False
 	}
 
 	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
@@ -133,8 +138,9 @@ def read_auto_rx_config(filename):
 				auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
 				auto_rx_config['email_from'] = config.get('email', 'from')
 				auto_rx_config['email_to'] = config.get('email', 'to')
+				auto_rx_config['email_subject'] = config.get('email', 'subject')
 			except:
-				logging.error("Config - Invalid email settings. Disabling.")
+				logging.error("Config - Invalid or missing email settings. Disabling.")
 				auto_rx_config['email_enabled'] = False
 
 		# SDR Settings
@@ -165,6 +171,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['habitat_payload_callsign'] = config.get('habitat', 'payload_callsign')
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
+		auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
 
 		# APRS Settings
 		auto_rx_config['aprs_enabled'] = config.getboolean('aprs', 'aprs_enabled')
@@ -174,6 +181,15 @@ def read_auto_rx_config(filename):
 		auto_rx_config['aprs_server'] = config.get('aprs', 'aprs_server')
 		auto_rx_config['aprs_object_id'] = config.get('aprs', 'aprs_object_id')
 		auto_rx_config['aprs_custom_comment'] = config.get('aprs', 'aprs_custom_comment')
+		auto_rx_config['aprs_position_report'] = config.getboolean('aprs','aprs_position_report')
+		auto_rx_config['station_beacon_enabled'] = config.getboolean('aprs','station_beacon_enabled')
+		auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
+		auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')
+		auto_rx_config['station_beacon_icon'] = config.get('aprs', 'station_beacon_icon')
+
+		if auto_rx_config['station_beacon_enabled'] and auto_rx_config['station_lat']==0.0 and auto_rx_config['station_lon'] == 0.0:
+			auto_rx_config['station_beacon_enabled'] = False
+			logging.error("Config - Disable APRS Station beacon, as no station lat/lon set.")
 
 		# OziPlotter Settings
 		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
@@ -203,48 +219,21 @@ def read_auto_rx_config(filename):
 		auto_rx_config['rotator_homing_enabled'] = config.getboolean('rotator', 'rotator_homing_enabled')
 		auto_rx_config['rotator_home_azimuth'] = config.getfloat('rotator', 'rotator_home_azimuth')
 		auto_rx_config['rotator_home_elevation'] = config.getfloat('rotator', 'rotator_home_elevation')
+		auto_rx_config['rotator_homing_delay'] = config.getint('rotator', 'rotator_homing_delay')
+		auto_rx_config['rotation_threshold'] = config.getfloat('rotator', 'rotation_threshold')
 
+		# Web interface settings.
+		auto_rx_config['web_host'] = config.get('web', 'web_host')
+		auto_rx_config['web_port'] = config.getint('web', 'web_port')
+		auto_rx_config['web_archive_age'] = config.getint('web', 'archive_age')
 
-		# New setting in this version (20180616). Keep it in a try-catch to avoid bombing out if the new setting isn't present.
+		# New debug settings - added 2019-03-23
 		try:
-			auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
+			auto_rx_config['save_detection_audio'] = config.getboolean('debugging', 'save_detection_audio')
+			auto_rx_config['save_decode_audio'] = config.getboolean('debugging', 'save_decode_audio')
+			auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
 		except:
-			logging.error("Config - Missing uploader_antenna setting. Using default.")
-			auto_rx_config['habitat_uploader_antenna'] = '1/4-wave'
-
-		# New settings added in 20180624.
-		try:
-			auto_rx_config['web_host'] = config.get('web', 'web_host')
-			auto_rx_config['web_port'] = config.getint('web', 'web_port')
-			auto_rx_config['web_archive_age'] = config.getint('web', 'archive_age')
-		except:
-			logging.error("Config - Missing Web Server settings. Using defaults.")
-			auto_rx_config['web_host'] = '0.0.0.0'
-			auto_rx_config['web_port'] = 5000
-			auto_rx_config['web_archive_age'] = 120
-
-		# New setting added in 201810xx (Rotator updates)
-		try:
-			auto_rx_config['rotator_homing_delay'] = config.getint('rotator', 'rotator_homing_delay')
-			auto_rx_config['rotation_threshold'] = config.getfloat('rotator', 'rotation_threshold')
-		except:
-			logging.error("Config - Missing new rotator settings, using defaults.")
-
-
-		# New APRS Station Beaconing settings added in 201812xx
-		try:
-			auto_rx_config['aprs_position_report'] = config.getboolean('aprs','aprs_position_report')
-			auto_rx_config['station_beacon_enabled'] = config.getboolean('aprs','station_beacon_enabled')
-			auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
-			auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')
-			auto_rx_config['station_beacon_icon'] = config.get('aprs', 'station_beacon_icon')
-
-			if auto_rx_config['station_beacon_enabled'] and auto_rx_config['station_lat']==0.0 and auto_rx_config['station_lon'] == 0.0:
-				auto_rx_config['station_beacon_enabled'] = False
-				logging.error("Config - Disable APRS Station beacon, as no station lat/lon set.")
-		except:
-			logging.error("Config - APRS Station Beacon settings missing, using defaults.")
-
+			logging.error("Config - Could not find debugging settings - using defaults.")
 
 
 		# Now we attempt to read in the individual SDR parameters.
