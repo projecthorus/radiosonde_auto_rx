@@ -487,7 +487,8 @@ def main():
         _email_notification = EmailNotification(
             smtp_server = config['email_smtp_server'],
             mail_from = config['email_from'],
-            mail_to = config['email_to']
+            mail_to = config['email_to'],
+            mail_subject = config['email_subject']
 	)
 
         exporter_objects.append(_email_notification)
