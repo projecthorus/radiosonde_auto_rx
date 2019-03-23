@@ -278,6 +278,28 @@ web_port = 5000
 archive_age = 120
 
 
+##################
+# DEBUG SETTINGS #
+##################
+[debugging]
+# WARNING - Enabling these settings can result in lots of SD-card IO, potentially
+# reducing the life of the card. These should only be enabled to collect data for
+# debugging purposes.
+
+# Save the audio that a detection pass is run over to: detect_<SDR_ID>.wav
+# This file is over-written with every new detection.
+save_detection_audio = False
+
+# Save the audio from the output from a sonde decode chain to decode_<SDR_ID>.wav
+# This file is over-written with each new sonde decoded for a particular SDR.
+save_decode_audio = False
+
+# Save the decimated IQ data from an experimental sonde decode chain to decode_IQ_<SDR_ID>.bin
+# This will be in complex signed 16-bit int format, and may be either 48 kHz or 96 kHz.
+# Note: This will use a LOT of disk space.
+save_decode_iq = False
+
+
 
 #####################
 # ADVANCED SETTINGS #

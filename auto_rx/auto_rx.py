@@ -135,7 +135,8 @@ def start_scanner():
             device_idx = _device_idx,
             gain = autorx.sdr_list[_device_idx]['gain'],
             ppm = autorx.sdr_list[_device_idx]['ppm'],
-            bias = autorx.sdr_list[_device_idx]['bias']
+            bias = autorx.sdr_list[_device_idx]['bias'],
+            save_detection_audio = config['save_detection_audio']
             )
 
         # Add a reference into the sdr_list entry
@@ -198,6 +199,8 @@ def start_decoder(freq, sonde_type):
             gain = autorx.sdr_list[_device_idx]['gain'],
             ppm = autorx.sdr_list[_device_idx]['ppm'],
             bias = autorx.sdr_list[_device_idx]['bias'],
+            save_decode_audio = config['save_decode_audio'],
+            save_decode_iq = config['save_decode_iq'],
             exporter = exporter_functions,
             timeout = config['rx_timeout'],
             telem_filter = telemetry_filter,

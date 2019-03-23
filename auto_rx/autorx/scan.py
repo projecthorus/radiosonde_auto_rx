@@ -176,7 +176,7 @@ def read_rtl_power(filename):
     return (freq, power, freq_step)
 
 
-def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device_idx=0, ppm=0, gain=-1, bias=False):
+def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device_idx=0, ppm=0, gain=-1, bias=False, save_detection_audio = False):
     """ Receive some FM and attempt to detect the presence of a radiosonde. 
 
     Args:
@@ -188,6 +188,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         ppm (int): SDR Frequency accuracy correction, in ppm.
         gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
         bias (bool): If True, enable the bias tee on the SDR.
+        save_detection_audio (bool): Save the audio used in detection to a file.
 
     Returns:
         str/None: Returns None if no sonde found, otherwise returns a sonde type, from the following:
@@ -223,7 +224,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     # Sample Source (rtl_fm)
     rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
     # Sample filtering
-    rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null |" % _rx_bw
+    rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null | " % _rx_bw
+
+    # Saving of Debug audio, if enabled,
+    if save_detection_audio:
+        rx_test_command += "tee detect_%s.wav | " % str(device_idx)
+
     # Sample decoding / detection
     # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
     rx_test_command += os.path.join(rs_path,"dft_detect") + " -t %d 2>/dev/null" % dwell_time
@@ -351,7 +357,8 @@ class SondeScanner(object):
         device_idx = 0,
         gain = -1,
         ppm = 0,
-        bias = False):
+        bias = False,
+        save_detection_audio = False):
         """ Initialise a Sonde Scanner Object.
 
         Apologies for the huge number of args...
@@ -382,6 +389,7 @@ class SondeScanner(object):
             ppm (int): SDR Frequency accuracy correction, in ppm.
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
+            save_detection_audio (bool): Save the audio used in each detecton to detect_<device_idx>.wav
         """
 
         # Thread flag. This is set to True when a scan is running.
@@ -410,6 +418,7 @@ class SondeScanner(object):
         self.ppm = ppm
         self.bias = bias
         self.callback = callback
+        self.save_detection_audio = save_detection_audio
 
 
         # Error counter. 
@@ -663,7 +672,8 @@ class SondeScanner(object):
                 ppm=self.ppm,
                 gain=self.gain,
                 bias=self.bias,
-                dwell_time=self.detect_dwell_time)
+                dwell_time=self.detect_dwell_time,
+                save_detection_audio=self.save_detection_audio)
 
             if detected != None:
                 # Add a detected sonde to the output array
