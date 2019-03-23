@@ -74,6 +74,8 @@ class SondeDecoder(object):
         ppm = 0,
         gain = -1,
         bias = False,
+        save_decode_audio = False,
+        save_decode_iq = False,
 
         exporter = None,
         timeout = 180,
@@ -94,6 +96,11 @@ class SondeDecoder(object):
             ppm (int): SDR Frequency accuracy correction, in ppm.
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
+
+            save_decode_audio (bool): If True, save the FM-demodulated audio to disk to decode_<device_idx>.wav.
+                                      Note: This may use up a lot of disk space!
+            save_decode_iq (bool): If True, save the decimated IQ stream (48 or 96k complex s16 samples) to disk to decode_IQ_<device_idx>.bin
+                                      Note: This will use up a lot of disk space!
 
             exporter (function, list): Either a function, or a list of functions, which accept a single dictionary. Fields described above.
             timeout (int): Timeout after X seconds of no valid data received from the decoder. Defaults to 180.
@@ -118,6 +125,8 @@ class SondeDecoder(object):
         self.ppm = ppm
         self.gain = gain
         self.bias = bias
+        self.save_decode_audio = save_decode_audio
+        self.save_decode_iq = save_decode_iq
 
         self.telem_filter = telem_filter
         self.timeout = timeout
@@ -222,6 +231,7 @@ class SondeDecoder(object):
 
         if self.sonde_type == "RS41":
             # RS41 Decoder command.
+
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
             _baud_rate = 4800
             _offset = 0.25 # Place the sonde frequency in the centre of the passband.
@@ -230,8 +240,17 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
             decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
 
 
@@ -275,8 +294,18 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
             decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
@@ -284,6 +313,7 @@ class SondeDecoder(object):
             # As of 2019-02-10, dfm09ecc auto-detects if the signal is inverted,
             # so we don't need to specify an invert flag.
             # 2019-02-27: Added the --dist flag, which should reduce bad positions a bit.
+
             _sdr_rate = 50000
             _baud_rate = 2500
             _offset = 0.25 # Place the sonde frequency in the centre of the passband.
@@ -292,8 +322,19 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
             decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # DFM decoder
             decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
 			
         elif self.sonde_type == "M10":
@@ -306,8 +347,18 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
             decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null| " % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             # M10 decoder
             decode_cmd += "./m10 -b -b2 2>/dev/null"
 
@@ -317,6 +368,11 @@ class SondeDecoder(object):
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
 
