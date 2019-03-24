@@ -73,6 +73,8 @@ greylist = []
 
 
 
+
+
 ####################
 # STATION LOCATION #
 ####################
@@ -81,6 +83,15 @@ greylist = []
 station_lat = 0.0
 station_lon = 0.0
 station_alt = 0.0
+
+# Location Code (Maximum 5 characters)
+# This is ONLY used by the Intermet iMet decoder, to provide additional entropy when
+# generating a unique ID for the iMet sondes, which do not transmit their serial number. 
+# If you know the WMO number of the launch site, then this would be a good value to use. 
+# Otherwise the ICAO Code of the airport nearest to the launch site would also work.
+# If you are not expecting to RX iMet sondes, then this can be left at its default.
+
+station_code = SONDE
 
 
 

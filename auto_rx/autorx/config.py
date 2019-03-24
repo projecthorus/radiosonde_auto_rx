@@ -61,6 +61,7 @@ def read_auto_rx_config(filename):
 		'station_lat'	: 0.0,
 		'station_lon'	: 0.0,
 		'station_alt'	: 0.0,
+		'station_code'	: 'SONDE',
 		# Position Filter Settings
 		'max_altitude'	: 50000,
 		'max_radius_km'	: 1000,
@@ -234,6 +235,15 @@ def read_auto_rx_config(filename):
 			auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
 		except:
 			logging.error("Config - Could not find debugging settings - using defaults.")
+
+		# iMet station code - added 2019-03-24
+		try:
+			auto_rx_config['station_code'] = config.get('location', 'station_code')
+			if len(auto_rx_config['station_code']) > 5:
+				auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
+				logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
+		except:
+			logging.error("Config - Could not find station_code field, using default.")
 
 
 		# Now we attempt to read in the individual SDR parameters.
