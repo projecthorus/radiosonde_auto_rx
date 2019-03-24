@@ -529,7 +529,7 @@ class SondeDecoder(object):
                     self.imet_id = imet_unique_id(_telemetry, custom=self.imet_location)
                 
                 _telemetry['id'] = self.imet_id
-
+                _telemetry['station_code'] = self.imet_location
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response

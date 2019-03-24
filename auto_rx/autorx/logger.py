@@ -36,7 +36,7 @@ class TelemetryLogger(object):
     FILE_ACTIVITY_TIMEOUT = 30
 
     # We require the following fields to be present in the input telemetry dict.
-    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'datetime_dt']
+    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'type', 'freq', 'datetime_dt']
 
     def __init__(self,
         log_directory = "./log"):
@@ -116,7 +116,7 @@ class TelemetryLogger(object):
         Args:
             telemetry (dict): Telemetry dictionary to process.
         """
-        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%s,%.3f" % (
+        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%s,%.3f" % (
             telemetry['datetime'],
             telemetry['id'],
             telemetry['frame'],
@@ -124,8 +124,16 @@ class TelemetryLogger(object):
             telemetry['lon'],
             telemetry['alt'],
             telemetry['temp'],
+            telemetry['humidity'],
             telemetry['type'],
             telemetry['freq_float'])
+
+        # Other fields that may not always be present.
+        if 'sats' in telemetry:
+            _log_line += ",SATS %d" % telemetry['sats']
+
+        if 'batt' in telemetry:
+            _log_line += ",BATT %.1f" % telemetry['batt']
 
         # Check for Burst/Kill timer data, and add in.
         if 'bt' in telemetry:
