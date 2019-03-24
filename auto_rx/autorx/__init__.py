@@ -6,7 +6,12 @@
 #   Released under GNU GPL v3 or later
 #
 
-__version__ = "20190323-beta"
+# Now using Semantic Versioning (https://semver.org/)  MAJOR.MINOR.PATCH
+# MAJOR - Only updated when something huge changes to the project (new decode chain, etc)
+# MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
+# PATCH - Small changes, or minor feature additions.
+
+__version__ = "1.0.1"
 
 
 # Global Variables
