@@ -12,11 +12,13 @@ import logging
 import os
 import platform
 import re
+import requests
 import subprocess
 import threading
 import time
 import numpy as np
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
+from . import __version__ as auto_rx_version
 try:
     # Python 2
     from Queue import Queue
@@ -38,6 +40,32 @@ def check_rs_utils():
             return False
 
     return True
+
+
+AUTORX_VERSION_URL = "https://raw.githubusercontent.com/projecthorus/radiosonde_auto_rx/master/auto_rx/autorx/__init__.py"
+def check_autorx_version():
+    """ Grab the latest __init__ file from Github and compare the version with our current version. """
+    try:
+        _r = requests.get(AUTORX_VERSION_URL,timeout=5)
+    except Exception as e:
+        logging.error("Version - Error determining latest master version - %s" % str(e))
+        return
+
+    _version = "Unknown"
+
+    try:
+        for _line in _r.text.split('\n'):
+            if _line.startswith("__version__"):
+                _version = _line.split('=')[1]
+                _version = _version.replace("\"", "").strip()
+                break
+    except Exception as e:
+        logging.error("Version - Error determining latest master version.")
+
+    logging.info("Version - Local Version: %s  Current Master Version: %s" % (auto_rx_version, _version))
+
+
+
 
 
 class AsynchronousFileReader(threading.Thread):
@@ -714,5 +742,4 @@ def peak_decimation(freq, power, factor):
 if __name__ == "__main__":
     import sys
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
-    print(lsusb())
-    print(rtlsdr_test(sys.argv[1]))
+    check_autorx_version()

@@ -26,7 +26,7 @@ from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.rotator import Rotator
-from autorx.utils import rtlsdr_test, position_info, check_rs_utils
+from autorx.utils import rtlsdr_test, position_info, check_rs_utils, check_autorx_version
 from autorx.config import read_auto_rx_config
 from autorx.web import start_flask, stop_flask, flask_emit_event, WebHandler, WebExporter
 
@@ -592,6 +592,8 @@ def main():
     exporter_functions.append(_web_exporter.add)
 
     # MQTT (?) - TODO
+
+    check_autorx_version()
 
     # Note the start time.
     _start_time = time.time()
