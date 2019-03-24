@@ -6,7 +6,7 @@
 #   Released under GNU GPL v3 or later
 #
 
-__version__ = "20190323-beta"
+__version__ = "1.0.1"
 
 
 # Global Variables
