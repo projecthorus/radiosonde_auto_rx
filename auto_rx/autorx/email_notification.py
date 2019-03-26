@@ -107,9 +107,9 @@ class EmailNotification(object):
 
                 # Construct subject
                 msg['Subject'] = self.mail_subject
-                msg['Subject'].replace('<id>', telemetry['id'])
-                msg['Subject'].replace('<type>', telemetry['type'])
-                msg['Subject'].replace('<freq>', telemetry['freq'])
+                msg['Subject'] = msg['Subject'].replace('<id>', telemetry['id'])
+                msg['Subject'] = msg['Subject'].replace('<type>', telemetry['type'])
+                msg['Subject'] = msg['Subject'].replace('<freq>', telemetry['freq'])
 
                 msg['From'] = self.mail_from
                 msg['To'] = self.mail_to
