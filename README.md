@@ -1,5 +1,7 @@
 # Automatic Radiosonde Receiver Utilities
 
+**Please refer to the [auto_rx wiki](https://github.com/projecthorus/radiosonde_auto_rx/wiki) for the latest information.**
+
 This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase
 provides a set of utilities ('auto_rx') to allow automatic reception
 and uploading of
@@ -27,8 +29,9 @@ position.
 Currently we support the following radiosonde types:
 * Vaisala RS92
 * Vaisala RS41
-* Graw DFM06/DFM09
+* Graw DFM06/DFM09/DFM17/PS-15
 * Meteomodem M10 (Thanks Viproz!)
+* Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
 
 Support for other radiosondes may be added as required (please send us
 sondes to test with!)
