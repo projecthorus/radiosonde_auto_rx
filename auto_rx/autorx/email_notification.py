@@ -106,10 +106,12 @@ class EmailNotification(object):
                 msg = MIMEText(msg, 'plain', 'UTF-8')
 
                 # Construct subject
-                msg['Subject'] = self.mail_subject
-                msg['Subject'] = msg['Subject'].replace('<id>', telemetry['id'])
-                msg['Subject'] = msg['Subject'].replace('<type>', telemetry['type'])
-                msg['Subject'] = msg['Subject'].replace('<freq>', telemetry['freq'])
+                _subject = self.mail_subject
+                _subject = _subject.replace('<id>', telemetry['id'])
+                _subject = _subject.replace('<type>', telemetry['type'])
+                _subject = _subject.replace('<freq>', telemetry['freq'])
+                msg['Subject'] = _subject
+
 
                 msg['From'] = self.mail_from
                 msg['To'] = self.mail_to
