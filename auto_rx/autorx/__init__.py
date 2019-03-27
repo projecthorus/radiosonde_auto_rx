@@ -14,8 +14,6 @@
 __version__ = "1.1.0.2-experimental"
 
 
->>>>>>> testing
-
 # Global Variables
 
 # RTLSDR Usage Register - This dictionary holds information about each SDR and its currently running Decoder / Scanner
