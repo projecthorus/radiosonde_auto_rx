@@ -110,6 +110,7 @@ class EmailNotification(object):
                 _subject = _subject.replace('<id>', telemetry['id'])
                 _subject = _subject.replace('<type>', telemetry['type'])
                 _subject = _subject.replace('<freq>', telemetry['freq'])
+                logging.debug("Email - Subject: %s" % _subject)
                 msg['Subject'] = _subject
 
 
