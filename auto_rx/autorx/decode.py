@@ -236,7 +236,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
+            decode_cmd += "./rs41mod --ptu --json 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -281,7 +281,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
+            decode_cmd += "./rs92mod -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
             # DFM06/DFM09 Sondes.
