@@ -244,14 +244,8 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
-            decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
-
-            # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
-
-            decode_cmd += "./rs41mod --ptu --json 2>/dev/null"
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt |" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "./rs41mod --ptu --json --bin 2>/dev/null"
 
 
         elif self.sonde_type == "RS92":

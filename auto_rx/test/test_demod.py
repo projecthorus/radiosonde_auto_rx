@@ -117,10 +117,10 @@ processing_type = {
     # # RS41 Decoding
     'rs41_fsk_demod': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
 
         # Decode using rs41ecc
-        'decode': "../rs41ecc --ecc --ptu --crc 2>/dev/null",
+        'decode': "../rs41mod --ecc --ptu --crc --bin 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : " | grep 00000 | wc -l",
         'files' : "./generated/rs41*"
@@ -129,10 +129,10 @@ processing_type = {
     'rs92_fsk_demod': {
         # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
 
         # Decode using rs41ecc
-        'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
+        'decode': "../rs92mod -vx -v --crc --ecc --vel --bin 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : " | grep M2513116 | wc -l",
         'files' : "./generated/rs92*"
