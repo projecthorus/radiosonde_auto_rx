@@ -55,7 +55,7 @@ typedef struct {
     double lat; double lon; double alt;
     double vN; double vE; double vU;
     double vH; double vD; double vD2;
-    float T;
+    float T; float RH;
     ui32_t crc;
 } gpx_t;
 
@@ -73,7 +73,6 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
     option_json = 0,     // JSON output (auto_rx)
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
-int burst_timer = -1;
 
 
 #define BITS    8
@@ -331,8 +330,7 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pck_ZEROstd  0x7611  // NDATA std-frm, no aux
 #define pos_ZEROstd   0x12B  // pos_AUX(0)
 
-#define pck_ENCRYPTED   0x80
-
+#define pck_ENCRYPTED   0x80 // Packet type for an Encrypted payload
 
 /*
   frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
@@ -357,6 +355,7 @@ float Rf1,      // ref-resistor f1 (750 Ohm)
       calT1[3], // calibration T1
       co2[3],   // { -243.911 , 0.187654 , 8.2e-06 }
       calT2[3]; // calibration T2-Hum
+float calH[2];  // calibration Hum
 
 
 double c = 299.792458e6;
@@ -501,6 +500,9 @@ int get_CalData() {
     memcpy(calT1+1, calibytes+93, 4);  // 0x05*0x10+13
     memcpy(calT1+2, calibytes+97, 4);  // 0x06*0x10+ 1
 
+    memcpy(calH+0, calibytes+117, 4);  // 0x07*0x10+ 5
+    memcpy(calH+1, calibytes+121, 4);  // 0x07*0x10+ 9
+
     memcpy(co2+0, calibytes+293, 4);  // 0x12*0x10+ 5
     memcpy(co2+1, calibytes+297, 4);  // 0x12*0x10+ 9
     memcpy(co2+2, calibytes+301, 4);  // 0x12*0x10+13
@@ -512,6 +514,7 @@ int get_CalData() {
     return 0;
 }
 
+/*
 float get_Tc0(ui32_t f, ui32_t f1, ui32_t f2) {
     // y  = (f - f1) / (f2 - f1);
     // y1 = (f - f1) / f2; // = (1 - f1/f2)*y
@@ -529,6 +532,21 @@ float get_Tc0(ui32_t f, ui32_t f1, ui32_t f2) {
     // R/R0 = 1 + at + bt^2 + c(t-100)t^3 , R0 = 1000 Ohm, t/Celsius
     return t;
 }
+*/
+// T_RH-sensor
+float get_TH(ui32_t f, ui32_t f1, ui32_t f2) {
+    float *p = co2;
+    float *c  = calT2;
+    float  g = (float)(f2-f1)/(Rf2-Rf1),       // gain
+          Rb = (f1*Rf2-f2*Rf1)/(float)(f2-f1), // ofs
+          Rc = f/g - Rb,
+          //R = (Rc + c[1]) * c[0],
+          //T = p[0] + p[1]*R + p[2]*R*R;
+          R = Rc * c[0],
+          T = (p[0] + p[1]*R + p[2]*R*R + c[1])*(1.0 + c[2]);
+    return T;
+}
+// T-sensor, platinum resistor
 float get_Tc(ui32_t f, ui32_t f1, ui32_t f2) {
     float *p = co1;
     float *c  = calT1;
@@ -542,13 +560,32 @@ float get_Tc(ui32_t f, ui32_t f1, ui32_t f2) {
     return T;
 }
 
+// rel.hum., capacitor
+// (data:) ftp://ftp-cdc.dwd.de/pub/CDC/observations_germany/radiosondes/
+// (diffAlt: Ellipsoid-Geoid)
+float get_RH(ui32_t f, ui32_t f1, ui32_t f2, float T) {
+    float b0 = calH[0]/46.64; // empirical
+    float b1 = 0.1276;        // empirical
+    float fh = (f-f1)/(float)(f2-f1);
+    float rh = 100.0 * (fh-b0)/b1;
+    float T0 = 0.0, T1 = -30.0; // T/C
+    if (T < T0) rh += T0 - T/5.5;        // empir. temperature compensation
+    if (T < T1) rh *= 1.0 + (T1-T)/75.0; // empir. temperature compensation
+    if (rh < 0.0) rh = 0.0;
+    if (rh > 100.0) rh = 100.0;
+    if (T < -273.0) rh = -1.0;
+    return rh;
+}
+
 int get_PTU() {
     int err=0, i;
     int bR, bc1, bT1,
             bc2, bT2;
+    int bH;
     ui32_t meas[12];
     float Tc = -273.15;
-    float Tc0 = -273.15;
+    float TH = -273.15;
+    float RH = -1.0;
 
     get_CalData();
 
@@ -567,14 +604,25 @@ int get_PTU() {
         bT1 = calfrchk[0x05] && calfrchk[0x06];
         bc2 = calfrchk[0x12] && calfrchk[0x13];
         bT2 = calfrchk[0x13];
+        bH  = calfrchk[0x07];
 
         if (bR && bc1 && bT1) {
             Tc = get_Tc(meas[0], meas[1], meas[2]);
-            Tc0 = get_Tc0(meas[0], meas[1], meas[2]);
+            //Tc0 = get_Tc0(meas[0], meas[1], meas[2]);
         }
         gpx.T = Tc;
 
-        if (option_verbose == 4)
+        if (bR && bc2 && bT2) {
+            TH = get_TH(meas[6], meas[7], meas[8]);
+        }
+
+        if (bH) {
+            RH = get_RH(meas[3], meas[4], meas[5], Tc); // TH, TH-Tc (sensorT - T)
+        }
+        gpx.RH = RH;
+
+
+        if (option_verbose == 4 && (gpx.crc & (crc_PTU | crc_GPS3))==0)
         {
             printf("  h: %8.2f   # ", gpx.alt); // crc_GPS3 ?
 
@@ -584,17 +632,25 @@ int get_PTU() {
             printf("   #   ");
             printf("3: %8d %8d %8d", meas[6], meas[7], meas[8]);
             printf("   #   ");
-            if (Tc > -273.0) {
-                printf("  T: %8.4f , T0: %8.4f ", Tc, Tc0);
+
+            //if (Tc > -273.0 && RH > -0.5)
+            {
+                printf("  ");
+                printf(" Tc:%.2f ", Tc);
+                printf(" RH:%.1f ", RH);
+                printf(" TH:%.2f ", TH);
             }
             printf("\n");
 
-            if (gpx.alt > -100.0) {
+            //if (gpx.alt > -400.0)
+            {
                 printf("    %9.2f ; %6.1f ; %6.1f ", gpx.alt, Rf1, Rf2);
-                printf("; %10.6f ; %10.6f ; %10.6f ;", calT1[0], calT1[1], calT1[2]);
-                printf("  %8d ; %8d ; %8d ", meas[0], meas[1], meas[2]);
-                printf("; %10.6f ; %10.6f ; %10.6f ;", calT2[0], calT2[1], calT2[2]);
-                printf("  %8d ; %8d ; %8d" , meas[6], meas[7], meas[8]);
+                printf("; %10.6f ; %10.6f ; %10.6f ", calT1[0], calT1[1], calT1[2]);
+                //printf(";  %8d ; %8d ; %8d ", meas[0], meas[1], meas[2]);
+                printf("; %10.6f ; %10.6f ", calH[0], calH[1]);
+                //printf(";  %8d ; %8d ; %8d" , meas[3], meas[4], meas[5]);
+                printf("; %10.6f ; %10.6f ; %10.6f ", calT2[0], calT2[1], calT2[2]);
+                //printf(";  %8d ; %8d ; %8d" , meas[6], meas[7], meas[8]);
                 printf("\n");
             }
         }
@@ -792,7 +848,7 @@ int get_GPS3() {
     return err;
 }
 
-int get_Aux(char* aux_data) {
+int get_Aux() {
 //
 // "Ozone Sounding with Vaisala Radiosonde RS41" user's guide
 //
@@ -800,8 +856,6 @@ int get_Aux(char* aux_data) {
 
     count7E = 0;
     pos7E = pos_AUX;
-
-    int aux_string_counter = 0;
 
     if (frametype(gpx) > 0) return 0; //pos7E == pos7611 ...
 
@@ -818,12 +872,8 @@ int get_Aux(char* aux_data) {
             //fprintf(stdout, " # %02x : ", framebyte(pos7E+2));
             for (i = 1; i < auxlen; i++) {
                 ui8_t c = framebyte(pos7E+2+i);
-                aux_data[aux_string_counter] = c;
-                aux_string_counter++;
                 if (c > 0x1E) fprintf(stdout, "%c", c);
             }
-            aux_data[aux_string_counter] = '#';
-            aux_string_counter++;
             count7E++;
             pos7E += 2+auxlen+2;
         }
@@ -873,12 +923,12 @@ int get_Calconf(int out) {
             fprintf(stdout, ": fw 0x%04x ", fw);
         }
 
-        if (calfr == 0x02) {
+        if (calfr == 0x02  &&  option_verbose /*== 2*/) {
             byte = framebyte(pos_Calburst);
             burst = byte;   // fw >= 0x4ef5, BK irrelevant? (burst-killtimer in 0x31?)
-            int kt = frame[0x5A] + (frame[0x5B] << 8); // short?
-            if (option_verbose == 3){
-                fprintf(stdout, ": BK %02X ", burst);
+            fprintf(stdout, ": BK %02X ", burst);
+            if (option_verbose == 3) { // killtimer
+                int kt = frame[0x5A] + (frame[0x5B] << 8); // short?
                 if ( kt != 0xFFFF ) fprintf(stdout, ": kt 0x%04x = %dsec = %.1fmin ", kt, kt, kt/60.0);
             }
         }
@@ -892,20 +942,15 @@ int get_Calconf(int out) {
             fprintf(stdout, ": fq %d ", freq);
         }
 
-        if (calfr == 0x31) {
+        if (calfr == 0x31  &&  option_verbose == 3) {
             int bt = frame[0x59] + (frame[0x5A] << 8); // short?
             // fw >= 0x4ef5: default=[88 77]=0x7788sec=510min
-            if (option_verbose == 3){
-                if ( bt != 0x0000 ) fprintf(stdout, ": bt 0x%04x = %dsec = %.1fmin ", bt, bt, bt/60.0);
-            }
+            if ( bt != 0x0000 ) fprintf(stdout, ": bt 0x%04x = %dsec = %.1fmin ", bt, bt, bt/60.0);
         }
 
-        if (calfr == 0x32) {
-            int bt = frame[pos_CalData+1] + (frame[pos_CalData+2] << 8); // short?
-            burst_timer = bt;
-            if (option_verbose == 3){
-                if ( bt != 0xFFFF ) fprintf(stdout, ": countdown timer 0x%04x = %dsec = %.1fmin ", bt, bt, bt/60.0);
-            }
+        if (calfr == 0x32  &&  option_verbose) {
+            ui16_t cd = frame[pos_CalData+1] + (frame[pos_CalData+2] << 8); // countdown (bt or kt) (short?)
+            if ( cd != 0xFFFF ) fprintf(stdout, ": cd %.1fmin ", cd/60.0);
         }
 
         if (calfr == 0x21  &&  option_verbose /*== 2*/) {  // eventuell noch zwei bytes in 0x22
@@ -1040,8 +1085,8 @@ int rs41_ecc(int frmlen) {
 int print_position(int ec) {
     int i;
     int err, err0, err1, err2, err3;
-    int encrypted;
     int output, out_mask;
+    int encrypted;
 
     err = get_FrameConf();
 
@@ -1062,6 +1107,7 @@ int print_position(int ec) {
     output = ((gpx.crc & out_mask) != out_mask);  // (!err || !err1 || !err3);
 
     if (output) {
+
         if (!err) {
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
@@ -1081,16 +1127,19 @@ int print_position(int ec) {
             //if (option_verbose)
             {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx.vN, gpx.vE, gpx.vU);
-                fprintf(stdout,"  vH: %4.1f  D: %5.1f°  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
+                fprintf(stdout,"  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx.vH, gpx.vD, gpx.vU);
                 if (option_verbose == 3) fprintf(stdout," numSV: %02d ", gpx.numSV);
             }
         }
+
         if (encrypted) {
             fprintf(stdout, " Encrypted payload (RS41-SGM) ");
         }
 
         if (option_ptu && !err0) {
-            if (gpx.T > -273.0) printf("  T=%.1fC ", gpx.T);
+            printf(" ");
+            if (gpx.T > -273.0) printf(" T=%.1fC ", gpx.T);
+            if (gpx.RH > -0.5)  printf(" RH=%.0f%% ", gpx.RH);
         }
 
 
@@ -1127,32 +1176,22 @@ int print_position(int ec) {
 
         get_Calconf(output);
 
-        char aux_data[FRAME_LEN] = "";
-        if (option_verbose > 1 || option_json) get_Aux(aux_data);
+        if (option_verbose > 1) get_Aux();
 
-        fprintf(stdout, "\n");  // flush(stdout);
+        fprintf(stdout, "\n");  // fflush(stdout);
 
 
         if (option_json) {
-            char auxbuffer[FRAME_LEN] = "";
-            fprintf(stdout, "\n");  // flush(stdout) as get_Aux prints to stdout
-
             // Print JSON output required by auto_rx.
-            if ( (!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
-                if ( strlen(aux_data) > 0 ){
-                    strcpy( auxbuffer, ", \"aux\":\"");
-                    strcpy( auxbuffer+9, aux_data);
-                    strcpy( auxbuffer+strlen(aux_data)+9, "\"\0" );
-                }
-
+            if ((!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"temp\":%.1f %s",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, gpx.T, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"temp\":%.1f ",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, gpx.T );
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d %s",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d ",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV );
                 }
-
+                // Add on a field if the payload data is encrypted (and is hence invalid...)
                 if (encrypted){
-                    printf(",\"encrypted\": True");
+                    printf(",\"encrypted\": true");
                 }
 
                 printf("}\n");
@@ -1447,3 +1486,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
