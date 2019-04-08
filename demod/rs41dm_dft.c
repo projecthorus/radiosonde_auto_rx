@@ -331,6 +331,8 @@ int check_CRC(ui32_t pos, ui32_t pck) {
 #define pck_ZEROstd  0x7611  // NDATA std-frm, no aux
 #define pos_ZEROstd   0x12B  // pos_AUX(0)
 
+#define pck_ENCRYPTED   0x80
+
 
 /*
   frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
@@ -1038,9 +1040,17 @@ int rs41_ecc(int frmlen) {
 int print_position(int ec) {
     int i;
     int err, err0, err1, err2, err3;
+    int encrypted;
     int output, out_mask;
 
     err = get_FrameConf();
+
+    // Quick check for an encrypted packet (RS41-SGM)
+    // These sondes have a type 0x80 packet in place of the regular PTU packet.
+    if (frame[pos_PTU] == pck_ENCRYPTED){
+        encrypted = 1;
+        // Continue with the rest of the extraction (which will result in null data)
+    }
 
     err1 = get_GPS1();
     err2 = get_GPS2();
@@ -1052,7 +1062,6 @@ int print_position(int ec) {
     output = ((gpx.crc & out_mask) != out_mask);  // (!err || !err1 || !err3);
 
     if (output) {
-
         if (!err) {
             fprintf(stdout, "[%5d] ", gpx.frnr);
             fprintf(stdout, "(%s) ", gpx.id);
@@ -1076,6 +1085,10 @@ int print_position(int ec) {
                 if (option_verbose == 3) fprintf(stdout," numSV: %02d ", gpx.numSV);
             }
         }
+        if (encrypted) {
+            fprintf(stdout, " Encrypted payload (RS41-SGM) ");
+        }
+
         if (option_ptu && !err0) {
             if (gpx.T > -273.0) printf("  T=%.1fC ", gpx.T);
         }
@@ -1125,18 +1138,24 @@ int print_position(int ec) {
             fprintf(stdout, "\n");  // flush(stdout) as get_Aux prints to stdout
 
             // Print JSON output required by auto_rx.
-            if (!err && !err1 && !err3) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
+            if ( (!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                 if ( strlen(aux_data) > 0 ){
                     strcpy( auxbuffer, ", \"aux\":\"");
                     strcpy( auxbuffer+9, aux_data);
                     strcpy( auxbuffer+strlen(aux_data)+9, "\"\0" );
                 }
+
                 if (option_ptu && !err0 && gpx.T > -273.0) {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"temp\":%.1f %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, gpx.T, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"temp\":%.1f %s",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, gpx.T, auxbuffer);
                 } else {
-                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d %s}\n",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, auxbuffer);
+                    printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d %s",  gpx.frnr, gpx.id, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vU, gpx.numSV, burst_timer, auxbuffer);
                 }
-                printf("\n");
+
+                if (encrypted){
+                    printf(",\"encrypted\": True");
+                }
+
+                printf("}\n");
             }
         }
 

@@ -442,6 +442,12 @@ class SondeDecoder(object):
                 if _field not in _telemetry:
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
+            # Check for an encrypted flag (this indicates a sonde that we cannot decode telemetry from.)
+            if 'encrypted' in _telemetry:
+                self.log_error("Radiosonde %s has encrypted telemetry (possible RS41-SGM)! We cannot decode this, closing decoder." % _telemetry['id'])
+                self.decoder_running = False
+                return False
+
             # Check the datetime field is parseable.
             try:
                 _telemetry['datetime_dt'] = parse(_telemetry['datetime'])
