@@ -445,7 +445,6 @@ class SondeDecoder(object):
                 if _field not in _telemetry:
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
-            _telemetry['encrypted'] = True
 
             # Check for an encrypted flag (this indicates a sonde that we cannot decode telemetry from.)
             if 'encrypted' in _telemetry:
