@@ -499,13 +499,13 @@ static float get_Tc(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2) {
 // (data:) ftp://ftp-cdc.dwd.de/pub/CDC/observations_germany/radiosondes/
 // (diffAlt: Ellipsoid-Geoid)
 static float get_RH(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T) {
-    float b0 = gpx->ptu_calH[0]/46.64; // empirical
-    float b1 = 0.1276;                 // empirical
+    float a0 = 7.5;                    // empirical
+    float a1 = 350.0/gpx->ptu_calH[0]; // empirical
     float fh = (f-f1)/(float)(f2-f1);
-    float rh = 100.0 * (fh-b0)/b1;
-    float T0 = 0.0, T1 = -30.0; // T/C
-    if (T < T0) rh += T0 - T/5.5;        // empir. temperature compensation
-    if (T < T1) rh *= 1.0 + (T1-T)/75.0; // empir. temperature compensation
+    float rh = 100.0 * ( a1*fh - a0 );
+    float T0 = 0.0, T1 = -25.0; // T/C
+    rh += T0 - T/5.5;                    // empir. temperature compensation
+    if (T < T1) rh *= 1.0 + (T1-T)/90.0; // empir. temperature compensation
     if (rh < 0.0) rh = 0.0;
     if (rh > 100.0) rh = 100.0;
     if (T < -273.0) rh = -1.0;
