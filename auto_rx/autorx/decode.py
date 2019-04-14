@@ -142,6 +142,8 @@ class SondeDecoder(object):
         # This will become our decoder thread.
         self.decoder = None
 
+        self.exit_state = "OK"
+
         # Detect if we have an 'inverted' sonde.
         if self.sonde_type.startswith('-'):
             self.inverted = True
@@ -236,7 +238,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./rs41ecc --crc --ecc --ptu --json 2>/dev/null"
+            decode_cmd += "./rs41mod --ptu --json 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -281,7 +283,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./rs92ecc -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
+            decode_cmd += "./rs92mod -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
 
         elif self.sonde_type == "DFM":
             # DFM06/DFM09 Sondes.
@@ -363,6 +365,7 @@ class SondeDecoder(object):
             if time.time() > (_last_packet + self.timeout):
                 # If we have not seen data for a while, break.
                 self.log_error("RX Timed out.")
+                self.exit_state = "Timeout"
                 break
             else:
                 # Otherwise, sleep for a short time.
@@ -441,6 +444,14 @@ class SondeDecoder(object):
             for _field in self.DECODER_OPTIONAL_FIELDS.keys():
                 if _field not in _telemetry:
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
+
+
+            # Check for an encrypted flag (this indicates a sonde that we cannot decode telemetry from.)
+            if 'encrypted' in _telemetry:
+                self.log_error("Radiosonde %s has encrypted telemetry (possible RS41-SGM)! We cannot decode this, closing decoder." % _telemetry['id'])
+                self.exit_state = "Encrypted"
+                self.decoder_running = False
+                return False
 
             # Check the datetime field is parseable.
             try:

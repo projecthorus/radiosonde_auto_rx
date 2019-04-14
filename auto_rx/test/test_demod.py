@@ -194,7 +194,7 @@ processing_type['rs41_rtlfm'] = {
     # Currently using a timeout to kill rtl_fm as it doesnt notice the end of the incoming samples.
     'demod': _demod_command,
     # Decode using rs41ecc
-    'decode': "../rs41ecc --ptu --crc --ecc 2>/dev/null",
+    'decode': "../rs41mod --ptu --crc --ecc2 2>/dev/null",
     # Count the number of telemetry lines.
     "post_process" : " | grep 00000 | wc -l",
     'files' : "./generated/rs41*.bin"
@@ -224,7 +224,7 @@ _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - hi
 processing_type['rs92_rtlfm'] = {
     'demod': _demod_command,
     # Decode using rs92ecc
-    'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
+    'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
     #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
     # Count the number of telemetry lines.
     "post_process" : " | grep M2513116 | wc -l",
@@ -256,7 +256,7 @@ _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - hi
 processing_type['rs92ngp_rtlfm'] = {
     'demod': _demod_command,
     # Decode using rs92ecc
-    'decode': "../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
+    'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
     #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
     # Count the number of telemetry lines.
     "post_process" : "| grep P3213708 | wc -l",
@@ -285,7 +285,7 @@ _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - hi
 
 processing_type['dfm_rtlfm'] = {
     'demod': _demod_command,
-    'decode': "../dfm09ecc -vv --json --dist --auto 2>/dev/null", # ECC
+    'decode': "../dfm09mod -vv --json --dist --auto 2>/dev/null", # ECC
     #'decode': "../dfm09ecc -vv --ecc -r --auto 2>/dev/null", # No-ECC
     # Count the number of telemetry lines.
     "post_process" : " | grep frame |  wc -l", # ECC

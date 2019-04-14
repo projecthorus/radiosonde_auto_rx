@@ -13,7 +13,7 @@ import platform
 import subprocess
 import time
 import traceback
-from threading import Thread
+from threading import Thread, Lock
 from types import FunctionType, MethodType
 from .utils import detect_peaks, rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs, peak_decimation
 try:
@@ -358,7 +358,9 @@ class SondeScanner(object):
         gain = -1,
         ppm = 0,
         bias = False,
-        save_detection_audio = False):
+        save_detection_audio = False,
+        temporary_block_list = {},
+        temporary_block_time = 60):
         """ Initialise a Sonde Scanner Object.
 
         Apologies for the huge number of args...
@@ -390,6 +392,8 @@ class SondeScanner(object):
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
             save_detection_audio (bool): Save the audio used in each detecton to detect_<device_idx>.wav
+            temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blacklisted for a set time.
+            temporary_block_time (int): How long (minutes) frequencies in the temporary block list should remain blocked for.
         """
 
         # Thread flag. This is set to True when a scan is running.
@@ -420,6 +424,14 @@ class SondeScanner(object):
         self.callback = callback
         self.save_detection_audio = save_detection_audio
 
+        # Temporary block list.
+        self.temporary_block_list = temporary_block_list.copy()
+        self.temporary_block_list_lock = Lock()
+        self.temporary_block_time = temporary_block_time
+
+        # Alert the user if there are temporary blocks in place.
+        if len(self.temporary_block_list.keys())>0:
+            self.log_info("Temporary blocks in place for frequencies: %s" % str(self.temporary_block_list.keys()))
 
         # Error counter. 
         self.error_retries = 0
@@ -439,7 +451,10 @@ class SondeScanner(object):
         if not _rtlsdr_ok:
             self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
             self.sonde_scanner_running = False
+            self.exit_state = "Failed SDR"
             return
+
+        self.exit_state = "OK"
 
         if auto_start:
             self.start()
@@ -611,6 +626,7 @@ class SondeScanner(object):
             _, peak_idx = np.unique(peak_frequencies, return_index=True)
             peak_frequencies = peak_frequencies[np.sort(peak_idx)]
 
+
             # Remove any frequencies in the blacklist.
             for _frequency in np.array(self.blacklist)*1e6:
                 _index = np.argwhere(peak_frequencies==_frequency)
@@ -622,6 +638,25 @@ class SondeScanner(object):
 
             # Append on any frequencies in the supplied greylist
             peak_frequencies = np.append(np.array(self.greylist)*1e6, peak_frequencies)
+
+            
+            # Remove any frequencies in the temporary block list
+            self.temporary_block_list_lock.acquire()
+            for _frequency in self.temporary_block_list.keys():
+                # Check the time the block was added.
+                if self.temporary_block_list[_frequency] > (time.time()-self.temporary_block_time*60):
+                    # We should still be blocking this frequency, so remove any peaks with this frequency.
+                    _index = np.argwhere(peak_frequencies==_frequency)
+                    peak_frequencies = np.delete(peak_frequencies, _index)
+                    if len(_index) > 0:
+                        self.log_debug("Peak on %.3f MHz was removed due to temporary block." % (_frequency/1e6))
+
+                else:
+                    # This frequency doesn't need to be blocked any more, remove it from the block list.
+                    self.temporary_block_list.pop(_frequency)
+                    self.log_info("Removed %.3f MHz from temporary block list." % (_frequency/1e6))
+
+            self.temporary_block_list_lock.release()
 
             # Get the level of our peak search results, to send to the web client.
             # This is actually a bit of a pain to do...
@@ -732,6 +767,20 @@ class SondeScanner(object):
     def running(self):
         """ Check if the scanner is running """
         return self.sonde_scanner_running
+
+
+    def add_temporary_block(self, frequency):
+        """ Add a frequency to the temporary block list.
+            
+        Args:
+            frequency (float): Frequency to be blocked, in Hz
+        """
+        # Acquire a lock on the block list, so we don't accidentally modify it
+        # while it is being used in a scan.
+        self.temporary_block_list_lock.acquire()
+        self.temporary_block_list[frequency] = time.time()
+        self.temporary_block_list_lock.release()
+        self.log_info("Adding temporary block for frequency %.3f MHz." % (frequency/1e6))
 
 
     def log_debug(self, line):

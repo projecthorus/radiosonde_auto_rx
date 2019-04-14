@@ -61,6 +61,10 @@ exporter_objects = []   # This list will hold references to each exporter instan
 exporter_functions = [] # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
 
+# Temporary frequency block list
+# This contains frequncies that should be blocked for a short amount of time.
+temporary_block_list = {}
+
 
 # Scan Result Queue
 # Scan results are processed asynchronously from the main scanner object.
@@ -96,7 +100,7 @@ def allocate_sdr(check_only = False, task_description = ""):
 
 def start_scanner():
     """ Start a scanner thread on the first available SDR """
-    global config, scan_results, RS_PATH
+    global config, scan_results, RS_PATH, temporary_block_list
 
     if 'SCAN' in autorx.task_list:
         # Already a scanner running! Return.
@@ -136,7 +140,9 @@ def start_scanner():
             gain = autorx.sdr_list[_device_idx]['gain'],
             ppm = autorx.sdr_list[_device_idx]['ppm'],
             bias = autorx.sdr_list[_device_idx]['bias'],
-            save_detection_audio = config['save_detection_audio']
+            save_detection_audio = config['save_detection_audio'],
+            temporary_block_list = temporary_block_list,
+            temporary_block_time = config['temporary_block_time']
             )
 
         # Add a reference into the sdr_list entry
@@ -174,7 +180,19 @@ def start_decoder(freq, sonde_type):
         sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM', 'M10, 'iMet')
 
     """
-    global config, RS_PATH, exporter_functions, rs92_ephemeris
+    global config, RS_PATH, exporter_functions, rs92_ephemeris, temporary_block_list
+
+    # Check the frequency is not in our temporary block list 
+    # (This may happen from time-to-time depending on the timing of the scan thread)
+    if freq in temporary_block_list.keys():
+        if temporary_block_list[freq] > (time.time()-config['temporary_block_time']*60):
+            logging.error("Task Manager - Attempted to start a decoder on a temporarily blocked frequency (%.3f MHz)" % (freq/1e6))
+            return
+        else:
+            # This frequency should not be blocked any more, remove it from the block list.
+            logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (freq/1e6))
+            temporary_block_list.pop(freq)
+
 
     # Allocate a SDR.
     _device_idx = allocate_sdr(task_description="Decoder (%s, %.3f MHz)" % (sonde_type, freq/1e6))
@@ -250,6 +268,7 @@ def handle_scan_results():
                 # Break if we don't support this sonde type.
                 if (_check_type not in VALID_SONDE_TYPES):
                     logging.error("Unsupported sonde type: %s" % _check_type)
+                    # TODO - Potentially add the frequency of the unsupported sonde to the temporary block list?
                     continue
 
                 if allocate_sdr(check_only=True) is not None :
@@ -277,18 +296,39 @@ def clean_task_list():
         try:
             _running = autorx.task_list[_key]['task'].running()
             _task_sdr = autorx.task_list[_key]['device_idx']
+            _exit_state = autorx.task_list[_key]['task'].exit_state
         except Exception as e:
             logging.error("Task Manager - Error getting task %s state - %s" % (str(_key),str(e)))
             continue
 
         if _running == False:
-            # This task has stopped. Release its associated SDR.
+            # This task has stopped.
+            # Check the exit state of the task for any abnormalities:
+            if _exit_state == "Encrypted":
+                # This task was a decoder, and it has encountered an encrypted sonde.
+                logging.info("Task Manager - Adding temporary block for frequency %.3f MHz" % (_key/1e6))
+                # Add the sonde's frequency to the global temporary block-list
+                temporary_block_list[_key] = time.time()
+                # If there is a scanner currently running, add it to the scanners internal block list.
+                if 'SCAN' in autorx.task_list:
+                    auto_rx.task_list['SCAN']['task'].add_temporary_block(_key)
+
+
+            # Release its associated SDR.
             autorx.sdr_list[_task_sdr]['in_use'] = False
             autorx.sdr_list[_task_sdr]['task'] = None
+
             # Pop the task from the task list.
             autorx.task_list.pop(_key)
             # Indicate to the web client that the task list has been updated.
             flask_emit_event('task_event')
+
+    # Clean out the temporary block list of old entries.
+    for _freq in temporary_block_list.keys():
+        if temporary_block_list[_freq] < (time.time() - config['temporary_block_time']*60):
+            temporary_block_list.pop(_freq)
+            logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
+
 
     # Check if there is a scanner thread still running. If not, and if there is a SDR free, start one up again.
     if ('SCAN' not in autorx.task_list) and (allocate_sdr(check_only=True) is not None):
