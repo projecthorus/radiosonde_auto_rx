@@ -82,8 +82,7 @@ typedef struct {
     int wday;
     int std; int min; float sek;
     double lat; double lon; double alt;
-    double vN; double vE; double vU;
-    double vH; double vD; double vD2;
+    double vH; double vD; double vV;
     float T; float RH;
     ui32_t crc;
     ui8_t frame[FRAME_LEN];
@@ -96,12 +95,12 @@ typedef struct {
     float ptu_co2[3];   // { -243.911 , 0.187654 , 8.2e-06 }
     float ptu_calT2[3]; // calibration T2-Hum
     float ptu_calH[2];  // calibration Hum
+    ui32_t freq;    // freq/kHz
     ui16_t conf_fw; // firmware
-    ui8_t  conf_cd; // kill countdown (sec) (kt or bt)
     ui16_t conf_kt; // kill timer (sec)
     ui16_t conf_bt; // burst timer (sec)
     ui8_t  conf_bk; // burst kill
-    ui32_t freq;    // freq/kHz
+    ui8_t  conf_cd; // kill countdown (sec) (kt or bt)
     char rstyp[9];  // RS41-SG, RS41-SGP
     int  aux;
     char xdata[XDATA_LEN+16]; // xdata: aux_str1#aux_str2 ...
@@ -248,6 +247,7 @@ static int crc16(gpx_t *gpx, int start, int len) {
 static int check_CRC(gpx_t *gpx, ui32_t pos, ui32_t pck) {
     ui32_t crclen = 0,
            crcdat = 0;
+    // check only pck_type (variable len pcks 0x76, 0x7E)
     if (((pck>>8) & 0xFF) != gpx->frame[pos]) return -1;
     crclen = gpx->frame[pos+1];
     if (pos + crclen + 4 > FRAME_LEN) return -1;
@@ -273,62 +273,62 @@ GPS chip: ublox UBX-G6010-ST
 0x12B: 7Exx   AUX-xdata
 */
 
-#define crc_FRAME    (1<<0)
-#define xor_FRAME    0x1713  // ^0x6E3B=0x7928
-#define pck_FRAME    0x7928
-#define pos_FRAME     0x039
-#define pos_FrameNb   0x03B  // 2 byte
-#define pos_SondeID   0x03D  // 8 byte
-#define pos_CalData   0x052  // 1 byte, counter 0x00..0x32
-#define pos_Calfreq   0x055  // 2 byte, calfr 0x00
-#define pos_Calburst  0x05E  // 1 byte, calfr 0x02
+#define crc_FRAME      (1<<0)
+#define xor_FRAME      0x1713  // ^0x6E3B=0x7928
+#define pck_FRAME      0x7928
+#define pos_FRAME       0x039
+#define pos_FrameNb     0x03B  // 2 byte
+#define pos_SondeID     0x03D  // 8 byte
+#define pos_CalData     0x052  // 1 byte, counter 0x00..0x32
+#define pos_Calfreq     0x055  // 2 byte, calfr 0x00
+#define pos_Calburst    0x05E  // 1 byte, calfr 0x02
 // ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
-#define pos_CalRSTyp  0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
+#define pos_CalRSTyp    0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
         // weitere chars in calfr 0x22/0x23; weitere ID
 
-#define crc_PTU      (1<<1)
-#define xor_PTU      0xE388  // ^0x99A2=0x0x7A2A
-#define pck_PTU      0x7A2A  // PTU
-#define pos_PTU       0x065
+#define crc_PTU        (1<<1)
+#define xor_PTU        0xE388  // ^0x99A2=0x0x7A2A
+#define pck_PTU        0x7A2A  // PTU
+#define pos_PTU         0x065
 
-#define crc_GPS1     (1<<2)
-#define xor_GPS1     0x9667  // ^0xEA79=0x7C1E
-#define pck_GPS1     0x7C1E  // RXM-RAW (0x02 0x10)
-#define pos_GPS1      0x093
-#define pos_GPSweek   0x095  // 2 byte
-#define pos_GPSiTOW   0x097  // 4 byte
-#define pos_satsN     0x09B  // 12x2 byte (1: SV, 1: quality,strength)
+#define crc_GPS1       (1<<2)
+#define xor_GPS1       0x9667  // ^0xEA79=0x7C1E
+#define pck_GPS1       0x7C1E  // RXM-RAW (0x02 0x10)
+#define pos_GPS1        0x093
+#define pos_GPSweek     0x095  // 2 byte
+#define pos_GPSiTOW     0x097  // 4 byte
+#define pos_satsN       0x09B  // 12x2 byte (1: SV, 1: quality,strength)
 
-#define crc_GPS2     (1<<3)
-#define xor_GPS2     0xD7AD  // ^0xAAF4=0x7D59
-#define pck_GPS2     0x7D59  // RXM-RAW (0x02 0x10)
-#define pos_GPS2      0x0B5
-#define pos_minPR     0x0B7  //        4 byte
-#define pos_FF        0x0BB  //        1 byte
-#define pos_dataSats  0x0BC  // 12x(4+3) byte (4: pseudorange, 3: doppler)
+#define crc_GPS2       (1<<3)
+#define xor_GPS2       0xD7AD  // ^0xAAF4=0x7D59
+#define pck_GPS2       0x7D59  // RXM-RAW (0x02 0x10)
+#define pos_GPS2        0x0B5
+#define pos_minPR       0x0B7  //        4 byte
+#define pos_FF          0x0BB  //        1 byte
+#define pos_dataSats    0x0BC  // 12x(4+3) byte (4: pseudorange, 3: doppler)
 
-#define crc_GPS3     (1<<4)
-#define xor_GPS3     0xB9FF  // ^0xC2EA=0x7B15
-#define pck_GPS3     0x7B15  // NAV-SOL (0x01 0x06)
-#define pos_GPS3      0x112
-#define pos_GPSecefX  0x114  //   4 byte
-#define pos_GPSecefY  0x118  //   4 byte
-#define pos_GPSecefZ  0x11C  //   4 byte
-#define pos_GPSecefV  0x120  // 3*2 byte
-#define pos_numSats   0x126  //   1 byte
-#define pos_sAcc      0x127  //   1 byte
-#define pos_pDOP      0x128  //   1 byte
+#define crc_GPS3       (1<<4)
+#define xor_GPS3       0xB9FF  // ^0xC2EA=0x7B15
+#define pck_GPS3       0x7B15  // NAV-SOL (0x01 0x06)
+#define pos_GPS3        0x112
+#define pos_GPSecefX    0x114  //   4 byte
+#define pos_GPSecefY    0x118  //   4 byte
+#define pos_GPSecefZ    0x11C  //   4 byte
+#define pos_GPSecefV    0x120  // 3*2 byte
+#define pos_numSats     0x126  //   1 byte
+#define pos_sAcc        0x127  //   1 byte
+#define pos_pDOP        0x128  //   1 byte
 
-#define crc_AUX      (1<<5)
-#define pck_AUX      0x7E00  // LEN variable
-#define pos_AUX       0x12B
+#define crc_AUX        (1<<5)
+#define pck_AUX        0x7E00  // LEN variable
+#define pos_AUX         0x12B
 
-#define crc_ZERO     (1<<6)  // LEN variable
-#define pck_ZERO     0x7600
-#define pck_ZEROstd  0x7611  // NDATA std-frm, no aux
-#define pos_ZEROstd   0x12B  // pos_AUX(0)
+#define crc_ZERO       (1<<6)  // LEN variable
+#define pck_ZERO       0x7600
+#define pck_ZEROstd    0x7611  // NDATA std-frm, no aux
+#define pos_ZEROstd     0x12B  // pos_AUX(0)
 
-#define pck_ENCRYPTED   0x80 // Packet type for an Encrypted payload
+#define pck_ENCRYPTED  0x8000  // Packet type for an Encrypted payload
 
 /*
   frame[pos_FRAME-1] == 0x0F: len == NDATA_LEN(320)
@@ -343,72 +343,6 @@ static int frametype(gpx_t *gpx) { // -4..+4: 0xF0 -> -4 , 0x0F -> +4
     }
     return ft;
 }
-
-
-const double c = 299.792458e6;
-const double L1 = 1575.42e6;
-
-static int get_SatData(gpx_t *gpx) {
-    int i, n;
-    int sv;
-    ui32_t minPR;
-    int numSV;
-    double pDOP, sAcc;
-
-    fprintf(stdout, "[%d]\n", u2(gpx->frame+pos_FrameNb));
-
-    fprintf(stdout, "iTOW: 0x%08X", u4(gpx->frame+pos_GPSiTOW));
-    fprintf(stdout, "  week: 0x%04X", u2(gpx->frame+pos_GPSweek));
-    fprintf(stdout, "\n");
-    minPR = u4(gpx->frame+pos_minPR);
-    fprintf(stdout, "minPR: %d", minPR);
-    fprintf(stdout, "\n");
-
-    for (i = 0; i < 12; i++) {
-        n = i*7;
-        sv = gpx->frame[pos_satsN+2*i];
-        if (sv == 0xFF) break;
-        fprintf(stdout, "    SV: %2d ", sv);
-        //fprintf(stdout, " (%02x) ", gpx->frame[pos_satsN+2*i+1]);
-        fprintf(stdout, "#  ");
-        fprintf(stdout, "prMes: %.1f", u4(gpx->frame+pos_dataSats+n)/100.0 + minPR);
-        fprintf(stdout, "  ");
-        fprintf(stdout, "doMes: %.1f", -i3(gpx->frame+pos_dataSats+n+4)/100.0*L1/c);
-        fprintf(stdout, "\n");
-    }
-
-    fprintf(stdout, "ECEF-POS: (%d,%d,%d)\n",
-                     (i32_t)u4(gpx->frame+pos_GPSecefX),
-                     (i32_t)u4(gpx->frame+pos_GPSecefY),
-                     (i32_t)u4(gpx->frame+pos_GPSecefZ));
-    fprintf(stdout, "ECEF-VEL: (%d,%d,%d)\n",
-                     (i16_t)u2(gpx->frame+pos_GPSecefV+0),
-                     (i16_t)u2(gpx->frame+pos_GPSecefV+2),
-                     (i16_t)u2(gpx->frame+pos_GPSecefV+4));
-
-    numSV = gpx->frame[pos_numSats];
-    sAcc = gpx->frame[pos_sAcc]/10.0; if (gpx->frame[pos_sAcc] == 0xFF) sAcc = -1.0;
-    pDOP = gpx->frame[pos_pDOP]/10.0; if (gpx->frame[pos_pDOP] == 0xFF) pDOP = -1.0;
-    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
-
-
-    fprintf(stdout, "CRC: ");
-    fprintf(stdout, " %04X", pck_GPS1);
-    if (check_CRC(gpx, pos_GPS1, pck_GPS1)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
-    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS1, pck_GPS1));
-    fprintf(stdout, " %04X", pck_GPS2);
-    if (check_CRC(gpx, pos_GPS2, pck_GPS2)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
-    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS2, pck_GPS2));
-    fprintf(stdout, " %04X", pck_GPS3);
-    if (check_CRC(gpx, pos_GPS3, pck_GPS3)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
-    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS3, pck_GPS3));
-
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\n");
-
-    return 0;
-}
-
 
 static int get_FrameNb(gpx_t *gpx) {
     int i;
@@ -442,16 +376,20 @@ static int get_SondeID(gpx_t *gpx, int crc) {
         if ( strncmp(gpx->id, sondeid_bytes, 8) != 0 ) {
             //for (i = 0; i < 51; i++) gpx->calfrchk[i] = 0;
             memset(gpx->calfrchk, 0, 51);
-            memcpy(gpx->id, sondeid_bytes, 8);
-            gpx->id[8] = '\0';
-            // conf data
+            // reset conf data
+            memset(gpx->rstyp, 0, 9);
+            gpx->freq = 0;
             gpx->conf_fw = 0;
-            gpx->conf_cd = -1;
-            gpx->conf_kt = -1;
             gpx->conf_bt = 0;
             gpx->conf_bk = 0;
-            gpx->freq = 0;
-            memset(gpx->rstyp, 0, 9);
+            gpx->conf_cd = -1;
+            gpx->conf_kt = -1;
+            // don't reset gpx->frame[] !
+            // gpx->T = -273.15;
+            // gpx->RH = -1.0;
+            // new ID:
+            memcpy(gpx->id, sondeid_bytes, 8);
+            gpx->id[8] = '\0';
         }
     }
 
@@ -467,8 +405,8 @@ static int get_FrameConf(gpx_t *gpx) {
     if (crc) gpx->crc |= crc_FRAME;
 
     err = crc;
-    err |= get_FrameNb(gpx);
     err |= get_SondeID(gpx, crc);
+    err |= get_FrameNb(gpx);
 
     if (crc == 0) {
         calfr = gpx->frame[pos_CalData];
@@ -636,10 +574,10 @@ static int get_PTU(gpx_t *gpx) {
                 printf(" Tc:%.2f ", Tc);
                 printf(" RH:%.1f ", RH);
                 printf(" TH:%.2f ", TH);
-           }
+            }
             printf("\n");
 
-            if (gpx->alt > -400.0)
+            //if (gpx->alt > -400.0)
             {
                 printf("    %9.2f ; %6.1f ; %6.1f ", gpx->alt, gpx->ptu_Rf1, gpx->ptu_Rf2);
                 printf("; %10.6f ; %10.6f ; %10.6f ", gpx->ptu_calT1[0], gpx->ptu_calT1[1], gpx->ptu_calT1[2]);
@@ -655,6 +593,82 @@ static int get_PTU(gpx_t *gpx) {
     }
 
     return err;
+}
+
+
+const double c = 299.792458e6;
+const double L1 = 1575.42e6;
+
+static int get_SatData(gpx_t *gpx) {
+    int i, n;
+    int sv;
+    ui32_t minPR;
+    int numSV;
+    double pDOP, sAcc;
+    int err = 0;
+
+    if ( ((gpx->frame[pos_GPS1]<<8) | gpx->frame[pos_GPS1+1]) != pck_GPS1 ) return -1;
+    if ( ((gpx->frame[pos_GPS2]<<8) | gpx->frame[pos_GPS2+1]) != pck_GPS2 ) return -2;
+    if ( ((gpx->frame[pos_GPS3]<<8) | gpx->frame[pos_GPS3+1]) != pck_GPS3 ) return -3;
+
+    err = get_FrameConf(gpx);
+
+    if (!err) {
+        fprintf(stdout, "[%5d] ", gpx->frnr);
+        fprintf(stdout, "(%s) ", gpx->id);
+        fprintf(stdout, "\n");
+    }
+
+    fprintf(stdout, "iTOW: 0x%08X", u4(gpx->frame+pos_GPSiTOW));
+    fprintf(stdout, "  week: 0x%04X", u2(gpx->frame+pos_GPSweek));
+    fprintf(stdout, "\n");
+    minPR = u4(gpx->frame+pos_minPR);
+    fprintf(stdout, "minPR: %d", minPR);
+    fprintf(stdout, "\n");
+
+    for (i = 0; i < 12; i++) {
+        n = i*7;
+        sv = gpx->frame[pos_satsN+2*i];
+        if (sv == 0xFF) break;
+        fprintf(stdout, "    SV: %2d ", sv);
+        //fprintf(stdout, " (%02x) ", gpx->frame[pos_satsN+2*i+1]);
+        fprintf(stdout, "#  ");
+        fprintf(stdout, "prMes: %.1f", u4(gpx->frame+pos_dataSats+n)/100.0 + minPR);
+        fprintf(stdout, "  ");
+        fprintf(stdout, "doMes: %.1f", -i3(gpx->frame+pos_dataSats+n+4)/100.0*L1/c);
+        fprintf(stdout, "\n");
+    }
+
+    fprintf(stdout, "ECEF-POS: (%d,%d,%d)\n",
+                     (i32_t)u4(gpx->frame+pos_GPSecefX),
+                     (i32_t)u4(gpx->frame+pos_GPSecefY),
+                     (i32_t)u4(gpx->frame+pos_GPSecefZ));
+    fprintf(stdout, "ECEF-VEL: (%d,%d,%d)\n",
+                     (i16_t)u2(gpx->frame+pos_GPSecefV+0),
+                     (i16_t)u2(gpx->frame+pos_GPSecefV+2),
+                     (i16_t)u2(gpx->frame+pos_GPSecefV+4));
+
+    numSV = gpx->frame[pos_numSats];
+    sAcc = gpx->frame[pos_sAcc]/10.0; if (gpx->frame[pos_sAcc] == 0xFF) sAcc = -1.0;
+    pDOP = gpx->frame[pos_pDOP]/10.0; if (gpx->frame[pos_pDOP] == 0xFF) pDOP = -1.0;
+    fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
+
+
+    fprintf(stdout, "CRC: ");
+    fprintf(stdout, " %04X", pck_GPS1);
+    if (check_CRC(gpx, pos_GPS1, pck_GPS1)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS1, pck_GPS1));
+    fprintf(stdout, " %04X", pck_GPS2);
+    if (check_CRC(gpx, pos_GPS2, pck_GPS2)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS2, pck_GPS2));
+    fprintf(stdout, " %04X", pck_GPS3);
+    if (check_CRC(gpx, pos_GPS3, pck_GPS3)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
+    //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS3, pck_GPS3));
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\n");
+
+    return 0;
 }
 
 static int get_GPSweek(gpx_t *gpx) {
@@ -714,14 +728,15 @@ static int get_GPStime(gpx_t *gpx) {
 static int get_GPS1(gpx_t *gpx) {
     int err=0;
 
-    // ((gpx->frame[pos_GPS1]<<8) | gpx->frame[pos_GPS1+1]) != pck_GPS1 ?
-    if ( gpx->frame[pos_GPS1] != ((pck_GPS1>>8) & 0xFF) ) {
+    // gpx->frame[pos_GPS1+1] != (pck_GPS1 & 0xFF) ?
+    err = check_CRC(gpx, pos_GPS1, pck_GPS1);
+    if (err) {
         gpx->crc |= crc_GPS1;
+        // reset GPS1-data (json)
+        gpx->jahr = 0; gpx->monat = 0; gpx->tag = 0;
+        gpx->std = 0; gpx->min = 0; gpx->sek = 0.0;
         return -1;
     }
-
-    err = check_CRC(gpx, pos_GPS1, pck_GPS1);
-    if (err) gpx->crc |= crc_GPS1;
 
     err |= get_GPSweek(gpx); // no plausibility-check
     err |= get_GPStime(gpx); // no plausibility-check
@@ -732,6 +747,7 @@ static int get_GPS1(gpx_t *gpx) {
 static int get_GPS2(gpx_t *gpx) {
     int err=0;
 
+    // gpx->frame[pos_GPS2+1] != (pck_GPS2 & 0xFF) ?
     err = check_CRC(gpx, pos_GPS2, pck_GPS2);
     if (err) gpx->crc |= crc_GPS2;
 
@@ -775,7 +791,9 @@ static int get_GPSkoord(gpx_t *gpx) {
     double X[3], lat, lon, alt;
     ui8_t gpsVel_bytes[2];
     short vel16; // 16bit
-    double V[3], phi, lam, dir;
+    double V[3];
+    double phi, lam, dir;
+    double vN; double vE; double vU;
 
 
     for (k = 0; k < 3; k++) {
@@ -809,12 +827,12 @@ static int get_GPSkoord(gpx_t *gpx) {
     // ECEF-Vel -> NorthEastUp
     phi = lat*M_PI/180.0;
     lam = lon*M_PI/180.0;
-    gpx->vN = -V[0]*sin(phi)*cos(lam) - V[1]*sin(phi)*sin(lam) + V[2]*cos(phi);
-    gpx->vE = -V[0]*sin(lam) + V[1]*cos(lam);
-    gpx->vU =  V[0]*cos(phi)*cos(lam) + V[1]*cos(phi)*sin(lam) + V[2]*sin(phi);
+    vN = -V[0]*sin(phi)*cos(lam) - V[1]*sin(phi)*sin(lam) + V[2]*cos(phi);
+    vE = -V[0]*sin(lam) + V[1]*cos(lam);
+    vU =  V[0]*cos(phi)*cos(lam) + V[1]*cos(phi)*sin(lam) + V[2]*sin(phi);
 
     // NEU -> HorDirVer
-    gpx->vH = sqrt(gpx->vN*gpx->vN+gpx->vE*gpx->vE);
+    gpx->vH = sqrt(vN*vN+vE*vE);
 /*
     double alpha;
     alpha = atan2(gpx->vN, gpx->vE)*180/M_PI;  // ComplexPlane (von x-Achse nach links) - GeoMeteo (von y-Achse nach rechts)
@@ -822,9 +840,11 @@ static int get_GPSkoord(gpx_t *gpx) {
     if (dir < 0) dir += 360;                   // atan2(y,x)=atan(y/x)=pi/2-atan(x/y) , atan(1/t) = pi/2 - atan(t)
     gpx->vD2 = dir;
 */
-    dir = atan2(gpx->vE, gpx->vN) * 180 / M_PI;
+    dir = atan2(vE, vN) * 180 / M_PI;
     if (dir < 0) dir += 360;
     gpx->vD = dir;
+
+    gpx->vV = vU;
 
     gpx->numSV = gpx->frame[pos_numSats];
 
@@ -834,14 +854,16 @@ static int get_GPSkoord(gpx_t *gpx) {
 static int get_GPS3(gpx_t *gpx) {
     int err=0;
 
-    // ((gpx->frame[pos_GPS3]<<8) | gpx->frame[pos_GPS3+1]) != pck_GPS3 ?
-    if ( gpx->frame[pos_GPS3] != ((pck_GPS3>>8) & 0xFF) ) {
+    // gpx->frame[pos_GPS3+1] != (pck_GPS3 & 0xFF) ?
+    err = check_CRC(gpx, pos_GPS3, pck_GPS3);
+    if (err) {
         gpx->crc |= crc_GPS3;
+        // reset GPS3-data (json)
+        gpx->lat = 0.0; gpx->lon = 0.0; gpx->alt = 0.0;
+        gpx->vH  = 0.0; gpx->vD  = 0.0; gpx->vV  = 0.0;
+        gpx->numSV = 0;
         return -1;
     }
-
-    err = check_CRC(gpx, pos_GPS3, pck_GPS3);
-    if (err) gpx->crc |= crc_GPS3;
 
     err |= get_GPSkoord(gpx); // plausibility-check: altitude, if ecef=(0,0,0)
 
@@ -891,7 +913,7 @@ static int get_Aux(gpx_t *gpx) {
     }
     gpx->xdata[n] = '\0';
 
-    i = check_CRC(gpx, pos7E, 0x7600);  // 0x76xx: 00-padding block
+    i = check_CRC(gpx, pos7E, pck_ZERO);  // 0x76xx: 00-padding block
     if (i) gpx->crc |= crc_ZERO;
 
     return count7E;
@@ -1080,19 +1102,19 @@ static int print_position(gpx_t *gpx, int ec) {
     int i;
     int err, err0, err1, err2, err3;
     int output, out_mask;
-    int encrypted;
+    int encrypted = 0;
 
     gpx->out = 0;
     gpx->aux = 0;
 
-    err = get_FrameConf(gpx);
-
     // Quick check for an encrypted packet (RS41-SGM)
     // These sondes have a type 0x80 packet in place of the regular PTU packet.
-    if (gpx->frame[pos_PTU] == pck_ENCRYPTED){
-        encrypted = 1;
-        // Continue with the rest of the extraction (which will result in null data)
+    if (check_CRC(gpx, pos_PTU, pck_ENCRYPTED)==0) { // frame[pos_PTU] == pck_ENCRYPTED>>8
+        encrypted = 1;                               // and CRC-OK
+        // Continue with the rest of the extraction
     }
+
+    err = get_FrameConf(gpx);
 
     err1 = get_GPS1(gpx);
     err2 = get_GPS2(gpx);
@@ -1113,8 +1135,8 @@ static int print_position(gpx_t *gpx, int ec) {
             fprintf(stdout, "[%5d] ", gpx->frnr);
             fprintf(stdout, "(%s) ", gpx->id);
         }
-        if (encrypted) {
-            fprintf(stdout, " Encrypted payload (RS41-SGM) ");
+        if (encrypted) { // e.g. 0x80A7-pck
+            fprintf(stdout, " (RS41-SGM: %02X%02X) ", gpx->frame[pos_PTU], gpx->frame[pos_PTU+1]);
         }
         if (!err1) {
             Gps2Date(gpx);
@@ -1131,7 +1153,7 @@ static int print_position(gpx_t *gpx, int ec) {
             //if (gpx->option.vbs)
             {
                 //fprintf(stdout, "  (%.1f %.1f %.1f) ", gpx->vN, gpx->vE, gpx->vU);
-                fprintf(stdout,"  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vU);
+                fprintf(stdout,"  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vV);
                 if (gpx->option.vbs == 3) fprintf(stdout," sats: %02d ", gpx->numSV);
             }
         }
@@ -1149,9 +1171,9 @@ static int print_position(gpx_t *gpx, int ec) {
                 int flen = NDATA_LEN;
                 if (frametype(gpx) < 0) flen += XDATA_LEN;
                 pos = pos_FRAME;
-                while (pos < flen-1) {
-                    blk = gpx->frame[pos];     // 0x80XX: encrypted block
-                    len = gpx->frame[pos+1];   // 0x76XX: 00-padding block
+                while (pos < flen-1) {         // e.g.
+                    blk = gpx->frame[pos];     // 0x80xx: encrypted block
+                    len = gpx->frame[pos+1];   // 0x76xx: 00-padding block
                     crc = check_CRC(gpx, pos, blk<<8);
                     fprintf(stdout, " %02X%02X", gpx->frame[pos], gpx->frame[pos+1]);
                     fprintf(stdout, "[%d]", crc&1);
@@ -1188,7 +1210,7 @@ static int print_position(gpx_t *gpx, int ec) {
             if ((!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                 // eigentlich GPS, d.h. UTC = GPS - 18sec (ab 1.1.2017)
                 fprintf(stdout, "{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
-                               gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vU, gpx->numSV);
+                               gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV );
                 if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
                     fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
                 }
@@ -1199,7 +1221,7 @@ static int print_position(gpx_t *gpx, int ec) {
                     fprintf(stdout, ", \"aux\": \"%s\"",  gpx->xdata );
                 }
                 if (encrypted){
-                    printf(",\"encrypted\": true");
+                    printf(", \"encrypted\": true");
                 }
                 fprintf(stdout, " }\n");
                 fprintf(stdout, "\n");
