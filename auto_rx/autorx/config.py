@@ -100,7 +100,8 @@ def read_auto_rx_config(filename):
 		'scan_dwell_time' : 20,
 		'detect_dwell_time' : 5,
 		'scan_delay' : 10,
-		'payload_id_valid' : 5, 
+		'payload_id_valid' : 5,
+		'temporary_block_time' : 60,
 		# Rotator Settings
 		'enable_rotator': False,
 		'rotator_update_rate': 30,
@@ -244,6 +245,12 @@ def read_auto_rx_config(filename):
 				logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
 		except:
 			logging.error("Config - Could not find station_code field, using default.")
+
+		# New temporary block time - added 2019-04-14
+		try:
+			auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
+		except:
+			logging.error("Config - New advanced settings missing, using defaults.")
 
 
 		# Now we attempt to read in the individual SDR parameters.
