@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("filename", type=str, help="Log File name.")
     parser.add_argument("--metric", action="store_true", default=False, help="Use metric altitudes. (Default is to use Feet)")
     parser.add_argument("--alt-limit", default=20000, type=int, help="Limit plot to supplied altitude (feet or metres, depending on user selection)")
-    parser.add_argument("--temp-limit", default=None, help="Limit plot to a lower temperature in degrees. (Default is no limit, plot will autoscale)")
+    parser.add_argument("--temp-limit", default=None, type=float, help="Limit plot to a lower temperature in degrees. (Default is no limit, plot will autoscale)")
     parser.add_argument("--decimation", default=10, type=int, help="Decimate input data by X times. (Default = 10)")
     args = parser.parse_args()
 
