@@ -259,7 +259,7 @@ class SondeDecoder(object):
                         self.log_error("Could not obtain GPS ephemeris or almanac data.")
                         return None
                     else:
-                        _rs92_gps_data = "-a almanac.txt"
+                        _rs92_gps_data = "-a almanac.txt --gpsepoch 2" # Note - This will need to be updated in... 19 years.
                 else:
                     _rs92_gps_data = "-e ephemeris.dat"
             else:
