@@ -406,7 +406,7 @@ processing_type['imet4_rtlfm'] = {
 
 
 
-def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = None):
+def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = None, dry_run = False):
 
 
     _mode = processing_type[mode]
@@ -446,9 +446,12 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
         _cmd += _mode['demod'] + _mode['decode'] + _mode['post_process']
 
 
-        if _first:
+        if _first or dry_run:
             print("Command: %s" % _cmd)
             _first = False
+
+        if dry_run:
+            continue
 
         # Run the command.
         try:
@@ -479,6 +482,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--mode", type=str, default="rs41_csdr", help="Operation mode.")
     parser.add_argument("-f", "--files", type=str, default=None, help="Glob-path to files to run over.")
     parser.add_argument("-v", "--verbose", action='store_true', default=False, help="Show additional debug info.")
+    parser.add_argument("-d", "--dry-run", action='store_true', default=False, help="Show additional debug info.")
     parser.add_argument("--shift", type=float, default=0.0, help="Shift the signal-under test by x Hz. Default is 0.")
     parser.add_argument("--batch", action='store_true', default=False, help="Run all tests, write results to results directory.")
     args = parser.parse_args()
@@ -493,6 +497,6 @@ if __name__ == "__main__":
     if args.batch:
         for _mode in processing_type:
             _log_name = "./results/" + _mode + ".txt"
-            run_analysis(_mode, file_mask=None, shift=args.shift, verbose=args.verbose, log_output=_log_name)
+            run_analysis(_mode, file_mask=None, shift=args.shift, verbose=args.verbose, log_output=_log_name, dry_run=args.dry_run)
     else:
-        run_analysis(args.mode, args.files, shift=args.shift, verbose=args.verbose)
+        run_analysis(args.mode, args.files, shift=args.shift, verbose=args.verbose, dry_run=args.dry_run)
