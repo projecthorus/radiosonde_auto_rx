@@ -82,6 +82,8 @@ class SondeDecoder(object):
         telem_filter = None,
 
         rs92_ephemeris = None,
+        rs41_drift_tweak = False,
+        experimental_decoder = False,
 
         imet_location = ""):
         """ Initialise and start a Sonde Decoder.
@@ -110,6 +112,9 @@ class SondeDecoder(object):
 
             rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
 
+            rs41_drift_tweak (bool): If True, add a high-pass filter in the decode chain, which can improve decode performance on drifty SDRs.
+            experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
+
             imet_location (str): OPTIONAL - A location field which is use in the generation of iMet unique ID.
         """
         # Thread running flag
@@ -131,6 +136,8 @@ class SondeDecoder(object):
         self.telem_filter = telem_filter
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
+        self.rs41_drift_tweak = rs41_drift_tweak
+        self.experimental_decoder = experimental_decoder
         self.imet_location = imet_location
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
@@ -231,8 +238,17 @@ class SondeDecoder(object):
             # RS41 Decoder command.
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
-            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null |"
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null | " % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
+            
+            # If selected by the user, we can add a highpass filter into the sox command. This helps handle up to about 5ppm of receiver drift
+            # before performance becomes significantly degraded. By default this is off, as it is not required with TCXO RTLSDRs, and actually
+            # slightly degrades performance.
+            if self.rs41_drift_tweak:
+                _highpass = "highpass 20 "
+            else:
+                _highpass = ""
+
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - %slowpass 2600 2>/dev/null | " % _highpass
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:

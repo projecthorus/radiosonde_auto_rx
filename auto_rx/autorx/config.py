@@ -102,6 +102,7 @@ def read_auto_rx_config(filename):
 		'scan_delay' : 10,
 		'payload_id_valid' : 5,
 		'temporary_block_time' : 60,
+		'rs41_drift_tweak': False,
 		# Rotator Settings
 		'enable_rotator': False,
 		'rotator_update_rate': 30,
@@ -122,9 +123,11 @@ def read_auto_rx_config(filename):
 		'save_detection_audio' : False,
 		'save_decode_audio' : False,
 		'save_decode_iq' : False
+
 	}
 
 	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
+
 
 	try:
 		config = RawConfigParser(auto_rx_config)
@@ -251,6 +254,22 @@ def read_auto_rx_config(filename):
 			auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
 		except:
 			logging.error("Config - New advanced settings missing, using defaults.")
+
+		# New demod tweaks - Added 2019-04-23
+		# Default to all experimental decoders off.
+		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': False}
+		try:
+			auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
+			auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
+			auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
+			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
+			auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
+			# When LMS6 support is added, that will have to be added in here.
+
+		except:
+			logging.error("Config - Missing new advanced decoder settings, using defaults.")
+			auto_rx_config['rs41_drift_tweak'] = False
+
 
 
 		# Now we attempt to read in the individual SDR parameters.
