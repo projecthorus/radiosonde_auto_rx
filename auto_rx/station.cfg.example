@@ -325,7 +325,7 @@ snr_threshold = 10
 # Scanner - Maximum number of peaks to search through during a scan pass.
 #	Increase this if you have lots of spurious signals, though this will increase scan times.
 max_peaks = 10
-# Scanner - Minimum distance between peaks (Hz)
+# Scanner - Minimum distance between detected peaks (Hz)
 min_distance = 1000
 # Scanner - Scan Dwell Time - How long to observe the specified spectrum for.
 scan_dwell_time = 20
@@ -333,8 +333,12 @@ scan_dwell_time = 20
 detect_dwell_time = 5
 # Scanner - Delay between scans. We should delay a short amount between scans to allow for decoders and other actions to jump in.
 scan_delay = 10
-# Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps. 
+# Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps.
 quantization = 10000
+# Decoder Spacing Limit - Only start a new decoder if it is separated from an existing decoder by at least
+# this value (Hz). This helps avoid issues where a drifting radiosonde is detected on two adjacent channels.
+# If you regularly encounter radiosondes on adjacent (10kHz) channels, then set this value to 5000.
+decoder_spacing_limit = 15000
 # Temporary Block Time (minutes) - How long to block encrypted or otherwise non-decodable sondes for.
 temporary_block_time = 60
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
