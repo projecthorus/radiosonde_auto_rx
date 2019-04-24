@@ -349,6 +349,34 @@ sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
 
 
+################################
+# DEMODULATOR / DECODER TWEAKS #
+################################
+
+# RS41 Drift Tweak (Regular demod chain only)
+# This tweak adds a high-pass filter into the RS41 demod chain. This extends the frequency offset range
+# the demod chain can handle, with some performance penalty. This is only required when using RTLSDRs
+# with worse than 2-3 PPM drift, and doesn't need to be enabled for TCXO SDRs.
+drift_tweak = False
+
+#
+# Experimental Decoders - Use at your own risk!
+# NOTE: These are not yet available in the master/testing branches. Stay tuned!
+#
+# These experimental demod chains use David Rowe's fsk_demod modem.
+# They have much better drift handling performance, and so may be better suited for
+# 1680 MHz sondes, but use considerably more CPU. Recommend use of a Pi 3 or better.
+# The experimental decoders can be enabled independently for each radiosonde type.
+rs41_experimental = False
+rs92_experimental = False
+dfm_experimental = False
+m10_experimental = False
+# Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
+
+
+
+
+
 # Position Filtering Options
 #   These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
 #   or has suddenly ended up in orbit.

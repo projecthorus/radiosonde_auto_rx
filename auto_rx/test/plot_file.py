@@ -7,6 +7,7 @@
 #
 import numpy as np
 import matplotlib.pyplot as plt
+import os.path
 import sys
 import argparse
 
@@ -18,6 +19,7 @@ parser.add_argument("-l", "--length", type=int, default=1000000, help="FFT Lengt
 parser.add_argument("-s", "--start", type=int, default=0, help="Offset into file (samples)")
 parser.add_argument("--rate", type=int, default=-1, help="Optional sample rate, to plot a scale.")
 parser.add_argument("--timeseries", action='store_true', default=False, help="Plot a 20log time series instead of a FFT.")
+parser.add_argument("--title", type=str, default="", help="Optional plot title.")
 
 args = parser.parse_args()
 
@@ -45,5 +47,17 @@ else:
 		scale = scale*args.rate
 
 	plt.plot(scale, data_fft)
+	plt.grid()
+	plt.ylabel("Uncalibrated Power (dB)")
+
+	if args.rate != -1:
+		plt.xlabel("Frequency (Hz)")
+	else:
+		plt.xlabel("Frequency")
+
+	if args.title == "":
+		plt.title(os.path.basename(args.file))
+	else:
+		plt.title(args.title)
 
 plt.show()

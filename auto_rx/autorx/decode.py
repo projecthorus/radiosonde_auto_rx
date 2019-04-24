@@ -82,6 +82,8 @@ class SondeDecoder(object):
         telem_filter = None,
 
         rs92_ephemeris = None,
+        rs41_drift_tweak = False,
+        experimental_decoder = False,
 
         imet_location = ""):
         """ Initialise and start a Sonde Decoder.
@@ -110,6 +112,9 @@ class SondeDecoder(object):
 
             rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
 
+            rs41_drift_tweak (bool): If True, add a high-pass filter in the decode chain, which can improve decode performance on drifty SDRs.
+            experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
+
             imet_location (str): OPTIONAL - A location field which is use in the generation of iMet unique ID.
         """
         # Thread running flag
@@ -131,6 +136,8 @@ class SondeDecoder(object):
         self.telem_filter = telem_filter
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
+        self.rs41_drift_tweak = rs41_drift_tweak
+        self.experimental_decoder = experimental_decoder
         self.imet_location = imet_location
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
@@ -233,7 +240,6 @@ class SondeDecoder(object):
 
         if self.sonde_type == "RS41":
             # RS41 Decoder command.
-
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
             _baud_rate = 4800
             _offset = 0.25 # Place the sonde frequency in the centre of the passband.

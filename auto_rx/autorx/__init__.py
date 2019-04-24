@@ -11,7 +11,7 @@
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.1.3.1-experimental"
+__version__ = "1.1.4-experimental"
 
 
 # Global Variables
