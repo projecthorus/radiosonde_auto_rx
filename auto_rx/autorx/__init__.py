@@ -36,4 +36,5 @@ sdr_list = {}
 #       'task' : (class) Reference to the currently running task.
 #       'device_idx' (str): The allocated SDR.
 #
+
 task_list = {}

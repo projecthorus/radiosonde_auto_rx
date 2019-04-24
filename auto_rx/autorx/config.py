@@ -96,6 +96,7 @@ def read_auto_rx_config(filename):
 		'dwell_time'	: 10,
 		'max_peaks'		: 10,
 		'quantization'	: 10000,
+		'decoder_spacing_limit': 15000,
 		'synchronous_upload' : False,
 		'scan_dwell_time' : 20,
 		'detect_dwell_time' : 5,
@@ -260,6 +261,7 @@ def read_auto_rx_config(filename):
 		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': False}
 		try:
 			auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
+			auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
 			auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
 			auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
 			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
@@ -269,6 +271,7 @@ def read_auto_rx_config(filename):
 		except:
 			logging.error("Config - Missing new advanced decoder settings, using defaults.")
 			auto_rx_config['rs41_drift_tweak'] = False
+			auto_rx_config['decoder_spacing_limit'] = 15000
 
 
 
