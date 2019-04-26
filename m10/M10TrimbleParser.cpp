@@ -469,6 +469,7 @@ void M10TrimbleParser::printFrame() {
                 auxstr.c_str(), getSatellites(), getLatitude(), getLongitude(),
                 getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), getBatteryLevel(), correctCRC);
     }
+    fflush(stdout);
 }
 
 /*

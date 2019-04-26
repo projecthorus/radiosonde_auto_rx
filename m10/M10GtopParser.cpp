@@ -289,4 +289,5 @@ void M10GtopParser::printFrame() {
                 "Gtop", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), getLatitude(), getLongitude(),
                 getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed()/*, getTemperature()*/, correctCRC);
     }
+    fflush(stdout);
 }
