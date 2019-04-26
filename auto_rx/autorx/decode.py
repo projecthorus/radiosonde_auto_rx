@@ -385,7 +385,7 @@ class SondeDecoder(object):
 
         if self.decoder_stats:
             _stats_command_1 = "--stats=%d " % _stats_rate
-            _stats_command_2 = "2>stats_%d.txt" % self.sonde_freq
+            _stats_command_2 = "2>stats_%s.txt" % str(self.device_idx)
         else:
             _stats_command_1 = ""
             _stats_command_2 = "2>/dev/null"

@@ -376,7 +376,7 @@ dfm_experimental = False
 m10_experimental = False
 # Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
-# Dump FSK Demod statistics to stats_<freq>.txt while the modem is running.
+# Dump FSK Demod statistics to stats_<device_ID>.txt while the modem is running.
 # This ends up at ~200mb per flight, and is over-written with each new sonde tracked.
 # The test/plot_fsk_demod_stats.py script can plot these files for debugging purposes.
 # Eventually the modem statistics will be integrated into the web GUI.
