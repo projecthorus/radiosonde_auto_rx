@@ -243,7 +243,8 @@ def start_decoder(freq, sonde_type):
             rs92_ephemeris = rs92_ephemeris,
             imet_location = config['station_code'],
             rs41_drift_tweak = config['rs41_drift_tweak'],
-            experimental_decoder = config['experimental_decoders'][sonde_type]
+            experimental_decoder = config['experimental_decoders'][sonde_type],
+            decoder_stats = config['decoder_stats']
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 

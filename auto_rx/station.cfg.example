@@ -365,7 +365,6 @@ drift_tweak = False
 
 #
 # Experimental Decoders - Use at your own risk!
-# NOTE: These are not yet available in the master/testing branches. Stay tuned!
 #
 # These experimental demod chains use David Rowe's fsk_demod modem.
 # They have much better drift handling performance, and so may be better suited for
@@ -377,6 +376,11 @@ dfm_experimental = False
 m10_experimental = False
 # Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
+# Dump FSK Demod statistics to stats_<freq>.txt while the modem is running.
+# This ends up at ~200mb per flight, and is over-written with each new sonde tracked.
+# The test/plot_fsk_demod_stats.py script can plot these files for debugging purposes.
+# Eventually the modem statistics will be integrated into the web GUI.
+enable_stats = False
 
 
 

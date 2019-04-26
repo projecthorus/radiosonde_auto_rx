@@ -87,6 +87,7 @@ class SondeDecoder(object):
         rs92_ephemeris = None,
         rs41_drift_tweak = False,
         experimental_decoder = False,
+        decoder_stats = False,
 
         imet_location = ""):
         """ Initialise and start a Sonde Decoder.
@@ -141,6 +142,7 @@ class SondeDecoder(object):
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
         self.experimental_decoder = experimental_decoder
+        self.decoder_stats = decoder_stats
         self.imet_location = imet_location
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
@@ -378,9 +380,15 @@ class SondeDecoder(object):
         else:
             gain_param = ''
 
-
         # Emit demodulator statistics every X modem frames.
         _stats_rate = 10
+
+        if self.decoder_stats:
+            _stats_command_1 = "--stats=%d " % _stats_rate
+            _stats_command_2 = "2>stats_%d.txt" % self.sonde_freq
+        else:
+            _stats_command_1 = ""
+            _stats_command_2 = "2>/dev/null"
 
 
         if self.sonde_type == "RS41":
@@ -397,7 +405,7 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt |" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
             decode_cmd += "./rs41mod --ptu --json --bin 2>/dev/null"
 
 
@@ -447,7 +455,7 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_output_rate, _baud_rate, _output_rate, _output_rate)
 
             # Add in tee command to save audio to disk if debugging is enabled.
@@ -475,7 +483,7 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
 
             # Add in tee command to save audio to disk if debugging is enabled.
@@ -502,7 +510,7 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - - 2>stats.txt " % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null| " % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
 
             # Add in tee command to save audio to disk if debugging is enabled.

@@ -104,6 +104,7 @@ def read_auto_rx_config(filename):
 		'payload_id_valid' : 5,
 		'temporary_block_time' : 60,
 		'rs41_drift_tweak': False,
+		'decoder_stats': False,
 		# Rotator Settings
 		'enable_rotator': False,
 		'rotator_update_rate': 30,
@@ -262,6 +263,7 @@ def read_auto_rx_config(filename):
 		try:
 			auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
 			auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
+			auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')
 			auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
 			auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
 			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
@@ -272,6 +274,7 @@ def read_auto_rx_config(filename):
 			logging.error("Config - Missing new advanced decoder settings, using defaults.")
 			auto_rx_config['rs41_drift_tweak'] = False
 			auto_rx_config['decoder_spacing_limit'] = 15000
+			auto_rx_config['decoder_stats'] = False
 
 
 
