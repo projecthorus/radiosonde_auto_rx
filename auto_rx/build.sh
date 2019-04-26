@@ -41,8 +41,8 @@ echo "Building fsk-demod utils from codec2"
 cd ../utils/
 # This produces a static build of fsk_demod
 gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
-# Build tsrc
-gcc tsrc.c -o tsrc -lm -lsamplerate
+# Build tsrc - this is only required for the test/test_demod.py script, so is not included in the standard build.
+#gcc tsrc.c -o tsrc -lm -lsamplerate
 # If running under OSX, you may need to uncomment the following line to be able to find libsamplerate.
 #gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
 
@@ -56,7 +56,6 @@ cp ../demod/rs41ecc .
 cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
-cp ../utils/tsrc .
 cp ../imet/imet1rs_dft .
 
 cp ../demod/mod/rs41mod .
