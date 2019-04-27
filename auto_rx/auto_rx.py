@@ -19,7 +19,7 @@ import os
 
 import autorx
 from autorx.scan import SondeScanner
-from autorx.decode import SondeDecoder, VALID_SONDE_TYPES
+from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
@@ -194,6 +194,24 @@ def start_decoder(freq, sonde_type):
             temporary_block_list.pop(freq)
 
 
+    # Check that we are not attempting to start a decoder too close to an existing decoder for known 'drifty' radiosonde types.
+    # 'Too close' is defined by the 'decoder_spacing_limit' advanced coniguration option.
+    for _key in autorx.task_list.keys():
+        # Iterate through the task list, and only attempt to compare with those that are a decoder task.
+        # This is indicated by the task key being an integer (the sonde frequency).
+        if type(_key) == int:
+            # Extract the currently decoded sonde type from the currently running decoder.
+            _decoding_sonde_type = autorx.task_list[_key]['task'].sonde_type
+
+            # Only check the frequency spacing if we have a known 'drifty' sonde type, *and* the new sonde type is of the same type.
+            if (_decoding_sonde_type in DRIFTY_SONDE_TYPES) and (_decoding_sonde_type == sonde_type):
+                if (abs(_key - freq) < config['decoder_spacing_limit']):
+                    # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
+                    # Without actually starting another decoder and matching IDs, we can't be 100% sure, but it's a good chance.
+                    logging.error("Task Manager - Attempted to start a %s decoder within %d kHz of an already running decoder. (This limit can be set using the 'decoder_spacing_limit' advanced config option.)" % (sonde_type, config['decoder_spacing_limit']/1e3))
+                    return
+
+
     # Allocate a SDR.
     _device_idx = allocate_sdr(task_description="Decoder (%s, %.3f MHz)" % (sonde_type, freq/1e6))
 
@@ -223,7 +241,10 @@ def start_decoder(freq, sonde_type):
             timeout = config['rx_timeout'],
             telem_filter = telemetry_filter,
             rs92_ephemeris = rs92_ephemeris,
-            imet_location = config['station_code']
+            imet_location = config['station_code'],
+            rs41_drift_tweak = config['rs41_drift_tweak'],
+            experimental_decoder = config['experimental_decoders'][sonde_type],
+            decoder_stats = config['decoder_stats']
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 

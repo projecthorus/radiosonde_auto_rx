@@ -28,7 +28,7 @@ except ImportError:
 
 
 # List of binaries we check for on startup
-REQUIRED_RS_UTILS = ['dft_detect', 'dfm09ecc', 'm10', 'imet1rs_dft', 'rs41mod', 'rs92mod']
+REQUIRED_RS_UTILS = ['dft_detect', 'dfm09ecc', 'm10', 'imet1rs_dft', 'rs41mod', 'rs92mod', 'fsk_demod']
 
 def check_rs_utils():
     """ Check the required RS decoder binaries exist
@@ -36,7 +36,7 @@ def check_rs_utils():
     """
     for _file in REQUIRED_RS_UTILS:
         if not os.path.isfile(_file):
-            logging.critical("RS binary %s does not exist - did you run build.sh?" % _file)
+            logging.critical("Binary %s does not exist - did you run build.sh?" % _file)
             return False
 
     return True

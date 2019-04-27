@@ -11,8 +11,7 @@
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.0.3.1"
-
+__version__ = "1.1.0-beta"
 
 
 # Global Variables
@@ -36,4 +35,5 @@ sdr_list = {}
 #       'task' : (class) Reference to the currently running task.
 #       'device_idx' (str): The allocated SDR.
 #
+
 task_list = {}

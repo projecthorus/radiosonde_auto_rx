@@ -115,37 +115,50 @@ processing_type = {
     # # FSK-DEMOD DECODING
     # #
     # # RS41 Decoding
-    # 'rs41_fsk_demod': {
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../bin/fsk_demod --cs16 -b 1 -u 45000 2 96000 4800 - - 2>/dev/null | python ../bin/bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    'rs41_fsk_demod': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
 
-    #     # Decode using rs41ecc
-    #     'decode': "../rs41ecc --ecc --ptu --crc 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : " | grep 00000 | wc -l",
-    #     'files' : "./generated/rs41*"
-    # },
+        # Decode using rs41ecc
+        'decode': "../rs41mod --ecc --ptu --crc --bin 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep 00000 | wc -l",
+        'files' : "./generated/rs41*"
+    },
     # # RS92 Decoding
-    # 'rs92_fsk_demod': {
-    #     # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../bin/fsk_demod --cs16 -b 1 -u 45000 2 96000 2400 - - 2>/dev/null | python ../bin/bit_to_samples.py 48000 2400 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
+    'rs92_fsk_demod': {
+        # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
 
-    #     # Decode using rs41ecc
-    #     'decode': ".../rs92ecc -vx -v --crc --ecc --vel 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : " | grep M2513116 | wc -l",
-    #     'files' : "./generated/rs92*"
-    # },
-    # 'm10_fsk_demod': {
-    #     # Not currently working due to weird baud rate (9614). Doesnt work even with fractional resampling (slow down signal to make it appear to be 9600 baud).
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../bin/tsrc - - 0.99854 -c | ../bin/fsk_demod --cs16 -b 1 -u 45000 2 96000 9600 - - 2>/dev/null | python ../bin/bit_to_samples.py 48000 9600 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ",
-    #     'decode': "../m10 -b -b2 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : "| wc -l",
-    #     'files' : "./generated/m10"
-    # },
+        # Decode using rs41ecc
+        'decode': "../rs92mod -vx -v --crc --ecc --vel --bin 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep M2513116 | wc -l",
+        'files' : "./generated/rs92*"
+    },
+    'm10_fsk_demod': {
+        # Not currently working due to weird baud rate (9614). Doesnt work even with fractional resampling (slow down signal to make it appear to be 9600 baud).
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
+        'decode': "../m10 -b -b2 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| wc -l",
+        'files' : "./generated/m10*"
+    },
+
+    'dfm_fsk_demod': {
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        #../dfm09ecc -vv --json --dist --auto
+
+        'demod': '| csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 100000 2500 - - 2>stats.txt | python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../dfm09ecc -vv --json --dist --auto 2>/dev/null',
+        "post_process" : " | grep frame |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/dfm*.bin"
+    }
 }
 
 
@@ -406,7 +419,7 @@ processing_type['imet4_rtlfm'] = {
 
 
 
-def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = None):
+def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = None, dry_run = False):
 
 
     _mode = processing_type[mode]
@@ -446,9 +459,12 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
         _cmd += _mode['demod'] + _mode['decode'] + _mode['post_process']
 
 
-        if _first:
+        if _first or dry_run:
             print("Command: %s" % _cmd)
             _first = False
+
+        if dry_run:
+            continue
 
         # Run the command.
         try:
@@ -479,6 +495,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--mode", type=str, default="rs41_csdr", help="Operation mode.")
     parser.add_argument("-f", "--files", type=str, default=None, help="Glob-path to files to run over.")
     parser.add_argument("-v", "--verbose", action='store_true', default=False, help="Show additional debug info.")
+    parser.add_argument("-d", "--dry-run", action='store_true', default=False, help="Show additional debug info.")
     parser.add_argument("--shift", type=float, default=0.0, help="Shift the signal-under test by x Hz. Default is 0.")
     parser.add_argument("--batch", action='store_true', default=False, help="Run all tests, write results to results directory.")
     args = parser.parse_args()
@@ -493,6 +510,6 @@ if __name__ == "__main__":
     if args.batch:
         for _mode in processing_type:
             _log_name = "./results/" + _mode + ".txt"
-            run_analysis(_mode, file_mask=None, shift=args.shift, verbose=args.verbose, log_output=_log_name)
+            run_analysis(_mode, file_mask=None, shift=args.shift, verbose=args.verbose, log_output=_log_name, dry_run=args.dry_run)
     else:
-        run_analysis(args.mode, args.files, shift=args.shift, verbose=args.verbose)
+        run_analysis(args.mode, args.files, shift=args.shift, verbose=args.verbose, dry_run=args.dry_run)
