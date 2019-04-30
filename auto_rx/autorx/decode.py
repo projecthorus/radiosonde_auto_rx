@@ -483,7 +483,7 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s " % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
             decode_cmd += "| python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
 
             # Add in tee command to save audio to disk if debugging is enabled.
