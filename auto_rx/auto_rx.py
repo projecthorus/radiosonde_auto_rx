@@ -199,7 +199,7 @@ def start_decoder(freq, sonde_type):
     for _key in autorx.task_list.keys():
         # Iterate through the task list, and only attempt to compare with those that are a decoder task.
         # This is indicated by the task key being an integer (the sonde frequency).
-        if type(_key) == int:
+        if (type(_key) == int) or (type(_key) == float):
             # Extract the currently decoded sonde type from the currently running decoder.
             _decoding_sonde_type = autorx.task_list[_key]['task'].sonde_type
 
