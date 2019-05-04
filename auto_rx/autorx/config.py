@@ -43,6 +43,10 @@ def read_auto_rx_config(filename):
         # Email Settings
         'email_enabled': False,
         'email_smtp_server': 'localhost',
+        'email_smtp_port': 25,
+        'email_smtp_ssl': False,
+        'email_smtp_login': 'None',
+        'email_smtp_password': 'None',
         'email_from': 'sonde@localhost',
         'email_to': None,
         'email_subject': "<type> Sonde launch detected on <freq>: <id>",
@@ -89,6 +93,7 @@ def read_auto_rx_config(filename):
 		'web_host'		: '0.0.0.0',
 		'web_port'		: 5000,
 		'web_archive_age': 120,
+		'web_debug': True,
 		# Advanced Parameters
 		'search_step'	: 800,
 		'snr_threshold'		: 10,
@@ -143,6 +148,10 @@ def read_auto_rx_config(filename):
 			try:
 				auto_rx_config['email_enabled'] = config.getboolean('email', 'email_enabled')
 				auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
+				auto_rx_config['email_smtp_port'] = config.get('email', 'smtp_port')
+				auto_rx_config['email_smtp_ssl'] = config.getboolean('email', 'smtp_ssl')
+				auto_rx_config['email_smtp_login'] = config.get('email', 'smtp_login')
+				auto_rx_config['email_smtp_password'] = config.get('email', 'smtp_password')
 				auto_rx_config['email_from'] = config.get('email', 'from')
 				auto_rx_config['email_to'] = config.get('email', 'to')
 				auto_rx_config['email_subject'] = config.get('email', 'subject')
@@ -269,12 +278,14 @@ def read_auto_rx_config(filename):
 			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
 			auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
 			# When LMS6 support is added, that will have to be added in here.
+			auto_rx_config['web_debug'] = config.getboolean('web', 'web_debug')
 
 		except:
 			logging.error("Config - Missing new advanced decoder settings, using defaults.")
 			auto_rx_config['rs41_drift_tweak'] = False
 			auto_rx_config['decoder_spacing_limit'] = 15000
 			auto_rx_config['decoder_stats'] = False
+			auto_rx_config['web_debug'] = False
 
 
 
@@ -330,6 +341,12 @@ def read_auto_rx_config(filename):
 		else:
 			# Create a global copy of the configuration file at this point
 			global_config = copy.deepcopy(auto_rx_config)
+
+			# Excise some sensitive parameters from the global config.
+			global_config.pop('email_smtp_login')
+			global_config.pop('email_smtp_password')
+			global_config.pop('email_smtp_server')
+
 			return auto_rx_config
 
 

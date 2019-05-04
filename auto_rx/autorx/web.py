@@ -17,6 +17,7 @@ import autorx.config
 import autorx.scan
 from threading import Thread
 import flask
+from flask import request, abort
 from flask_socketio import SocketIO
 try:
     # Python 2
@@ -129,6 +130,50 @@ def shutdown_flask(shutdown_key):
 
     return ""
 
+
+#
+#   Debugging endpoints. May eventually be exposed to the client, though authentication will need to be dealt with first.
+#
+
+@app.route('/start_decoder', methods=['POST'])
+def flask_start_decoder():
+    """ Inject a scan result, which will cause a decoder to be started if there
+    are enough resources (SDRs) to do so. 
+    Example:
+    curl -d "type=DFM&freq=403240000" -X POST http://localhost:5000/start_decoder
+    """
+    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+        _type = str(request.form['type'])
+        _freq = float(request.form['freq'])
+
+        logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
+
+        autorx.scan_results.put([[_freq, _type]])
+
+        return "OK"
+    else:
+        abort(403)
+
+
+@app.route('/stop_decoder', methods=['POST'])
+def flask_stop_decoder():
+    """ Request that a decoder process be halted. 
+    Example:
+    curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
+    """
+    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+        _freq = float(request.form['freq'])
+
+        logging.info("Web - Got decoder stop request: %f" % (_freq))
+
+        if _freq in autorx.task_list:
+            autorx.task_list[_freq]['task'].stop()
+            return "OK"
+        else:
+            # If we aren't running a decoder, 404.
+            abort(404)
+    else:
+        abort(403)
 
 #
 # SocketIO Events
