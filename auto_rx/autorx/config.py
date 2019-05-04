@@ -89,6 +89,7 @@ def read_auto_rx_config(filename):
 		'web_host'		: '0.0.0.0',
 		'web_port'		: 5000,
 		'web_archive_age': 120,
+		'web_debug': True,
 		# Advanced Parameters
 		'search_step'	: 800,
 		'snr_threshold'		: 10,
