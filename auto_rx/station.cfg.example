@@ -228,6 +228,10 @@ payload_summary_port = 55672
 [email]
 email_enabled = False
 smtp_server = localhost
+smtp_port = 25
+smtp_ssl = False
+smtp_login = None
+smtp_password = None
 from = sonde@localhost
 to = someone@example.com
 # Custom subject field. The following fields can be included:
@@ -287,6 +291,10 @@ web_port = 5000
 # Archive Age - How long to keep a sonde telemetry in memory for the web client to access, in minutes
 # Note: The higher this number, the more data the client will need to load in on startup
 archive_age = 120
+
+# Enable some additional debug endpoints. These are currently only used for development testing purposes.
+# Do not set this to True on an internet-facing auto_rx instance!!!
+web_debug = False
 
 
 ##################

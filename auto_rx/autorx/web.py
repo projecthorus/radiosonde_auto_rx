@@ -138,7 +138,10 @@ def shutdown_flask(shutdown_key):
 @app.route('/start_decoder', methods=['POST'])
 def flask_start_decoder():
     """ Inject a scan result, which will cause a decoder to be started if there
-    are enough resources (SDRs) to do so. """
+    are enough resources (SDRs) to do so. 
+    Example:
+    curl -d "type=DFM&freq=403240000" -X POST http://localhost:5000/start_decoder
+    """
     if request.method == 'POST' and autorx.config.global_config['web_debug']:
         _type = str(request.form['type'])
         _freq = float(request.form['freq'])
@@ -154,7 +157,10 @@ def flask_start_decoder():
 
 @app.route('/stop_decoder', methods=['POST'])
 def flask_stop_decoder():
-    """ Request that a decoder process be halted. """
+    """ Request that a decoder process be halted. 
+    Example:
+    curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
+    """
     if request.method == 'POST' and autorx.config.global_config['web_debug']:
         _freq = float(request.form['freq'])
 

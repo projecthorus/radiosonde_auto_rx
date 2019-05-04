@@ -32,9 +32,13 @@ class EmailNotification(object):
     # We require the following fields to be present in the input telemetry dict.
     REQUIRED_FIELDS = [ 'id', 'lat', 'lon', 'alt', 'type', 'freq']
 
-    def __init__(self, smtp_server = 'localhost', mail_from = None, mail_to = None, mail_subject = None):
+    def __init__(self, smtp_server = 'localhost', smtp_port=25, smtp_ssl=False, smtp_login="None", smtp_password="None", mail_from = None, mail_to = None, mail_subject = None):
         """ Init a new E-Mail Notification Thread """
         self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.smtp_ssl = smtp_ssl
+        self.smtp_login = smtp_login
+        self.smtp_password = smtp_password
         self.mail_from = mail_from
         self.mail_to = mail_to
         self.mail_subject = mail_subject
@@ -118,7 +122,14 @@ class EmailNotification(object):
                 msg['To'] = self.mail_to
                 msg["Date"] = formatdate()
 
-                s = smtplib.SMTP(self.smtp_server)
+                if self.smtp_ssl:
+                    s = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+                else:
+                    s = smtplib.SMTP(self.smtp_server, self.smtp_port)
+
+                if self.smtp_login != "None":
+                    s.login(self.smtp_login, self.smtp_password) 
+
                 s.sendmail(msg['From'], msg['To'], msg.as_string())
                 s.quit()
 

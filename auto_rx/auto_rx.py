@@ -66,10 +66,6 @@ exporter_functions = [] # This list will hold references to the exporter add fun
 temporary_block_list = {}
 
 
-# Scan Result Queue
-# Scan results are processed asynchronously from the main scanner object.
-#scan_results = Queue()
-
 
 def allocate_sdr(check_only = False, task_description = ""):
     """ Allocate an un-used SDR for a task.
@@ -559,6 +555,10 @@ def main():
 
         _email_notification = EmailNotification(
             smtp_server = config['email_smtp_server'],
+            smtp_port = config['email_smtp_port'],
+            smtp_ssl = config['email_smtp_ssl'],
+            smtp_login = config['email_smtp_login'],
+            smtp_password = config['email_smtp_password'],
             mail_from = config['email_from'],
             mail_to = config['email_to'],
             mail_subject = config['email_subject']
