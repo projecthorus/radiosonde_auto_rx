@@ -164,7 +164,7 @@
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:false},
-                    {title:"Age", field:"age", headerSort:false},
+                    {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:false},
                     {title:'Freq (MHz)', field:"freq", headerSort:false},
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
@@ -189,7 +189,10 @@
                 if (jQuery.isEmptyObject(sonde_positions)){
                     telem_data = [{sdr_device_idx:'None'}];
                 }else{
-                    for (sonde_id in sonde_positions){
+                    var sonde_id_list = Object.getOwnPropertyNames(sonde_positions).reverse();
+
+                    //for (sonde_id in sonde_id_list){
+                    sonde_id_list.forEach( function(sonde_id){
                         var sonde_id_data = Object.assign({},sonde_positions[sonde_id].latest_data);
                         var sonde_id_age = Date.now() - sonde_positions[sonde_id].age;
                         if (sonde_id_age>180000){
@@ -239,7 +242,7 @@
                         }
 
                         telem_data.push(sonde_id_data);
-                    }
+                    });
                 }
 
                 $("#telem_table").tabulator("setData", telem_data);
