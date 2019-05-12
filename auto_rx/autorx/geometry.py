@@ -152,9 +152,13 @@ class GenericTrack(object):
             self.track_history.append([_datetime, _lat, _lon, _alt, _comment])
             self.update_states()
             return self.get_latest_state()
-        except:
-            #logging.error("Web - Error adding new telemetry to GenericTrack %s" % traceback.format_exc())
+        except ValueError:
+            # ValueErrors show up when the positions used are too close together, or when
+            # altitudes are the same between positions (divide-by-zero error)
+            # We can safely skip over these.
             pass
+        except Exception as e:
+            logging.debug("Web - Error adding new telemetry to GenericTrack %s" % str(e))
 
 
     def get_latest_state(self):
