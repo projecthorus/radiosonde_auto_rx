@@ -366,7 +366,7 @@ def write_status_file(filename, data):
 
 
 
-def process_directory(log_dir, output_dir, status_file, time_limit = 10):
+def process_directory(log_dir, output_dir, status_file, time_limit = 60):
 
     # Load the status file.
     _log_status = read_status_file(status_file)
@@ -394,9 +394,9 @@ def process_directory(log_dir, output_dir, status_file, time_limit = 10):
         try:
             (data, burst, startalt,  last_time) = read_log_file(_file, decimation=10)
 
-            # Don't process files with a starting altitude well above ground, or
-            # only a small number of data points.
-            if (len(data) < 50) or (startalt > 5000):
+            # Don't process files with a starting altitude well above ground.
+            # This indicates it's likely a sonde from a long way away.
+            if startalt > 2000:
                 _log_status[_basename]['complete'] = True
                 print("Not processing %s." % _basename)
                 continue
