@@ -336,7 +336,7 @@ def clean_task_list():
                 temporary_block_list[_key] = time.time()
                 # If there is a scanner currently running, add it to the scanners internal block list.
                 if 'SCAN' in autorx.task_list:
-                    auto_rx.task_list['SCAN']['task'].add_temporary_block(_key)
+                    autorx.task_list['SCAN']['task'].add_temporary_block(_key)
 
 
             # Release its associated SDR.
