@@ -19,7 +19,7 @@ import os
 
 import autorx
 from autorx.scan import SondeScanner
-from autorx.decode import SondeDecoder, VALID_SONDE_TYPES
+from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
@@ -66,10 +66,6 @@ exporter_functions = [] # This list will hold references to the exporter add fun
 temporary_block_list = {}
 
 
-# Scan Result Queue
-# Scan results are processed asynchronously from the main scanner object.
-scan_results = Queue()
-
 
 def allocate_sdr(check_only = False, task_description = ""):
     """ Allocate an un-used SDR for a task.
@@ -100,7 +96,7 @@ def allocate_sdr(check_only = False, task_description = ""):
 
 def start_scanner():
     """ Start a scanner thread on the first available SDR """
-    global config, scan_results, RS_PATH, temporary_block_list
+    global config, RS_PATH, temporary_block_list
 
     if 'SCAN' in autorx.task_list:
         # Already a scanner running! Return.
@@ -119,7 +115,7 @@ def start_scanner():
         # Init Scanner using settings from the global config.
         # TODO: Nicer way of passing in the huge list of args.
         autorx.task_list['SCAN']['task'] = SondeScanner(
-            callback = scan_results.put,
+            callback = autorx.scan_results.put,
             auto_start = True,
             min_freq = config['min_freq'],
             max_freq = config['max_freq'],
@@ -182,18 +178,6 @@ def start_decoder(freq, sonde_type):
     """
     global config, RS_PATH, exporter_functions, rs92_ephemeris, temporary_block_list
 
-    # Check the frequency is not in our temporary block list 
-    # (This may happen from time-to-time depending on the timing of the scan thread)
-    if freq in temporary_block_list.keys():
-        if temporary_block_list[freq] > (time.time()-config['temporary_block_time']*60):
-            logging.error("Task Manager - Attempted to start a decoder on a temporarily blocked frequency (%.3f MHz)" % (freq/1e6))
-            return
-        else:
-            # This frequency should not be blocked any more, remove it from the block list.
-            logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (freq/1e6))
-            temporary_block_list.pop(freq)
-
-
     # Allocate a SDR.
     _device_idx = allocate_sdr(task_description="Decoder (%s, %.3f MHz)" % (sonde_type, freq/1e6))
 
@@ -223,7 +207,10 @@ def start_decoder(freq, sonde_type):
             timeout = config['rx_timeout'],
             telem_filter = telemetry_filter,
             rs92_ephemeris = rs92_ephemeris,
-            imet_location = config['station_code']
+            imet_location = config['station_code'],
+            rs41_drift_tweak = config['rs41_drift_tweak'],
+            experimental_decoder = config['experimental_decoders'][sonde_type],
+            decoder_stats = config['decoder_stats']
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 
@@ -239,11 +226,11 @@ def handle_scan_results():
     - If there is a free SDR, allocate it to a decoder.
     - If there is no free SDR, but a scanner is running, stop the scanner and start decoding.
     """
-    global scan_results
+    global config, temporary_block_list
 
-    if scan_results.qsize() > 0:
+    if autorx.scan_results.qsize() > 0:
         # Grab the latest detections from the scan result queue.
-        _scan_data = scan_results.get()
+        _scan_data = autorx.scan_results.get()
         for _sonde in _scan_data:
             # Extract frequency & type info
             _freq = _sonde[0]
@@ -254,6 +241,44 @@ def handle_scan_results():
                 continue
             else:
 
+                # Check that we are not attempting to start a decoder too close to an existing decoder for known 'drifty' radiosonde types.
+                # 'Too close' is defined by the 'decoder_spacing_limit' advanced coniguration option.
+                _too_close = False
+                for _key in autorx.task_list.keys():
+                    # Iterate through the task list, and only attempt to compare with those that are a decoder task.
+                    # This is indicated by the task key being an integer (the sonde frequency).
+                    if (type(_key) == int) or (type(_key) == float):
+                        # Extract the currently decoded sonde type from the currently running decoder.
+                        _decoding_sonde_type = autorx.task_list[_key]['task'].sonde_type
+
+                        # Only check the frequency spacing if we have a known 'drifty' sonde type, *and* the new sonde type is of the same type.
+                        if (_decoding_sonde_type in DRIFTY_SONDE_TYPES) and (_decoding_sonde_type == _type):
+                            if (abs(_key - _freq) < config['decoder_spacing_limit']):
+                                # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
+                                # Without actually starting another decoder and matching IDs, we can't be 100% sure, but it's a good chance.
+                                logging.error("Task Manager - Detected %s sonde on %.3f MHz, but this is within %d kHz of an already running decoder. (This limit can be set using the 'decoder_spacing_limit' advanced config option.)" %
+                                    (_type,
+                                    _freq/1e6,
+                                    config['decoder_spacing_limit']/1e3))
+                                _too_close = True
+                                continue
+
+                # Continue to the next scan result if this one is too close to a currently running decoder.
+                if _too_close:
+                    continue
+
+                # Check the frequency is not in our temporary block list 
+                # (This may happen from time-to-time depending on the timing of the scan thread)
+                if _freq in temporary_block_list.keys():
+                    if temporary_block_list[_freq] > (time.time()-config['temporary_block_time']*60):
+                        logging.error("Task Manager - Attempted to start a decoder on a temporarily blocked frequency (%.3f MHz)" % (_freq/1e6))
+                        continue
+                    else:
+                        # This frequency should not be blocked any more, remove it from the block list.
+                        logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
+                        temporary_block_list.pop(_freq)
+
+
                 # Handle an inverted sonde detection.
                 if _type.startswith('-'):
                     _inverted = " (Inverted)"
@@ -263,11 +288,11 @@ def handle_scan_results():
                     _inverted = ""
 
                 # Note: We don't indicate if it's been detected as inverted here.
-                logging.info("Detected new %s sonde on %.3f MHz!" % (_check_type, _freq/1e6))
+                logging.info("Task Manager - Detected new %s sonde on %.3f MHz!" % (_check_type, _freq/1e6))
 
                 # Break if we don't support this sonde type.
                 if (_check_type not in VALID_SONDE_TYPES):
-                    logging.error("Unsupported sonde type: %s" % _check_type)
+                    logging.error("Task Manager - Unsupported sonde type: %s" % _check_type)
                     # TODO - Potentially add the frequency of the unsupported sonde to the temporary block list?
                     continue
 
@@ -311,7 +336,7 @@ def clean_task_list():
                 temporary_block_list[_key] = time.time()
                 # If there is a scanner currently running, add it to the scanners internal block list.
                 if 'SCAN' in autorx.task_list:
-                    auto_rx.task_list['SCAN']['task'].add_temporary_block(_key)
+                    autorx.task_list['SCAN']['task'].add_temporary_block(_key)
 
 
             # Release its associated SDR.
@@ -530,6 +555,10 @@ def main():
 
         _email_notification = EmailNotification(
             smtp_server = config['email_smtp_server'],
+            smtp_port = config['email_smtp_port'],
+            smtp_ssl = config['email_smtp_ssl'],
+            smtp_login = config['email_smtp_login'],
+            smtp_password = config['email_smtp_password'],
             mail_from = config['email_from'],
             mail_to = config['email_to'],
             mail_subject = config['email_subject']
@@ -642,7 +671,7 @@ def main():
     # and immediately start a decoder. If decoding fails, then we continue into
     # the main scanning loop.
     if args.type != None:
-        scan_results.put([[args.frequency*1e6, args.type]])
+        autorx.scan_results.put([[args.frequency*1e6, args.type]])
         handle_scan_results()
 
     # Loop.

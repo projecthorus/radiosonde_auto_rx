@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under MIT License
 #
+import copy
 import datetime
 import json
 import logging
@@ -15,8 +16,10 @@ import traceback
 import autorx
 import autorx.config
 import autorx.scan
+from autorx.geometry import GenericTrack
 from threading import Thread
 import flask
+from flask import request, abort
 from flask_socketio import SocketIO
 try:
     # Python 2
@@ -44,6 +47,7 @@ socketio = SocketIO(app, async_mode='threading')
 #   'latest_timestamp': timestamp (unix timestamp) of when the last packet was received.
 #   'latest_telem': telemetry dictionary.
 #   'path': list of [lat,lon,alt] pairs
+#   'track': A GenericTrack object, which is used to determine the current ascent/descent rate.
 #
 flask_telemetry_store = {}
 
@@ -116,7 +120,12 @@ def flask_get_scan_data():
 @app.route("/get_telemetry_archive")
 def flask_get_telemetry_archive():
     """ Return a copy of the telemetry archive """
-    return json.dumps(flask_telemetry_store)
+    # Make a copy of the store, and remove the non-serialisable GenericTrack object
+    _temp_store = copy.deepcopy(flask_telemetry_store)
+    for _element in _temp_store:
+        _temp_store[_element].pop('track')
+
+    return json.dumps(_temp_store)
 
 
 @app.route("/shutdown/<shutdown_key>")
@@ -129,6 +138,50 @@ def shutdown_flask(shutdown_key):
 
     return ""
 
+
+#
+#   Debugging endpoints. May eventually be exposed to the client, though authentication will need to be dealt with first.
+#
+
+@app.route('/start_decoder', methods=['POST'])
+def flask_start_decoder():
+    """ Inject a scan result, which will cause a decoder to be started if there
+    are enough resources (SDRs) to do so. 
+    Example:
+    curl -d "type=DFM&freq=403240000" -X POST http://localhost:5000/start_decoder
+    """
+    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+        _type = str(request.form['type'])
+        _freq = float(request.form['freq'])
+
+        logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
+
+        autorx.scan_results.put([[_freq, _type]])
+
+        return "OK"
+    else:
+        abort(403)
+
+
+@app.route('/stop_decoder', methods=['POST'])
+def flask_stop_decoder():
+    """ Request that a decoder process be halted. 
+    Example:
+    curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
+    """
+    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+        _freq = float(request.form['freq'])
+
+        logging.info("Web - Got decoder stop request: %f" % (_freq))
+
+        if _freq in autorx.task_list:
+            autorx.task_list[_freq]['task'].stop()
+            return "OK"
+        else:
+            # If we aren't running a decoder, 404.
+            abort(404)
+    else:
+        abort(403)
 
 #
 # SocketIO Events
@@ -247,20 +300,31 @@ class WebExporter(object):
                 return
         
         _telem = telemetry.copy()
+
+        # Add the telemetry information to the global telemetry store
+        if _telem['id'] not in flask_telemetry_store:
+            flask_telemetry_store[_telem['id']] = {'timestamp':time.time(), 'latest_telem':_telem, 'path':[], 'track': GenericTrack()}
+
+        flask_telemetry_store[_telem['id']]['path'].append([_telem['lat'],_telem['lon'],_telem['alt']])
+        flask_telemetry_store[_telem['id']]['latest_telem'] = _telem
+        flask_telemetry_store[_telem['id']]['timestamp'] = time.time()
+
+        # Update the sonde's track and extract the current state.
+        flask_telemetry_store[_telem['id']]['track'].add_telemetry({'time': _telem['datetime_dt'], 'lat':_telem['lat'], 'lon': _telem['lon'], 'alt':_telem['alt']})
+        _telem_state = flask_telemetry_store[_telem['id']]['track'].get_latest_state()   
+
+        # Add the calculated vertical and horizontal velocity, and heading to the telemetry dict.
+        _telem['vel_v'] = _telem_state['ascent_rate']
+        _telem['vel_h'] = _telem_state['speed']
+        _telem['heading'] = _telem_state['heading']
+
         # Remove the datetime object that is part of the telemetry, if it exists.
         # (it might not be present in test data)
         if 'datetime_dt' in _telem:
             _telem.pop('datetime_dt')
 
+        # Pass it on to the client.
         socketio.emit('telemetry_event', _telem, namespace='/update_status')
-
-        # Add the telemetry information to the global telemetry store
-        if _telem['id'] not in flask_telemetry_store:
-            flask_telemetry_store[_telem['id']] = {'timestamp':time.time(), 'latest_telem':_telem, 'path':[]}
-
-        flask_telemetry_store[_telem['id']]['path'].append([_telem['lat'],_telem['lon'],_telem['alt']])
-        flask_telemetry_store[_telem['id']]['latest_telem'] = _telem
-        flask_telemetry_store[_telem['id']]['timestamp'] = time.time()
 
 
     def clean_telemetry_store(self):

@@ -5,14 +5,19 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+try:
+    # Python 2
+    from Queue import Queue
+except ImportError:
+    # Python 3
+    from queue import Queue
 
 # Now using Semantic Versioning (https://semver.org/)  MAJOR.MINOR.PATCH
 # MAJOR - Only updated when something huge changes to the project (new decode chain, etc)
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.0.3.1"
-
+__version__ = "1.1.0"
 
 
 # Global Variables
@@ -36,4 +41,9 @@ sdr_list = {}
 #       'task' : (class) Reference to the currently running task.
 #       'device_idx' (str): The allocated SDR.
 #
+
 task_list = {}
+
+
+# Scan result queue. 
+scan_results = Queue()

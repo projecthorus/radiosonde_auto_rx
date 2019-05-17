@@ -510,7 +510,7 @@ class SondeScanner(object):
 
             except (IOError, ValueError) as e:
                 # No log file produced. Reset the RTLSDR and try again.
-                traceback.print_exc()
+                #traceback.print_exc()
                 self.log_warning("RTLSDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the RTLSDR.
@@ -697,11 +697,13 @@ class SondeScanner(object):
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         for freq in peak_frequencies:
 
+            _freq = float(freq)
+
             # Exit opportunity.
             if self.sonde_scanner_running == False:
                 return []
 
-            detected = detect_sonde(freq,
+            detected = detect_sonde(_freq,
                 sdr_fm=self.sdr_fm,
                 device_idx=self.device_idx,
                 ppm=self.ppm,
@@ -712,10 +714,10 @@ class SondeScanner(object):
 
             if detected != None:
                 # Add a detected sonde to the output array
-                _search_results.append([freq, detected])
+                _search_results.append([_freq, detected])
 
                 # Immediately send this result to the callback.
-                self.send_to_callback([[freq, detected]])
+                self.send_to_callback([[_freq, detected]])
                 # If we only want the first detected sonde, then return now.
                 if first_only:
                     return _search_results

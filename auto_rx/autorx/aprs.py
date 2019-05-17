@@ -112,9 +112,14 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     lon_str = "%03d%s" % (lon_degree,lon_min_str) + lon_dir
 
     # Generate the added digits of precision, as per http://www.aprs.org/datum.txt
-    # Note: This is a bit hacky.
-    _lat_prec = chr(int(("%02.4f" % lat_minute)[-2:]) + 33)
-    _lon_prec = chr(int(("%02.4f" % lon_minute)[-2:]) + 33)
+    # Base-91 can only encode decimal integers between 0 and 93 (otherwise we end up with non-printable characters)
+    # So, we have to scale the range 00-99 down to 0-90, being careful to avoid errors due to floating point math.
+    _lat_prec = int(round(float(("%02.4f" % lat_minute)[-2:])/1.10))
+    _lon_prec = int(round(float(("%02.4f" % lon_minute)[-2:])/1.10))
+
+    # Now we can add 33 to the 0-90 value to produce the Base-91 character.
+    _lat_prec = chr(_lat_prec + 33)
+    _lon_prec = chr(_lon_prec + 33)
 
     # Produce Datum + Added precision string
     # We currently assume all position data is using the WGS84 datum,

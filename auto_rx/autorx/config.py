@@ -43,6 +43,10 @@ def read_auto_rx_config(filename):
         # Email Settings
         'email_enabled': False,
         'email_smtp_server': 'localhost',
+        'email_smtp_port': 25,
+        'email_smtp_ssl': False,
+        'email_smtp_login': 'None',
+        'email_smtp_password': 'None',
         'email_from': 'sonde@localhost',
         'email_to': None,
         'email_subject': "<type> Sonde launch detected on <freq>: <id>",
@@ -89,6 +93,7 @@ def read_auto_rx_config(filename):
 		'web_host'		: '0.0.0.0',
 		'web_port'		: 5000,
 		'web_archive_age': 120,
+		'web_debug': True,
 		# Advanced Parameters
 		'search_step'	: 800,
 		'snr_threshold'		: 10,
@@ -96,12 +101,15 @@ def read_auto_rx_config(filename):
 		'dwell_time'	: 10,
 		'max_peaks'		: 10,
 		'quantization'	: 10000,
+		'decoder_spacing_limit': 15000,
 		'synchronous_upload' : False,
 		'scan_dwell_time' : 20,
 		'detect_dwell_time' : 5,
 		'scan_delay' : 10,
 		'payload_id_valid' : 5,
 		'temporary_block_time' : 60,
+		'rs41_drift_tweak': False,
+		'decoder_stats': False,
 		# Rotator Settings
 		'enable_rotator': False,
 		'rotator_update_rate': 30,
@@ -122,9 +130,11 @@ def read_auto_rx_config(filename):
 		'save_detection_audio' : False,
 		'save_decode_audio' : False,
 		'save_decode_iq' : False
+
 	}
 
 	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
+
 
 	try:
 		config = RawConfigParser(auto_rx_config)
@@ -138,6 +148,10 @@ def read_auto_rx_config(filename):
 			try:
 				auto_rx_config['email_enabled'] = config.getboolean('email', 'email_enabled')
 				auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
+				auto_rx_config['email_smtp_port'] = config.get('email', 'smtp_port')
+				auto_rx_config['email_smtp_ssl'] = config.getboolean('email', 'smtp_ssl')
+				auto_rx_config['email_smtp_login'] = config.get('email', 'smtp_login')
+				auto_rx_config['email_smtp_password'] = config.get('email', 'smtp_password')
 				auto_rx_config['email_from'] = config.get('email', 'from')
 				auto_rx_config['email_to'] = config.get('email', 'to')
 				auto_rx_config['email_subject'] = config.get('email', 'subject')
@@ -252,6 +266,28 @@ def read_auto_rx_config(filename):
 		except:
 			logging.error("Config - New advanced settings missing, using defaults.")
 
+		# New demod tweaks - Added 2019-04-23
+		# Default to all experimental decoders off.
+		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': False}
+		try:
+			auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
+			auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
+			auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')
+			auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
+			auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
+			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
+			auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
+			# When LMS6 support is added, that will have to be added in here.
+			auto_rx_config['web_debug'] = config.getboolean('web', 'web_debug')
+
+		except:
+			logging.error("Config - Missing new advanced decoder settings, using defaults.")
+			auto_rx_config['rs41_drift_tweak'] = False
+			auto_rx_config['decoder_spacing_limit'] = 15000
+			auto_rx_config['decoder_stats'] = False
+			auto_rx_config['web_debug'] = False
+
+
 
 		# Now we attempt to read in the individual SDR parameters.
 		auto_rx_config['sdr_settings'] = {}
@@ -305,6 +341,12 @@ def read_auto_rx_config(filename):
 		else:
 			# Create a global copy of the configuration file at this point
 			global_config = copy.deepcopy(auto_rx_config)
+
+			# Excise some sensitive parameters from the global config.
+			global_config.pop('email_smtp_login')
+			global_config.pop('email_smtp_password')
+			global_config.pop('email_smtp_server')
+
 			return auto_rx_config
 
 

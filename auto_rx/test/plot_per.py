@@ -21,11 +21,18 @@ import matplotlib.pyplot as plt
 
 CSV_DIR = "./results/"
 
+# sonde_types = {
+# 	'RS41': {'csv':'rs41_rtlfm.txt', 'packets': 120, 'color': 'C0'},
+# 	'RS92': {'csv':'rs92_rtlfm.txt', 'packets': 120, 'color': 'C1'},
+# 	'DFM09': {'csv':'dfm_rtlfm.txt', 'packets': 96, 'color': 'C2'},
+# 	'M10': {'csv':'m10_rtlfm.txt', 'packets': 120, 'color': 'C3'},
+# }
+
 sonde_types = {
-	'RS41': {'csv':'rs41_rtlfm.txt', 'packets': 120, 'color': 'C0'},
-	'RS92': {'csv':'rs92_rtlfm.txt', 'packets': 120, 'color': 'C1'},
-	'DFM09': {'csv':'dfm_rtlfm.txt', 'packets': 96, 'color': 'C2'},
-	'M10': {'csv':'m10_rtlfm.txt', 'packets': 120, 'color': 'C3'},
+	'RS41': {'csv':'rs41_fsk_demod.txt', 'packets': 120, 'color': 'C0'},
+	'RS92': {'csv':'rs92_fsk_demod.txt', 'packets': 120, 'color': 'C1'},
+	'DFM09': {'csv':'dfm_fsk_demod.txt', 'packets': 96, 'color': 'C2'},
+	'M10': {'csv':'m10_fsk_demod.txt', 'packets': 120, 'color': 'C3'},
 }
 
 
@@ -73,5 +80,5 @@ plt.legend()
 plt.grid()
 plt.ylabel("Packet Error Rate")
 plt.xlabel("Eb/No (dB)")
-plt.title("auto_rx Decode Chain Performance - No ECC")
+plt.title("auto_rx Decode Chain Performance - fsk_demod test 1")
 plt.show()
