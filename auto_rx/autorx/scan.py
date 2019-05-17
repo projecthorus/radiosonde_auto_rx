@@ -510,7 +510,7 @@ class SondeScanner(object):
 
             except (IOError, ValueError) as e:
                 # No log file produced. Reset the RTLSDR and try again.
-                traceback.print_exc()
+                #traceback.print_exc()
                 self.log_warning("RTLSDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the RTLSDR.
