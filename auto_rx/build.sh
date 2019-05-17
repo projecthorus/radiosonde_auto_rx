@@ -3,6 +3,8 @@
 # Auto Sonde Decoder build script.
 #
 
+# TODO: Convert this to a makefile! Any takers?
+
 # Build rs_detect.
 echo "Building dft_detect"
 cd ../scan/
@@ -12,16 +14,14 @@ echo "Building RS92/RS41/DFM Demodulators"
 cd ../demod/
 gcc -c demod.c
 gcc -c demod_dft.c
-gcc rs92dm_dft.c demod_dft.o -lm -o rs92ecc -I../ecc/ -I../rs92
-gcc rs41dm_dft.c demod_dft.o -lm -o rs41ecc -I../ecc/ -I../rs41 -w
-gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc -I../ecc/ -I../dfm
+gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc
 
 # New demodulators
 cd ../demod/mod/
 gcc -c demod_mod.c -w
 gcc -c bch_ecc_mod.c -w
 gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w
-# Holding off on DFM decoder until the DFM17/15 ID issue is resolved.
+# Holding off on using the new DFM decoder until the DFM17/15 ID issue is resolved.
 #gcc dfm09mod.c demod_mod.o -lm -o dfm09mod -w
 gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -o rs92mod -w
 #gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
@@ -43,7 +43,7 @@ cd ../utils/
 gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
 # Build tsrc - this is only required for the test/test_demod.py script, so is not included in the standard build.
 #gcc tsrc.c -o tsrc -lm -lsamplerate
-# If running under OSX, you may need to uncomment the following line to be able to find libsamplerate.
+# If running under OSX and using MacPorts, you may need to uncomment the following line to be able to find libsamplerate.
 #gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
 
 
@@ -51,8 +51,6 @@ gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
 echo "Copying files into auto_rx directory."
 cd ../auto_rx/
 cp ../scan/dft_detect .
-cp ../demod/rs92ecc .
-cp ../demod/rs41ecc .
 cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
