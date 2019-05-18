@@ -191,7 +191,8 @@ station_beacon_commment = radiosonde_auto_rx SondeGate v<version>
 # Note that the two characters that define the icon need to be concatenated. Examples:
 # Antenna Tower = /r
 # House with Yagi = /y
-station_beacon_icon = /r
+# Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
+station_beacon_icon = /`
 
 
 
