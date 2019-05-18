@@ -975,13 +975,17 @@ static int get_Calconf(gpx_t *gpx, int out) {
         if (calfr == 0x31) {    // 0x59..0x5A
             ui16_t bt = gpx->frame[pos_CalData+7] + (gpx->frame[pos_CalData+8] << 8); // burst timer (short?)
             // fw >= 0x4ef5: default=[88 77]=0x7788sec=510min
-            if (out && gpx->option.vbs && bt != 0x0000 && gpx->conf_bk) fprintf(stdout, ": bt %.1fmin ", bt/60.0);
+            if (out  && bt != 0x0000 &&
+                    (gpx->option.vbs == 3  ||  gpx->option.vbs && gpx->conf_bk)
+               ) fprintf(stdout, ": bt %.1fmin ", bt/60.0);
             gpx->conf_bt = bt;
         }
 
         if (calfr == 0x32) {
             ui16_t cd = gpx->frame[pos_CalData+1] + (gpx->frame[pos_CalData+2] << 8); // countdown (bt or kt) (short?)
-            if (out && gpx->option.vbs && cd != 0xFFFF) fprintf(stdout, ": cd %.1fmin ", cd/60.0);
+            if (out && cd != 0xFFFF &&
+                    (gpx->option.vbs == 3  ||  gpx->option.vbs && (gpx->conf_bk || gpx->conf_kt != 0xFFFF))
+               ) fprintf(stdout, ": cd %.1fmin ", cd/60.0);
             gpx->conf_cd = cd;
         }
 

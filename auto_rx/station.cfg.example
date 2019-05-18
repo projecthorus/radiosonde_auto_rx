@@ -90,6 +90,7 @@ station_alt = 0.0
 # If you know the WMO number of the launch site, then this would be a good value to use. 
 # Otherwise the ICAO Code of the airport nearest to the launch site would also work.
 # If you are not expecting to RX iMet sondes, then this can be left at its default.
+# NOTE: Only change this if you are 100% sure you will only be receiving sondes from a single launch location!
 
 station_code = SONDE
 
@@ -191,7 +192,8 @@ station_beacon_commment = radiosonde_auto_rx SondeGate v<version>
 # Note that the two characters that define the icon need to be concatenated. Examples:
 # Antenna Tower = /r
 # House with Yagi = /y
-station_beacon_icon = /r
+# Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
+station_beacon_icon = /`
 
 
 
@@ -200,14 +202,13 @@ station_beacon_icon = /r
 ###########################
 # Settings for pushing data into Chasemapper and/or OziPlotter
 # Oziplotter receives data via a basic CSV format, via UDP.
-# Chasemapper can receive data in either the basic CSV format, or in a more descriptive JSON format.
-# WARNING - This should not be enabled in a multi-SDR configuration, as OziExplorer currently has no way of differentiating
-# between sonde IDs.
+# Chasemapper can receive data in either the basic CSV format, or in the more descriptive 'payload summary' JSON format.
 [oziplotter]
 # How often to output data (seconds)
 ozi_update_rate = 5
 
 # Enable the 'OziMux' basic CSV output
+# Note - this cannot be enabled in a multi-SDR configuration.
 ozi_enabled = False
 
 # OziMux UDP Broadcast output port.

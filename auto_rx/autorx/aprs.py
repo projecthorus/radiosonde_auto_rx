@@ -153,7 +153,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
 
 
 
-def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx SondeGate v<version>", icon='/r'):
+def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx SondeGate v<version>", icon='/r', position_report=False):
     ''' Generate a station object '''
 
     # Pad or limit the station callsign to 9 characters, if it is to long or short.
@@ -192,7 +192,13 @@ def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx Sond
     _aprs_comment = _aprs_comment.replace('<version>', auto_rx_version)
 
     # Generate output string
-    out_str = ";%s*%sh%s%s%s%s%s" % (callsign, _aprs_timestamp, lat_str, icon[0], lon_str, icon[1], _aprs_comment)
+    if position_report:
+        # Produce a position report with no timestamp, as per page 32 of http://www.aprs.org/doc/APRS101.PDF
+        out_str = "!%s%s%s%s%s" % (lat_str, icon[0], lon_str, icon[1], _aprs_comment)
+
+    else:
+        # Produce an object string
+        out_str = ";%s*%sh%s%s%s%s%s" % (callsign, _aprs_timestamp, lat_str, icon[0], lon_str, icon[1], _aprs_comment)
 
     return out_str
 
@@ -388,15 +394,16 @@ class APRSUploader(object):
         ''' Send a station position beacon into APRS-IS '''
         if self.station_beacon['enabled']:
             # Generate the station position packet
-            # Note - this is generated as an APRS object.
+            # Note - this is now generated as an APRS position report, for radiosondy.info compatability.
             _packet = generate_station_object(self.aprs_callsign,
                 self.station_beacon['position'][0], 
                 self.station_beacon['position'][1],
                 self.station_beacon['comment'], 
-                self.station_beacon['icon'])
+                self.station_beacon['icon'],
+                position_report=True)
 
-            # Send the packet
-            self.aprsis_upload(self.aprs_callsign, _packet, igate=False)
+            # Send the packet as an iGated packet.
+            self.aprsis_upload(self.aprs_callsign, _packet, igate=True)
             self.last_user_position_upload = time.time()
 
 
