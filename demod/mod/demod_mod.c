@@ -362,9 +362,7 @@ int f32buf_sample(dsp_t *dsp, int inv) {
     float xneu, xalt;
 
     float complex z, w, z0;
-    //static float complex z0; //= 1.0;
     double gain = 0.8;
-    int n;
 
     double t = dsp->sample_in / (double)dsp->sr;
 
@@ -377,14 +375,14 @@ int f32buf_sample(dsp_t *dsp, int inv) {
         z0 = dsp->rot_iqbuf[(dsp->sample_in-1 + dsp->N_IQBUF) % dsp->N_IQBUF];
         w = z * conj(z0);
         s = gain * carg(w)/M_PI;
-        //z0 = z;
         dsp->rot_iqbuf[dsp->sample_in % dsp->N_IQBUF] = z;
 
         /*  //if (rs_type==rs41) get_SNR(dsp);
             // rs41, constant amplitude, avg/filter
-            s = 0.0;
-            for (n = 0; n < dsp->sps; n++) s += cabs(dsp->rot_iqbuf[(dsp->sample_in - n + dsp->N_IQBUF) % dsp->N_IQBUF]);
-            s /= (float)n;
+            int n;
+            double r = 0.0;
+            for (n = 0; n < dsp->sps; n++) r += cabs(dsp->rot_iqbuf[(dsp->sample_in - n + dsp->N_IQBUF) % dsp->N_IQBUF]);
+            r /= (float)n;
         */
 
         if (dsp->opt_iq >= 2)
@@ -394,10 +392,41 @@ int f32buf_sample(dsp_t *dsp, int inv) {
             double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
             double f2 = -f1;
 
+            float complex X0 = 0;
+            float complex X  = 0;
+
+            int n = dsp->sps;
+            double tn = (dsp->sample_in-n) / (double)dsp->sr;
+            //t = dsp->sample_in / (double)dsp->sr;
+            //z = dsp->rot_iqbuf[dsp->sample_in % dsp->N_IQBUF];
+            z0 = dsp->rot_iqbuf[(dsp->sample_in-n + dsp->N_IQBUF) % dsp->N_IQBUF];
+
+            // f1
+            X0 = z0 * cexp(-tn*2*M_PI*f1*I); // alt
+            X  = z  * cexp(-t *2*M_PI*f1*I); // neu
+            dsp->F1sum +=  X - X0;
+
+            // f2
+            X0 = z0 * cexp(-tn*2*M_PI*f2*I); // alt
+            X  = z  * cexp(-t *2*M_PI*f2*I); // neu
+            dsp->F2sum +=  X - X0;
+
+            xbit = cabs(dsp->F2sum) - cabs(dsp->F1sum);
+
+            s = xbit / dsp->sps;
+        }
+        else if (0 && dsp->opt_iq >= 4)
+        {
+            double xbit = 0.0;
+            //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
+            double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
+            double f2 = -f1;
+
             float complex X1 = 0;
             float complex X2 = 0;
 
-            n = dsp->sps;
+            int n = dsp->sps;
+
             while (n > 0) {
                 n--;
                 t = -n / (double)dsp->sr;
@@ -415,7 +444,7 @@ int f32buf_sample(dsp_t *dsp, int inv) {
         if (f32read_sample(dsp, &s) == EOF) return EOF;
     }
 
-    if (inv) s = -s;                   // swap IQ?
+    if (inv) s = -s;
     dsp->bufs[dsp->sample_in % dsp->M] = s - dsp->dc_ofs;
 
     xneu = dsp->bufs[(dsp->sample_in  ) % dsp->M];
