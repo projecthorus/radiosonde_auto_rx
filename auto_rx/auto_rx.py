@@ -633,7 +633,8 @@ def main():
         _ozimux = OziUploader(
             ozimux_port = _ozi_port,
             payload_summary_port = _summary_port,
-            update_rate = config['ozi_update_rate'])
+            update_rate = config['ozi_update_rate'],
+            station=config['habitat_uploader_callsign'])
 
         exporter_objects.append(_ozimux)
         exporter_functions.append(_ozimux.add)
