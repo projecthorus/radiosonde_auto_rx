@@ -67,6 +67,8 @@ typedef struct {
     int N_IQBUF;
     float complex *raw_iqbuf;
     float complex *rot_iqbuf;
+    float complex F1sum;
+    float complex F2sum;
 
     //
     char *rawbits;

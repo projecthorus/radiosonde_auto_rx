@@ -325,7 +325,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
+            decode_cmd += "./dfm09mod -vv --ecc --json --dist --auto 2>/dev/null"
             
         elif self.sonde_type == "M10":
             # M10 Sondes
@@ -400,7 +400,7 @@ class SondeDecoder(object):
             _upper = int(0.475 * _sdr_rate)
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
@@ -449,7 +449,7 @@ class SondeDecoder(object):
             _upper = int(0.475 * _sdr_rate)
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
@@ -466,9 +466,6 @@ class SondeDecoder(object):
 
         elif self.sonde_type == "DFM":
             # DFM06/DFM09 Sondes.
-            # As of 2019-02-10, dfm09ecc auto-detects if the signal is inverted,
-            # so we don't need to specify an invert flag.
-            # 2019-02-27: Added the --dist flag, which should reduce bad positions a bit.
 
             _sdr_rate = 50000
             _baud_rate = 2500
@@ -477,21 +474,21 @@ class SondeDecoder(object):
             _upper = int(0.475 * _sdr_rate)
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
             decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
-            decode_cmd += " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null |" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
+            #decode_cmd += " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null |" % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # DFM decoder
-            decode_cmd += "./dfm09ecc -vv --ecc --json --dist --auto 2>/dev/null"
+            decode_cmd += "./dfm09mod -vv --ecc --json --dist --auto --bin 2>/dev/null"
 			
         elif self.sonde_type == "M10":
             # M10 Sondes
@@ -504,7 +501,7 @@ class SondeDecoder(object):
             _upper = int(0.475 * _sdr_rate)
             _freq = int(self.sonde_freq - _sdr_rate*_offset)
 
-            decode_cmd = "%s %s-p %d -d %s %s-M raw -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
@@ -605,7 +602,8 @@ class SondeDecoder(object):
 
 
     def handle_decoder_line(self, data):
-        """ Handle a line of output from the decoder subprocess.
+        """ Handle a line of output from the decoder subprocess, and pass it onto all of the telemetry
+            exporters.
 
         Args:
             data (str, bytearray): One line of text output from the decoder subprocess.
@@ -613,9 +611,6 @@ class SondeDecoder(object):
         Returns:
             bool:   True if the line was decoded to a JSON object correctly, False otherwise.
         """
-
-        # Don't even try and decode lines which don't start with a '{'
-        # These may be other output from the decoder, which we shouldn't try to parse.
         
         # Catch 'bad' first characters.
         try:
@@ -623,7 +618,9 @@ class SondeDecoder(object):
         except UnicodeDecodeError:
             return
 
-        # Catch non-JSON object lines.
+        # Don't even try and decode lines which don't start with a '{'
+        # These may be other output from the decoder, which we shouldn't try to parse.
+        # TODO: Perhaps we should add the option to log the raw data output from the decoders? 
         if data.decode('ascii')[0] != '{':
             return
 
@@ -651,12 +648,15 @@ class SondeDecoder(object):
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
 
-            # Check for an encrypted flag (this indicates a sonde that we cannot decode telemetry from.)
+            # Check for an encrypted flag, and check if it is set.
+            # Currently encrypted == true indicates an encrypted RS41-SGM. There's no point
+            # trying to decode this, so we close the decoder at this point.
             if 'encrypted' in _telemetry:
-                self.log_error("Radiosonde %s has encrypted telemetry (possible RS41-SGM)! We cannot decode this, closing decoder." % _telemetry['id'])
-                self.exit_state = "Encrypted"
-                self.decoder_running = False
-                return False
+                if _telemetry['encrypted']:
+                    self.log_error("Radiosonde %s has encrypted telemetry (Possible encrypted RS41-SGM)! We cannot decode this, closing decoder." % _telemetry['id'])
+                    self.exit_state = "Encrypted"
+                    self.decoder_running = False
+                    return False
 
             # Check the datetime field is parseable.
             try:
@@ -665,8 +665,15 @@ class SondeDecoder(object):
                 self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock)" % str(e))
                 return False
 
-            # Add in the sonde frequency and type fields.
-            _telemetry['type'] = self.sonde_type
+            # Add in the sonde type field.
+            # If we are provided with a subtype field from the decoder, use this,
+            # otherwise use the detected sonde type.
+            if 'subtype' in _telemetry:
+                _telemetry['type'] = _telemetry['subtype']
+            else:
+                _telemetry['type'] = self.sonde_type
+
+            # TODO: Use frequency data provided by the decoder, if available.
             _telemetry['freq_float'] = self.sonde_freq/1e6
             _telemetry['freq'] = "%.3f MHz" % (self.sonde_freq/1e6)
 
@@ -684,11 +691,12 @@ class SondeDecoder(object):
                 # Check we have GPS lock.
                 if _telemetry['sats'] < 4:
                     # No GPS lock means an invalid time, which means we can't accurately calculate a unique ID.
+                    # We need to quit at this point before the telemetry processing gos any further.
                     self.log_error("iMet sonde has no GPS lock - discarding frame.")
                     return False
 
                 # Fix up the time.
-                _telemetry['datetime_dt'] = imet_fix_datetime(_telemetry['datetime'])
+                _telemetry['datetime_dt'] = fix_datetime(_telemetry['datetime'])
                 # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
                 # Latch this ID and re-use it for the entire decode run.
                 if self.imet_id == None:

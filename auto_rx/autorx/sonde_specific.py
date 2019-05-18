@@ -9,13 +9,11 @@ import datetime
 import hashlib
 from dateutil.parser import parse
 
-#
-#	iMet Radiosonde Functions
-#
 
-def imet_fix_datetime(datetime_str, local_dt_str = None):
+
+def fix_datetime(datetime_str, local_dt_str = None):
 	'''
-	Given a HH:MM:SS string from an iMet telemetry sentence, produce a complete timestamp, using the current system time as a guide for the date.
+	Given a HH:MM:SS string from a telemetry sentence, produce a complete timestamp, using the current system time as a guide for the date.
 	'''
 
 	if local_dt_str is None:
@@ -49,6 +47,10 @@ def imet_fix_datetime(datetime_str, local_dt_str = None):
 
 		return _imet_dt
 
+
+#
+#	iMet Radiosonde Functions
+#
 
 def imet_unique_id(telemetry, custom=""):
 	'''

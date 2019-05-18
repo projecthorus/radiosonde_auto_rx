@@ -115,50 +115,49 @@ processing_type = {
     # # FSK-DEMOD DECODING
     # #
     # # RS41 Decoding
-    # 'rs41_fsk_demod': {
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
+    'rs41_fsk_demod': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt |",
 
-    #     # Decode using rs41ecc
-    #     'decode': "../rs41mod --ecc --ptu --crc --bin 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : " | grep 00000 | wc -l",
-    #     'files' : "./generated/rs41*"
-    # },
-    # # # RS92 Decoding
-    # 'rs92_fsk_demod': {
-    #     # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
+        # Decode using rs41ecc
+        'decode': "../rs41mod --ecc --ptu --crc --bin 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep 00000 | wc -l",
+        'files' : "./generated/rs41*"
+    },
+    # # RS92 Decoding
+    'rs92_fsk_demod': {
+        # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
 
-    #     # Decode using rs41ecc
-    #     'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : " | grep M2513116 | wc -l",
-    #     'files' : "./generated/rs92*"
-    # },
-    # 'm10_fsk_demod': {
-    #     # Not currently working due to weird baud rate (9614). Doesnt work even with fractional resampling (slow down signal to make it appear to be 9600 baud).
-    #     # Shift up to ~24 khz, and then pass into fsk_demod.
-    #     'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
-    #     'decode': "../m10 -b -b2 2>/dev/null",
-    #     # Count the number of telemetry lines.
-    #     "post_process" : "| wc -l",
-    #     'files' : "./generated/m10*"
-    # },
+        # Decode using rs41ecc
+        'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep M2513116 | wc -l",
+        'files' : "./generated/rs92*"
+    },
+    'm10_fsk_demod': {
+        # Not currently working due to weird baud rate (9614). Doesnt work even with fractional resampling (slow down signal to make it appear to be 9600 baud).
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
+        'decode': "../m10 -b -b2 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| wc -l",
+        'files' : "./generated/m10*"
+    },
+    'dfm_fsk_demod': {
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        #../dfm09ecc -vv --json --dist --auto
 
-    # 'dfm_fsk_demod': {
-    #     # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
-    #     #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
-    #     #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
-    #     #../dfm09ecc -vv --json --dist --auto
-
-    #     'demod': '| csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 100000 2500 - - 2>stats.txt | python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
-    #     'decode': '../dfm09ecc -vv --json --dist --auto 2>/dev/null',
-    #     "post_process" : " | grep frame |  wc -l", # ECC
-    #     #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
-    #     'files' : "./generated/dfm*.bin"
-    # }
+        'demod': '| csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 100000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../dfm09mod -vv --json --dist --auto --bin 2>/dev/null',
+        "post_process" : " | grep frame |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/dfm*.bin"
+    }
 }
 
 
@@ -183,67 +182,67 @@ processing_type = {
 _sample_fs = 96000.0 # Sample rate of input. Always 96k at the moment.
 
 
-# RS41
-_fm_rate = 15000
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# # RS41
+# _fm_rate = 15000
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
 
-_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2600 2>/dev/null |" % int(_fm_rate)
+# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2600 2>/dev/null |" % int(_fm_rate)
 
-processing_type['rs41_rtlfm'] = {
-    # Shift signal to -30 kHz, resample to 120 kHz, (8x 15 khz output rate), then convert to u8 before passing into rtl_fm_stdin.
-    # Currently using a timeout to kill rtl_fm as it doesnt notice the end of the incoming samples.
-    'demod': _demod_command,
-    # Decode using rs41ecc
-    'decode': "../rs41mod --ptu --crc --ecc2 2>/dev/null",
-    # Count the number of telemetry lines.
-    "post_process" : " | grep 00000 | wc -l",
-    'files' : "./generated/rs41*.bin"
-}
-
-
-# RS92
-_fm_rate = 12000
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
-
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
-
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
-
-_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+# processing_type['rs41_rtlfm'] = {
+#     # Shift signal to -30 kHz, resample to 120 kHz, (8x 15 khz output rate), then convert to u8 before passing into rtl_fm_stdin.
+#     # Currently using a timeout to kill rtl_fm as it doesnt notice the end of the incoming samples.
+#     'demod': _demod_command,
+#     # Decode using rs41ecc
+#     'decode': "../rs41mod --ptu --crc --ecc2 2>/dev/null",
+#     # Count the number of telemetry lines.
+#     "post_process" : " | grep 00000 | wc -l",
+#     'files' : "./generated/rs41*.bin"
+# }
 
 
-processing_type['rs92_rtlfm'] = {
-    'demod': _demod_command,
-    # Decode using rs92ecc
-    'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
-    #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
-    # Count the number of telemetry lines.
-    "post_process" : " | grep M2513116 | wc -l",
-    #"post_process" : " | grep \"errors: 0\" | wc -l",
-    'files' : "./generated/rs92*.bin" 
-}
+# # RS92
+# _fm_rate = 12000
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
+
+# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+
+
+# processing_type['rs92_rtlfm'] = {
+#     'demod': _demod_command,
+#     # Decode using rs92ecc
+#     'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
+#     #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
+#     # Count the number of telemetry lines.
+#     "post_process" : " | grep M2513116 | wc -l",
+#     #"post_process" : " | grep \"errors: 0\" | wc -l",
+#     'files' : "./generated/rs92*.bin" 
+# }
 
 
 # # RS92-NGP (wider bandwidth)
@@ -277,62 +276,62 @@ processing_type['rs92_rtlfm'] = {
 #     'files' : "./generated/rsngp*.bin" 
 # }
 
-# DFM
-_fm_rate = 15000 # Match what's in autorx.decode
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# # DFM
+# _fm_rate = 15000 # Match what's in autorx.decode
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
-# For some reason the DFM sample breaks type conversion - multiplying it by 0.9 seems to fix it.
-_demod_command = "| csdr gain_ff 0.90 | %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |" % int(_fm_rate)
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
+# # For some reason the DFM sample breaks type conversion - multiplying it by 0.9 seems to fix it.
+# _demod_command = "| csdr gain_ff 0.90 | %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2000 2>/dev/null |" % int(_fm_rate)
 
-processing_type['dfm_rtlfm'] = {
-    'demod': _demod_command,
-    'decode': "../dfm09ecc -vv --json --dist --auto 2>/dev/null", # ECC
-    #'decode': "../dfm09ecc -vv --ecc -r --auto 2>/dev/null", # No-ECC
-    # Count the number of telemetry lines.
-    "post_process" : " | grep frame |  wc -l", # ECC
-    #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
-    'files' : "./generated/dfm*.bin"
-}
+# processing_type['dfm_rtlfm'] = {
+#     'demod': _demod_command,
+#     'decode': "../dfm09mod -vv --json --dist --auto 2>/dev/null", # ECC
+#     #'decode': "../dfm09ecc -vv --ecc -r --auto 2>/dev/null", # No-ECC
+#     # Count the number of telemetry lines.
+#     "post_process" : " | grep frame |  wc -l", # ECC
+#     #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+#     'files' : "./generated/dfm*.bin"
+# }
 
 
-# M10
-_fm_rate = 22000
-# Calculate the necessary conversions
-_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# # M10
+# _fm_rate = 22000
+# # Calculate the necessary conversions
+# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-if _resample != 1.0:
-    # We will need to resample.
-    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-else:
-    _resample_command = ""
+# if _resample != 1.0:
+#     # We will need to resample.
+#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+# else:
+#     _resample_command = ""
 
-_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
 
-processing_type['m10_rtlfm'] = {
-    'demod': _demod_command,
-    'decode': "../m10 -b -b2 2>/dev/null",
-    # Count the number of telemetry lines.
-    "post_process" : "| wc -l",
-    'files' : "./generated/m10*.bin"
-}
+# processing_type['m10_rtlfm'] = {
+#     'demod': _demod_command,
+#     'decode': "../m10 -b -b2 2>/dev/null",
+#     # Count the number of telemetry lines.
+#     "post_process" : "| wc -l",
+#     'files' : "./generated/m10*.bin"
+# }
 
 # # iMet
 # _fm_rate = 15000

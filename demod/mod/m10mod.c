@@ -192,6 +192,10 @@ frame[0x3+2*n] = PRN_(n+1)
 frame[0x4+2*n] = signal level (float32 -> i8-byte level)
 
 */
+/*
+M10 w/  Sierra Wireless  Airprime X1110
+ -> Trimble Copernicus II
+*/
 
 
 #define stdFLEN        0x64  // pos[0]=0x64
@@ -255,9 +259,13 @@ static int get_GPSweek(gpx_t *gpx) {
     }
 
     gpsweek = (gpsweek_bytes[0] << 8) + gpsweek_bytes[1];
-    gpx->week = gpsweek;
 
-    if (gpsweek < 0 || gpsweek > 3000) return -1;
+    if (gpsweek > 4000) return -1;
+
+    // Trimble Copernicus II WNRO  (AirPrime XM1110 OK)
+    if (gpsweek < 1304 /*2005-01-02*/ ) gpsweek += 1024;
+
+    gpx->week = gpsweek;
 
     return 0;
 }
