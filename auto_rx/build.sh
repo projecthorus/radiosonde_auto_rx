@@ -21,6 +21,7 @@ cd ../demod/mod/
 gcc -c demod_mod.c -w
 gcc -c bch_ecc_mod.c -w
 gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w
+gcc rs41_sgm.c demod_mod.o bch_ecc_mod.o -lm -o rs41sgm -w
 gcc dfm09mod.c demod_mod.o -lm -o dfm09mod -w
 gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -o rs92mod -w
 #gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
@@ -60,5 +61,7 @@ cp ../demod/mod/dfm09mod .
 #cp ../demod/mod/m10mod .
 cp ../demod/mod/rs92mod .
 #cp ../demod/mod/lms6mod .
+
+cp ../demod/mod/rs41sgm ./rs41mod
 
 echo "Done!"
