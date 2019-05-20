@@ -1057,11 +1057,12 @@ static int prn_gpstime(gpx_t *gpx) {
     fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%06.3f",
             gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek);
     if (gpx->option.vbs == 3) fprintf(stdout, " (W %d)", gpx->week);
+    fprintf(stdout, " ");
     return 0;
 }
 
 static int prn_gpspos(gpx_t *gpx) {
-    fprintf(stdout, " ");
+    //fprintf(stdout, " ");
     fprintf(stdout, " lat: %.5f ", gpx->lat);
     fprintf(stdout, " lon: %.5f ", gpx->lon);
     fprintf(stdout, " alt: %.2f ", gpx->alt);
@@ -1171,13 +1172,13 @@ static int print_position(gpx_t *gpx, int ec) {
         if (frametype(gpx) < 0) flen += XDATA_LEN;
 
         switch (gpx->frame[pos_PTU]) {
-            case 0x7A:
+            case 0x7A: // 0x7A2A
                     frm_end = flen-2;
                     break;
-            case 0x7F:
-                    frm_end = pos_ZEROstd - 0x2A+0x1B - 2;
+            case 0x7F: // 0x7F1B
+                    frm_end = pos_ZEROstd + 0x1B-0x2A - 2;
                     break;
-            case 0x80:
+            case 0x80: // 0x80A7
                     frm_end = pos_PTU + 2 + 0xA7;
                     break;
         }
@@ -1264,8 +1265,12 @@ static int print_position(gpx_t *gpx, int ec) {
                             }
                 }
             }
+            else { // CRC-ERROR (ECC-OK)
+                fprintf(stdout, " [ERROR]\n");
+                break;
+            }
 
-            pos += 2+len+2;
+            pos += 2+len+2; // next pck
 
             if ( pos > frm_end )  // end of (sub)frame
             {
@@ -1275,10 +1280,13 @@ static int print_position(gpx_t *gpx, int ec) {
 
                 get_Calconf(gpx, out, ofs_cal);
 
-                if (pos_aux) gpx->aux = get_Aux(gpx, gpx->option.vbs > 1, pos_aux);
+                if (out && ec > 0 && pos > flen-1) fprintf(stdout, " (%d)", ec);
+
+                if (pos_aux) gpx->aux = get_Aux(gpx, out && gpx->option.vbs > 1, pos_aux);
 
                 gpx->crc = 0;
                 frm_end = FRAME_LEN-2;
+
 
                 if (out || sat) fprintf(stdout, "\n");
 
@@ -1314,13 +1322,65 @@ static int print_position(gpx_t *gpx, int ec) {
         }
     }
     // else
-    if (ec < 0 && (out || sat || gpx->option.jsn)) {
-        if      (ec == -1)  fprintf(stdout, " (-+)");
-        else if (ec == -2)  fprintf(stdout, " (+-)");
-        else   /*ec == -3*/ fprintf(stdout, " (--)");
-        fprintf(stdout, "\n");
+    if (ec < 0 && (out || sat /*|| gpx->option.jsn*/)) {
         //
-        // crc-OK packets ?
+        // crc-OK pcks ?
+        //
+        int pck, ofs;
+        int output = 0, out_mask;
+
+        gpx->crc = 0;
+        out_mask = crc_FRAME|crc_GPS1|crc_GPS3;
+        if (gpx->option.ptu) out_mask |= crc_PTU;
+
+        err = get_FrameConf(gpx, 0);
+        if (out && !err) prn_frm(gpx);
+
+        pck = (gpx->frame[pos_PTU]<<8) | gpx->frame[pos_PTU+1];
+        ofs = 0;
+
+        if (pck < 0x8000) {
+            err0 = get_PTU(gpx, 0, pck);
+            if      (pck == pck_PTU)     ofs = 0;
+            else if (pck == pck_SGM_xTU) ofs = 0x1B-0x2A;
+
+            err1 = get_GPS1(gpx, ofs);
+            err2 = get_GPS2(gpx, ofs);
+            err3 = get_GPS3(gpx, ofs);
+
+            if (out) {
+
+                if (!err1) prn_gpstime(gpx);
+                if (!err3) prn_gpspos(gpx);
+                if (!err0) prn_ptu(gpx);
+                if (0 && !err) get_Calconf(gpx, out, 0); // only if ecc-OK
+
+                output = ((gpx->crc & out_mask) != out_mask);
+
+                if (output) {
+                    fprintf(stdout, " ");
+                    fprintf(stdout, "[");
+                    for (i=0; i<5; i++) fprintf(stdout, "%d", (gpx->crc>>i)&1);
+                    fprintf(stdout, "]");
+                }
+            }
+        }
+        else if (pck == pck_SGM_CRYPT) {
+            if (out && !err) {
+                fprintf(stdout, " [%04X] (RS41-SGM) ", pck_SGM_CRYPT);
+                //fprintf(stdout, "[%d] ", check_CRC(gpx, pos_PTU, pck_SGM_CRYPT));
+                output = 1;
+            }
+        }
+
+        if (out && output)
+        {
+            if      (ec == -1)  fprintf(stdout, " (-+)");
+            else if (ec == -2)  fprintf(stdout, " (+-)");
+            else   /*ec == -3*/ fprintf(stdout, " (--)");
+
+            fprintf(stdout, "\n");  // fflush(stdout);
+        }
     }
 
 
@@ -1355,7 +1415,7 @@ static void print_frame(gpx_t *gpx, int len) {
         }
         if (gpx->option.ecc) {
             if (ec >= 0) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-            if (gpx->option.ecc == 2) {
+            if (gpx->option.ecc /*== 2*/) {
                 if (ec > 0) fprintf(stdout, " (%d)", ec);
                 if (ec < 0) {
                     if      (ec == -1)  fprintf(stdout, " (-+)");
@@ -1510,7 +1570,7 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             gpx.option.inv = 1;
         }
-        //else if   (strcmp(*argv, "--ecc" ) == 0) { gpx.option.ecc = 1; }
+        else if   (strcmp(*argv, "--ecc" ) == 0) { gpx.option.ecc = 1; }
         else if   (strcmp(*argv, "--ecc2") == 0) { gpx.option.ecc = 2; }
         else if   (strcmp(*argv, "--sat") == 0) { gpx.option.sat = 1; }
         else if   (strcmp(*argv, "--ptu") == 0) { gpx.option.ptu = 1; }
