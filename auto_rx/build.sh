@@ -56,12 +56,13 @@ cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
 
-cp ../demod/mod/rs41mod .
+cp ../demod/mod/rs41mod ./rs41ecc
 cp ../demod/mod/dfm09mod .
 #cp ../demod/mod/m10mod .
 cp ../demod/mod/rs92mod .
 #cp ../demod/mod/lms6mod .
 
+# Overwrite the normal RS41 decoder with the trial combined decoder.
 cp ../demod/mod/rs41sgm ./rs41mod
 
 echo "Done!"
