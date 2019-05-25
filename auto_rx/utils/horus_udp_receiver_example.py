@@ -36,7 +36,7 @@ class UDPListener(object):
         callback=None,
         summary_callback = None,
         gps_callback = None,
-        port=55672):
+        port=55673):
 
         self.udp_port = port
         self.callback = callback
@@ -75,7 +75,7 @@ class UDPListener(object):
         except:
             pass
         self.s.bind(('',self.udp_port))
-        print("Started UDP Listener Thread.")
+        print("Started UDP Listener Thread on port %d." % self.udp_port)
         self.udp_listener_running = True
 
         # Loop and continue to receive UDP packets.
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     
     # Instantiate the UDP listener.
     udp_rx = UDPListener(
-        port=55672,
+        port=55673,
         callback = handle_payload_summary
         )
     # and start it
