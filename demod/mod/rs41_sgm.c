@@ -97,7 +97,6 @@ typedef struct {
     float ptu_calT2[3]; // calibration T2-Hum
     float ptu_calH[2];  // calibration Hum
     ui32_t freq;    // freq/kHz
-    float batt;     // battery voltage (V)
     ui16_t conf_fw; // firmware
     ui16_t conf_kt; // kill timer (sec)
     ui16_t conf_bt; // burst timer (sec)
@@ -280,7 +279,6 @@ GPS chip: ublox UBX-G6010-ST
 #define pck_FRAME      0x7928
 #define pos_FRAME       0x039
 #define pos_FrameNb     0x03B  // 2 byte
-#define pos_BattVolts   0x045  // 2 byte
 #define pos_SondeID     0x03D  // 8 byte
 #define pos_CalData     0x052  // 1 byte, counter 0x00..0x32
 #define pos_Calfreq     0x055  // 2 byte, calfr 0x00
@@ -365,23 +363,6 @@ static int get_FrameNb(gpx_t *gpx, int ofs) {
     return 0;
 }
 
-static int get_BattVolts(gpx_t *gpx, int ofs) {
-    int i;
-    unsigned byte;
-    ui8_t batt_bytes[2];
-    float batt_volts;
-
-    for (i = 0; i < 2; i++) {
-        byte = gpx->frame[pos_BattVolts+ofs + i];
-        batt_bytes[i] = byte;
-    }
-
-    batt_volts = (float)(batt_bytes[0] + (batt_bytes[1] << 8));
-    gpx->batt = batt_volts/10.0;
-
-    return 0;
-}
-
 static int get_SondeID(gpx_t *gpx, int crc, int ofs) {
     int i;
     unsigned byte;
@@ -428,7 +409,6 @@ static int get_FrameConf(gpx_t *gpx, int ofs) {
     err = crc;
     err |= get_SondeID(gpx, crc, ofs);
     err |= get_FrameNb(gpx, ofs);
-    err |= get_BattVolts(gpx, ofs);
 
     if (crc == 0) {
         calfr = gpx->frame[pos_CalData+ofs];
@@ -1061,8 +1041,6 @@ static int rs41_ecc(gpx_t *gpx, int frmlen) {
 static int prn_frm(gpx_t *gpx) {
     fprintf(stdout, "[%5d] ", gpx->frnr);
     fprintf(stdout, "(%s) ", gpx->id);
-    if (gpx->option.vbs == 3) fprintf(stdout, "(%.1f V) ", gpx->batt);
-    fprintf(stdout, " ");
     return 0;
 }
 
@@ -1317,8 +1295,8 @@ static int print_position(gpx_t *gpx, int ec) {
                     // Print out telemetry data as JSON
                     if ((!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                         // eigentlich GPS, d.h. UTC = GPS - 18sec (ab 1.1.2017)
-                        fprintf(stdout, "{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
-                                       gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->conf_cd, gpx->batt );
+                        fprintf(stdout, "{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d",
+                                       gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->conf_cd );
                         if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
                             fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
                         }
