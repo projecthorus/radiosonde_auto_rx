@@ -210,7 +210,7 @@ def flask_disable_scanner():
 
 
 @app.router('/enable_scanner', methods=['POST'])
-def flask_disable_scanner():
+def flask_enable_scanner():
     """ Re-enable the Scanner """
 
     if request.method == 'POST' and autorx.config.global_config['web_control']:
