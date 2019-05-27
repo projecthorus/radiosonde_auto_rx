@@ -355,8 +355,10 @@ def clean_task_list():
             logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
 
 
-    # Check if there is a scanner thread still running. If not, and if there is a SDR free, start one up again.
-    if ('SCAN' not in autorx.task_list) and (allocate_sdr(check_only=True) is not None):
+    # Check if there is a scanner thread still running. 
+    # If not, and if there is a SDR free, start one up again.
+    # Also check for a global scan inhibit flag.
+    if ('SCAN' not in autorx.task_list) and (not autorx.scan_inhibit) and (allocate_sdr(check_only=True) is not None):
         # We have a SDR free, and we are not running a scan thread. Start one.
         start_scanner()
 

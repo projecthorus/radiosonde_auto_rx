@@ -93,7 +93,7 @@ def read_auto_rx_config(filename):
 		'web_host'		: '0.0.0.0',
 		'web_port'		: 5000,
 		'web_archive_age': 120,
-		'web_debug': True,
+		'web_control': True,
 		# Advanced Parameters
 		'search_step'	: 800,
 		'snr_threshold'		: 10,
@@ -278,7 +278,7 @@ def read_auto_rx_config(filename):
 			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
 			auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
 			# When LMS6 support is added, that will have to be added in here.
-			auto_rx_config['web_debug'] = config.getboolean('web', 'web_debug')
+			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')
 
 		except:
 			logging.error("Config - Missing new advanced decoder settings, using defaults.")

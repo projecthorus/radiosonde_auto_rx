@@ -477,7 +477,9 @@ class SondeScanner(object):
 
         """
         try:
-            if self.callback != None:
+            # Only send scan results to the callback if we are still running.
+            # This avoids sending scan results when the scanner is being shutdown.
+            if (self.callback != None) and self.sonde_scanner_running:
                 self.callback(results)
         except Exception as e:
             self.log_error("Error handling scan results - %s" % str(e))
