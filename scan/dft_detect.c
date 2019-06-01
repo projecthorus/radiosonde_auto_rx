@@ -96,9 +96,9 @@ typedef struct {
 #define idxAB 8
 #define idxRS 9
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41", 3},
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92", 4},
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, 2, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, 2, NULL, "RS41", 3},
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, 3, NULL, "RS92", 4},
     { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, 2, NULL, "LMS6", 8},
     { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS", 10}, // Mk2a/LMS6-1680
     { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10", 5},
