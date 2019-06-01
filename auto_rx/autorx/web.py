@@ -184,7 +184,7 @@ def flask_stop_decoder():
         abort(403)
 
 
-@app.router('/disable_scanner', methods=['POST'])
+@app.route('/disable_scanner', methods=['POST'])
 def flask_disable_scanner():
     """ Disable and Halt a Scanner, if one is running. """
 
@@ -209,7 +209,7 @@ def flask_disable_scanner():
         abort(403)
 
 
-@app.router('/enable_scanner', methods=['POST'])
+@app.route('/enable_scanner', methods=['POST'])
 def flask_enable_scanner():
     """ Re-enable the Scanner """
 

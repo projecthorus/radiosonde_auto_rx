@@ -17,6 +17,7 @@ static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_inv = 0,      // invertiert Signal
            //option_dc = 0,
            option_silent = 0,
+           option_debug = 0,
            option_cont = 0,
            wavloaded = 0;
 static int wav_channel = 0;     // audio channel: left
@@ -34,9 +35,12 @@ static char rs92_header[] = //"10100110011001101001"
                             "10100110011001101001"
                             "1010011001100110100110101010100110101001";
 
-//int  lms_bps = 4800;
+//int  lms_bps = 4800;  // lms6_403MHz
 static char lms6_header[] = "0101011000001000""0001110010010111"
                             "0001101010100111""0011110100111110";
+
+//int  mk2a_bps = 9600;  // lms6_1680MHz
+static char mk2a_header[] = "0010100111""0010100111""0001001001""0010010101";
 
 //int  m10_bps = 9600;
 static char m10_header[] = "10011001100110010100110010011001";
@@ -88,19 +92,20 @@ typedef struct {
     ui8_t tn; // signed?
 } rsheader_t;
 
-#define Nrs 9
-#define idxAB 7
-#define idxRS 8
+#define Nrs 10
+#define idxAB 8
+#define idxRS 9
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, 2, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, 2, NULL, "RS41", 3},
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, 3, NULL, "RS92", 4},
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9", 2}, // DFM6: -2 (unsigned)
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41", 3},
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92", 4},
     { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, 2, NULL, "LMS6", 8},
-    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.75, 2, NULL, "M10",  5},
+    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS", 10}, // Mk2a/LMS6-1680
+    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10", 5},
     { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50", 9},  // C34/C50 2900 Hz tone
     { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMET", 6},    // IMET1AB=7, IMET1RS=8
-    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", 6},
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", 7}  // IMET4
+    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", 6}, //       (rs_hdr[idxAB])
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", 7}  // IMET4 (rs_hdr[idxRS])
 };
 
 
@@ -717,6 +722,9 @@ int main(int argc, char **argv) {
                 for (j = 0; j < Nrs; j++) rs_hdr[j].thres = thres;
             }
             else return -50;
+        }
+        else if ( (strcmp(*argv, "--debug") == 0) ) {
+            option_debug = 1;
         }
         else {
             fp = fopen(*argv, "rb");

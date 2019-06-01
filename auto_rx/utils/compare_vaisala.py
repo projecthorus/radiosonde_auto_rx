@@ -13,7 +13,10 @@
 #	Run with:
 #		python3 compare_vaisala.py originalmetdata_20190521_0418_R0230900.txt 20190521-042102_R0230900_RS41_402200_sonde.log
 #
-
+#   TODO: 
+#       [ ] Calculate temp/rh error vs altitude
+#       [ ] Calculate rh error vs temperature
+#
 import argparse
 import datetime
 import glob

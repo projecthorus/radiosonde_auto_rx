@@ -201,7 +201,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
 
     _output = [] # Altitude, Wind Speed, Wind Direction, Temperature, Dew Point
     # First entry, We assume all the values are unknown for now.
-    _output.append([altitude[0], np.NaN, np.NaN, np.NaN, np.NaN])
+    _output.append([altitude[0], np.NaN, np.NaN, np.NaN, np.NaN, np.NaN])
 
     _burst = False
     _startalt = altitude[0]
@@ -227,6 +227,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
             # Otherwise we insert NaNs, so data isn't plotted.
             T = np.NaN
             DP = np.NaN
+            RH = np.NaN
 
         # Calculate time delta between telemetry frames.
         _time = parse(times[i])
@@ -238,7 +239,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
         _heading = _movement['bearing']
         _velocity = _movement['great_circle_distance']/_delta_seconds
 
-        _output.append([altitude[i], _velocity, _heading, T, DP])
+        _output.append([altitude[i], _velocity, _heading, T, DP, RH])
 
         i += decimation
 

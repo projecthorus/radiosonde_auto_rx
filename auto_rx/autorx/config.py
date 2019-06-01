@@ -110,6 +110,7 @@ def read_auto_rx_config(filename):
 		'temporary_block_time' : 60,
 		'rs41_drift_tweak': False,
 		'decoder_stats': False,
+		'ngp_tweak': False,
 		# Rotator Settings
 		'enable_rotator': False,
 		'rotator_update_rate': 30,
@@ -243,49 +244,37 @@ def read_auto_rx_config(filename):
 		auto_rx_config['web_port'] = config.getint('web', 'web_port')
 		auto_rx_config['web_archive_age'] = config.getint('web', 'archive_age')
 
-		# New debug settings - added 2019-03-23
-		try:
-			auto_rx_config['save_detection_audio'] = config.getboolean('debugging', 'save_detection_audio')
-			auto_rx_config['save_decode_audio'] = config.getboolean('debugging', 'save_decode_audio')
-			auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
-		except:
-			logging.error("Config - Could not find debugging settings - using defaults.")
 
-		# iMet station code - added 2019-03-24
-		try:
-			auto_rx_config['station_code'] = config.get('location', 'station_code')
-			if len(auto_rx_config['station_code']) > 5:
-				auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
-				logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
-		except:
-			logging.error("Config - Could not find station_code field, using default.")
+		auto_rx_config['save_detection_audio'] = config.getboolean('debugging', 'save_detection_audio')
+		auto_rx_config['save_decode_audio'] = config.getboolean('debugging', 'save_decode_audio')
+		auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
 
-		# New temporary block time - added 2019-04-14
-		try:
-			auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
-		except:
-			logging.error("Config - New advanced settings missing, using defaults.")
+		auto_rx_config['station_code'] = config.get('location', 'station_code')
+		if len(auto_rx_config['station_code']) > 5:
+			auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
+			logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
+
+		auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
 
 		# New demod tweaks - Added 2019-04-23
 		# Default to all experimental decoders off.
-		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': False}
-		try:
-			auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
-			auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
-			auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')
-			auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
-			auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
-			auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
-			auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
-			# When LMS6 support is added, that will have to be added in here.
-			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')
+		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': False, 'MK2LMS': False}
+		auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
+		auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
+		auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')
+		auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
+		auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
+		auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
+		auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
+		# When LMS6 support is added, that will have to be added in here.
 
+		try:
+			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')
+			auto_rx_config['ngp_tweak'] = config.getboolean('advanced', 'ngp_tweak')
 		except:
-			logging.error("Config - Missing new advanced decoder settings, using defaults.")
-			auto_rx_config['rs41_drift_tweak'] = False
-			auto_rx_config['decoder_spacing_limit'] = 15000
-			auto_rx_config['decoder_stats'] = False
-			auto_rx_config['web_debug'] = False
+			logging.warning("Config - Did not find web control and ngp_tweak options, using defaults (disabled)")
+			auto_rx_config['web_control'] = False
+			auto_rx_config['ngp_tweak'] = False
 
 
 

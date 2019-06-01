@@ -191,6 +191,11 @@ def start_decoder(freq, sonde_type):
         # Set the SDR to in-use
         autorx.sdr_list[_device_idx]['in_use'] = True
 
+        if sonde_type.startswith('-'):
+            _exp_sonde_type = sonde_type[1:]
+        else:
+            _exp_sonde_type = sonde_type
+
         # Initialise a decoder.
         autorx.task_list[freq]['task'] = SondeDecoder(
             sonde_type = sonde_type,
@@ -209,7 +214,7 @@ def start_decoder(freq, sonde_type):
             rs92_ephemeris = rs92_ephemeris,
             imet_location = config['station_code'],
             rs41_drift_tweak = config['rs41_drift_tweak'],
-            experimental_decoder = config['experimental_decoders'][sonde_type],
+            experimental_decoder = config['experimental_decoders'][_exp_sonde_type],
             decoder_stats = config['decoder_stats']
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
@@ -440,7 +445,7 @@ def telemetry_filter(telemetry):
     dfm_callsign_valid = re.match(r'DFM[01][5679]-\d{6}', _serial)
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10 or iMet, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('iMet' in telemetry['type']):
+    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('iMet' in telemetry['type']):
         return True
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']

@@ -176,7 +176,7 @@ def read_rtl_power(filename):
     return (freq, power, freq_step)
 
 
-def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device_idx=0, ppm=0, gain=-1, bias=False, save_detection_audio = False):
+def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device_idx=0, ppm=0, gain=-1, bias=False, save_detection_audio = False, ngp_tweak = False):
     """ Receive some FM and attempt to detect the presence of a radiosonde. 
 
     Args:
@@ -189,6 +189,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
         bias (bool): If True, enable the bias tee on the SDR.
         save_detection_audio (bool): Save the audio used in detection to a file.
+        ngp_tweak (bool): When scanning in the 1680 MHz sonde band, use a narrower FM filter for better RS92-NGP detection.
 
     Returns:
         str/None: Returns None if no sonde found, otherwise returns a sonde type, from the following:
@@ -197,6 +198,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
             'DFM' - Graw DFM06 / DFM09 (similar telemetry formats)
             'M10' - MeteoModem M10
             'iMet' - interMet iMet
+            'MK2LMS' - LMS6, 1680 MHz variant (using MK2A 9600 baud telemetry)
 
     """
 
@@ -217,9 +219,15 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         # 400-406 MHz sondes - use a 22 kHz detection bandwidth.
         _rx_bw = 22000
     else:
-        # 1680 MHz sondes - use a 28 kHz detection bandwidth.
-        # NOTE: This is an initial stab in the dark at a setting for this band.
-        _rx_bw = 28000
+        # 1680 MHz sondes
+        # Both the RS92-NGP and 1680 MHz LMS6 have a much wider bandwidth than their 400 MHz counterparts.
+        # The RS92-NGP is maybe 25 kHz wide, and the LMS6 is 175 kHz (!!) wide.
+        # Given the huge difference between these two, we default to using a very wide FM bandwidth, but allow the user
+        # to narrow this if only RS92-NGPs are expected.
+        if ngp_tweak:
+            _rx_bw = 30000
+        else:
+            _rx_bw = 200000
 
     # Sample Source (rtl_fm)
     rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
@@ -282,6 +290,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     # 7 = IMET (RS)
     # 8 = LMS6
     # 9 = C34/C50
+    # 10 = MK2LMS (1680 MHz LMS6, which uses the MK2A telemetry format)
 
     # Split the line into sonde type and correlation score.
     _fields = ret_output.split(':')
@@ -318,6 +327,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     elif 'C34' in _type:
         logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
         return 'C34C50'
+    elif 'MK2LMS' in _type:
+        logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        if _score < 0:
+            return '-MK2LMS'
+        else:
+            return 'MK2LMS'
     else:
         return None
 
@@ -360,7 +375,8 @@ class SondeScanner(object):
         bias = False,
         save_detection_audio = False,
         temporary_block_list = {},
-        temporary_block_time = 60):
+        temporary_block_time = 60,
+        ngp_tweak = False):
         """ Initialise a Sonde Scanner Object.
 
         Apologies for the huge number of args...
@@ -394,6 +410,7 @@ class SondeScanner(object):
             save_detection_audio (bool): Save the audio used in each detecton to detect_<device_idx>.wav
             temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blacklisted for a set time.
             temporary_block_time (int): How long (minutes) frequencies in the temporary block list should remain blocked for.
+            ngp_tweak (bool): Narrow the detection filter when searching for 1680 MHz sondes, to enhance detection of RS92-NGPs.
         """
 
         # Thread flag. This is set to True when a scan is running.

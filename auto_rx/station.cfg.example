@@ -52,6 +52,7 @@ bias = False
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
 # Europe: Use 400.05 - 406 MHz
+# US: Somewhere around 1680 MHz... (Need more information!)
 min_freq = 400.05
 max_freq = 403.0
 # Have the decoder timeout after X seconds of no valid data.
@@ -393,6 +394,12 @@ m10_experimental = False
 # Eventually the modem statistics will be integrated into the web GUI.
 enable_stats = False
 
+
+# Optimize 1680 MHz Scanning for RS92-NGP Sondes
+# This flag sets the use of a narrower FM receiver bandwidth when scanning for 1680 MHz RS92-NGP sondes,
+# which should improve detection considerably.
+# Set this to True if you are know that only RS92-NGPs are flying in your area.
+ngp_tweak = False
 
 
 
