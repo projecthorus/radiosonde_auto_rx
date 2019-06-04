@@ -140,7 +140,7 @@ def shutdown_flask(shutdown_key):
 
 
 #
-#   Debugging endpoints. May eventually be exposed to the client, though authentication will need to be dealt with first.
+#   Control Endpoints.
 #
 
 @app.route('/start_decoder', methods=['POST'])
@@ -150,7 +150,7 @@ def flask_start_decoder():
     Example:
     curl -d "type=DFM&freq=403240000" -X POST http://localhost:5000/start_decoder
     """
-    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+    if request.method == 'POST' and autorx.config.global_config['web_control']:
         _type = str(request.form['type'])
         _freq = float(request.form['freq'])
 
@@ -169,7 +169,7 @@ def flask_stop_decoder():
     Example:
     curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
     """
-    if request.method == 'POST' and autorx.config.global_config['web_debug']:
+    if request.method == 'POST' and autorx.config.global_config['web_control']:
         _freq = float(request.form['freq'])
 
         logging.info("Web - Got decoder stop request: %f" % (_freq))
@@ -180,6 +180,45 @@ def flask_stop_decoder():
         else:
             # If we aren't running a decoder, 404.
             abort(404)
+    else:
+        abort(403)
+
+
+@app.route('/disable_scanner', methods=['POST'])
+def flask_disable_scanner():
+    """ Disable and Halt a Scanner, if one is running. """
+
+    if request.method == 'POST' and autorx.config.global_config['web_control']:
+        if 'SCAN' not in autorx.task_list:
+            # No scanner thread running!
+            abort(404)
+        else:
+            logging.info("Web - Got scanner stop request.")
+            # Set the scanner inhibit flag so it doesn't automatically start again.
+            autorx.scan_inhibit = True
+            _scan_sdr = autorx.task_list['SCAN']['device_idx']
+            # Stop the scanner.
+            autorx.task_list['SCAN']['task'].stop()
+            # Relase the SDR.
+            autorx.sdr_list[_scan_sdr]['in_use'] = False
+            autorx.sdr_list[_scan_sdr]['task'] = None
+            # Remove the scanner task from the task list
+            autorx.task_list.pop('SCAN')
+            return "OK"
+    else:
+        abort(403)
+
+
+@app.route('/enable_scanner', methods=['POST'])
+def flask_enable_scanner():
+    """ Re-enable the Scanner """
+
+    if request.method == 'POST' and autorx.config.global_config['web_control']:
+        # We re-enable the scanner by clearing the scan_inhibit flag.
+        # This makes it start up on the next run of clean_task_list (approx every 2 seconds)
+        # unless one is already running.
+        autorx.scan_inhibit = False
+        return "OK"
     else:
         abort(403)
 
