@@ -322,13 +322,13 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         logging.debug("Scanner #%s - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)" % (str(device_idx), _type, _score))
         return _type
     elif 'LMS6' in _type:
-        logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
+        logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f)" % (str(device_idx), _score))
         return 'LMS6'
     elif 'C34' in _type:
         logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
         return 'C34C50'
     elif 'MK2LMS' in _type:
-        logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f)" % (str(device_idx), _score))
         if _score < 0:
             return '-MK2LMS'
         else:

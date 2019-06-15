@@ -30,7 +30,7 @@ except ImportError:
 
 
 # List of binaries we check for on startup
-REQUIRED_RS_UTILS = ['dft_detect', 'dfm09mod', 'm10', 'imet1rs_dft', 'rs41mod', 'rs92mod', 'fsk_demod', 'mk2a_lms1680']
+REQUIRED_RS_UTILS = ['dft_detect', 'dfm09mod', 'm10', 'imet1rs_dft', 'rs41mod', 'rs92mod', 'fsk_demod', 'mk2a_lms1680', 'lms6mod']
 
 def check_rs_utils():
     """ Check the required RS decoder binaries exist

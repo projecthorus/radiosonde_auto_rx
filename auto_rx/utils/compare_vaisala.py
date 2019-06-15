@@ -5,13 +5,13 @@
 #   Copyright (C) 2019  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later 
 #
-#	Compares the auto_rx calcuated temperature & humidity values with
-#	truth data produced by a Vaisala ground station.
+#   Compares the auto_rx calcuated temperature & humidity values with
+#   truth data produced by a Vaisala ground station.
 #
-#	The 'truth' data must be in vaisalas 'metdata' tab-delimited text format.
+#   The 'truth' data must be in vaisalas 'metdata' tab-delimited text format.
 #
-#	Run with:
-#		python3 compare_vaisala.py originalmetdata_20190521_0418_R0230900.txt 20190521-042102_R0230900_RS41_402200_sonde.log
+#   Run with:
+#       python3 compare_vaisala.py originalmetdata_20190521_0418_R0230900.txt 20190521-042102_R0230900_RS41_402200_sonde.log
 #
 #   TODO: 
 #       [ ] Calculate temp/rh error vs altitude
@@ -37,42 +37,42 @@ from metpy.plots import SkewT
 from metpy.units import units
 
 def read_vaisala_metdata(filename):
-	""" Read in a Vaisala 'metdata' tab-delimtied text file, as produced by the MW32 ground station """
+    """ Read in a Vaisala 'metdata' tab-delimtied text file, as produced by the MW32 ground station """
 
-	_f = open(filename, 'r')
+    _f = open(filename, 'r')
 
-	# Skip past the header.
-	for i in range(22):
-		_f.readline()
-
-
-	output = []
-	# Read in lines of data.
-	#    n	Elapsed time	HeightMSL	    Pc	   Pm	 Temp	RH	 VirT	       Lat	       Lon	HeightE	Speed	Dir
-	for line in _f:
-		try:
-			_fields = line.split('\t')
-			_count = int(_fields[0])
-			_flight_time = int(_fields[1])
-			_height_msl = int(_fields[2])
-			_pressure_calc = float(_fields[3])
-			_pressure_meas = float(_fields[4])
-			_temp = float(_fields[5])
-			_relhum = int(_fields[6])
-			_virt = float(_fields[7])
-			_lat = float(_fields[8])
-			_lon = float(_fields[9])
-			_alt = float(_fields[10])
-			_vel_h = float(_fields[11])
-			_heading = float(_fields[12])
-
-			output.append([_count, _flight_time, _height_msl, _pressure_calc, _pressure_meas, _temp, _relhum, _virt, _lat, _lon, _alt, _vel_h, _heading])
-
-		except:
-			pass
+    # Skip past the header.
+    for i in range(22):
+        _f.readline()
 
 
-	return np.array(output)
+    output = []
+    # Read in lines of data.
+    #    n  Elapsed time    HeightMSL       Pc     Pm    Temp   RH   VirT          Lat         Lon  HeightE Speed   Dir
+    for line in _f:
+        try:
+            _fields = line.split('\t')
+            _count = int(_fields[0])
+            _flight_time = int(_fields[1])
+            _height_msl = int(_fields[2])
+            _pressure_calc = float(_fields[3])
+            _pressure_meas = float(_fields[4])
+            _temp = float(_fields[5])
+            _relhum = int(_fields[6])
+            _virt = float(_fields[7])
+            _lat = float(_fields[8])
+            _lon = float(_fields[9])
+            _alt = float(_fields[10])
+            _vel_h = float(_fields[11])
+            _heading = float(_fields[12])
+
+            output.append([_count, _flight_time, _height_msl, _pressure_calc, _pressure_meas, _temp, _relhum, _virt, _lat, _lon, _alt, _vel_h, _heading])
+
+        except:
+            pass
+
+
+    return np.array(output)
 
 
 # Earthmaths code by Daniel Richman (thanks!)
@@ -250,43 +250,87 @@ def read_log_file(filename, decimation=10, min_altitude=100):
     return (np.array(_output), _burst, _startalt, times[-1])
 
 
-def comparison_plots(vaisala_data, autorx_data):
-	_vaisala_alt = vaisala_data[:,2]
-	_vaisala_temp = vaisala_data[:,5]
-	_vaisala_rh = vaisala_data[:,6]
+def comparison_plots(vaisala_data, autorx_data, serial):
+    _vaisala_alt = vaisala_data[:,2]
+    _vaisala_temp = vaisala_data[:,5]
+    _vaisala_rh = vaisala_data[:,6]
 
-	_autorx_alt = autorx_data[:,0]
-	_autorx_temp = autorx_data[:,3]
-	_autorx_rh = autorx_data[:,5]
+    _autorx_alt = autorx_data[:,0]
+    _autorx_temp = autorx_data[:,3]
+    _autorx_rh = autorx_data[:,5]
+
+    # Interpolation
+    _interp_min_alt = max(np.min(_vaisala_alt), np.min(_autorx_alt))
+    _interp_max_alt = min(np.max(_vaisala_alt), np.max(_autorx_alt))
+    # Define the altitude range we interpolate over.
+    _interp_x = np.linspace(_interp_min_alt, _interp_max_alt, 2000)
+
+    # Produce interpolated temperature and humidity data.
+    _vaisala_interp_temp = np.interp(_interp_x, _vaisala_alt, _vaisala_temp)
+    _vaisala_interp_rh = np.interp(_interp_x, _vaisala_alt, _vaisala_rh)
+    _autorx_interp_temp = np.interp(_interp_x, _autorx_alt, _autorx_temp)
+    _autorx_interp_rh = np.interp(_interp_x, _autorx_alt, _autorx_rh)
+
+    # Calculate the error in auto_rx's calculations.
+    _autorx_temp_error = _autorx_interp_temp - _vaisala_interp_temp
+    _autorx_rh_error = _autorx_interp_rh - _vaisala_interp_rh
 
 
-	plt.figure()
-	plt.plot(_vaisala_alt, _vaisala_temp, label="Vaisala")
-	plt.plot(_autorx_alt, _autorx_temp, label="auto_rx")
-	plt.xlabel("Altitude (m)")
-	plt.ylabel("Temperature (degC)")
-	plt.title("Temperature")
-	plt.legend()
+    plt.figure()
+    plt.plot(_vaisala_alt, _vaisala_temp, label="Vaisala")
+    plt.plot(_autorx_alt, _autorx_temp, label="auto_rx")
+    plt.xlabel("Altitude (m)")
+    plt.ylabel("Temperature (degC)")
+    plt.title("Temperature - %s" % serial)
+    plt.legend()
+    plt.grid()
 
-	plt.figure()
-	plt.plot(_vaisala_alt, _vaisala_rh, label="Vaisala")
-	plt.plot(_autorx_alt, _autorx_rh, label="auto_rx")
-	plt.xlabel("Altitude (m)")
-	plt.ylabel("Relative Humidity (%)")
-	plt.title("Relative Humidity")
-	plt.legend()
-	plt.show()
+    plt.figure()
+    plt.plot(_vaisala_alt, _vaisala_rh, label="Vaisala")
+    plt.plot(_autorx_alt, _autorx_rh, label="auto_rx")
+    plt.xlabel("Altitude (m)")
+    plt.ylabel("Relative Humidity (%)")
+    plt.title("Relative Humidity - %s" % serial)
+    plt.legend()
+    plt.grid()
 
-	plt.show()
+
+
+    plt.figure()
+    plt.plot(_interp_x, _autorx_temp_error)
+    plt.xlabel("Altitude (m)")
+    plt.ylabel("Error (degC)")
+    plt.title("auto_rx RS41 Temperature Calculation Error - %s" % serial)
+    plt.grid()
+
+
+    plt.figure()
+    plt.plot(_interp_x, _autorx_rh_error)
+    plt.xlabel("Altitude (m)")
+    plt.ylabel("Error (% RH)")
+    plt.title("auto_rx RS41 Humidity Calculation Error - %s" % serial)
+    plt.grid()
+
+
+    plt.figure()
+    plt.plot(_vaisala_interp_temp, _autorx_rh_error)
+    plt.xlabel("Temperature (degC)")
+    plt.ylabel("Error (% RH)")
+    plt.title("auto_rx RS41 Humidity Calculation Error - %s" % serial)
+    plt.grid()
+
+    plt.show()
 
 
 
 if __name__ == "__main__":
-	_vaisala_filename = sys.argv[1]
-	_autorx_filename = sys.argv[2]
+    _vaisala_filename = sys.argv[1]
+    _autorx_filename = sys.argv[2]
 
-	vaisala_data = read_vaisala_metdata(_vaisala_filename)
+    _serial = _autorx_filename.split('_')[1]
 
-	(autorx_data, burst, startalt, lasttime) = read_log_file(_autorx_filename, decimation=1)
+    vaisala_data = read_vaisala_metdata(_vaisala_filename)
 
-	comparison_plots(vaisala_data, autorx_data)
+    (autorx_data, burst, startalt, lasttime) = read_log_file(_autorx_filename, decimation=1)
+
+    comparison_plots(vaisala_data, autorx_data, _serial)
