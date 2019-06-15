@@ -52,9 +52,16 @@ bias = False
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
 # Europe: Use 400.05 - 406 MHz
-# US: Somewhere around 1680 MHz... (Need more information!)
+# US: 
+#   Some areas have transitioned to the 400.05 - 406 MHz band.
+#   Some areas are using ~1680 MHZ sondes, which use channels of 1676, 1678, 1680 and 1682 MHz (Thanks Tory!)
+#   In these areas I suggest using the whitelist feature below instead of using the peak-detect search.
+#	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
+#	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
+
 min_freq = 400.05
 max_freq = 403.0
+
 # Have the decoder timeout after X seconds of no valid data.
 rx_timeout = 180
 
@@ -369,8 +376,8 @@ sdr_power_path = rtl_power
 # DEMODULATOR / DECODER TWEAKS #
 ################################
 
-# RS41 Drift Tweak (Regular demod chain only)
-# This tweak adds a high-pass filter into the RS41 demod chain. This extends the frequency offset range
+# RS41 / LMS6 Drift Tweak (Regular demod chain only)
+# This tweak adds a high-pass filter into the RS41 and LMS6 demod chains. This extends the frequency offset range
 # the demod chain can handle, with some performance penalty. This is only required when using RTLSDRs
 # with worse than 2-3 PPM drift, and doesn't need to be enabled for TCXO SDRs.
 drift_tweak = False
@@ -386,6 +393,8 @@ rs41_experimental = False
 rs92_experimental = False
 dfm_experimental = False
 m10_experimental = False
+# 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
+lms6-400_experimental = True
 # Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Dump FSK Demod statistics to stats_<device_ID>.txt while the modem is running.
@@ -398,7 +407,7 @@ enable_stats = False
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
 # This flag sets the use of a narrower FM receiver bandwidth when scanning for 1680 MHz RS92-NGP sondes,
 # which should improve detection considerably.
-# Set this to True if you are know that only RS92-NGPs are flying in your area.
+# Set this to True if you are sure that only RS92-NGPs are flying in your area.
 ngp_tweak = False
 
 

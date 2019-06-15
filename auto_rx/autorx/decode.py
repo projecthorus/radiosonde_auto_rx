@@ -20,7 +20,7 @@ from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
@@ -68,7 +68,7 @@ class SondeDecoder(object):
         'heading'   : 0.0
     }
 
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6']
 
     def __init__(self,
         sonde_type="None",
@@ -373,6 +373,28 @@ class SondeDecoder(object):
             else:
                 decode_cmd += "./mk2a_lms1680 --json 2>/dev/null"
 
+        elif self.sonde_type == "LMS6":
+            # LMS6 Decoder command.
+            # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
+            # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null | " % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
+            
+            # If selected by the user, we can add a highpass filter into the sox command. This helps handle up to about 5ppm of receiver drift
+            # before performance becomes significantly degraded. By default this is off, as it is not required with TCXO RTLSDRs, and actually
+            # slightly degrades performance.
+            if self.rs41_drift_tweak:
+                _highpass = "highpass 20 "
+            else:
+                _highpass = ""
+
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - %slowpass 2600 2>/dev/null | " % _highpass
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            decode_cmd += "./lms6mod --json 2>/dev/null"
+
         else:
             return None
 
@@ -551,6 +573,30 @@ class SondeDecoder(object):
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
 
+        elif self.sonde_type == "LMS6":
+            # LMS6 (400 MHz variant) Decoder command.
+            _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
+            _output_rate = 48000
+            _baud_rate = 4800
+            _offset = 0.25 # Place the sonde frequency in the centre of the passband.
+            _lower = int(0.025 * _sdr_rate) # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate*_offset)
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, _sdr_rate, _freq)
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            decode_cmd += "./fsk_demod --cs16 -b %d -u %d %s2 %d %d - - %s |" % (_lower, _upper, _stats_command_1, _sdr_rate, _baud_rate, _stats_command_2)
+            decode_cmd += " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_output_rate, _baud_rate, _output_rate, _output_rate)
+            
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            decode_cmd += "./lms6mod --json 2>/dev/null"
+
         else:
             return None
 
@@ -726,8 +772,8 @@ class SondeDecoder(object):
                 _telemetry['station_code'] = self.imet_location
 
 
-            # LMS6-1680 Specific Actions
-            if self.sonde_type == 'MK2LMS':
+            # LMS6 Specific Actions
+            if self.sonde_type == 'MK2LMS' or self.sonde_type == 'LMS6':
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
                 _telemetry['datetime_dt'] = fix_datetime(_telemetry['datetime'])
 

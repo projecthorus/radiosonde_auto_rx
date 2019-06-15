@@ -628,7 +628,7 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                 // Print JSON output required by auto_rx.
                 if (crc_err==0) { // CRC-OK
                     // UTC oder GPS?
-                    printf("{ \"frame\": %d, \"id\": \"%d\", \"time\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",
+                    printf("{ \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",
                            gpx->frnr, gpx->sn, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV );
                     printf("\n");
                 }
