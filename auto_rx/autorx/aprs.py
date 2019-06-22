@@ -548,6 +548,10 @@ class APRSUploader(object):
 
         """
 
+        # Discard any telemetry which is indicated to be encrypted.
+        if 'encrypted' in telemetry:
+            return
+
         # Check the telemetry dictionary contains the required fields.
         for _field in self.REQUIRED_FIELDS:
             if _field not in telemetry:

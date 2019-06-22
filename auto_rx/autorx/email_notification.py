@@ -102,6 +102,10 @@ class EmailNotification(object):
                 # This is a new sonde. Send the email.
                 msg  = 'Sonde launch detected:\n'
                 msg += '\n'
+
+                if 'encrypted' in telemetry:
+                    msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
+                
                 msg += 'Callsign:  %s\n' % _id
                 msg += 'Type:      %s\n' % telemetry['type']
                 msg += 'Frequency: %s\n' % telemetry['freq']
@@ -122,6 +126,10 @@ class EmailNotification(object):
                 _subject = _subject.replace('<id>', telemetry['id'])
                 _subject = _subject.replace('<type>', telemetry['type'])
                 _subject = _subject.replace('<freq>', telemetry['freq'])
+
+                if 'encrypted' in telemetry:
+                    _subject += " - ENCRYPTED SONDE"
+
                 logging.debug("Email - Subject: %s" % _subject)
 
 
