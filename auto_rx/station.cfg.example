@@ -99,9 +99,17 @@ station_alt = 0.0
 # Otherwise the ICAO Code of the airport nearest to the launch site would also work.
 # If you are not expecting to RX iMet sondes, then this can be left at its default.
 # NOTE: Only change this if you are 100% sure you will only be receiving sondes from a single launch location!
-
 station_code = SONDE
 
+# Station Position from GPSD
+# If your station is likely to move, then you may wish to have your station position updated from GPSD.
+# NOTE: This feature is intended to make life slightly easier when using an auto_rx station in a portable
+# capacity, in particular when using a rotator. For the web interface to start up correctly, a lat/lon still
+# needs to be entered above.
+# For balloon chasing, chasemapper is much better suited: https://github.com/projecthorus/chasemapper
+gpsd_enabled = False
+gpsd_hostname = localhost
+gpsd_port = 2947
 
 
 ###########################
@@ -237,13 +245,25 @@ payload_summary_port = 55673
 # Sends an email notification to the specified address when a new Sonde is detected
 [email]
 email_enabled = False
+
+# Server details. Note that usually Port 465 is used for SSL auth, and 587 is used for TLS.
 smtp_server = localhost
 smtp_port = 25
-smtp_ssl = False
+
+# Authentication type, Valid options are: None, TLS, and SSL
+smtp_authentication = None
+
+# If using authentication, the following fields need to be populated:
 smtp_login = None
 smtp_password = None
+
+# 'Source' e-mail
 from = sonde@localhost
+
+# Destination emails. You can send to multiple addresses by separating each address with a semicolon,
+# i.e.   test@test.com;test2@test2.com
 to = someone@example.com
+
 # Custom subject field. The following fields can be included:
 # <freq> - Sonde Frequency, i.e. 401.520 MHz
 # <type> - Sonde Type (RS94/RS41)

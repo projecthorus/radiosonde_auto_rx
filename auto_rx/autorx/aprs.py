@@ -244,7 +244,7 @@ class APRSUploader(object):
                 aprsis_port = 14580,
                 station_beacon = False,
                 station_beacon_rate = 30,
-                station_beacon_position = [0.0,0.0],
+                station_beacon_position = (0.0,0.0,0.0),
                 station_beacon_comment = "radiosonde_auto_rx SondeGate v<version>",
                 station_beacon_icon = "/r",
                 synchronous_upload_time = 30,
@@ -273,7 +273,7 @@ class APRSUploader(object):
 
             station_beacon (bool): Enable beaconing of station position.
             station_beacon_rate (int): Time delay between beacon uploads (minutes)
-            station_beacon_position (list): [lat, lon], in decimal degrees, of the station position.
+            station_beacon_position (tuple): (lat, lon, alt), in decimal degrees, of the station position.
             station_beacon_comment (str): Comment field for the station beacon. <version> will be replaced with the current auto_rx version.
             station_beacon_icon (str): The APRS icon to be used, as the two characters (symbol table, symbol index), as per http://www.aprs.org/symbols.html
 
@@ -399,6 +399,12 @@ class APRSUploader(object):
     def beacon_station_position(self):
         ''' Send a station position beacon into APRS-IS '''
         if self.station_beacon['enabled']:
+            if (self.station_beacon['position'][0] == 0.0) and (self.station_beacon['position'][1] == 0.0):
+                self.log_error("Station position is 0,0, not uploading position beacon.")
+                self.last_user_position_upload = time.time()
+                return
+
+
             # Generate the station position packet
             # Note - this is now generated as an APRS position report, for radiosondy.info compatability.
             _packet = generate_station_object(self.aprs_callsign,
@@ -412,6 +418,10 @@ class APRSUploader(object):
             self.aprsis_upload(self.aprs_callsign, _packet, igate=True)
             self.last_user_position_upload = time.time()
 
+
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.station_beacon['position'] = (lat, lon, alt)
 
 
 

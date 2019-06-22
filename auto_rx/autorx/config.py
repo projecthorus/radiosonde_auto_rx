@@ -22,7 +22,7 @@ except ImportError:
     # Python 3
     from configparser import RawConfigParser
 
-def read_auto_rx_config(filename):
+def read_auto_rx_config(filename, no_sdr_test=False):
 	""" Read an Auto-RX v2 Station Configuration File.
 
 	This function will attempt to parse a configuration file.
@@ -30,6 +30,7 @@ def read_auto_rx_config(filename):
 
 	Args:
 		filename (str): Filename of the configuration file to read.
+		no_sdr_test (bool): Skip testing the SDRs (used for some unit tests)
 
 	Returns:
 		auto_rx_config (dict): The configuration dictionary.
@@ -44,7 +45,7 @@ def read_auto_rx_config(filename):
         'email_enabled': False,
         'email_smtp_server': 'localhost',
         'email_smtp_port': 25,
-        'email_smtp_ssl': False,
+        'email_smtp_authentication': 'None',
         'email_smtp_login': 'None',
         'email_smtp_password': 'None',
         'email_from': 'sonde@localhost',
@@ -66,6 +67,9 @@ def read_auto_rx_config(filename):
 		'station_lon'	: 0.0,
 		'station_alt'	: 0.0,
 		'station_code'	: 'SONDE',
+		'gpsd_enabled'	: False,
+		'gpsd_host'		: 'localhost',
+		'gpsd_port'		: 2947,
 		# Position Filter Settings
 		'max_altitude'	: 50000,
 		'max_radius_km'	: 1000,
@@ -150,12 +154,17 @@ def read_auto_rx_config(filename):
 				auto_rx_config['email_enabled'] = config.getboolean('email', 'email_enabled')
 				auto_rx_config['email_smtp_server'] = config.get('email', 'smtp_server')
 				auto_rx_config['email_smtp_port'] = config.get('email', 'smtp_port')
-				auto_rx_config['email_smtp_ssl'] = config.getboolean('email', 'smtp_ssl')
+				auto_rx_config['email_smtp_authentication'] = config.get('email', 'smtp_authentication')
 				auto_rx_config['email_smtp_login'] = config.get('email', 'smtp_login')
 				auto_rx_config['email_smtp_password'] = config.get('email', 'smtp_password')
 				auto_rx_config['email_from'] = config.get('email', 'from')
 				auto_rx_config['email_to'] = config.get('email', 'to')
 				auto_rx_config['email_subject'] = config.get('email', 'subject')
+
+				if auto_rx_config['email_smtp_authentication'] not in ['None', 'TLS', 'SSL']:
+					logging.error("Config - Invalid email authentication setting. Must be None, TLS or SSL.")
+					raise Exception()
+
 			except:
 				logging.error("Config - Invalid or missing email settings. Disabling.")
 				auto_rx_config['email_enabled'] = False
@@ -203,10 +212,6 @@ def read_auto_rx_config(filename):
 		auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
 		auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')
 		auto_rx_config['station_beacon_icon'] = config.get('aprs', 'station_beacon_icon')
-
-		if auto_rx_config['station_beacon_enabled'] and auto_rx_config['station_lat']==0.0 and auto_rx_config['station_lon'] == 0.0:
-			auto_rx_config['station_beacon_enabled'] = False
-			logging.error("Config - Disable APRS Station beacon, as no station lat/lon set.")
 
 		# OziPlotter Settings
 		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
@@ -267,16 +272,23 @@ def read_auto_rx_config(filename):
 		auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
 		auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
 		auto_rx_config['experimental_decoders']['LMS6'] = config.getboolean('advanced', 'lms6-400_experimental')
-		# When LMS6 support is added, that will have to be added in here.
 
 		try:
 			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')
 			auto_rx_config['ngp_tweak'] = config.getboolean('advanced', 'ngp_tweak')
+			auto_rx_config['gpsd_enabled'] = config.getboolean('location', 'gpsd_enabled')
+			auto_rx_config['gpsd_host'] = config.get('location', 'gpsd_host')
+			auto_rx_config['gpsd_port'] = config.getint('location', 'gpsd_port')
 		except:
-			logging.warning("Config - Did not find web control and ngp_tweak options, using defaults (disabled)")
+			logging.warning("Config - Did not find web control / ngp_tweak / gpsd options, using defaults (disabled)")
 			auto_rx_config['web_control'] = False
 			auto_rx_config['ngp_tweak'] = False
+			auto_rx_config['gpsd_enabled'] = False
 
+
+		# If we are being called as part of a unit test, just return the config now.
+		if no_sdr_test:
+			return auto_rx_config
 
 
 		# Now we attempt to read in the individual SDR parameters.
