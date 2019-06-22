@@ -5,12 +5,15 @@
 #   Copyright (C) 2018 Philip Heron <phil@sanslogic.co.uk>
 #   Released under GNU GPL v3 or later
 
+import datetime
 import logging
 import time
 import smtplib
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from threading import Thread
+from .config import read_auto_rx_config
+from .utils import position_info
 
 try:
     # Python 2
@@ -32,16 +35,17 @@ class EmailNotification(object):
     # We require the following fields to be present in the input telemetry dict.
     REQUIRED_FIELDS = [ 'id', 'lat', 'lon', 'alt', 'type', 'freq']
 
-    def __init__(self, smtp_server = 'localhost', smtp_port=25, smtp_ssl=False, smtp_login="None", smtp_password="None", mail_from = None, mail_to = None, mail_subject = None):
+    def __init__(self, smtp_server = 'localhost', smtp_port=25, smtp_authentication='None', smtp_login="None", smtp_password="None", mail_from = None, mail_to = None, mail_subject = None, station_position = None):
         """ Init a new E-Mail Notification Thread """
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
-        self.smtp_ssl = smtp_ssl
+        self.smtp_authentication = smtp_authentication
         self.smtp_login = smtp_login
         self.smtp_password = smtp_password
         self.mail_from = mail_from
         self.mail_to = mail_to
         self.mail_subject = mail_subject
+        self.station_position = station_position
 
         # Dictionary to track sonde IDs
         self.sondes = {}
@@ -102,12 +106,16 @@ class EmailNotification(object):
                 msg += 'Type:      %s\n' % telemetry['type']
                 msg += 'Frequency: %s\n' % telemetry['freq']
                 msg += 'Position:  %.5f,%.5f\n' % (telemetry['lat'], telemetry['lon'])
-                msg += 'Altitude:  %dm\n' % round(telemetry['alt'])
+                msg += 'Altitude:  %d m\n' % round(telemetry['alt'])
+
+                if self.station_position != None:
+                    _relative_position = position_info(self.station_position, (telemetry['lat'], telemetry['lon'], telemetry['alt']))
+                    msg += 'Range:  %.1f km\n' % _relative_position['straight_distance']/1000.0
+                    msg += 'Bearing: %d degrees True\n' % int(_relative_position['bearing'])
+
                 msg += '\n'
                 #msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
                 msg += 'https://sondehub.org/%s\n' % _id
-
-                msg = MIMEText(msg, 'plain', 'UTF-8')
 
                 # Construct subject
                 _subject = self.mail_subject
@@ -115,22 +123,35 @@ class EmailNotification(object):
                 _subject = _subject.replace('<type>', telemetry['type'])
                 _subject = _subject.replace('<freq>', telemetry['freq'])
                 logging.debug("Email - Subject: %s" % _subject)
-                msg['Subject'] = _subject
 
 
-                msg['From'] = self.mail_from
-                msg['To'] = self.mail_to
-                msg["Date"] = formatdate()
+                # Connect to the SMTP server.
 
-                if self.smtp_ssl:
+                if self.smtp_authentication == 'SSL':
                     s = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
                 else:
                     s = smtplib.SMTP(self.smtp_server, self.smtp_port)
 
+                if self.smtp_authentication == 'TLS':
+                    s.starttls()
+
                 if self.smtp_login != "None":
                     s.login(self.smtp_login, self.smtp_password) 
 
-                s.sendmail(msg['From'], msg['To'], msg.as_string())
+                # Send messages to all recepients.
+                for _destination in self.mail_to.split(';'):
+                    mime_msg = MIMEText(msg, 'plain', 'UTF-8')
+
+                    mime_msg['From'] = self.mail_from
+                    mime_msg['To'] = _destination
+                    mime_msg["Date"] = formatdate()
+                    mime_msg['Subject'] = _subject
+
+                    s.sendmail(mime_msg['From'], _destination, mime_msg.as_string())
+
+                    time.sleep(2)
+
+                
                 s.quit()
 
                 self.log_info("E-mail sent.")
@@ -183,6 +204,31 @@ class EmailNotification(object):
 
 
 if __name__ == "__main__":
-    # Test Script
-    pass
+    # Test Script - Send an example email using the settings in station.cfg
 
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
+    
+    # Read in the station config, which contains the email settings.
+    config = read_auto_rx_config('station.cfg', no_sdr_test=True)
+
+    # Start up an email notifification object.
+    _email_notification = EmailNotification(
+        smtp_server = config['email_smtp_server'],
+        smtp_port = config['email_smtp_port'],
+        smtp_authentication = config['email_smtp_authentication'],
+        smtp_login = config['email_smtp_login'],
+        smtp_password = config['email_smtp_password'],
+        mail_from = config['email_from'],
+        mail_to = config['email_to'],
+        mail_subject = config['email_subject']
+    )
+
+    # Wait a second..
+    time.sleep(1)
+
+    # Add in a packet of telemetry, which will cause the email notifier to send an email.
+    _email_notification.add({'id':'N1234557', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()})
+
+    # Wait a little bit before shutting down.
+    time.sleep(5)
+    _email_notification.close()

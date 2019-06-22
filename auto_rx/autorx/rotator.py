@@ -131,7 +131,7 @@ class Rotator(object):
     REQUIRED_FIELDS = [ 'id', 'lat', 'lon', 'alt', 'type', 'freq']
 
     def __init__(self, 
-        station_position = [0.0,0.0,0.0],
+        station_position = (0.0,0.0,0.0),
         rotctld_host = 'localhost',
         rotctld_port = 4533,
         rotator_update_rate = 30,
@@ -142,7 +142,7 @@ class Rotator(object):
         """ Start a new Rotator Control object. 
 
         Args:
-            station_position (list): The location of the receiving station, as a [lat, lon, alt] list.
+            station_position (tuple): The location of the receiving station, as a (lat, lon, alt) tuple.
             
             rotctld_host (str): The hostname where a rotctld instance is running.
             rotctld_port (int): The (TCP) port where a rotctld instance is running.
@@ -273,11 +273,15 @@ class Rotator(object):
                         self.home_rotator()
 
                     else:
-                        # Otherwise, calculate the new azimuth/elevation.
-                        _position = position_info(self.station_position, [_telem['lat'],_telem['lon'],_telem['alt']])
+                        # Check that the station position is not 0,0
+                        if (self.station_position[0] == 0.0) and (self.station_position[1] == 0.0):
+                            self.log_error("Station position is 0,0 - not moving rotator.")
+                        else:
+                            # Otherwise, calculate the new azimuth/elevation.
+                            _position = position_info(self.station_position, [_telem['lat'],_telem['lon'],_telem['alt']])
 
-                        # Move to the new position
-                        self.move_rotator(_position['bearing'], _position['elevation'])
+                            # Move to the new position
+                            self.move_rotator(_position['bearing'], _position['elevation'])
 
                 except Exception as e:
                     self.log_error("Error handling new telemetry - %s" % str(e))
@@ -289,6 +293,10 @@ class Rotator(object):
                 time.sleep(1)
                 _i += 1
 
+
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.station_position = (lat, lon, alt)
 
 
 

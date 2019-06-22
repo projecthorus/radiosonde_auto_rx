@@ -395,7 +395,7 @@ class HabitatUploader(object):
 
     def __init__(self, 
                 user_callsign = 'N0CALL', 
-                user_position = None,
+                station_position = (0.0,0.0,0.0),
                 user_antenna = "",
                 payload_callsign_override = None,
                 synchronous_upload_time = 30,
@@ -411,7 +411,7 @@ class HabitatUploader(object):
 
         Args:
             user_callsign (str): Callsign of the uploader.
-            user_position (tuple): Optional - a tuple consisting of (lat, lon, alt), which if populated,
+            station_position (tuple): Optional - a tuple consisting of (lat, lon, alt), which if populated,
                 is used to plot the listener's position on the Habitat map, both when this class is initialised, and
                 when a new sonde ID is observed.
 
@@ -438,7 +438,7 @@ class HabitatUploader(object):
         """
 
         self.user_callsign = user_callsign
-        self.user_position = user_position
+        self.station_position = station_position
         self.user_antenna = user_antenna
         self.payload_callsign_override = payload_callsign_override
         self.upload_timeout = upload_timeout
@@ -488,8 +488,8 @@ class HabitatUploader(object):
 
     def user_position_upload(self):
         """ Upload the the station position to Habitat. """
-        if self.user_position is not None:
-            _success = uploadListenerPosition(self.user_callsign, self.user_position[0], self.user_position[1], version=auto_rx_version, antenna=self.user_antenna)
+        if (self.station_position[0] != 0.0) or (self.station_position[1] != 0.0):
+            _success = uploadListenerPosition(self.user_callsign, self.station_position[0], self.station_position[1], version=auto_rx_version, antenna=self.user_antenna)
             self.last_user_position_upload = time.time()
             return _success
         else:
@@ -699,7 +699,7 @@ class HabitatUploader(object):
                     if self.observed_payloads[_id]['count'] >= self.callsign_validity_threshold:
 
                         # If this is the first time we have observed this payload, update the listener position.
-                        if (self.observed_payloads[_id]['listener_updated'] == False) and (self.user_position is not None):
+                        if (self.observed_payloads[_id]['listener_updated'] == False) and (self.station_position is not None):
                             self.observed_payloads[_id]['listener_updated'] = self.user_position_upload()
                             # Because receiving balloon telemetry appears to be a competition, immediately upload the
                             # first valid position received.
@@ -740,6 +740,10 @@ class HabitatUploader(object):
         else:
             self.log_error("Processing not running, discarding.")
 
+
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.station_position = (lat, lon, alt)
 
 
     def close(self):

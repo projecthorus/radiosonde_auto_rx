@@ -389,6 +389,13 @@ class WebExporter(object):
             logging.error("WebExporter - Processing not running, discarding.")
 
 
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.station_position = (lat, lon, alt)
+        _position = {'lat':lat, 'lon':lon, 'alt':alt}
+        socketio.emit('station_update', _position, namespace='/update_status')
+
+
     def close(self):
         """ Shutdown """
         self.input_processing_running = False
