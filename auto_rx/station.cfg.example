@@ -135,6 +135,10 @@ upload_listener_position = True
 uploader_antenna = 1/4 wave monopole
 
 # Habitat Upload Rate - Upload a packet every X seconds.
+# IMPORTANT NOTE: Please remember that the use of Habitat for tracking radiosondes is secondary to its primary purpose of
+# tracking amateur high-altitude balloon flights. It is STRONGLY RECOMMENDED that the update rate is not set to anything 
+# lower than 30 seconds, to avoid congesting the system and causing higher processing latencies. If this becomes a problem, 
+# then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
 # Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
