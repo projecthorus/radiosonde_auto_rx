@@ -105,7 +105,7 @@ class EmailNotification(object):
 
                 if 'encrypted' in telemetry:
                     msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
-                
+
                 msg += 'Callsign:  %s\n' % _id
                 msg += 'Type:      %s\n' % telemetry['type']
                 msg += 'Frequency: %s\n' % telemetry['freq']
@@ -114,7 +114,7 @@ class EmailNotification(object):
 
                 if self.station_position != None:
                     _relative_position = position_info(self.station_position, (telemetry['lat'], telemetry['lon'], telemetry['alt']))
-                    msg += 'Range:  %.1f km\n' % _relative_position['straight_distance']/1000.0
+                    msg += 'Range:  %.1f km\n' % (_relative_position['straight_distance']/1000.0)
                     msg += 'Bearing: %d degrees True\n' % int(_relative_position['bearing'])
 
                 msg += '\n'
