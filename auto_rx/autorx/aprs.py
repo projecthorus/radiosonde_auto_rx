@@ -67,6 +67,12 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             # Use the last 5 characters of the unique ID we have generated.
             _object_name = "IMET" + sonde_data['id'][-5:]
 
+        elif ('MK2LMS' in sonde_data['type']) or ('LMS6' in sonde_data['type']):
+            # Use the last 5 hex digits of the sonde ID.
+            _id_suffix = int(sonde_data['id'].split('-')[1])
+            _id_hex = hex(_id_suffix).upper()
+            _object_name = "LMS6" + _id_hex[-5:]
+
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
@@ -238,7 +244,7 @@ class APRSUploader(object):
                 aprsis_port = 14580,
                 station_beacon = False,
                 station_beacon_rate = 30,
-                station_beacon_position = [0.0,0.0],
+                station_beacon_position = (0.0,0.0,0.0),
                 station_beacon_comment = "radiosonde_auto_rx SondeGate v<version>",
                 station_beacon_icon = "/r",
                 synchronous_upload_time = 30,
@@ -267,7 +273,7 @@ class APRSUploader(object):
 
             station_beacon (bool): Enable beaconing of station position.
             station_beacon_rate (int): Time delay between beacon uploads (minutes)
-            station_beacon_position (list): [lat, lon], in decimal degrees, of the station position.
+            station_beacon_position (tuple): (lat, lon, alt), in decimal degrees, of the station position.
             station_beacon_comment (str): Comment field for the station beacon. <version> will be replaced with the current auto_rx version.
             station_beacon_icon (str): The APRS icon to be used, as the two characters (symbol table, symbol index), as per http://www.aprs.org/symbols.html
 
@@ -393,6 +399,12 @@ class APRSUploader(object):
     def beacon_station_position(self):
         ''' Send a station position beacon into APRS-IS '''
         if self.station_beacon['enabled']:
+            if (self.station_beacon['position'][0] == 0.0) and (self.station_beacon['position'][1] == 0.0):
+                self.log_error("Station position is 0,0, not uploading position beacon.")
+                self.last_user_position_upload = time.time()
+                return
+
+
             # Generate the station position packet
             # Note - this is now generated as an APRS position report, for radiosondy.info compatability.
             _packet = generate_station_object(self.aprs_callsign,
@@ -406,6 +418,10 @@ class APRSUploader(object):
             self.aprsis_upload(self.aprs_callsign, _packet, igate=True)
             self.last_user_position_upload = time.time()
 
+
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.station_beacon['position'] = (lat, lon, alt)
 
 
 
@@ -531,6 +547,10 @@ class APRSUploader(object):
             telemetry (dict): Telemetry dictionary to add to the input queue.
 
         """
+
+        # Discard any telemetry which is indicated to be encrypted.
+        if 'encrypted' in telemetry:
+            return
 
         # Check the telemetry dictionary contains the required fields.
         for _field in self.REQUIRED_FIELDS:

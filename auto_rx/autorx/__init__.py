@@ -17,7 +17,7 @@ except ImportError:
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 
 # Global Variables
@@ -47,3 +47,5 @@ task_list = {}
 
 # Scan result queue. 
 scan_results = Queue()
+# Global scan inhibit flag, used by web interface.
+scan_inhibit = False

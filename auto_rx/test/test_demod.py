@@ -127,7 +127,6 @@ processing_type = {
     },
     # # RS92 Decoding
     'rs92_fsk_demod': {
-        # Not currently working - need to resolve segfault in dfk_demod when using 96 kHz Fs ans 2400 Rb
         # Shift up to ~24 khz, and then pass into fsk_demod.
         'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
 
@@ -138,7 +137,6 @@ processing_type = {
         'files' : "./generated/rs92*"
     },
     'm10_fsk_demod': {
-        # Not currently working due to weird baud rate (9614). Doesnt work even with fractional resampling (slow down signal to make it appear to be 9600 baud).
         # Shift up to ~24 khz, and then pass into fsk_demod.
         'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
         'decode': "../m10 -b -b2 2>/dev/null",
@@ -157,7 +155,35 @@ processing_type = {
         "post_process" : " | grep frame |  wc -l", # ECC
         #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
         'files' : "./generated/dfm*.bin"
-    }
+    },
+
+    # LMS6-400 Decoding
+    'lms6-400_fsk_demod': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
+
+        # Decode using rs41ecc
+        'decode': "../lms6mod --vit -v 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| wc -l",
+        'files' : "./generated/lms6-400*"
+    },
+
+    'lms6-1680_fsk_demod': {
+        # This is a weird one.
+        # The baud rate is ~9616 Baud, but the deviation is *huge* (~170 kHz occupied bandwidth).
+        # The recording bandwidth needs to be correspondingly huge, with ~480 kHz sample rate required to capture the signal.
+        # We need to resample up to a multiple of 9616 Hz to be able to get fsk_demod to decode.
+        # fsk_demod does not decode these types reliably at the moment.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 1.00166666 | ../fsk_demod --cs16 -b 5000 -u 230000 --stats=100 2 480800 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null|",
+
+        # Decode using rs41ecc
+        'decode': "../mk2a_lms1680 -i --json 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep frame | wc -l",
+        # No low-SNR samples for this sonde available yet. 
+        'files' : "./generated/lms6-1680*"
+    },
 }
 
 
@@ -361,6 +387,67 @@ processing_type['rs41_rtlfm'] = {
 # }
 
 
+# LMS6 - 400 MHz version
+_fm_rate = 22000
+# Calculate the necessary conversions
+_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+
+_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+
+if _resample != 1.0:
+    # We will need to resample.
+    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+else:
+    _resample_command = ""
+
+_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+
+
+processing_type['lms6-400_rtlfm'] = {
+    'demod': _demod_command,
+    # Decode using rs92ecc
+    'decode': "../lms6mod  2>/dev/null",
+    #'decode': "../rs92ecc -vx -v --crc --ecc -r --vel 2>/dev/null", # For measuring No-ECC performance
+    # Count the number of telemetry lines.
+    "post_process" : " | wc -l",
+    #"post_process" : " | grep \"errors: 0\" | wc -l",
+    'files' : "./generated/lms6-400*.bin" 
+}
+
+
+# # LMS6 - 1680
+_fm_rate = 200000
+_sample_fs = 480000
+# Calculate the necessary conversions
+_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+
+_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+
+if _resample != 1.0:
+    # We will need to resample.
+    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+else:
+    _resample_command = ""
+
+_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+
+processing_type['lms6-1680_rtlfm'] = {
+    'demod': _demod_command,
+    'decode': "../mk2a_lms1680 --json -i 2>/dev/null",
+    # Count the number of telemetry lines.
+    "post_process" : "| grep frame | wc -l",
+    'files' : "./generated/lms6-1680*.bin"
+}
+
+
 # # RS_Detect
 # _fm_rate = 22000
 # #_fm_rate = 15000
@@ -389,33 +476,34 @@ processing_type['rs41_rtlfm'] = {
 #     'files' : "./generated/*.bin"
 # }
 
-# # DFT_Detect
-# _fm_rate = 22000
-# #_fm_rate = 15000
-# # Calculate the necessary conversions
-# _rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
-# _shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+# DFT_Detect
+_fm_rate = 22000
+#_fm_rate = 15000
+_sample_fs = 96000
+# Calculate the necessary conversions
+_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
 
-# _resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
 
-# if _resample != 1.0:
-#     # We will need to resample.
-#     _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
-#     _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
-# else:
-#     _resample_command = ""
+if _resample != 1.0:
+    # We will need to resample.
+    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+else:
+    _resample_command = ""
 
-# _demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
-# _demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
-# _demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
 
-# processing_type['dft_detect_rtlfm'] = {
-#     'demod': _demod_command,
-#     'decode': "../dft_detect 2>/dev/null",
-#     # Grep out the line containing the detected sonde type.
-#     "post_process" : " | grep \:",
-#     'files' : "./generated/*.bin"
-# }
+processing_type['dft_detect_rtlfm'] = {
+    'demod': _demod_command,
+    'decode': "../dft_detect 2>/dev/null",
+    # Grep out the line containing the detected sonde type.
+    "post_process" : " | grep \:",
+    'files' : "./generated/*.bin"
+}
 
 
 

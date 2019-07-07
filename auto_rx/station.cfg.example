@@ -52,8 +52,16 @@ bias = False
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
 # Europe: Use 400.05 - 406 MHz
+# US: 
+#   Some areas have transitioned to the 400.05 - 406 MHz band.
+#   Some areas are using ~1680 MHZ sondes, which use channels of 1676, 1678, 1680 and 1682 MHz (Thanks Tory!)
+#   In these areas I suggest using the whitelist feature below instead of using the peak-detect search.
+#	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
+#	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
+
 min_freq = 400.05
 max_freq = 403.0
+
 # Have the decoder timeout after X seconds of no valid data.
 rx_timeout = 180
 
@@ -91,9 +99,17 @@ station_alt = 0.0
 # Otherwise the ICAO Code of the airport nearest to the launch site would also work.
 # If you are not expecting to RX iMet sondes, then this can be left at its default.
 # NOTE: Only change this if you are 100% sure you will only be receiving sondes from a single launch location!
-
 station_code = SONDE
 
+# Station Position from GPSD
+# If your station is likely to move, then you may wish to have your station position updated from GPSD.
+# NOTE: This feature is intended to make life slightly easier when using an auto_rx station in a portable
+# capacity, in particular when using a rotator. For the web interface to start up correctly, a lat/lon still
+# needs to be entered above.
+# For balloon chasing, chasemapper is much better suited: https://github.com/projecthorus/chasemapper
+gpsd_enabled = False
+gpsd_hostname = localhost
+gpsd_port = 2947
 
 
 ###########################
@@ -119,6 +135,10 @@ upload_listener_position = True
 uploader_antenna = 1/4 wave monopole
 
 # Habitat Upload Rate - Upload a packet every X seconds.
+# IMPORTANT NOTE: Please remember that the use of Habitat for tracking radiosondes is secondary to its primary purpose of
+# tracking amateur high-altitude balloon flights. It is STRONGLY RECOMMENDED that the update rate is not set to anything 
+# lower than 30 seconds, to avoid congesting the system and causing higher processing latencies. If this becomes a problem, 
+# then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
 # Payload callsign - if set to <id> will use the serial number of the sonde and create a payload document automatically
@@ -229,13 +249,25 @@ payload_summary_port = 55673
 # Sends an email notification to the specified address when a new Sonde is detected
 [email]
 email_enabled = False
+
+# Server details. Note that usually Port 465 is used for SSL auth, and 587 is used for TLS.
 smtp_server = localhost
 smtp_port = 25
-smtp_ssl = False
+
+# Authentication type, Valid options are: None, TLS, and SSL
+smtp_authentication = None
+
+# If using authentication, the following fields need to be populated:
 smtp_login = None
 smtp_password = None
+
+# 'Source' e-mail
 from = sonde@localhost
+
+# Destination emails. You can send to multiple addresses by separating each address with a semicolon,
+# i.e.   test@test.com;test2@test2.com
 to = someone@example.com
+
 # Custom subject field. The following fields can be included:
 # <freq> - Sonde Frequency, i.e. 401.520 MHz
 # <type> - Sonde Type (RS94/RS41)
@@ -294,9 +326,10 @@ web_port = 5000
 # Note: The higher this number, the more data the client will need to load in on startup
 archive_age = 120
 
-# Enable some additional debug endpoints. These are currently only used for development testing purposes.
+# Enable some additional controls on the auto_rx web interface. 
+# There is currently no authentication for these features, so use this with caution!
 # Do not set this to True on an internet-facing auto_rx instance!!!
-web_debug = False
+web_control = False
 
 
 ##################
@@ -350,7 +383,7 @@ quantization = 10000
 # If you regularly encounter radiosondes on adjacent (10kHz) channels, then set this value to 5000.
 decoder_spacing_limit = 15000
 # Temporary Block Time (minutes) - How long to block encrypted or otherwise non-decodable sondes for.
-temporary_block_time = 60
+temporary_block_time = 120
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
 # Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
 # however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
@@ -367,8 +400,8 @@ sdr_power_path = rtl_power
 # DEMODULATOR / DECODER TWEAKS #
 ################################
 
-# RS41 Drift Tweak (Regular demod chain only)
-# This tweak adds a high-pass filter into the RS41 demod chain. This extends the frequency offset range
+# RS41 / LMS6 Drift Tweak (Regular demod chain only)
+# This tweak adds a high-pass filter into the RS41 and LMS6 demod chains. This extends the frequency offset range
 # the demod chain can handle, with some performance penalty. This is only required when using RTLSDRs
 # with worse than 2-3 PPM drift, and doesn't need to be enabled for TCXO SDRs.
 drift_tweak = False
@@ -384,6 +417,8 @@ rs41_experimental = False
 rs92_experimental = False
 dfm_experimental = False
 m10_experimental = False
+# 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
+lms6-400_experimental = True
 # Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Dump FSK Demod statistics to stats_<device_ID>.txt while the modem is running.
@@ -392,6 +427,12 @@ m10_experimental = False
 # Eventually the modem statistics will be integrated into the web GUI.
 enable_stats = False
 
+
+# Optimize 1680 MHz Scanning for RS92-NGP Sondes
+# This flag sets the use of a narrower FM receiver bandwidth when scanning for 1680 MHz RS92-NGP sondes,
+# which should improve detection considerably.
+# Set this to True if you are sure that only RS92-NGPs are flying in your area.
+ngp_tweak = False
 
 
 

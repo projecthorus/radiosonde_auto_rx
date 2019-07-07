@@ -143,8 +143,8 @@
                 iconAnchor: [13, 34]
             });
 
-            // Add a new marker, but set it to hidden initially.
-            var home_marker = L.marker(sondemap.getCenter(),
+            // Add our station location marker.
+            var home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
 
@@ -315,6 +315,34 @@
             });
 
 
+            socket.on('station_update', function(msg) {
+                // Station update messages indicate a move of the station location, as updated
+                // by a GPS receiver.
+
+                if(initial_load_complete == false){
+                    // If we have not completed our initial load of telemetry data, discard this data.
+                    return
+                }
+
+                // Update the marker position.
+                home_marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
+
+                // Update the autorx_config object, which is used to calculate relative look angles for the telemetry table.
+                autorx_config.station_lat = msg.lat;
+                autorx_config.station_lon = msg.lon;
+                autorx_config.station_alt = msg.alt;
+
+                // May need to re-evaluate if this is the appropriate behaviour.
+                // If a user pans around the map while a sonde is *not* being tracked, this code will
+                // re-pan the map back to the station location.
+                // Once a sonde is being tracked this should not occur however.
+                if (sonde_currently_following == "none" && document.getElementById("sondeAutoFollow").checked == false){
+                    sondemap.panTo([msg.lat, msg.lon]);
+                }
+
+            });
+
+
             // Telemetry event handler.
             // We will get one of these with every line of telemetry decoded
             socket.on('telemetry_event', function(msg) {
@@ -325,7 +353,6 @@
                     // If we have not completed our initial load of telemetry data, discard this data.
                     return
                 }
-
 
                 // Have we seen this sonde before? 
                 if (sonde_positions.hasOwnProperty(msg.id) == false){

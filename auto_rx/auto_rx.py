@@ -29,6 +29,7 @@ from autorx.rotator import Rotator
 from autorx.utils import rtlsdr_test, position_info, check_rs_utils, check_autorx_version
 from autorx.config import read_auto_rx_config
 from autorx.web import start_flask, stop_flask, flask_emit_event, WebHandler, WebExporter
+from autorx.gpsd import GPSDAdaptor
 
 try:
     # Python 2
@@ -60,6 +61,9 @@ config = None
 exporter_objects = []   # This list will hold references to each exporter instance that is created.
 exporter_functions = [] # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
+
+# GPSDAdaptor Instance, if used.
+gpsd_adaptor = None
 
 # Temporary frequency block list
 # This contains frequncies that should be blocked for a short amount of time.
@@ -191,6 +195,11 @@ def start_decoder(freq, sonde_type):
         # Set the SDR to in-use
         autorx.sdr_list[_device_idx]['in_use'] = True
 
+        if sonde_type.startswith('-'):
+            _exp_sonde_type = sonde_type[1:]
+        else:
+            _exp_sonde_type = sonde_type
+
         # Initialise a decoder.
         autorx.task_list[freq]['task'] = SondeDecoder(
             sonde_type = sonde_type,
@@ -209,7 +218,7 @@ def start_decoder(freq, sonde_type):
             rs92_ephemeris = rs92_ephemeris,
             imet_location = config['station_code'],
             rs41_drift_tweak = config['rs41_drift_tweak'],
-            experimental_decoder = config['experimental_decoders'][sonde_type],
+            experimental_decoder = config['experimental_decoders'][_exp_sonde_type],
             decoder_stats = config['decoder_stats']
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
@@ -355,8 +364,10 @@ def clean_task_list():
             logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
 
 
-    # Check if there is a scanner thread still running. If not, and if there is a SDR free, start one up again.
-    if ('SCAN' not in autorx.task_list) and (allocate_sdr(check_only=True) is not None):
+    # Check if there is a scanner thread still running. 
+    # If not, and if there is a SDR free, start one up again.
+    # Also check for a global scan inhibit flag.
+    if ('SCAN' not in autorx.task_list) and (not autorx.scan_inhibit) and (allocate_sdr(check_only=True) is not None):
         # We have a SDR free, and we are not running a scan thread. Start one.
         start_scanner()
 
@@ -377,6 +388,9 @@ def stop_all():
             _exporter.close()
         except Exception as e:
             logging.error("Error stopping exporter - %s" % str(e))
+
+    if gpsd_adaptor != None:
+        gpsd_adaptor.close()
 
 
 
@@ -437,8 +451,8 @@ def telemetry_filter(telemetry):
     # Regex to check DFM06/09/15/17 callsigns.
     dfm_callsign_valid = re.match(r'DFM[01][5679]-\d{6}', _serial)
 
-    # If Vaisala or DFMs, check the callsigns are valid. If M10 or iMet, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('iMet' in telemetry['type']):
+    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
+    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']):
         return True
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']
@@ -450,9 +464,29 @@ def telemetry_filter(telemetry):
         return False
 
 
+
+def station_position_update(position):
+    ''' Handle a callback from GPSDAdaptor object, and update each exporter object. '''
+    global exporter_objects
+    # Quick sanity check of the incoming data
+    if 'valid' not in position:
+        return
+
+    for _exporter in exporter_objects:
+        try:
+            _exporter.update_station_position(position['latitude'], position['longitude'], position['altitude'])
+        except AttributeError:
+            # This exporter does not require station position data.
+            pass
+        except Exception as e:
+            traceback.print_exc()
+            logging.error("Error updating exporter station position.")
+
+
+
 def main():
     """ Main Loop """
-    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris
+    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor
 
     # Command line arguments.
     parser = argparse.ArgumentParser()
@@ -556,12 +590,13 @@ def main():
         _email_notification = EmailNotification(
             smtp_server = config['email_smtp_server'],
             smtp_port = config['email_smtp_port'],
-            smtp_ssl = config['email_smtp_ssl'],
+            smtp_authentication = config['email_smtp_authentication'],
             smtp_login = config['email_smtp_login'],
             smtp_password = config['email_smtp_password'],
             mail_from = config['email_from'],
             mail_to = config['email_to'],
-            mail_subject = config['email_subject']
+            mail_subject = config['email_subject'],
+            station_position = (config['station_lat'], config['station_lon'], config['station_alt'])
 	)
 
         exporter_objects.append(_email_notification)
@@ -575,14 +610,14 @@ def main():
             _habitat_payload_call = config['habitat_payload_callsign']
 
         if config['habitat_upload_listener_position'] is False:
-            _habitat_user_position = None
+            _habitat_station_position = None
         else:
-            _habitat_user_position = (config['station_lat'], config['station_lon'], config['station_alt'])
+            _habitat_station_position = (config['station_lat'], config['station_lon'], config['station_alt'])
 
         _habitat = HabitatUploader(
             user_callsign = config['habitat_uploader_callsign'],
             user_antenna = config['habitat_uploader_antenna'],
-            user_position = _habitat_user_position,
+            station_position = _habitat_station_position,
             payload_callsign_override = _habitat_payload_call,
             synchronous_upload_time = config['habitat_upload_rate'],
             callsign_validity_threshold = config['payload_id_valid']
@@ -610,7 +645,7 @@ def main():
             callsign_validity_threshold = config['payload_id_valid'],
             station_beacon = config['station_beacon_enabled'],
             station_beacon_rate = config['station_beacon_rate'],
-            station_beacon_position = [config['station_lat'], config['station_lon']],
+            station_beacon_position = (config['station_lat'], config['station_lon'], config['station_alt']),
             station_beacon_comment = config['station_beacon_comment'],
             station_beacon_icon = config['station_beacon_icon']
             )
@@ -643,7 +678,7 @@ def main():
     # Rotator
     if config['rotator_enabled']:
         _rotator = Rotator(
-            station_position = [config['station_lat'], config['station_lon'], config['station_alt']],
+            station_position = (config['station_lat'], config['station_lon'], config['station_alt']),
             rotctld_host = config['rotator_hostname'],
             rotctld_port = config['rotator_port'],
             rotator_update_rate = config['rotator_update_rate'],
@@ -661,7 +696,12 @@ def main():
     exporter_objects.append(_web_exporter)
     exporter_functions.append(_web_exporter.add)
 
-    # MQTT (?) - TODO
+    # GPSD Startup
+    if config['gpsd_enabled']:
+        gpsd_adaptor = GPSDAdaptor(
+            hostname = config['gpsd_host'],
+            port = config['gpsd_port'],
+            callback = station_position_update)
 
     check_autorx_version()
 

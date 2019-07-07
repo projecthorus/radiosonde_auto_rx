@@ -23,13 +23,17 @@ gcc -c bch_ecc_mod.c -w
 gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w
 gcc dfm09mod.c demod_mod.o -lm -o dfm09mod -w
 gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -o rs92mod -w
-#gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
+gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
 #gcc m10mod.c demod_mod.o -lm -o m10mod -w
 
+# Build LMS6-1680 Decoder
+echo "Building LMS6-1680 Demodulator."
+cd ../../mk2a/
+gcc mk2a_lms1680.c -lm -o mk2a_lms1680
 
 # Build M10 decoder
 echo "Building M10 Demodulator."
-cd ../../m10/
+cd ../m10/
 g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
 echo "Building iMet Demodulator."
@@ -54,11 +58,12 @@ cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
+cp ../mk2a/mk2a_lms1680 .
 
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
 #cp ../demod/mod/m10mod .
 cp ../demod/mod/rs92mod .
-#cp ../demod/mod/lms6mod .
+cp ../demod/mod/lms6mod .
 
 echo "Done!"

@@ -146,6 +146,7 @@ class OziUploader(object):
                 'model': telemetry['type'],
                 'freq': telemetry['freq'],
                 'temp': telemetry['temp'],
+                'frame': telemetry['frame']
             }
 
             # Add in any extra fields we may care about.
