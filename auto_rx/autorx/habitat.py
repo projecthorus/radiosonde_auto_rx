@@ -488,6 +488,10 @@ class HabitatUploader(object):
 
     def user_position_upload(self):
         """ Upload the the station position to Habitat. """
+        if self.station_position == None:
+            self.last_user_position_upload = time.time()
+            return False
+
         if (self.station_position[0] != 0.0) or (self.station_position[1] != 0.0):
             _success = uploadListenerPosition(self.user_callsign, self.station_position[0], self.station_position[1], version=auto_rx_version, antenna=self.user_antenna)
             self.last_user_position_upload = time.time()
