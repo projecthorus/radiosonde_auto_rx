@@ -42,7 +42,8 @@ SAMPLES = [
     ['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
     ['m10_96k_float.bin', 9616, -10.0, 96000],  # Really weird baud rate.
     ['imet4_96k_float.bin', 1200, -10.0, 96000], # 1200 baud, but AFSK, so we expect 7-8 dB worse performance than the other sondes.
-    #['rsngp_96k_float.bin', 2400, -100.0, 96000]  # RS92-NGP - wider bandwidth.
+    ['rsngp_96k_float.bin', 2400, -100.0, 96000], # RS92-NGP - wider bandwidth.
+    ['lms6-400_96k_float.bin', 4800, -100, 96000] # LMS6, 400 MHz variant. Continuous signal.
 ]
 
 

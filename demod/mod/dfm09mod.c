@@ -452,9 +452,13 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         gpx->snc.max_ch = conf_id;
     }
 
-    if (conf_id > 4 && conf_id > gpx->snc.max_ch) gpx->snc.max_ch = conf_id; // mind. 5 Kanaele // reset? lower 0xsCaaaab?
+    if (conf_id > 4 && conf_id > gpx->snc.max_ch && ec == 0) { // mind. 5 Kanaele
+        if (bits2val(conf_bits+4, 4) == 0xC) { // 0xsCaaaab
+            gpx->snc.max_ch = conf_id; // reset?
+        }
+    }
 
-    if (conf_id > 4 && conf_id == (gpx->snc.nul_ch>>4)+1)
+    if (conf_id > 4 && (conf_id == (gpx->snc.nul_ch>>4)+1 || conf_id == gpx->snc.max_ch))
     {
         sn2_ch = bits2val(conf_bits, 8);
         sn_ch = ((sn2_ch>>4) & 0xF);

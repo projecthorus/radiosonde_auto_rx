@@ -5,9 +5,7 @@ These scripts are used to test the signal processing performance of the scripts 
 ## Dependencies
 For these scripts to work, we need:
  * The following directories created: samples, generated
- * The various demodulator binaries (rs41ecc, dft_detect, etc... ) located in ../ Currently using:
-   * dfm09ecc, m10 (from radiosonde_auto_rx), rs41ecc, rs92ecc, rs_detect, dft_detect
-   * The above can just be built using the auto_rx build.sh script.
+ * The various demodulator binaries (rs41mod, dft_detect, etc... ) located in ../  - Build these using the build.sh script.
  * CSDR installed and available on $PATH: https://github.com/simonyiszk/csdr
  * The base high-snr samples located in ./samples/. These can be downloaded from http://rfhead.net/sondes/sonde_samples.tar.gz
  * Python (2, will probably work in 3), with numpy available.
@@ -79,6 +77,7 @@ Depending on the mode, the result could be a packet count, or it could be a succ
 * dfm09_96k_float.bin - Graw DFM09, Serial Number 637797, 96 Packets
 * m10_96k_float.bin - Meteomodem M10, 120 packets
 * imet4_96k_float.bin - iMet-4, Serial Number 15236, 119 packets
+* lms6-400_96k_float.bin - Lockheed Martin LMS6 (400 MHz variant), Serial number 8097164, 120 packets.
 
 There are also a set of noise samples available [here](http://rfhead.net/sondes/noise_samples.tar.gz), which are useful for checking the detector scripts for false positives.
 
