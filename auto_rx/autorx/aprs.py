@@ -41,9 +41,14 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             _object_name = sonde_data["id"].strip()
         elif sonde_data['type'] == 'DFM':
             # The DFM sonde IDs are too long to use directly.
-            # Grab the last six digits of the sonde ID (which is the serial number)
-            # TODO: Align this with whatever other decoders do.
-            _id_suffix = sonde_data['id'][-6:]
+
+            # Split out just the serial number part of the ID, and cast it to an int
+            _dfm_id = int(sonde_data['id'].split('-')[-1])
+
+            # Convert to upper-case hex, and take the last 5 nibbles.
+            _id_suffix = hex(_dfm_id).upper()[-5:]
+
+            # Append the hex ID to a shortened sonde-type.
             if "DFM09" in sonde_data['id']:
                 _object_name = "DF9" + _id_suffix
                 sonde_data['type'] = 'DFM09'
