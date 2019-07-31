@@ -61,6 +61,10 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             elif "DFM17" in sonde_data['id']:
                 _object_name = "DF7" + _id_suffix
                 sonde_data['type'] = 'DFM17'
+            elif 'DFMx' in sonde_data['id']:
+                # Catch-all for the 'unknown' DFM types.
+                _object_name = "DF" + sonde_data['id'][4] + _id_suffix
+                sonde_data['type'] = sonde_data['id'].split('-')[0]
             else:
                 return (None, None)
 
