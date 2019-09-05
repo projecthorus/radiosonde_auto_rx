@@ -1,3 +1,4 @@
+![auto_rx logo](autorx.png)
 # Automatic Radiosonde Receiver Utilities
 
 **Please refer to the [auto_rx wiki](https://github.com/projecthorus/radiosonde_auto_rx/wiki) for the latest information.**
