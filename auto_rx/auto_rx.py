@@ -448,8 +448,8 @@ def telemetry_filter(telemetry):
     # ~2025-2030, so have expanded the regex to match (and also support some older RS92s)
     vaisala_callsign_valid = re.match(r'[E-Z][0-5][\d][1-7]\d{4}', _serial)
 
-    # Regex to check DFM06/09/15/17 callsigns.
-    dfm_callsign_valid = re.match(r'DFM[01][5679]-\d{6}', _serial)
+    # Regex to check DFM06/09/15/17 callsigns. Also catches the 'unknown' types (xC, xD, etc)
+    dfm_callsign_valid = re.match(r'DFM[01x][5679CD]-\d{6}', _serial)
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
     if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']):
