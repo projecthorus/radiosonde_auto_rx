@@ -40,6 +40,10 @@ echo "Building iMet Demodulator."
 cd ../imet/
 gcc imet1rs_dft.c -lm -o imet1rs_dft
 
+echo "Building Meisei Demodulator."
+cd ../meisei/
+gcc meisei_ims.c -lm -o meisei_ims
+
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
 # This produces a static build of fsk_demod
@@ -58,6 +62,7 @@ cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
+cp ../meisei/meisei_ims .
 cp ../mk2a/mk2a_lms1680 .
 
 cp ../demod/mod/rs41mod .

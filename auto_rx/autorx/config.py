@@ -263,7 +263,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 		# New demod tweaks - Added 2019-04-23
 		# Default to all experimental decoders off.
-		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': True, 'MK2LMS': False}
+		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': True, 'MK2LMS': False, 'MEISEI': False}
 		auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
 		auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
 		auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')

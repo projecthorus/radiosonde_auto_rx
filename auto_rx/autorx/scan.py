@@ -281,17 +281,6 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
 
 
 
-    # dft_detect return codes:
-    # 2 = DFM
-    # 3 = RS41
-    # 4 = RS92
-    # 5 = M10
-    # 6 = IMET (AB)
-    # 7 = IMET (RS)
-    # 8 = LMS6
-    # 9 = C34/C50
-    # 10 = MK2LMS (1680 MHz LMS6, which uses the MK2A telemetry format)
-
     # Split the line into sonde type and correlation score.
     _fields = ret_output.split(':')
 
@@ -333,6 +322,13 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
             return '-MK2LMS'
         else:
             return 'MK2LMS'
+    elif 'MEISEI' in _type:
+        logging.debug("Scanner #%s - Detected a Meisei Sonde! (Score: %.2f)" % (str(device_idx), _score))
+        # Not currently sure if we expect to see inverted Meisei sondes.
+        if _score < 0:
+            return '-MEISEI'
+        else:
+            return 'MEISEI'
     else:
         return None
 
