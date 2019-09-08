@@ -82,6 +82,15 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             _id_hex = hex(_id_suffix).upper()
             _object_name = "LMS6" + _id_hex[-5:]
 
+        elif 'MEISEI' in sonde_data['type']:
+            # Convert the serial number to an int
+            _meisei_id = int(sonde_data['id'].split('-')[-1])
+            _id_suffix = hex(_meisei_id).upper().split('0X')[1]
+            # Clip to 6 hex digits, in case we end up with more for some reason.
+            if len(_id_suffix) > 6:
+                _id_suffix = _id_suffix[-6:]
+            _object_name = "IMS" + _id_suffix
+
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.

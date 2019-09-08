@@ -451,8 +451,15 @@ def telemetry_filter(telemetry):
     # Regex to check DFM06/09/15/17 callsigns. Also catches the 'unknown' types (xC, xD, etc)
     dfm_callsign_valid = re.match(r'DFM[01x][5679CD]-\d{6}', _serial)
 
+    # Check Meisei sonde callsigns for validity.
+    # meisei_ims returns a callsign of IMS100-0 until it receives the serial number, so we filter based on the 0 being present or not.
+    if 'MEISEI' in telemetry['type']:
+        meisei_callsign_valid = int(_serial.split('-')[1]) != 0
+    else:
+        meisei_callsign_valid = False
+
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']):
+    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']) or ('UDP' in telemetry['type']):
         return True
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']

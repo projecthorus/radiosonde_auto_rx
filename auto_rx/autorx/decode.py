@@ -20,7 +20,7 @@ from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
@@ -68,7 +68,8 @@ class SondeDecoder(object):
         'heading'   : 0.0
     }
 
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6']
+    # TODO: Use the global valid sonde type list.
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
     def __init__(self,
         sonde_type="None",
@@ -395,6 +396,25 @@ class SondeDecoder(object):
 
             decode_cmd += "./lms6mod --json 2>/dev/null"
 
+        elif self.sonde_type == "MEISEI":
+            # Meisei IMS-100 Sondes
+            # Starting out with a 15 kHz bandwidth filter.
+
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # Meisei IMS-100 decoder
+            decode_cmd += "./meisei_ims --json 2>/dev/null"
+
+        elif self.sonde_type == "UDP":
+            # UDP Input Mode.
+            # Used only for testing of new decoders, prior to them being integrated into auto_rx.
+            decode_cmd = "python -m autorx.udplistener"
+
         else:
             return None
 
@@ -562,6 +582,7 @@ class SondeDecoder(object):
         elif self.sonde_type == "iMet":
             # iMet-4 Sondes
             # These are AFSK and hence cannot be decoded using fsk_demod.
+            # Note: This block can probably be removed, as we should never be trying to start up an experimental demod for this sonde type.
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
