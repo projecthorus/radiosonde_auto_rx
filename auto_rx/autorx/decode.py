@@ -20,7 +20,7 @@ from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
@@ -69,7 +69,7 @@ class SondeDecoder(object):
     }
 
     # TODO: Use the global valid sonde type list.
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
     def __init__(self,
         sonde_type="None",
@@ -409,6 +409,11 @@ class SondeDecoder(object):
 
             # Meisei IMS-100 decoder
             decode_cmd += "./meisei_ims --json 2>/dev/null"
+
+        elif self.sonde_type == "UDP":
+            # UDP Input Mode.
+            # Used only for testing of new decoders, prior to them being integrated into auto_rx.
+            decode_cmd = "python -m autorx.udplistener"
 
         else:
             return None
