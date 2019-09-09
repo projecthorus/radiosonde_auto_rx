@@ -1,0 +1,82 @@
+
+Meisei-Radiosonden
+RS-06G, RS-11G, iMS-100
+
+
+PCM-FM, 1200 baud biphase-S
+
+Die 1200 bit pro Sekunde bestehen aus zwei Frames, die wiederum in zwei Subframes unterteilt werden koennen, d.h. 4 mal 300 bit.
+Einige Wetterdaten werden zweimal pro Sekunde gesendet, Telemetrie einmal pro Sekunde.
+Es gibt zwei 600=300+300 bit Frames pro Sekunde mit einen 23+1 bit Header 0x049DCE gefolgt von einem Frame-Counter.
+Die zweiten 300 bit werden wiederum mit dem Header 0xFB6230 eingeleitet, der bis auf das letzte bit das Komplement des anderen Headers ist,
+d.h. 0x049DCE xor 0xFB6230 = 0xFFFFFE.
+Nach jedem Header folgen 6 Bloecke zu je 46 bit, also 24+6*46=300.
+
+Die 46bit-Bloecke sind BCH-Codewoerter. Es handelt sich um einen (63,51)-Code mit Generatorpolynom
+g(x)=x^12+x^10+x^8+x^5+x^4+x^3+1=(x^6+x^4+x^2+x+1)(x^6+x+1).
+gekuerzt auf (46,34), die letzten 12 bit sind die BCH-Kontrollbits.
+
+Die 34 Nachrichtenbits sind aufgeteilt in 16+1+16+1, d.h. nach einem 16 bit Block kommt ein Paritaetsbit,
+das 1 ist, wenn die Anzahl 1en in den 16 bit davor gerade ist, und sonst 0.
+
+Fuer Datenanordnung und Inhalt gibt es mindestens zwei Version je nach Sondentyp.
+GPS z.B. ist bei dem einen Typ jeweils 32bit Integer mit Faktor 1e7 bzw. Hoehe Faktor 1e2;
+beim zweiten Typ hat die Hoehe nur 24 bit auch mit 1e2, und Lon und Lat mit Faktor 1e6, wobei die Nachkommastellen Minuten sind,
+also wie bei NMEA mit Faktor 1e4.
+
+
+
+
+Variante 1 (RS-11G ?)
+
+049DCE1C667FDD8F537C8100004F20764630A20000000010040436 FB623080801F395FFE08A76540000FE01D0C2C1E75025006DE0A07
+049DCE1C67008C73D7168200004F0F764B31A2FFFF000010270B14 FB6230000000000000000000000000000000000000000000001D59
+
+0x00..0x02 HEADER  0x049DCE
+0x03..0x04 16 bit  0.5s-counter, count%2=0:
+0x1B..0x1D HEADER  0xFB6230
+0x20..0x23 32 bit  GPS-lat * 1e7 (DD.dddddd)
+0x24..0x27 32 bit  GPS-lon * 1e7 (DD.dddddd)
+0x28..0x2B 32 bit  GPS-alt * 1e2 (m)
+0x2C..0x2D 16 bit  GPS-vH  * 1e2 (m/s)
+0x2E..0x2F 16 bit  GPS-vD  * 1e2 (degree) (0..360 unsigned)
+0x30..0x31 16 bit  GPS-vU  * 1e2 (m/s)
+0x32..0x35 32 bit  date jjJJMMTT
+
+0x00..0x02 HEADER  0x049DCE
+0x03..0x04 16 bit  0.5s-counter, count%2=1:
+0x17..0x18 16 bit  time ms xxyy, 00.000-59.000
+0x19..0x1A 16 bit  time hh:mm
+0x1B..0x1D HEADER  0xFB6230
+
+
+
+Variante 2 (iMS-100 ?)
+
+049DCE3E228023DBF53FA700003C74628430C100000000ABE00B3B FB62302390031EECCC00E656E42327562B2436C4C01CDB0F18B09A
+049DCE3E23516AF62B3FC700003C7390D131C100000000AB090000 FB62300000000000032423222422202014211B13220000000067C4
+
+0x00..0x02  HEADER  0x049DCE
+0x03..0x04  16 bit  0.5s-counter, count%2=0:
+0x07..0x0A  32 bit  cfg[cnt%64] (float32); cfg[0,16,32,48]=SN
+0x11..0x12  30xx, xx=C1(ims100?),A2(rs11?)
+0x17..0x18  16 bit  time ms yyxx, 00.000-59.000
+0x19..0x1A  16 bit  time hh:mm
+0x1B..0x1D  HEADER  0xFB6230
+0x1E..0x1F  16 bit  ? date (TT,MM,JJ)=(date/1000,(date/10)%100,(date%10)+10)
+0x20..0x23  32 bit  GPS-lat * 1e4 (NMEA DDMM.mmmm)
+0x24..0x27  32 bit  GPS-lon * 1e4 (NMEA DDMM.mmmm)
+0x28..0x2A  24 bit  GPS-alt * 1e2 (m)
+0x30..0x31  16 bit  GPS-vD  * 1e2 (degree)
+0x32..0x33  16 bit  GPS-vH  * 1.944e2 (knots)
+
+0x00..0x02  HEADER  0x049DCE
+0x03..0x04  16 bit  0.5s-counter, count%2=1:
+0x07..0x0A  32 bit  cfg[cnt%64] (float32); freq=400e3+cfg[15]*1e2/kHz
+0x11..0x12  31xx, xx=C1(ims100?),A2(rs11?)
+0x17..0x18  16 bit  1024-counter yyxx, +0x400=1024; rollover synchron zu ms-counter, nach rollover auch +0x300=768
+0x1B..0x1D  HEADER  0xFB6230
+0x22..0x23  yy00..yy03 (yy00: GPS PRN?)
+
+
+

@@ -82,6 +82,15 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             _id_hex = hex(_id_suffix).upper()
             _object_name = "LMS6" + _id_hex[-5:]
 
+        elif 'MEISEI' in sonde_data['type']:
+            # Convert the serial number to an int
+            _meisei_id = int(sonde_data['id'].split('-')[-1])
+            _id_suffix = hex(_meisei_id).upper().split('0X')[1]
+            # Clip to 6 hex digits, in case we end up with more for some reason.
+            if len(_id_suffix) > 6:
+                _id_suffix = _id_suffix[-6:]
+            _object_name = "IMS" + _id_suffix
+
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
@@ -110,7 +119,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     lat = float(sonde_data["lat"])
     lat_degree = abs(int(lat))
     lat_minute = abs(lat - int(lat)) * 60.0
-    lat_min_str = ("%02.2f" % lat_minute).zfill(5)
+    lat_min_str = ("%02.4f" % lat_minute).zfill(7)[:5]
     lat_dir = "S"
     if lat>0.0:
         lat_dir = "N"
@@ -120,7 +129,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     lon = float(sonde_data["lon"])
     lon_degree = abs(int(lon))
     lon_minute = abs(lon - int(lon)) * 60.0
-    lon_min_str = ("%02.2f" % lon_minute).zfill(5)
+    lon_min_str = ("%02.4f" % lon_minute).zfill(7)[:5]
     lon_dir = "E"
     if lon<0.0:
         lon_dir = "W"
@@ -182,7 +191,7 @@ def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx Sond
     lat = float(lat)
     lat_degree = abs(int(lat))
     lat_minute = abs(lat - int(lat)) * 60.0
-    lat_min_str = ("%02.2f" % lat_minute).zfill(5)
+    lat_min_str = ("%02.4f" % lat_minute).zfill(7)[:5]
     lat_dir = "S"
     if lat>0.0:
         lat_dir = "N"
@@ -192,11 +201,25 @@ def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx Sond
     lon = float(lon)
     lon_degree = abs(int(lon))
     lon_minute = abs(lon - int(lon)) * 60.0
-    lon_min_str = ("%02.2f" % lon_minute).zfill(5)
+    lon_min_str = ("%02.4f" % lon_minute).zfill(7)[:5]
     lon_dir = "E"
     if lon<0.0:
         lon_dir = "W"
     lon_str = "%03d%s" % (lon_degree,lon_min_str) + lon_dir
+
+    # Generate the added digits of precision, as per http://www.aprs.org/datum.txt
+    # Base-91 can only encode decimal integers between 0 and 93 (otherwise we end up with non-printable characters)
+    # So, we have to scale the range 00-99 down to 0-90, being careful to avoid errors due to floating point math.
+    _lat_prec = int(round(float(("%02.4f" % lat_minute)[-2:])/1.10))
+    _lon_prec = int(round(float(("%02.4f" % lon_minute)[-2:])/1.10))
+
+    # Now we can add 33 to the 0-90 value to produce the Base-91 character.
+    _lat_prec = chr(_lat_prec + 33)
+    _lon_prec = chr(_lon_prec + 33)
+
+    # Produce Datum + Added precision string
+    # We currently assume all position data is using the WGS84 datum.
+    _datum = "!w%s%s!" % (_lat_prec, _lon_prec)
 
     # Generate timestamp using current UTC time
     _aprs_timestamp = datetime.datetime.utcnow().strftime("%H%M%S")
@@ -209,11 +232,11 @@ def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx Sond
     # Generate output string
     if position_report:
         # Produce a position report with no timestamp, as per page 32 of http://www.aprs.org/doc/APRS101.PDF
-        out_str = "!%s%s%s%s%s" % (lat_str, icon[0], lon_str, icon[1], _aprs_comment)
+        out_str = "!%s%s%s%s%s %s" % (lat_str, icon[0], lon_str, icon[1], _aprs_comment, _datum)
 
     else:
         # Produce an object string
-        out_str = ";%s*%sh%s%s%s%s%s" % (callsign, _aprs_timestamp, lat_str, icon[0], lon_str, icon[1], _aprs_comment)
+        out_str = ";%s*%sh%s%s%s%s%s %s" % (callsign, _aprs_timestamp, lat_str, icon[0], lon_str, icon[1], _aprs_comment, _datum)
 
     return out_str
 
@@ -634,7 +657,7 @@ if __name__ == "__main__":
         {'id':'DFM09-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         {'id':'DFM15-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         {'id':'DFM17-12345678', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
-        {'id':'N1234567', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'N1234567', 'frame':10, 'lat':-10.00001, 'lon':9.99999999, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         {'id':'M1234567', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS92', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         ]
 
@@ -644,6 +667,3 @@ if __name__ == "__main__":
     for _telem in test_telem:
         out_str = telemetry_to_aprs_position(_telem, object_name="<id>", aprs_comment=comment_field, position_report=False)
         print(out_str)
-
-
-
