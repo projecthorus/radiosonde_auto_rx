@@ -122,7 +122,7 @@ def flask_get_telemetry_archive():
     """ Return a copy of the telemetry archive """
     # Make a copy of the store, and remove the non-serialisable GenericTrack object
     _temp_store = copy.deepcopy(flask_telemetry_store)
-    for _element in _temp_store.copy():
+    for _element in _temp_store:
         _temp_store[_element].pop('track')
 
     return json.dumps(_temp_store)
