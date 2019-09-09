@@ -657,7 +657,7 @@ class SondeScanner(object):
             
             # Remove any frequencies in the temporary block list
             self.temporary_block_list_lock.acquire()
-            for _frequency in self.temporary_block_list.keys():
+            for _frequency in self.temporary_block_list.copy().keys():
                 # Check the time the block was added.
                 if self.temporary_block_list[_frequency] > (time.time()-self.temporary_block_time*60):
                     # We should still be blocking this frequency, so remove any peaks with this frequency.
