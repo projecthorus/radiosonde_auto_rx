@@ -201,7 +201,7 @@ class TelemetryLogger(object):
 
         _now = time.time()
 
-        for _id in self.open_logs.keys():
+        for _id in self.open_logs.copy().keys():
             try:
                 if _now > (self.open_logs[_id]['last_time'] + self.FILE_ACTIVITY_TIMEOUT):
                     # Flush and close the log file, and pop this element from the dictionary.
