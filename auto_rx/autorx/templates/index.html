@@ -148,6 +148,14 @@
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
 
+            // Stop the map from zooming when a user scrolls the page.
+            // The user must now either click on or drag the map before the scroll wheel will be enabled,
+            // and can disable the scroll-wheel zoom by clicking anywhere else on the page.
+            // Solution is from: https://gis.stackexchange.com/questions/111887/leaflet-mouse-wheel-zoom-only-after-click-on-map
+            sondemap.scrollWheelZoom.disable();
+            sondemap.on('focus', () => { sondemap.scrollWheelZoom.enable(); });
+            sondemap.on('blur', () => { sondemap.scrollWheelZoom.disable(); });
+
 
             function mapMovedEvent(e){
                 // The user has panned the map, stop following things.
