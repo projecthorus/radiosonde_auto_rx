@@ -325,7 +325,7 @@ def handle_scan_results():
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
 
-    for _key in autorx.task_list.keys():
+    for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
         try:
             _running = autorx.task_list[_key]['task'].running()
@@ -358,7 +358,7 @@ def clean_task_list():
             flask_emit_event('task_event')
 
     # Clean out the temporary block list of old entries.
-    for _freq in temporary_block_list.keys():
+    for _freq in temporary_block_list.copy().keys():
         if temporary_block_list[_freq] < (time.time() - config['temporary_block_time']*60):
             temporary_block_list.pop(_freq)
             logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
