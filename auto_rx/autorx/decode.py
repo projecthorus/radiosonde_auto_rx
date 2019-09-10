@@ -394,7 +394,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./lms6mod --json 2>/dev/null"
+            decode_cmd += "./lms6Xmod --json 2>/dev/null"
 
         elif self.sonde_type == "MEISEI":
             # Meisei IMS-100 Sondes
@@ -408,7 +408,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # Meisei IMS-100 decoder
-            decode_cmd += "./meisei_ims --json 2>/dev/null"
+            decode_cmd += "./meisei100mod --json 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
@@ -616,7 +616,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./lms6mod --json 2>/dev/null"
+            decode_cmd += "./lms6Xmod --json 2>/dev/null"
 
         else:
             return None

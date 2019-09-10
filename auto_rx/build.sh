@@ -24,6 +24,8 @@ gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w
 gcc dfm09mod.c demod_mod.o -lm -o dfm09mod -w
 gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -o rs92mod -w
 gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
+gcc lms6Xmod.c demod_mod.o bch_ecc_mod.o -lm -o lms6Xmod -w
+gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -o meisei100mod -w
 #gcc m10mod.c demod_mod.o -lm -o m10mod -w
 
 # Build LMS6-1680 Decoder
@@ -40,9 +42,6 @@ echo "Building iMet Demodulator."
 cd ../imet/
 gcc imet1rs_dft.c -lm -o imet1rs_dft
 
-echo "Building Meisei Demodulator."
-cd ../meisei/
-gcc meisei_ims.c -lm -o meisei_ims
 
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
@@ -62,13 +61,13 @@ cp ../demod/dfm09ecc .
 cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
-cp ../meisei/meisei_ims .
 cp ../mk2a/mk2a_lms1680 .
 
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
 #cp ../demod/mod/m10mod .
 cp ../demod/mod/rs92mod .
-cp ../demod/mod/lms6mod .
+cp ../demod/mod/lms6Xmod .
+cp ../demod/mod/meisei100mod .
 
 echo "Done!"
