@@ -193,6 +193,11 @@ static ui32_t bits2val(ui8_t bits[], int len) {
     return val;
 }
 
+static int get_w16(ui8_t *subframe_bits, int j) {
+    if (j < 0 || j > 11) return -1;
+    return bits2val(subframe_bits+HEADLEN+46*(j/2)+17*(j%2), 16);
+}
+
 /* -------------------------------------------------------------------------- */
 
 
@@ -218,6 +223,8 @@ int main(int argc, char **argv) {
 
     int subframe = 0;
     int err_frm = 0;
+    int gps_chk_sum = 0;
+    int gps_err = 0;
 
     ui8_t block_err[6];
     int block;
@@ -431,6 +438,8 @@ int main(int argc, char **argv) {
 
                 biphi_s(gpx.frame_rawbits, gpx.frame_bits+HEADLEN);
 
+                gps_chk_sum = 0;
+                gps_err = 0;
                 err_frm = 0;
 
                 for (subframe = 0; subframe < 2; subframe++)
@@ -554,6 +563,9 @@ int main(int argc, char **argv) {
                             ui32_t w32;
                             float *fcfg = (float *)&w32;
 
+                            // 1st subframe
+                            for (j = 10; j < 12; j++) gps_chk_sum += get_w16(subframe_bits, j);
+
                             // 0x30C1, 0x31C1
                             val = bits2val(subframe_bits+HEADLEN+46*3+17, 16);
                             if ( (val & 0xFF) < 0xC0 && err_frm == 0) {
@@ -599,6 +611,10 @@ int main(int argc, char **argv) {
 
                         if (header_found % 2 == 0) // FB6230
                         {
+                            // 2nd subframe
+                            for (j = 0; j < 11; j++) gps_chk_sum += get_w16(subframe_bits, j);
+                            gps_err =  (gps_chk_sum & 0xFFFF) != get_w16(subframe_bits, 11); // 1st+2nd subframe
+
                             if ((counter % 2 == 0)) {
                                 //offset=24+16+1;
 
@@ -646,7 +662,7 @@ int main(int argc, char **argv) {
 
                             if (counter % 2 == 0) {
                                 if (option_ecc) {
-                                printf(" ");
+                                    if (gps_err) printf("(no)"); else printf("(ok)");
                                     if (err_frm) printf("[NO]"); else printf("[OK]");
                                 }
                                 if (option_verbose) {
@@ -661,7 +677,7 @@ int main(int argc, char **argv) {
                                 }
                                 printf("\n");
 
-                                if (option_jsn && err_frm==0) {
+                                if (option_jsn && err_frm==0 && gps_err==0) {
                                     char id_str[] = "xxxxxx\0\0\0\0\0\0";
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
                                         sprintf(id_str, "%.0f", gpx.sn);
