@@ -66,6 +66,9 @@ class FSKDemodStats(object):
         """
 
         # Check input type
+        if type(data) == bytes:
+            data = data.decode('ascii')
+
         if type(data) == str:
             # Attempt to parse string.
             try:
