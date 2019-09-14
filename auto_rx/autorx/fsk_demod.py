@@ -66,6 +66,9 @@ class FSKDemodStats(object):
         """
 
         # Check input type
+        if type(data) == bytes:
+            data = data.decode('ascii')
+
         if type(data) == str:
             # Attempt to parse string.
             try:
@@ -155,7 +158,7 @@ if __name__ == "__main__":
             _line = json.loads(_line)
         except:
             continue
-            ß
+            
         stats.update(_line)
 
         time.sleep(1/rate)

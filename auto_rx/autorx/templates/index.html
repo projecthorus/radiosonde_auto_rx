@@ -187,6 +187,7 @@
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
                     {title:"Range (km)", field:"range", headerSort:false},
+                    {title:"SNR (dB)", field:"snr", headerSort:false, visible:false},
                     {title:"Other", field:"other", headerSort:false}
                 ]
             });
@@ -238,6 +239,12 @@
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             }
+                        }
+
+                        // Add SNR data, if it exists.
+                        if (sonde_id_data.hasOwnProperty('snr')){
+                            $("#telem_table").tabulator("showColumn", "snr");
+                            sonde_id_data.snr = sonde_id_data.snr.toFixed(1);
                         }
 
                         // Add data into the 'other' field.
