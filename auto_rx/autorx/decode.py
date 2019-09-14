@@ -206,11 +206,11 @@ class SondeDecoder(object):
             # Otherwise, bomb out. 
             raise TypeError("Supplied exporter has incorrect type.")
 
-        # Generate the decoder command.
         self.decoder_command = None # Decoder command for 'regular' decoders.
         self.decoder_command_2 = None # Second part of split demod/decode command for experimental decoders.
         self.demod_stats = None # FSKDemodStats object, used to parse demodulator statistics.
 
+        # Generate the decoder command.
         if self.experimental_decoder:
             # Create a copy of the RX frequency, which will be updated when generating the decoder command.
             self.rx_frequency = self.sonde_freq
@@ -218,6 +218,7 @@ class SondeDecoder(object):
             # sonde.
             (self.decoder_command, self.decoder_command_2, self.demod_stats) = self.generate_decoder_command_experimental()
         else:
+            # 'Regular' decoder - just a single command.
             self.decoder_command = self.generate_decoder_command()
 
 
@@ -236,7 +237,6 @@ class SondeDecoder(object):
 
     def generate_decoder_command(self):
         """ Generate the shell command which runs the relevant radiosonde decoder - Standard decoders.
-
 
         Returns:
             str/None: The shell command which will be run in the decoder thread, or none if a valid decoder could not be found.
@@ -433,7 +433,7 @@ class SondeDecoder(object):
         """ Generate the shell command which runs the relevant radiosonde decoder - Experimental Decoders
 
         Returns:
-            str/None: The shell command which will be run in the decoder thread, or none if a valid decoder could not be found.
+            Tuple(str, str, FSKDemodState) / None: The demod & decoder commands, and a FSKDemodStats object to process the demodulator statistics.
 
         """
 
@@ -644,21 +644,22 @@ class SondeDecoder(object):
         
         asyncreader.stop()
 
-
-
     def decoder_thread(self):
-        """ Runs the supplied decoder command as a subprocess, and passes returned lines to handle_decoder_line. """
+        """ Runs the supplied decoder command(s) as a subprocess, and passes returned lines to handle_decoder_line. """
         
         # Timeout Counter. 
         _last_packet = time.time()
 
         if self.decoder_command_2 is None:
+            # No second decoder command, so we only need to process stdout from the one process.
             self.log_debug("Decoder Command: %s" % self.decoder_command )
 
             # Start the thread.
             self.decode_process = subprocess.Popen(self.decoder_command, shell=True, stdin=None, stdout=subprocess.PIPE, preexec_fn=os.setsid) 
 
         else:
+            # Two decoder commands! This means one is a demod command, from which we need to handle stderr,
+            # and one is a decoder, which we pipe in stdout from the demodulator.
             self.log_debug("Demodulator Command: %s" % self.decoder_command)
             self.log_debug("Decoder Command: %s" % self.decoder_command_2)
 
