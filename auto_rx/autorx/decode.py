@@ -637,7 +637,6 @@ class SondeDecoder(object):
         while (not asyncreader.eof()) and self.decoder_running:
             for _line in asyncreader.readlines():
                 self.demod_stats.update(_line)
-            
             # Avoid spinlocking..
             # Probably about time we looked at using async for this stuff...
             time.sleep(0.2)
