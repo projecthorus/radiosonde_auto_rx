@@ -114,8 +114,8 @@ class EmailNotification(object):
 
                 if self.station_position != None:
                     _relative_position = position_info(self.station_position, (telemetry['lat'], telemetry['lon'], telemetry['alt']))
-                    msg += 'Range:  %.1f km\n' % (_relative_position['straight_distance']/1000.0)
-                    msg += 'Bearing: %d degrees True\n' % int(_relative_position['bearing'])
+                    msg += 'Range:     %.1f km\n' % (_relative_position['straight_distance']/1000.0)
+                    msg += 'Bearing:   %d degrees True\n' % int(_relative_position['bearing'])
 
                 msg += '\n'
                 #msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
