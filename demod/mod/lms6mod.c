@@ -126,7 +126,7 @@ typedef struct {
 typedef struct {
     int frnr;
     int sn;
-    int week; int gpstow;
+    int week; int gpstow; int gpssec;
     int jahr; int monat; int tag;
     int wday;
     int std; int min; float sek;
@@ -142,6 +142,37 @@ typedef struct {
     VIT_t *vit;
 } gpx_t;
 
+
+/* ------------------------------------------------------------------------------------ */
+static int gpstow_start = -1;
+static double time_elapsed_sec = 0.0;
+
+/*
+ * Convert GPS Week and Seconds to Modified Julian Day.
+ * - Adapted from sci.astro FAQ.
+ * - Ignores UTC leap seconds.
+ */
+// in : week, gpssec
+// out: jahr, monat, tag
+static void Gps2Date(gpx_t *gpx) {
+    long GpsDays, Mjd;
+    long _J, _C, _Y, _M;
+
+    GpsDays = gpx->week * 7 + (gpx->gpssec / 86400);
+    Mjd = 44244 + GpsDays;
+
+    _J = Mjd + 2468570;
+    _C = 4 * _J / 146097;
+    _J = _J - (146097 * _C + 3) / 4;
+    _Y = 4000 * (_J + 1) / 1461001;
+    _J = _J - 1461 * _Y / 4 + 31;
+    _M = 80 * _J / 2447;
+    gpx->tag = _J - 2447 * _M / 80;
+    _J = _M / 11;
+    gpx->monat = _M + 2 - (12 * _J);
+    gpx->jahr = 100 * (_C - 49) + _Y + _J;
+}
+/* ------------------------------------------------------------------------------------ */
 
 // ------------------------------------------------------------------------
 
@@ -419,7 +450,7 @@ static int get_FrameNb(gpx_t *gpx) {
 //char weekday[7][3] = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 static char weekday[7][4] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
-static int get_GPStime(gpx_t *gpx) {
+static int get_GPStime(gpx_t *gpx, int crc_err) {
     int i;
     unsigned byte;
     ui8_t gpstime_bytes[4];
@@ -436,10 +467,15 @@ static int get_GPStime(gpx_t *gpx) {
         gpstime |= gpstime_bytes[i] << (8*(3-i));
     }
 
+    if (gpstow_start < 0 && !crc_err) {
+        gpstow_start = gpstime; // time elapsed since start-up?
+        if (gpx->week > 0 && gpstime/1000.0 < time_elapsed_sec) gpx->week += 1;
+    }
     gpx->gpstow = gpstime;
 
     ms = gpstime % 1000;
     gpstime /= 1000;
+    gpx->gpssec = gpstime;
 
     day = gpstime / (24 * 3600);
     gpstime %= (24*3600);
@@ -603,8 +639,16 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
             get_FrameNb(gpx);
             printf(" (%7d) ", gpx->sn);
             printf(" [%5d] ", gpx->frnr);
-            err = get_GPStime(gpx);
+            err = get_GPStime(gpx, crc_err);
             if (!err) printf("%s ", weekday[gpx->wday]);
+            if (gpx->week > 0) {
+                if (gpx->gpstow < gpstow_start && !crc_err) {
+                    gpx->week += 1; // week roll-over
+                    gpstow_start = gpx->gpstow;
+                }
+                Gps2Date(gpx);
+                fprintf(stdout, "%04d-%02d-%02d ", gpx->jahr, gpx->monat, gpx->tag);
+            }
             printf("%02d:%02d:%06.3f ", gpx->std, gpx->min, gpx->sek); // falls Rundung auf 60s: Ueberlauf
 
             get_GPSlat(gpx);
@@ -628,8 +672,12 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                 // Print JSON output required by auto_rx.
                 if (crc_err==0) { // CRC-OK
                     // UTC oder GPS?
-                    printf("{ \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",
-                           gpx->frnr, gpx->sn, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV );
+                    printf("{ \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"", gpx->frnr, gpx->sn );
+                    //if (gpx->week > 0) printf("%04d-%02d-%02dT", gpx->jahr, gpx->monat, gpx->tag );
+                    printf("%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                           gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV );
+                    printf(", \"gpstow\": %d", gpx->gpstow );
+                    printf(" }\n");
                     printf("\n");
                 }
             }
@@ -746,9 +794,11 @@ int main(int argc, char **argv) {
 
     int option_inv = 0;    // invertiert Signal
     int option_iq = 0;
+    int option_lp = 0;
     int option_dc = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
+    int gpsweek = 0;
 
     FILE *fp = NULL;
     char *fpname = NULL;
@@ -818,6 +868,14 @@ int main(int argc, char **argv) {
         }
         else if   (strcmp(*argv, "--ecc" ) == 0) { gpx->option.ecc = 1; } // RS-ECC
         else if   (strcmp(*argv, "--vit" ) == 0) { gpx->option.vit = 1; } // viterbi
+        else if ( (strcmp(*argv, "--gpsweek") == 0) ) {
+            ++argv;
+            if (*argv) {
+                gpsweek = atoi(*argv);
+                if (gpsweek < 1024 || gpsweek > 3072) gpsweek =  0;
+            }
+            else return -1;
+        }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
@@ -844,6 +902,17 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
         else if   (strcmp(*argv, "--json") == 0) {
             gpx->option.jsn = 1;
             gpx->option.ecc = 1;
@@ -871,6 +940,8 @@ int main(int argc, char **argv) {
     gpx->sf = 0;
 
     gpx->option.inv = option_inv; // irrelevant
+
+    gpx->week = gpsweek;
 
     if (option_iq) sel_wavch = 0;
 
@@ -900,7 +971,9 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.5; // bw/time (ISI) // 1.0..2.0
     dsp.h = 0.9;  // 1.0 modulation index
+    dsp.lpIQ_bw = 8e3;
     dsp.opt_iq = option_iq;
+    dsp.opt_lp = option_lp;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -963,6 +1036,7 @@ int main(int argc, char **argv) {
 
                     gpx->blk_rawbits[pos] = '\0';
 
+                    time_elapsed_sec = dsp.sample_in / (double)dsp.sr;
                     proc_frame(gpx, pos);
 
                     if (pos < RAWBITBLOCK_LEN) break;

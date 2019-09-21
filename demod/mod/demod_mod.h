@@ -92,6 +92,7 @@ typedef struct {
     double V_signal;
     double SNRdB;
 
+    // decimate
     int decM;
     ui32_t sr_base;
     ui32_t dectaps;
@@ -101,6 +102,13 @@ typedef struct {
     float complex *decMbuf;
     float complex *ex; // exp_lut
     double xlt_fq;
+
+    // IF: lowpass
+    int opt_lp;
+    int lpIQ_bw;
+    int lpIQtaps; // ui32_t
+    float *ws_lpIQ;
+    float complex *lpIQ_buf;
 
 } dsp_t;
 

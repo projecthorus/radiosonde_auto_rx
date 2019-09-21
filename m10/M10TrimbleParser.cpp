@@ -336,12 +336,14 @@ std::string M10TrimbleParser::getSerialNumber() {
      * - CC is the month of fabrication
      * - D is the product type, 2 is production type
      * - EEEE is the RS serial number
+
+     NOTE: Removed -T from callsign. 2019-09-21
      */
     
     byte = sn_bytes[2];
-    sprintf(SN, "M10-T-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
+    sprintf(SN, "M10-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
-    sprintf(SN + 9, "-%1X-%1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
+    sprintf(SN + 7, "-%1X-%1u%04u", sn_bytes[0]&0xF, (byte >> 13)&0x7, byte & 0x1FFF);
 
     return SN;
 }

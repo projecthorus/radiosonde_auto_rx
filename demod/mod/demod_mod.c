@@ -404,6 +404,7 @@ static int get_SNR(dsp_t *dsp) {
 }
 
 
+// decimate lowpass
 static float *ws_dec;
 
 static double sinc(double x) {
@@ -413,10 +414,11 @@ static double sinc(double x) {
     return y;
 }
 
-static int decimate_init(int taps, float f) {
+static int lowpass_init(float f, int taps, float **pws) {
     double *h, *w;
     double norm = 0;
     int n;
+    float *ws = NULL;
 
     if (taps % 2 == 0) taps++; // odd/symmetric
 
@@ -424,17 +426,18 @@ static int decimate_init(int taps, float f) {
 
     h = (double*)calloc( taps+1, sizeof(double)); if (h == NULL) return -1;
     w = (double*)calloc( taps+1, sizeof(double)); if (w == NULL) return -1;
-    ws_dec = (float*)calloc( taps+1, sizeof(float)); if (ws_dec == NULL) return -1;
+    ws = (float*)calloc( taps+1, sizeof(float)); if (ws == NULL) return -1;
 
     for (n = 0; n < taps; n++) {
         w[n] = 7938/18608.0 - 9240/18608.0*cos(2*M_PI*n/(taps-1)) + 1430/18608.0*cos(4*M_PI*n/(taps-1)); // Blackmann
         h[n] = 2*f*sinc(2*f*(n-(taps-1)/2));
-        ws_dec[n] = w[n]*h[n];
-        norm += ws_dec[n];
+        ws[n] = w[n]*h[n];
+        norm += ws[n]; // 1-norm
     }
     for (n = 0; n < taps; n++) {
-        ws_dec[n] /= norm;
+        ws[n] /= norm; // 1-norm
     }
+    *pws = ws;
 
     free(h); h = NULL;
     free(w); w = NULL;
@@ -442,14 +445,15 @@ static int decimate_init(int taps, float f) {
     return taps;
 }
 
-static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t M) {
+static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     double complex w = 0;
-    for (n = 0; n < M; n++) {
-        w += buffer[(sample+n+1)%M]*ws_dec[M-1-n];
+    for (n = 0; n < taps; n++) {
+        w += buffer[(sample+n+1)%taps]*ws[taps-1-n];
     }
     return (float complex)w;
 }
+
 
 int f32buf_sample(dsp_t *dsp, int inv) {
     float s = 0.0;
@@ -471,9 +475,16 @@ int f32buf_sample(dsp_t *dsp, int inv) {
                 dsp->sample_dec += 1;
                 if (dsp->sample_dec == s_reset) dsp->sample_dec = 0;
             }
-            z = lowpass(dsp->decXbuffer, dsp->sample_dec, dsp->dectaps);
+            z = lowpass(dsp->decXbuffer, dsp->sample_dec, dsp->dectaps, ws_dec);
+
         }
         else if ( f32read_csample(dsp, &z) == EOF ) return EOF;
+
+        // IF-lowpass
+        if (dsp->opt_lp) {
+            dsp->lpIQ_buf[dsp->sample_in % dsp->lpIQtaps] = z;
+            z = lowpass(dsp->lpIQ_buf, dsp->sample_in, dsp->lpIQtaps, dsp->ws_lpIQ);
+        }
 
         dsp->raw_iqbuf[dsp->sample_in % dsp->N_IQBUF] = z;
 
@@ -798,7 +809,7 @@ int init_buffers(dsp_t *dsp) {
         t_bw /= sr_base;
         taps = 4.0/t_bw; if (taps%2==0) taps++;
 
-        taps = decimate_init(taps, f_lp);
+        taps = lowpass_init(f_lp, taps, &ws_dec); // decimate lowpass
         if (taps < 0) return -1;
         dsp->dectaps = (ui32_t)taps;
 
@@ -852,6 +863,23 @@ int init_buffers(dsp_t *dsp) {
 
         dsp->decMbuf = calloc( dsp->decM+1, sizeof(float complex));
         if (dsp->decMbuf == NULL) return -1;
+    }
+
+    if (dsp->opt_iq && dsp->opt_lp)
+    {
+        float f_lp; // lowpass_bw
+        int taps; // lowpass taps: 4*sr/transition_bw
+
+        // IF lowpass
+        taps = 4*dsp->sr/4e3; if (taps%2==0) taps++; // 4kHz transition
+        f_lp = dsp->lpIQ_bw/(float)dsp->sr/2.0;
+        taps = lowpass_init(f_lp, taps, &dsp->ws_lpIQ); if (taps < 0) return -1;
+
+        dsp->lpIQtaps = taps;
+        dsp->lpIQ_buf = calloc( dsp->lpIQtaps+3, sizeof(float complex));
+        if (dsp->lpIQ_buf == NULL) return -1;
+
+        // dc-offset: if not centered, (aquisition) lowpass bw = lpIQ_bw + 4kHz
     }
 
 
@@ -994,6 +1022,12 @@ int free_buffers(dsp_t *dsp) {
         if (dsp->ex)         { free(dsp->ex);         dsp->ex         = NULL; }
 
         if (ws_dec) { free(ws_dec); ws_dec = NULL; }
+    }
+
+    if (dsp->opt_iq && dsp->opt_lp)
+    {
+        if (dsp->ws_lpIQ)  { free(dsp->ws_lpIQ);  dsp->ws_lpIQ  = NULL; }
+        if (dsp->lpIQ_buf) { free(dsp->lpIQ_buf); dsp->lpIQ_buf = NULL; }
     }
 
     return 0;

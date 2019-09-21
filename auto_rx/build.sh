@@ -10,11 +10,11 @@ echo "Building dft_detect"
 cd ../scan/
 gcc dft_detect.c -lm -o dft_detect -DNOC34C50
 
-echo "Building RS92/RS41/DFM Demodulators"
-cd ../demod/
-gcc -c demod.c
-gcc -c demod_dft.c
-gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc
+echo "Building RS92/RS41/DFM/LMS6/iMS Demodulators"
+#cd ../demod/
+#gcc -c demod.c
+#gcc -c demod_dft.c
+#gcc dfm09dm_dft.c demod_dft.o -lm -o dfm09ecc
 
 # New demodulators
 cd ../demod/mod/
