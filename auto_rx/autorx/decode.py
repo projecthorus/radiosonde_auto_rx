@@ -93,7 +93,7 @@ class SondeDecoder(object):
         experimental_decoder = False,
         decoder_stats = False,
 
-        imet_location = ""):
+        imet_location = "SONDE"):
         """ Initialise and start a Sonde Decoder.
 
         Args:

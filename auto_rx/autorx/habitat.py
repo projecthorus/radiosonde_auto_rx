@@ -90,11 +90,12 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
         if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
             _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
 
+    # NOTE: Disabled as of 2019-09-21
     # Add on the station code, which will only be present if we are receiving an iMet sonde.
     # This may assist multiple receiving stations in the vicinity of an iMet launch site coordinate
     # the iMet unique ID generation.
-    if 'station_code' in telemetry:
-        _sentence += " LOC: %s" % telemetry['station_code']
+    #if 'station_code' in telemetry:
+    #    _sentence += " LOC: %s" % telemetry['station_code']
 
     # Add on any custom comment data if provided.
     if comment != None:

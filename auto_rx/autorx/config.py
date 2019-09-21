@@ -66,7 +66,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		'station_lat'	: 0.0,
 		'station_lon'	: 0.0,
 		'station_alt'	: 0.0,
-		'station_code'	: 'SONDE',
+		'station_code'	: 'SONDE',	# NOTE: This will not be read from the config file, but will be left in place for now
+									# as a default setting.
 		'gpsd_enabled'	: False,
 		'gpsd_host'		: 'localhost',
 		'gpsd_port'		: 2947,
@@ -254,10 +255,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['save_decode_audio'] = config.getboolean('debugging', 'save_decode_audio')
 		auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
 
-		auto_rx_config['station_code'] = config.get('location', 'station_code')
-		if len(auto_rx_config['station_code']) > 5:
-			auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
-			logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
+		# NOTE 2019-09-21: The station code will now be fixed at the default to avoid multiple iMet callsign issues.
+		# auto_rx_config['station_code'] = config.get('location', 'station_code')
+		# if len(auto_rx_config['station_code']) > 5:
+		# 	auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
+		# 	logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
 
 		auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
 
