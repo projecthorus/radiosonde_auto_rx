@@ -577,6 +577,12 @@ def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 2):
         bool: True if the RTLSDR device is accessible, False otherwise.
     """
 
+    # Immediately return true for any SDR with a device ID that starts with TCP,
+    # as this indicates this is not actually a RTLSDR, but a client connecting to some other
+    # SDR server.
+    if device_idx.startswith('TCP'):
+        return True
+
     _rtl_cmd = "timeout 5 %s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
 
 
