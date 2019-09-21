@@ -91,8 +91,6 @@ class SondeDecoder(object):
         rs92_ephemeris = None,
         rs41_drift_tweak = False,
         experimental_decoder = False,
-        decoder_stats = False,
-
         imet_location = "SONDE"):
         """ Initialise and start a Sonde Decoder.
 
@@ -146,7 +144,6 @@ class SondeDecoder(object):
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
         self.experimental_decoder = experimental_decoder
-        self.decoder_stats = decoder_stats
         self.imet_location = imet_location
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
@@ -642,6 +639,7 @@ class SondeDecoder(object):
             time.sleep(0.2)
         
         asyncreader.stop()
+
 
     def decoder_thread(self):
         """ Runs the supplied decoder command(s) as a subprocess, and passes returned lines to handle_decoder_line. """

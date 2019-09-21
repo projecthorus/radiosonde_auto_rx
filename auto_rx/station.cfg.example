@@ -398,25 +398,19 @@ sdr_power_path = rtl_power
 drift_tweak = False
 
 #
-# Experimental Decoders - Use at your own risk!
+# Alternate Decode Chains
 #
-# These experimental demod chains use David Rowe's fsk_demod modem.
+# These (not so) experimental demod chains use David Rowe's fsk_demod modem.
 # They have much better drift handling performance, and so may be better suited for
 # 1680 MHz sondes, but use considerably more CPU. Recommend use of a Pi 3 or better.
-# The experimental decoders can be enabled independently for each radiosonde type.
-rs41_experimental = False
-rs92_experimental = False
-dfm_experimental = False
-m10_experimental = False
+# The experimental decoders can be enabled/disabled independently for each radiosonde type.
+rs41_experimental = True
+rs92_experimental = True
+dfm_experimental = True
+m10_experimental = True
 # 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
 lms6-400_experimental = True
 # Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
-
-# Dump FSK Demod statistics to stats_<device_ID>.txt while the modem is running.
-# This ends up at ~200mb per flight, and is over-written with each new sonde tracked.
-# The test/plot_fsk_demod_stats.py script can plot these files for debugging purposes.
-# Eventually the modem statistics will be integrated into the web GUI.
-enable_stats = False
 
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
@@ -424,7 +418,6 @@ enable_stats = False
 # which should improve detection considerably.
 # Set this to True if you are sure that only RS92-NGPs are flying in your area.
 ngp_tweak = False
-
 
 
 # Position Filtering Options
