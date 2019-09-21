@@ -882,6 +882,7 @@ int main(int argc, char **argv) {
     int option_ptu = 0;
     int option_dc = 0;
     int option_iq = 0;
+    int option_lp = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
@@ -974,6 +975,17 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
         else if   (strcmp(*argv, "--json") == 0) { gpx.option.jsn = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -996,6 +1008,7 @@ int main(int argc, char **argv) {
 
 
     // init gpx
+
     pcm.sel_ch = sel_wavch;
     k = read_wav_header(&pcm, fp);
     if ( k < 0 ) {
@@ -1023,7 +1036,9 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0
     dsp.h = 0.9;  // 1.2 modulation index
+    dsp.lpIQ_bw = 24e3;
     dsp.opt_iq = option_iq;
+    dsp.opt_lp = option_lp;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1040,63 +1055,63 @@ int main(int argc, char **argv) {
 
     bitofs += shift;
 
-        while ( 1 )
-        {
+    while ( 1 )
+    {
 
-                header_found = find_header(&dsp, thres, 2, bitofs, option_dc);
-                _mv = dsp.mv;
+        header_found = find_header(&dsp, thres, 2, bitofs, option_dc);
+        _mv = dsp.mv;
 
-            if (header_found == EOF) break;
+        if (header_found == EOF) break;
 
-            // mv == correlation score
-            if (_mv*(0.5-gpx.option.inv) < 0) {
-                gpx.option.inv ^= 0x1;  // M10: irrelevant
+        // mv == correlation score
+        if (_mv*(0.5-gpx.option.inv) < 0) {
+            gpx.option.inv ^= 0x1;  // M10: irrelevant
+        }
+
+
+        if (header_found) {
+
+            bitpos = 0;
+            pos = 0;
+            pos /= 2;
+            bit0 = '0'; // oder: _mv[j] > 0
+
+            while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
+
+                if (option_iq >= 2) {
+                    float bl = -1;
+                    if (option_iq > 2) bl = 4.0;
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
+                }
+                else {
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                }
+
+                if ( bitQ == EOF ) { break; }
+
+                gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
+                pos++;
+                bit0 = bit;
+                bitpos += 1;
+            }
+            gpx.frame_bits[pos] = '\0';
+            print_frame(&gpx, pos);
+            if (pos < BITFRAME_LEN) break;
+
+            header_found = 0;
+
+            // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
+            if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
+                while ( bitpos < 5*BITFRAME_LEN ) {
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    if ( bitQ == EOF) break;
+                    bitpos++;
+                }
             }
 
-
-                if (header_found) {
-
-                    bitpos = 0;
-                    pos = 0;
-                    pos /= 2;
-                    bit0 = '0'; // oder: _mv[j] > 0
-
-                    while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
-
-                        if (option_iq >= 2) {
-                            float bl = -1;
-                            if (option_iq > 2) bl = 4.0;
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
-                        }
-                        else {
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
-                        }
-
-                        if ( bitQ == EOF ) { break; }
-
-                        gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
-                        pos++;
-                        bit0 = bit;
-                        bitpos += 1;
-                    }
-                    gpx.frame_bits[pos] = '\0';
-                    print_frame(&gpx, pos);
-                    if (pos < BITFRAME_LEN) break;
-
-                    header_found = 0;
-
-                    // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
-                    if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
-                        while ( bitpos < 5*BITFRAME_LEN ) {
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
-                            if ( bitQ == EOF) break;
-                            bitpos++;
-                        }
-                    }
-
-                    pos = 0;
-                }
+            pos = 0;
         }
+    }
 
 
     free_buffers(&dsp);

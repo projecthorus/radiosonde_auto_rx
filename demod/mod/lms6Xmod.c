@@ -146,6 +146,7 @@ typedef struct {
     int typ;
     float frm_rate;
     int auto_detect;
+    int reset_dsp;
     option_t option;
     RS_t RS;
     VIT_t *vit;
@@ -840,7 +841,7 @@ static void proc_frame(gpx_t *gpx, int len) {
                 if (gpx->sf6 < 4) {
                     frmsync_X(gpx, block_bytes); // pos(frm_syncX[]) < 46: different baud not significant
                     if (gpx->sfX == 4)  {
-                        if (gpx->auto_detect) gpx->typ = 10;
+                        if (gpx->auto_detect) { gpx->typ = 10; gpx->reset_dsp = 1; }
                         break;
                     }
                 }
@@ -881,7 +882,7 @@ static void proc_frame(gpx_t *gpx, int len) {
                 for (j = 0; j < 4; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
                 if (gpx->sf6 == 4)  {
                     gpx->frm_pos = 0;
-                    if (gpx->auto_detect) gpx->typ = 6;
+                    if (gpx->auto_detect) { gpx->typ = 6; gpx->reset_dsp = 1; }
                     break;
                 }
                 blk_pos++;
@@ -891,7 +892,7 @@ static void proc_frame(gpx_t *gpx, int len) {
             // LMS6: frm_rate = 4800.0 * FRAME_LEN/BLOCK_LEN = 4800*300/260 = 5538
             // LMSX: delta_mp = 4797.8 (longer timesync-frames possible)
             if (gpx->frm_rate > 5000.0 || gpx->frm_rate < 4000.0) { // lms6-blocklen = 260/300 sr, sync wird ueberlesen ...
-                if (gpx->auto_detect) gpx->typ = 6;
+                if (gpx->auto_detect) { gpx->typ = 6; gpx->reset_dsp = 1; }
             }
         }
         else
@@ -923,6 +924,7 @@ int main(int argc, char **argv) {
 
     int option_inv = 0;    // invertiert Signal
     int option_iq = 0;
+    int option_lp = 0;
     int option_dc = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
@@ -968,7 +970,7 @@ int main(int argc, char **argv) {
     gpx_t _gpx = {0}; gpx_t *gpx = &_gpx;
 
     gpx->auto_detect = 1;
-
+    gpx->reset_dsp = 0;
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
@@ -1015,9 +1017,6 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
-        else if ( (strcmp(*argv, "--dc") == 0) ) {
-            option_dc = 1;
-        }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
@@ -1048,6 +1047,8 @@ int main(int argc, char **argv) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
             option_iq = 5;
         }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
         else if   (strcmp(*argv, "--json") == 0) {
             gpx->option.jsn = 1;
             gpx->option.ecc = 1;
@@ -1108,7 +1109,9 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0  // BT(lmsX) < BT(lms6) ? -> init_buffers()
     dsp.h = 0.9;  // 0.95 modulation index
+    dsp.lpIQ_bw = 8e3;
     dsp.opt_iq = option_iq;
+    dsp.opt_lp = option_lp;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1205,12 +1208,18 @@ int main(int argc, char **argv) {
             pos = BLOCKSTART;
             header_found = 0;
 
-            if ( gpx->auto_detect ) {
+            if ( gpx->auto_detect && gpx->reset_dsp ) {
                 if (gpx->typ == 10) {
                     // set lmsX
                     rawbitblock_len = RAWBITBLOCK_LEN;//_X;
                     dsp.br = (float)BAUD_RATEX;
                     dsp.sps = (float)dsp.sr/dsp.br;
+
+                    // reset F1sum, F2sum
+                    for (k = 0; k < dsp.N_IQBUF; k++) dsp.rot_iqbuf[k] = 0;
+                    dsp.F1sum = 0;
+                    dsp.F2sum = 0;
+
                     bitofs = bitofsX + shift;
                 }
                 if (gpx->typ == 6) {
@@ -1218,8 +1227,15 @@ int main(int argc, char **argv) {
                     rawbitblock_len = RAWBITBLOCK_LEN_6;
                     dsp.br = (float)BAUD_RATE6;
                     dsp.sps = (float)dsp.sr/dsp.br;
+
+                    // reset F1sum, F2sum
+                    for (k = 0; k < dsp.N_IQBUF; k++) dsp.rot_iqbuf[k] = 0;
+                    dsp.F1sum = 0;
+                    dsp.F2sum = 0;
+
                     bitofs = bitofs6 + shift;
                 }
+                gpx->reset_dsp = 0;
             }
 
         }

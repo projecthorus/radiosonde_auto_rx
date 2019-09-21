@@ -452,7 +452,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         gpx->snc.max_ch = conf_id;
     }
 
-    if (conf_id > 4 && conf_id > gpx->snc.max_ch && ec == 0) { // mind. 5 Kanaele
+    if (conf_id > 5 && conf_id > gpx->snc.max_ch && ec == 0) { // mind. 6 Kanaele
         if (bits2val(conf_bits+4, 4) == 0xC) { // 0xsCaaaab
             gpx->snc.max_ch = conf_id; // reset?
         }
@@ -836,6 +836,7 @@ int main(int argc, char **argv) {
     int option_dist = 0;     // continuous pcks 0..8
     int option_auto = 0;
     int option_iq = 0;
+    int option_lp = 0;
     int option_bin = 0;
     int option_json = 0;     // JSON blob output (for auto_rx)
     int wavloaded = 0;
@@ -940,6 +941,17 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
         else if   (strcmp(*argv, "--dbg") == 0) { gpx.option.dbg = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -1000,7 +1012,9 @@ int main(int argc, char **argv) {
         dsp.hdrlen = strlen(dfm_rawheader);
         dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
+        dsp.lpIQ_bw = 12e3;
         dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
 
         if ( dsp.sps < 8 ) {
             fprintf(stderr, "note: sample rate low\n");

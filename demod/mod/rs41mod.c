@@ -518,7 +518,7 @@ static float get_Tc(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2) {
 }
 
 // rel.hum., capacitor
-// (data:) ftp://ftp-cdc.dwd.de/pub/CDC/observations_germany/radiosondes/
+// (data:) ftp://ftp-cdc.dwd.de/climate_environment/CDC/observations_germany/radiosondes/
 // (diffAlt: Ellipsoid-Geoid)
 static float get_RH(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T) {
     float a0 = 7.5;                    // empirical
@@ -955,6 +955,16 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
             }
             if (out && gpx->option.vbs) fprintf(stdout, ": %s ", sondetyp);
             strcpy(gpx->rstyp, sondetyp);
+            if (out && gpx->option.vbs == 3) { // Stationsdruck QFE
+                float qfe1 = 0.0, qfe2 = 0.0;
+                memcpy(&qfe1, gpx->frame+pos_CalData+1, 4);
+                memcpy(&qfe2, gpx->frame+pos_CalData+5, 4);
+                if (qfe1 > 0.0 || qfe2 > 0.0) {
+                    fprintf(stdout, " ");
+                    if (qfe1 > 0.0) fprintf(stdout, "QFE1:%.1fhPa ", qfe1);
+                    if (qfe2 > 0.0) fprintf(stdout, "QFE2:%.1fhPa ", qfe2);
+                }
+            }
         }
     }
 
@@ -1088,8 +1098,8 @@ static int prn_gpspos(gpx_t *gpx) {
     fprintf(stdout, " lat: %.5f ", gpx->lat);
     fprintf(stdout, " lon: %.5f ", gpx->lon);
     fprintf(stdout, " alt: %.2f ", gpx->alt);
-    fprintf(stdout,"  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vV);
-    if (gpx->option.vbs == 3) fprintf(stdout," sats: %02d ", gpx->numSV);
+    fprintf(stdout, "  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vV);
+    if (gpx->option.vbs == 3) fprintf(stdout, " sats: %02d ", gpx->numSV);
     return 0;
 }
 
@@ -1374,7 +1384,7 @@ static int print_position(gpx_t *gpx, int ec) {
 
                 if (!err1) prn_gpstime(gpx);
                 if (!err3) prn_gpspos(gpx);
-                if (!err0) prn_ptu(gpx);
+                if (!err0 && gpx->option.ptu) prn_ptu(gpx);
                 if (0 && !err) get_Calconf(gpx, out, 0); // only if ecc-OK
 
                 output = ((gpx->crc & out_mask) != out_mask);
@@ -1523,6 +1533,7 @@ int main(int argc, char *argv[]) {
 
     //int option_inv = 0;    // invertiert Signal
     int option_iq = 0;
+    int option_lp = 0;
     int option_ofs = 0;
     int option_bin = 0;
     int wavloaded = 0;
@@ -1624,6 +1635,17 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
         else if   (strcmp(*argv, "--ofs") == 0) { option_ofs = 1; }
         else if   (strcmp(*argv, "--rawhex") == 0) { rawhex = 2; }  // raw hex input
         else if   (strcmp(*argv, "--xorhex") == 0) { rawhex = 2; xorhex = 1; }  // raw xor input
@@ -1683,7 +1705,9 @@ int main(int argc, char *argv[]) {
             dsp.hdrlen = strlen(rs41_header);
             dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
             dsp.h = 0.6; //0.7;  // 0.7..0.8? modulation index abzgl. BT
+            dsp.lpIQ_bw = 8e3;
             dsp.opt_iq = option_iq;
+            dsp.opt_lp = option_lp;
 
             if ( dsp.sps < 8 ) {
                 fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
