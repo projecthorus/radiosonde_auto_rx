@@ -174,6 +174,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
     temperature = []
     humidity = []
     snr = []
+    ferror = []
 
     with open(filename, 'r') as _file:
         for line in _file:
@@ -193,6 +194,11 @@ def read_log_file(filename, decimation=10, min_altitude=100):
                 else:
                     _snr = -1.0
 
+                if 'FERROR' in _fields[11]:
+                    _ferror = float(_fields[11].split(' ')[1])
+                else:
+                    _ferror = 0.0
+
                 # Append data to arrays.
                 times.append(_time)
                 latitude.append(_lat)
@@ -201,6 +207,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
                 temperature.append(_temp)
                 humidity.append(_hum)
                 snr.append(_snr)
+                ferror.append(_ferror)
             except Exception as e:
                 print("Error reading line: ")
 
@@ -208,7 +215,7 @@ def read_log_file(filename, decimation=10, min_altitude=100):
 
     _output = [] # Altitude, Wind Speed, Wind Direction, Temperature, Dew Point
     # First entry, We assume all the values are unknown for now.
-    _output.append([altitude[0], np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, snr[0]])
+    _output.append([altitude[0], np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, snr[0], ferror[0]])
 
     _burst = False
     _startalt = altitude[0]
@@ -246,12 +253,12 @@ def read_log_file(filename, decimation=10, min_altitude=100):
         _heading = _movement['bearing']
         _velocity = _movement['great_circle_distance']/_delta_seconds
 
-        _output.append([altitude[i], _velocity, _heading, T, DP, RH, snr[i]])
+        _output.append([altitude[i], _velocity, _heading, T, DP, RH, snr[i], ferror[i]])
 
         i += decimation
 
     # Convert our output data into something we can process easier.
-    return (np.array(_output), _burst, _startalt, times[-1])
+    return (np.array(_output), _burst, _startalt, times[-1], snr, ferror)
 
 
 def plot_matplotlib(data_np, title="", metric=False, alt_limit = 20000, temp_limit=None):
@@ -337,8 +344,6 @@ def plot_metpy(data, title="", saveplot=None, showplot=True):
     if saveplot != None:
         fig.savefig(saveplot, bbox_inches='tight')
 
-    if showplot:
-        plt.show()
 
 
 #
@@ -446,17 +451,37 @@ if __name__ == "__main__":
     parser.add_argument("--log-dir", default="../log/", type=str, help="Directory containing sonde logs to process.")
     parser.add_argument("--output-dir", default="./plots/", type=str, help="Output directory to save plots to.")
     parser.add_argument("--plot-status-file", default="plot_status.txt", type=str, help="Plotting status file.")
+    parser.add_argument("--snr", default=False, action='store_true', help="Plot SNR vs time.")
+    parser.add_argument("--ferror", default=False, action='store_true', help="Plot Frequency Error vs time.")
     args = parser.parse_args()
 
     if args.singlefile != "":
         # Process a single file.
 
-        (data_np, burst, startalt, last_time) = read_log_file(args.singlefile, decimation=args.decimation)
+        (data_np, burst, startalt, last_time, snr, ferror) = read_log_file(args.singlefile, decimation=args.decimation)
 
         #plot_matplotlib(data_np, title=os.path.basename(args.filename), metric=args.metric, alt_limit=args.alt_limit, temp_limit=args.temp_limit)
 
 
         plot_metpy(data_np, saveplot=None, showplot=True)
+
+        if args.snr:
+            plt.figure()
+            plt.plot(snr)
+            plt.xlabel("Sample")
+            plt.ylabel("SNR (dB)")
+            plt.title("SNR vs Sample")
+            plt.grid()
+        
+        if args.ferror:
+            plt.figure()
+            plt.plot(ferror)
+            plt.xlabel("Sample")
+            plt.ylabel("Frequency Error (Hz)")
+            plt.title("Frequency Error vs Sample")
+            plt.grid()
+
+        plt.show()
 
     else:
         # do a batch process run.
