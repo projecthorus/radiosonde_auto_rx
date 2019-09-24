@@ -849,6 +849,8 @@ class SondeDecoder(object):
                     # Calculate an estimate of the radiosonde's centre frequency, based on the SDR frequency
                     # and the modem's tone estimates.
                     _telemetry['f_centre'] = self.rx_frequency + (_telemetry['fest'][0] + _telemetry['fest'][1])/2.0
+                    # Calculate estimated frequency error from where we expected the sonde to be.
+                    _telemetry['f_error'] = _telemetry['f_centre'] - self.sonde_freq
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
