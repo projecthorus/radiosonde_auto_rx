@@ -447,7 +447,7 @@ class SondeDecoder(object):
             gain_param = ''
 
         # Emit demodulator statistics every X modem frames.
-        _stats_rate = 100
+        _stats_rate = 5
 
         if self.sonde_type == "RS41":
             # RS41 Decoder command.
