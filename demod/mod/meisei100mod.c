@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
             option_iq = 5;
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
-//        else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
+        else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
         else if   (strcmp(*argv, "--json") == 0) {
             option_jsn = 1;
             option_ecc = 1;
@@ -382,9 +382,11 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0
     dsp.h = 2.4;  // 2.8
-    dsp.lpIQ_bw = 16e3;
     dsp.opt_iq = option_iq;
     dsp.opt_lp = option_lp;
+    dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
+    dsp.lpFM_bw = 4e3; // FM audio lowpass
+    dsp.opt_dc = option_dc;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -413,8 +415,8 @@ int main(int argc, char **argv) {
 
     while ( 1 )
     {
-
-        header_found = find_header(&dsp, thres, 1, bitofs, option_dc);
+                                                                        // FM-audio:
+        header_found = find_header(&dsp, thres, 1, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
         _mv = dsp.mv;
 
         if (header_found == EOF) break;
@@ -732,6 +734,8 @@ int main(int argc, char **argv) {
     }
 
     printf("\n");
+
+    free_buffers(&dsp);
 
     fclose(fp);
 

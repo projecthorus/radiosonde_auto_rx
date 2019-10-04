@@ -70,7 +70,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
 
         elif 'M10' in sonde_data['type']:
             # Use the generated id same as dxlAPRS
-            _object_name = sonde_data['dxlid']
+            _object_name = sonde_data['aprsid']
 
         elif 'iMet' in sonde_data['type']:
             # Use the last 5 characters of the unique ID we have generated.
