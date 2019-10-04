@@ -13,6 +13,7 @@ auto_rx/fsk_demod
 auto_rx/imet1rs_dft
 auto_rx/lms6Xmod
 auto_rx/lms6mod
+auto_rx/m10mod
 auto_rx/log_power_0.csv
 m10
 meisei100mod
@@ -24,6 +25,7 @@ demod/mod/lms6mod
 demod/mod/meisei100mod
 demod/mod/rs41mod
 demod/mod/rs92mod
+demod/mod/m10mod
 imet/imet1rs_dft
 m10/m10
 mk2a/mk2a_lms1680
