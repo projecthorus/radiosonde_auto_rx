@@ -89,6 +89,7 @@ typedef struct {
 
 
 /* -------------------------------------------------------------------------- */
+#define SECONDS_IN_WEEK  (604800.0)  // 7*86400
 /*
  * Convert GPS Week and Seconds to Modified Julian Day.
  * - Adapted from sci.astro FAQ.
@@ -768,6 +769,8 @@ static int print_pos(gpx_t *gpx, int csOK) {
             if (csOK) {
                 int j;
                 char sn_id[4+12] = "M10-";
+                ui8_t aprs_id[4];
+                double sec_gps0 = (double)gpx->week*SECONDS_IN_WEEK + gpx->tow_ms/1e3;
                 // UTC = GPS - UTC_OFS  (ab 1.1.2017: UTC_OFS=18sec)
                 int utc_s = gpx->gpssec - gpx->utc_ofs;
                 int utc_week = gpx->week;
@@ -787,8 +790,17 @@ static int print_pos(gpx_t *gpx, int csOK) {
                 sn_id[15] = '\0';
                 for (j = 0; sn_id[j]; j++) { if (sn_id[j] == ' ') sn_id[j] = '-'; }
 
-                fprintf(stdout, "{ \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                fprintf(stdout, "{ ");
+                fprintf(stdout, "\"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
+                fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
                                sn_id, utc_jahr, utc_monat, utc_tag, utc_std, utc_min, utc_sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV);
+                // APRS id, 9 characters
+                aprs_id[0] = gpx->frame_bytes[pos_SN+2];
+                aprs_id[1] = gpx->frame_bytes[pos_SN] & 0xF;
+                aprs_id[2] = gpx->frame_bytes[pos_SN+4];
+                aprs_id[3] = gpx->frame_bytes[pos_SN+3];
+                fprintf(stdout, ", \"aprsid\": \"ME%02X%1X%02X%02X\"", aprs_id[0], aprs_id[1], aprs_id[2], aprs_id[3]);
+                // temperature
                 if (gpx->option.ptu) {
                     float t = get_Temp(gpx, 0);
                     if (t > -273.0) fprintf(stdout, ", \"temp\": %.1f", t);
@@ -880,9 +892,10 @@ int main(int argc, char **argv) {
     //int option_res = 0;      // genauere Bitmessung
     int option_color = 0;
     int option_ptu = 0;
-    int option_dc = 0;
+    int option_min = 0;
     int option_iq = 0;
     int option_lp = 0;
+    int option_dc = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
@@ -949,9 +962,6 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--ptu") == 0) ) {
             option_ptu = 1;
         }
-        else if ( (strcmp(*argv, "--dc") == 0) ) {
-            option_dc = 1;
-        }
         else if ( (strcmp(*argv, "--spike") == 0) ) {
             spike = 1;
         }
@@ -986,6 +996,10 @@ int main(int argc, char **argv) {
             option_iq = 5;
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--json") == 0) { gpx.option.jsn = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -1036,9 +1050,12 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0
     dsp.h = 0.9;  // 1.2 modulation index
-    dsp.lpIQ_bw = 24e3;
     dsp.opt_iq = option_iq;
     dsp.opt_lp = option_lp;
+    dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
+    dsp.lpFM_bw = 10e3; // FM audio lowpass
+    dsp.opt_dc = option_dc;
+    dsp.opt_IFmin = option_min;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1057,8 +1074,8 @@ int main(int argc, char **argv) {
 
     while ( 1 )
     {
-
-        header_found = find_header(&dsp, thres, 2, bitofs, option_dc);
+                                                                        // FM-audio:
+        header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
         _mv = dsp.mv;
 
         if (header_found == EOF) break;
@@ -1067,7 +1084,6 @@ int main(int argc, char **argv) {
         if (_mv*(0.5-gpx.option.inv) < 0) {
             gpx.option.inv ^= 0x1;  // M10: irrelevant
         }
-
 
         if (header_found) {
 

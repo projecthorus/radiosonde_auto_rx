@@ -82,8 +82,21 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
         telemetry['temp'],
         telemetry['humidity'])
 
+    if 'f_centre' in telemetry:
+        # We have an estimate of the sonde's centre frequency from the modem, use this in place of
+        # the RX frequency.
+        # Round to 1 kHz
+        _freq = round(telemetry['f_centre']/1000.0)
+        # Convert to MHz.
+        _freq = "%.3f MHz" % (_freq/1e3)
+    else:
+        # Otherwise, use the normal frequency.
+        _freq = telemetry['freq']
+
+
+
     # Add in a comment field, containing the sonde type, serial number, and frequency.
-    _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], telemetry['freq'])
+    _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], _freq)
 
     # Check for Burst/Kill timer data, and add in.
     if 'bt' in telemetry:

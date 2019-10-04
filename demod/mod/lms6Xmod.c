@@ -477,7 +477,7 @@ static int get_GPStime(gpx_t *gpx, int crc_err) {
         gpstow_start = gpstime; // time elapsed since start-up?
         if (gpx->week > 0 && gpstime/1000.0 < time_elapsed_sec) gpx->week += 1;
     }
-    gpx->gpstow = gpstime;
+    gpx->gpstow = gpstime; // tow/ms
 
     ms = gpstime % 1000;
     gpstime /= 1000;
@@ -517,6 +517,7 @@ static int get_GPStime_X(gpx_t *gpx) {
     }
 
     gpx->gpstowX = *f64;
+    gpx->gpstow = (ui32_t)(gpx->gpstowX*1e3); // tow/ms
     tow_u4 = (ui32_t)gpx->gpstowX;
     gpstime = tow_u4;
     gpx->gpssec = tow_u4;
@@ -923,6 +924,7 @@ static void proc_frame(gpx_t *gpx, int len) {
 int main(int argc, char **argv) {
 
     int option_inv = 0;    // invertiert Signal
+    int option_min = 0;
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
@@ -1049,6 +1051,9 @@ int main(int argc, char **argv) {
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--json") == 0) {
             gpx->option.jsn = 1;
             gpx->option.ecc = 1;
@@ -1109,9 +1114,12 @@ int main(int argc, char **argv) {
     dsp.hdrlen = strlen(rawheader);
     dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0  // BT(lmsX) < BT(lms6) ? -> init_buffers()
     dsp.h = 0.9;  // 0.95 modulation index
-    dsp.lpIQ_bw = 8e3;
     dsp.opt_iq = option_iq;
     dsp.opt_lp = option_lp;
+    dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
+    dsp.lpFM_bw = 6e3; // FM audio lowpass
+    dsp.opt_dc = option_dc;
+    dsp.opt_IFmin = option_min;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1160,8 +1168,8 @@ int main(int argc, char **argv) {
 
     while ( 1 )
     {
-
-        header_found = find_header(&dsp, thres, 3, bitofs, option_dc);
+                                                                        // FM-audio:
+        header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
         _mv = dsp.mv;
 
         if (header_found == EOF) break;

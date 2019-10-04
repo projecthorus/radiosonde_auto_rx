@@ -145,7 +145,7 @@ processing_type = {
         'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
         'decode': "tee test.wav | ../m10mod --json -vvv 2>/dev/null",
         # Count the number of telemetry lines.
-        "post_process" : "| wc -l",
+        "post_process" : "| grep aprsid | wc -l",
         'files' : "./generated/m10*"
     },
     'dfm_fsk_demod': {
@@ -363,6 +363,33 @@ processing_type['m10_rtlfm'] = {
     'files' : "./generated/m10*.bin"
 }
 
+# # M10
+_fm_rate = 22000
+# Calculate the necessary conversions
+_rtlfm_oversampling = 8.0 # Viproz's hacked rtl_fm oversamples by 8x.
+_shift = -2.0*_fm_rate/_sample_fs # rtl_fm tunes 'up' by rate*2, so we need to shift the signal down by this amount.
+
+_resample = (_fm_rate*_rtlfm_oversampling)/_sample_fs
+
+if _resample != 1.0:
+    # We will need to resample.
+    _resample_command = "csdr convert_f_s16 | ./tsrc - - %.4f | csdr convert_s16_f |" % _resample
+    _shift = (-2.0*_fm_rate)/(_sample_fs*_resample)
+else:
+    _resample_command = ""
+
+_demod_command = "| %s csdr shift_addition_cc %.5f 2>/dev/null | csdr convert_f_u8 |" % (_resample_command, _shift)
+_demod_command += " ./rtl_fm_stdin -M fm -f 401000000 -F9 -s %d  2>/dev/null|" % (int(_fm_rate))
+_demod_command += " sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |" % int(_fm_rate)
+
+processing_type['m10mod_rtlfm'] = {
+    'demod': _demod_command,
+    'decode': "../m10mod --json -vvv 2>/dev/null",
+    # Count the number of telemetry lines.
+    "post_process" : "| grep aprsid | wc -l",
+    'files' : "./generated/m10*.bin"
+}
+
 # iMet
 _fm_rate = 15000
 # Calculate the necessary conversions
@@ -495,10 +522,10 @@ _demod_command = "| csdr convert_f_s16 | ./tsrc - - %.4f |" % (_resample)
 
 processing_type['dft_detect_iq'] = {
     'demod': _demod_command,
-    'decode': "../dft_detect -t 5 --iq --dc - 48000 16 2>/dev/null",
+    'decode': "../dft_detect -t 5 --iq --bw 32 --dc - 48000 16 2>/dev/null",
     # Grep out the line containing the detected sonde type.
     "post_process" : " | grep \:",
-    'files' : "./generated/*.bin"
+    'files' : "./generated/rsngp*.bin"
 }
 
 

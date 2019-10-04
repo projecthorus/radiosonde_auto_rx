@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
     ui8_t max_ch;
     ui8_t nul_ch;
+    ui8_t sn_ch;
     ui8_t chXbit;
     ui32_t SN_X;
     ui32_t chX[2];
@@ -456,33 +457,47 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         if (bits2val(conf_bits+4, 4) == 0xC) { // 0xsCaaaab
             gpx->snc.max_ch = conf_id; // reset?
         }
+/*
+        if (bits2val(conf_bits, 8) == 0x70) { // 0x70aaaab
+            gpx->snc.max_ch = conf_id; // reset?
+        }
+*/
     }
 
-    if (conf_id > 4 && (conf_id == (gpx->snc.nul_ch>>4)+1 || conf_id == gpx->snc.max_ch))
+    // SN: mind. 6 Kanaele
+    if (conf_id > 5 && (conf_id == (gpx->snc.nul_ch>>4)+1 || conf_id == gpx->snc.max_ch))
     {
         sn2_ch = bits2val(conf_bits, 8);
-        sn_ch = ((sn2_ch>>4) & 0xF);
-        if (conf_id == sn_ch)
-        {
-            if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
-                SN6 = bits2val(conf_bits+4, 4*6);   // DFM-06: Kanal 6
-                if (SN6 == gpx->SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
-                    gpx->sonde_typ = SNbit | 6;
-                    gpx->ptu_out = 6;
-                    sprintf(gpx->sonde_id, "ID06:%6X", gpx->SN6);
-                    //sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6);
-                }
-                else { // reset
-                    gpx->sonde_typ = 0;
-                    //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
-                }
-                gpx->SN6 = SN6;
+        sn_ch = ((sn2_ch>>4) & 0xF);  // sn_ch == config_id
+
+        if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
+            SN6 = bits2val(conf_bits+4, 4*6);     // DFM-06: Kanal 6
+            if (SN6 == gpx->SN6  &&  SN6 != 0) {  // nur Nibble-Werte 0..9
+                gpx->sonde_typ = SNbit | 6;
+                gpx->ptu_out = 6;
+                sprintf(gpx->sonde_id, "ID06:%6X", gpx->SN6);
+                //sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6);
             }
-            else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
-                     || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
+            else { // reset
+                gpx->sonde_typ = 0;
+                //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
+            }
+            gpx->SN6 = SN6;
+        }
+        else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
+                 || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
+        {
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 0xF);
+            if (hl < 2)
             {
-                val = bits2val(conf_bits+8, 4*5);
-                hl =  (val & 1);
+                if ( gpx->snc.sn_ch != sn_ch ) { // -> sn_ch > 0
+                    // reset
+                    gpx->snc.chXbit = 0;
+                    gpx->snc.chX[0] = 0;
+                    gpx->snc.chX[1] = 0;
+                }
+                gpx->snc.sn_ch = sn_ch;
                 gpx->snc.chX[hl] = (val >> 4) & 0xFFFF;
                 gpx->snc.chXbit |= 1 << hl;
                 if (gpx->snc.chXbit == 3) {
@@ -514,8 +529,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                     gpx->snc.chXbit = 0;
                 }
             }
-            ret = (gpx->sonde_typ & 0xF);
         }
+        ret = (gpx->sonde_typ & 0xF);
     }
 
 
@@ -835,8 +850,10 @@ int main(int argc, char **argv) {
     int option_ptu = 0;
     int option_dist = 0;     // continuous pcks 0..8
     int option_auto = 0;
+    int option_min = 0;
     int option_iq = 0;
     int option_lp = 0;
+    int option_dc = 0;
     int option_bin = 0;
     int option_json = 0;     // JSON blob output (for auto_rx)
     int wavloaded = 0;
@@ -952,6 +969,10 @@ int main(int argc, char **argv) {
             option_iq = 5;
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--dbg") == 0) { gpx.option.dbg = 1; }
         else {
             fp = fopen(*argv, "rb");
@@ -1012,9 +1033,12 @@ int main(int argc, char **argv) {
         dsp.hdrlen = strlen(dfm_rawheader);
         dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
-        dsp.lpIQ_bw = 12e3;
         dsp.opt_iq = option_iq;
         dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 12e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 4e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
 
         if ( dsp.sps < 8 ) {
             fprintf(stderr, "note: sample rate low\n");
@@ -1050,8 +1074,8 @@ int main(int argc, char **argv) {
                 header_found = find_binhead(fp, &hdb, &_mv); // symbols or bits?
                 hdrcnt += nfrms;
             }
-            else {
-                header_found = find_header(&dsp, thres, 2, bitofs, 0);
+            else {                                                              // FM-audio:
+                header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
                 _mv = dsp.mv;
             }
             if (header_found == EOF) break;

@@ -1231,7 +1231,10 @@ int main(int argc, char *argv[]) {
     char *fpname = NULL;
 
     int option_der = 0;    // linErr
+    int option_min = 0;
     int option_iq = 0;
+    int option_lp = 0;
+    int option_dc = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
     int fileloaded = 0;
@@ -1399,6 +1402,21 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--ngp") == 0) { gpx.option.ngp = 1; }  // RS92-NGP, RS92-D: 1680 MHz
         else {
             fp = fopen(*argv, "rb");
@@ -1469,9 +1487,17 @@ int main(int argc, char *argv[]) {
     dsp.hdr = rs92_rawheader;
     dsp.hdrlen = strlen(rs92_rawheader);
     dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
-    dsp.h = 0.8; // 1.0? modulation index abzgl. BT
-    if (gpx.option.ngp) dsp.h *= 4.5; // L-band rs92-ngp
+    dsp.h = 0.8; // 1.0 modulation index abzgl. BT
     dsp.opt_iq = option_iq;
+    dsp.opt_lp = option_lp;
+    dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
+    dsp.lpFM_bw = 6e3; // FM audio lowpass
+    dsp.opt_dc = option_dc;
+    dsp.opt_IFmin = option_min;
+    if (gpx.option.ngp) { // L-band rs92-ngp
+        dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
+        dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3
+    }
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1488,8 +1514,8 @@ int main(int argc, char *argv[]) {
 
     while ( 1 ) {
 
-            header_found = find_header(&dsp, thres, 3, bitofs, 0);
-            _mv = dsp.mv;
+        header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc);
+        _mv = dsp.mv;
 
         if (header_found == EOF) break;
 
