@@ -24,6 +24,10 @@ except ImportError:
     # Python 3
     from queue import Queue
 
+# These get replaced out after init
+url_habitat_uuids=""
+url_habitat_db=""
+habitat_url=""
 
 # CRC16 function
 def crc16_ccitt(data):
@@ -456,6 +460,12 @@ class HabitatUploader(object):
         self.inhibit = inhibit
         self.user_position_update_rate = user_position_update_rate
 
+        # set the habitat upload url
+        global url_habitat_uuids, url_habitat_db, habitat_url
+        url_habitat_uuids = url + "_uuids?count=%d"
+        url_habitat_db = url + "habitat/"
+        habitat_url = url
+
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.
         self.habitat_upload_queue = Queue(upload_queue_size)
@@ -491,11 +501,7 @@ class HabitatUploader(object):
         self.timer_thread = Thread(target=self.upload_timer)
         self.timer_thread.start()
 
-        # set the habitat upload url
-        global url_habitat_uuids, url_habitat_db, habitat_url
-        url_habitat_uuids = url + "_uuids?count=%d"
-        url_habitat_db = url + "habitat/"
-        habitat_url = url
+
 
     def user_position_upload(self):
         """ Upload the the station position to Habitat. """
