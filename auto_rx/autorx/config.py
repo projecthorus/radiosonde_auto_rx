@@ -203,7 +203,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
-		auto_rx_config['habitat_url'] = config.get('habitat','url',fallback=auto_rx_config['habitat_url']) # Use the default configuration if not found
+		try: # Use the default configuration if not found
+			auto_rx_config['habitat_url'] = config.get('habitat','url') 
+		except:
+			pass
 
 		# APRS Settings
 		auto_rx_config['aprs_enabled'] = config.getboolean('aprs', 'aprs_enabled')
