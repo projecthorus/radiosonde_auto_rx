@@ -626,7 +626,8 @@ def main():
             station_position = _habitat_station_position,
             payload_callsign_override = _habitat_payload_call,
             synchronous_upload_time = config['habitat_upload_rate'],
-            callsign_validity_threshold = config['payload_id_valid']
+            callsign_validity_threshold = config['payload_id_valid'],
+            url = config['habitat_url']
             )
 
         exporter_objects.append(_habitat)
