@@ -135,11 +135,15 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		# Debugging settings
 		'save_detection_audio' : False,
 		'save_decode_audio' : False,
-		'save_decode_iq' : False
+		'save_decode_iq' : False,
+		# URL for the Habitat DB Server.
+		# As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
+		# from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
+		# For now, sondehub.org just acts as a proxy to habhub.org.
+		# This setting is not exposed to users as it's only used for unit/int testing
+		'habitat_url': "https://habitat.sondehub.org/"
 
 	}
-
-	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
 
 
 	try:
@@ -199,6 +203,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
+		auto_rx_config['habitat_url'] = config.get('habitat','url',fallback=auto_rx_config['habitat_url']) # Use the default configuration if not found
 
 		# APRS Settings
 		auto_rx_config['aprs_enabled'] = config.getboolean('aprs', 'aprs_enabled')
