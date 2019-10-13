@@ -115,6 +115,9 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
 
     # TODO: RS41 Burst Timer
 
+    # Add on auto_rx version
+    _aprs_comment += " auto_rx v" + auto_rx_version
+
     # Convert float latitude to APRS format (DDMM.MM)
     lat = float(sonde_data["lat"])
     lat_degree = abs(int(lat))
