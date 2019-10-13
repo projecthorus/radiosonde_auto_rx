@@ -1537,6 +1537,7 @@ int main(int argc, char *argv[]) {
     int option_lp = 0;
     int option_dc = 0;
     int option_bin = 0;
+    int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
     int rawhex = 0, xorhex = 0;
@@ -1653,10 +1654,26 @@ int main(int argc, char *argv[]) {
         }
         else if   (strcmp(*argv, "--rawhex") == 0) { rawhex = 2; }  // raw hex input
         else if   (strcmp(*argv, "--xorhex") == 0) { rawhex = 2; xorhex = 1; }  // raw xor input
+        else if (strcmp(*argv, "-") == 0) {
+            int sample_rate = 0, bits_sample = 0, channels = 0;
+            ++argv;
+            if (*argv) sample_rate = atoi(*argv); else return -1;
+            ++argv;
+            if (*argv) bits_sample = atoi(*argv); else return -1;
+            channels = 2;
+            if (sample_rate < 1 || (bits_sample != 8 && bits_sample != 16 && bits_sample != 32)) {
+                fprintf(stderr, "- <sr> <bs>\n");
+                return -1;
+            }
+            pcm.sr  = sample_rate;
+            pcm.bps = bits_sample;
+            pcm.nch = channels;
+            option_pcmraw = 1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
-                fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
+                fprintf(stderr, "error: open %s\n", *argv);
                 return -1;
             }
             wavloaded = 1;
@@ -1680,14 +1697,21 @@ int main(int argc, char *argv[]) {
 
         if (!option_bin) {
 
+            if (option_iq == 0 && option_pcmraw) {
+                fclose(fp);
+                fprintf(stderr, "error: raw data not IQ\n");
+                return -1;
+            }
             if (option_iq) sel_wavch = 0;
 
             pcm.sel_ch = sel_wavch;
-            k = read_wav_header(&pcm, fp);
-            if ( k < 0 ) {
-                fclose(fp);
-                fprintf(stderr, "error: wav header\n");
-                return -1;
+            if (option_pcmraw == 0) {
+                k = read_wav_header(&pcm, fp);
+                if ( k < 0 ) {
+                    fclose(fp);
+                    fprintf(stderr, "error: wav header\n");
+                    return -1;
+                }
             }
 
             // rs41: BT=0.5, h=0.8,1.0 ?

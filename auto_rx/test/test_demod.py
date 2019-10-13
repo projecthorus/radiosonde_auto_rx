@@ -167,7 +167,7 @@ processing_type = {
         'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
 
         # Decode using rs41ecc
-        'decode': "../lms6mod --json 2>/dev/null",
+        'decode': "../lms6Xmod --json 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : "| grep frame | wc -l",
         'files' : "./generated/lms6-400*",

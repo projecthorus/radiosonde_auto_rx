@@ -183,7 +183,7 @@ aprs_position_report = False
 # <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. Only works for RS41s.
 # The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
 # if absolutely necessary.
-aprs_custom_comment = Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde http://bit.ly/2Bj4Sfk
+aprs_custom_comment = Clb=<vel_v> t=<temp> <freq> Type=<type> Radiosonde
 
 
 # APRS Station Location Beaconing
