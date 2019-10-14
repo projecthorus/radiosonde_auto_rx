@@ -345,7 +345,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # M10 decoder
-            decode_cmd += "./m10mod --json -vvv 2>/dev/null"
+            decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
 
         elif self.sonde_type == "iMet":
             # iMet-4 Sondes
@@ -588,7 +588,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # M10 decoder
-            decode_cmd += "./m10mod --json -vvv 2>/dev/null"
+            decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
 
             # M10 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
