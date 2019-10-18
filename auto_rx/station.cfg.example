@@ -99,7 +99,7 @@ station_alt = 0.0
 # needs to be entered above.
 # For balloon chasing, chasemapper is much better suited: https://github.com/projecthorus/chasemapper
 gpsd_enabled = False
-gpsd_hostname = localhost
+gpsd_host = localhost
 gpsd_port = 2947
 
 
