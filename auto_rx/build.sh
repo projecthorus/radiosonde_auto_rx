@@ -57,8 +57,6 @@ gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -o fsk_demod
 echo "Copying files into auto_rx directory."
 cd ../auto_rx/
 cp ../scan/dft_detect .
-cp ../demod/dfm09ecc .
-cp ../m10/m10 .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
 cp ../mk2a/mk2a_lms1680 .
