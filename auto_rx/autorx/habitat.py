@@ -24,12 +24,10 @@ except ImportError:
     # Python 3
     from queue import Queue
 
-# URL for the Habitat DB Server.
-# As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
-# from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
-# For now, sondehub.org just acts as a proxy to habhub.org.
-HABITAT_URL = "http://habitat.sondehub.org/"
-# HABITAT_URL = "http://habitat.habhub.org/"
+# These get replaced out after init
+url_habitat_uuids=""
+url_habitat_db=""
+habitat_url=""
 
 # CRC16 function
 def crc16_ccitt(data):
@@ -82,19 +80,33 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
         telemetry['temp'],
         telemetry['humidity'])
 
+    if 'f_centre' in telemetry:
+        # We have an estimate of the sonde's centre frequency from the modem, use this in place of
+        # the RX frequency.
+        # Round to 1 kHz
+        _freq = round(telemetry['f_centre']/1000.0)
+        # Convert to MHz.
+        _freq = "%.3f MHz" % (_freq/1e3)
+    else:
+        # Otherwise, use the normal frequency.
+        _freq = telemetry['freq']
+
+
+
     # Add in a comment field, containing the sonde type, serial number, and frequency.
-    _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], telemetry['freq'])
+    _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], _freq)
 
     # Check for Burst/Kill timer data, and add in.
     if 'bt' in telemetry:
         if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
             _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
 
+    # NOTE: Disabled as of 2019-09-21
     # Add on the station code, which will only be present if we are receiving an iMet sonde.
     # This may assist multiple receiving stations in the vicinity of an iMet launch site coordinate
     # the iMet unique ID generation.
-    if 'station_code' in telemetry:
-        _sentence += " LOC: %s" % telemetry['station_code']
+    #if 'station_code' in telemetry:
+    #    _sentence += " LOC: %s" % telemetry['station_code']
 
     # Add on any custom comment data if provided.
     if comment != None:
@@ -111,11 +123,8 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
 # Derived from https://raw.githubusercontent.com/rossengeorgiev/hab-tools/master/spot2habitat_chase.py
 #
 callsign_init = False
-url_habitat_uuids = HABITAT_URL + "_uuids?count=%d"
-url_habitat_db = HABITAT_URL + "habitat/"
 
 uuids = []
-
 
 def check_callsign(callsign, timeout=10):
     """
@@ -405,7 +414,8 @@ class HabitatUploader(object):
                 upload_retries = 5,
                 upload_retry_interval = 0.25,
                 user_position_update_rate = 6,
-                inhibit = False
+                inhibit = False,
+                url = "http://habitat.sondehub.org/"
                 ):
         """ Initialise a Habitat Uploader object.
 
@@ -450,6 +460,12 @@ class HabitatUploader(object):
         self.inhibit = inhibit
         self.user_position_update_rate = user_position_update_rate
 
+        # set the habitat upload url
+        global url_habitat_uuids, url_habitat_db, habitat_url
+        url_habitat_uuids = url + "_uuids?count=%d"
+        url_habitat_db = url + "habitat/"
+        habitat_url = url
+
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.
         self.habitat_upload_queue = Queue(upload_queue_size)
@@ -484,6 +500,7 @@ class HabitatUploader(object):
         self.timer_thread_running = True
         self.timer_thread = Thread(target=self.upload_timer)
         self.timer_thread.start()
+
 
 
     def user_position_upload(self):
@@ -530,7 +547,7 @@ class HabitatUploader(object):
         }
 
         # The URL to upload to.
-        _url = HABITAT_URL + "habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
+        _url = habitat_url + "habitat/_design/payload_telemetry/_update/add_listener/%s" % sha256(_sentence_b64).hexdigest()
 
         # Delay for a random amount of time between 0 and upload_retry_interval*2 seconds.
         time.sleep(random.random()*self.upload_retry_interval*2.0)

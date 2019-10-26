@@ -202,6 +202,11 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
 
     """
 
+    # Notes:
+    # 400 MHz sondes: Use --bw 20  (20 kHz BW)
+    # 1680 MHz RS92 Setting: --bw 32
+    # 1680 MHz LMS6-1680: Use FM demod. as usual.
+
     # Example command (for command-line testing):
     # rtl_fm -T -p 0 -M fm -g 26.0 -s 15k -f 401500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 | ./rs_detect -z -t 8
 
@@ -217,7 +222,9 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     # Adjust the detection bandwidth based on the band the scanning is occuring in.
     if frequency < 1000e6:
         # 400-406 MHz sondes - use a 22 kHz detection bandwidth.
-        _rx_bw = 22000
+        _mode = 'IQ'
+        _iq_bw = 48000
+        _if_bw = 20
     else:
         # 1680 MHz sondes
         # Both the RS92-NGP and 1680 MHz LMS6 have a much wider bandwidth than their 400 MHz counterparts.
@@ -225,22 +232,42 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         # Given the huge difference between these two, we default to using a very wide FM bandwidth, but allow the user
         # to narrow this if only RS92-NGPs are expected.
         if ngp_tweak:
-            _rx_bw = 30000
+            # RS92-NGP detection
+            _mode = 'IQ'
+            _iq_bw = 48000
+            _if_bw = 32
         else:
+            # LMS6-1680 Detection
+            _mode = 'FM'
             _rx_bw = 200000
 
-    # Sample Source (rtl_fm)
-    rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
-    # Sample filtering
-    rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null | " % _rx_bw
 
-    # Saving of Debug audio, if enabled,
-    if save_detection_audio:
-        rx_test_command += "tee detect_%s.wav | " % str(device_idx)
+    if _mode == 'IQ':
+        # IQ decoding
+        # Sample source (rtl_fm, in IQ mode)
+        rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _iq_bw, frequency)
+        # Saving of Debug audio, if enabled,
+        if save_detection_audio:
+            rx_test_command += "tee detect_%s.raw | " % str(device_idx)
 
-    # Sample decoding / detection
-    # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
-    rx_test_command += os.path.join(rs_path,"dft_detect") + " -t %d 2>/dev/null" % dwell_time
+        rx_test_command += os.path.join(rs_path,"dft_detect") + " -t %d --iq --bw %d --dc - %d 16 2>/dev/null" % (dwell_time, _if_bw, _iq_bw)
+   
+    elif _mode == 'FM':
+        # FM decoding
+
+        # Sample Source (rtl_fm)
+        rx_test_command = "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (dwell_time*2, sdr_fm, bias_option, int(ppm), str(device_idx), gain_param, _rx_bw, frequency) 
+        # Sample filtering
+        rx_test_command += "sox -t raw -r %d -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 2>/dev/null | " % _rx_bw
+
+        # Saving of Debug audio, if enabled,
+        if save_detection_audio:
+            rx_test_command += "tee detect_%s.wav | " % str(device_idx)
+
+        # Sample decoding / detection
+        # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
+        rx_test_command += os.path.join(rs_path,"dft_detect") + " -t %d 2>/dev/null" % dwell_time
+
 
     logging.debug("Scanner #%s - Using detection command: %s" % (str(device_idx), rx_test_command))
     logging.debug("Scanner #%s - Attempting sonde detection on %.3f MHz" % (str(device_idx), frequency/1e6))
@@ -263,11 +290,11 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         else:
             _runtime = time.time() - _start
             logging.debug("Scanner #%s - dft_detect exited in %.1f seconds with return code %d." % (str(device_idx), _runtime, e.returncode))
-            return None
+            return (None, 0.0)
     except Exception as e:
         # Something broke when running the detection function.
         logging.error("Scanner #%s - Error when running dft_detect - %s" % (str(device_idx), str(e)))
-        return None
+        return (None, 0.0)
 
 
     _runtime = time.time() - _start
@@ -276,65 +303,77 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     # Check for no output from dft_detect.
     if ret_output is None or ret_output == "":
         #logging.error("Scanner - dft_detect returned no output?")
-        return None
+        return (None, 0.0)
 
 
 
-
-    # dft_detect return codes:
-    # 2 = DFM
-    # 3 = RS41
-    # 4 = RS92
-    # 5 = M10
-    # 6 = IMET (AB)
-    # 7 = IMET (RS)
-    # 8 = LMS6
-    # 9 = C34/C50
-    # 10 = MK2LMS (1680 MHz LMS6, which uses the MK2A telemetry format)
 
     # Split the line into sonde type and correlation score.
     _fields = ret_output.split(':')
 
     if len(_fields) <2:
         logging.error("Scanner - malformed output from dft_detect: %s" % ret_output.strip())
-        return None
+        return (None, 0.0)
 
     _type = _fields[0]
-    _score = float(_fields[1].strip())
+    _score = _fields[1]
 
+    # Detect any frequency correction information:
+    try:
+        if ',' in _score:
+            _offset_est = float(_score.split(',')[1].split('Hz')[0].strip())
+            _score = float(_score.split(',')[0].strip())
+        else:
+            _score = float(_score.strip())
+            _offset_est = 0.0
+    except Exception as e:
+        logging.error("Scanner - Error parsing dft_detect output: %s" % ret_output.strip())
+        return (None, 0.0)
+
+
+    _sonde_type = None
 
     if 'RS41' in _type:
-        logging.debug("Scanner #%s - Detected a RS41! (Score: %.2f)" % (str(device_idx), _score))
-        return "RS41"
+        logging.debug("Scanner #%s - Detected a RS41! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "RS41"
     elif 'RS92' in _type:
-        logging.debug("Scanner #%s - Detected a RS92! (Score: %.2f)" % (str(device_idx), _score))
-        return "RS92"
+        logging.debug("Scanner #%s - Detected a RS92! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "RS92"
     elif 'DFM' in _type:
-        logging.debug("Scanner #%s - Detected a DFM Sonde! (Score: %.2f)" % (str(device_idx), _score))
-        return "DFM"
+        logging.debug("Scanner #%s - Detected a DFM Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "DFM"
     elif 'M10' in _type:
-        logging.debug("Scanner #%s - Detected a M10 Sonde! (Score: %.2f)" % (str(device_idx), _score))
-        return "M10"
-    elif 'IMET1RS' in _type:
-        logging.debug("Scanner #%s - Detected a iMet-4 Sonde! (Score: %.2f)" % (str(device_idx), _score))
-        return "iMet"     
-    elif 'IMET' in _type:
+        logging.debug("Scanner #%s - Detected a M10 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "M10"
+    elif 'IMET4' in _type:
+        logging.debug("Scanner #%s - Detected a iMet-4 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))  
+        _sonde_type = "iMet"
+    elif 'IMET1' in _type:
         logging.debug("Scanner #%s - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)" % (str(device_idx), _type, _score))
-        return _type
+        _sonde_type = "IMET1"
     elif 'LMS6' in _type:
-        logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f)" % (str(device_idx), _score))
-        return 'LMS6'
+        logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "LMS6"
     elif 'C34' in _type:
         logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
-        return 'C34C50'
+        _sonde_type = "C34C50"
     elif 'MK2LMS' in _type:
-        logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f)" % (str(device_idx), _score))
+        logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
         if _score < 0:
-            return '-MK2LMS'
+            _sonde_type = '-MK2LMS'
         else:
-            return 'MK2LMS'
+            _sonde_type = 'MK2LMS'
+    elif 'MEISEI' in _type:
+        logging.debug("Scanner #%s - Detected a Meisei Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        # Not currently sure if we expect to see inverted Meisei sondes.
+        if _score < 0:
+            _sonde_type = '-MEISEI'
+        else:
+            _sonde_type = 'MEISEI'
     else:
-        return None
+        _sonde_type = None
+
+    return (_sonde_type, _offset_est)
 
 
 
@@ -661,7 +700,7 @@ class SondeScanner(object):
             
             # Remove any frequencies in the temporary block list
             self.temporary_block_list_lock.acquire()
-            for _frequency in self.temporary_block_list.keys():
+            for _frequency in self.temporary_block_list.copy().keys():
                 # Check the time the block was added.
                 if self.temporary_block_list[_frequency] > (time.time()-self.temporary_block_time*60):
                     # We should still be blocking this frequency, so remove any peaks with this frequency.
@@ -722,7 +761,7 @@ class SondeScanner(object):
             if self.sonde_scanner_running == False:
                 return []
 
-            detected = detect_sonde(_freq,
+            (detected, offset_est) = detect_sonde(_freq,
                 sdr_fm=self.sdr_fm,
                 device_idx=self.device_idx,
                 ppm=self.ppm,
@@ -732,6 +771,10 @@ class SondeScanner(object):
                 save_detection_audio=self.save_detection_audio)
 
             if detected != None:
+                # Quantize the detected frequency (with offset) to 1 kHz
+                _freq = round((_freq + offset_est)/1000.0)*1000.0
+
+
                 # Add a detected sonde to the output array
                 _search_results.append([_freq, detected])
 

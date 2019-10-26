@@ -340,6 +340,16 @@ class WebExporter(object):
         
         _telem = telemetry.copy()
 
+
+        if 'f_centre' in _telem:
+            # We have an estimate of the sonde's centre frequency from the modem, use this in place of
+            # the RX frequency.
+            # Round to 1 kHz
+            _freq = round(telemetry['f_centre']/1000.0)
+            # Convert to MHz.
+            _telem['freq'] = "%.3f MHz" % (_freq/1e3)
+
+
         # Add the telemetry information to the global telemetry store
         if _telem['id'] not in flask_telemetry_store:
             flask_telemetry_store[_telem['id']] = {'timestamp':time.time(), 'latest_telem':_telem, 'path':[], 'track': GenericTrack()}

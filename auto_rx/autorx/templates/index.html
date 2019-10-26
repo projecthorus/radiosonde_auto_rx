@@ -148,6 +148,14 @@
                 {title: 'Receiver Location', icon: homeIcon}
                 ).addTo(sondemap);
 
+            // Stop the map from zooming when a user scrolls the page.
+            // The user must now either click on or drag the map before the scroll wheel will be enabled,
+            // and can disable the scroll-wheel zoom by clicking anywhere else on the page.
+            // Solution is from: https://gis.stackexchange.com/questions/111887/leaflet-mouse-wheel-zoom-only-after-click-on-map
+            sondemap.scrollWheelZoom.disable();
+            sondemap.on('focus', () => { sondemap.scrollWheelZoom.enable(); });
+            sondemap.on('blur', () => { sondemap.scrollWheelZoom.disable(); });
+
 
             function mapMovedEvent(e){
                 // The user has panned the map, stop following things.
@@ -179,6 +187,7 @@
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
                     {title:"Range (km)", field:"range", headerSort:false},
+                    {title:"SNR (dB)", field:"snr", headerSort:false, visible:false},
                     {title:"Other", field:"other", headerSort:false}
                 ]
             });
@@ -230,6 +239,12 @@
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             }
+                        }
+
+                        // Add SNR data, if it exists.
+                        if (sonde_id_data.hasOwnProperty('snr')){
+                            $("#telem_table").tabulator("showColumn", "snr");
+                            sonde_id_data.snr = sonde_id_data.snr.toFixed(1);
                         }
 
                         // Add data into the 'other' field.

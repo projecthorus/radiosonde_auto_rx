@@ -218,8 +218,7 @@ def start_decoder(freq, sonde_type):
             rs92_ephemeris = rs92_ephemeris,
             imet_location = config['station_code'],
             rs41_drift_tweak = config['rs41_drift_tweak'],
-            experimental_decoder = config['experimental_decoders'][_exp_sonde_type],
-            decoder_stats = config['decoder_stats']
+            experimental_decoder = config['experimental_decoders'][_exp_sonde_type]
             )
         autorx.sdr_list[_device_idx]['task'] = autorx.task_list[freq]['task']
 
@@ -325,7 +324,7 @@ def handle_scan_results():
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
 
-    for _key in autorx.task_list.keys():
+    for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
         try:
             _running = autorx.task_list[_key]['task'].running()
@@ -358,7 +357,7 @@ def clean_task_list():
             flask_emit_event('task_event')
 
     # Clean out the temporary block list of old entries.
-    for _freq in temporary_block_list.keys():
+    for _freq in temporary_block_list.copy().keys():
         if temporary_block_list[_freq] < (time.time() - config['temporary_block_time']*60):
             temporary_block_list.pop(_freq)
             logging.info("Task Manager - Removed %.3f MHz from temporary block list." % (_freq/1e6))
@@ -451,8 +450,15 @@ def telemetry_filter(telemetry):
     # Regex to check DFM06/09/15/17 callsigns. Also catches the 'unknown' types (xC, xD, etc)
     dfm_callsign_valid = re.match(r'DFM[01x][5679CD]-\d{6}', _serial)
 
+    # Check Meisei sonde callsigns for validity.
+    # meisei_ims returns a callsign of IMS100-0 until it receives the serial number, so we filter based on the 0 being present or not.
+    if 'MEISEI' in telemetry['type']:
+        meisei_callsign_valid = 'x' not in _serial.split('-')[1]
+    else:
+        meisei_callsign_valid = False
+
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']):
+    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']) or ('UDP' in telemetry['type']):
         return True
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']
@@ -620,7 +626,8 @@ def main():
             station_position = _habitat_station_position,
             payload_callsign_override = _habitat_payload_call,
             synchronous_upload_time = config['habitat_upload_rate'],
-            callsign_validity_threshold = config['payload_id_valid']
+            callsign_validity_threshold = config['payload_id_valid'],
+            url = config['habitat_url']
             )
 
         exporter_objects.append(_habitat)

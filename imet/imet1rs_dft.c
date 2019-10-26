@@ -1,11 +1,11 @@
 
 /*
- *  iMet-1-RS
+ *  iMet-1-RS / iMet-4
  *  Bell202 8N1
- *  (empfohlen: sample rate 48kHz)
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <complex.h>
 #include <math.h>
@@ -15,7 +15,7 @@ typedef  unsigned char  ui8_t;
 int option_verbose = 0,  // ausfuehrliche Anzeige
     option_raw = 0,      // rohe Frames
     option_rawbits = 0,
-    option_dft = 0,
+    option_b = 1,
     option_json = 0,
     wavloaded = 0;
 
@@ -24,7 +24,7 @@ int option_verbose = 0,  // ausfuehrliche Anzeige
 
 
 typedef struct {
-    int frame;
+    // GPS
     int hour;
     int min;
     int sec;
@@ -32,17 +32,18 @@ typedef struct {
     float lon;
     int alt;
     int sats;
-
+    // PTU
+    int frame;
     float temp;
     float pressure;
     float humidity;
     float batt;
-
+    //
     int gps_valid;
     int ptu_valid;
-} json_output_data_t;
+} gpx_t;
 
-json_output_data_t json_data;
+gpx_t gpx;
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -105,7 +106,7 @@ int read_wav_header(FILE *fp) {
     fprintf(stderr, "bits       : %d\n", bits_sample);
     fprintf(stderr, "channels   : %d\n", channels);
 
-    if ((bits_sample != 8) && (bits_sample != 16)) return -1;
+    if ((bits_sample != 8) && (bits_sample != 16) && (bits_sample != 32)) return -1;
 
     //samples_per_bit = sample_rate/(float)BAUD_RATE;
     //fprintf(stderr, "samples/bit: %.2f\n", samples_per_bit);
@@ -113,37 +114,36 @@ int read_wav_header(FILE *fp) {
     return 0;
 }
 
-#define EOF_INT  0x1000000
-
-int read_signed_sample(FILE *fp) {  // int = i32_t
-    int byte, i, ret;         //  EOF -> 0x1000000
+int f32read_sample(FILE *fp, float *s) {
+    int i;
+    unsigned int word = 0;
+    short *b = (short*)&word;
+    float *f = (float*)&word;
 
     for (i = 0; i < channels; i++) {
-                           // i = 0: links bzw. mono
-        byte = fgetc(fp);
-        if (byte == EOF) return EOF_INT;
-        if (i == 0) ret = byte;
-    
-        if (bits_sample == 16) {
-            byte = fgetc(fp);
-            if (byte == EOF) return EOF_INT;
-            if (i == 0) ret +=  byte << 8;
-        }
 
+        if (fread( &word, bits_sample/8, 1, fp) != 1) return EOF;
+
+        if (i == 0) {  // i = 0: links bzw. mono
+            //if (bits_sample ==  8)  sint = b-128;   // 8bit: 00..FF, centerpoint 0x80=128
+            //if (bits_sample == 16)  sint = (short)b;
+
+            if (bits_sample == 32) {
+                *s = *f;
+            }
+            else {
+                if (bits_sample ==  8) { *b -= 128; }
+                *s = *b/128.0;
+                if (bits_sample == 16) { *s /= 256.0; }
+            }
+        }
     }
 
-    if (bits_sample ==  8) return ret-128;
-    if (bits_sample == 16) return (short)ret;
-
-    return ret;
+    return 0;
 }
 
 /* ------------------------------------------------------------------------------------ */
 
-
-#define LOG2N    7  // 2^7 = 128 = N
-#define N      128  // 128  Vielfaches von 22 oder 10 unten
-#define WLEN    80  // (2*(48000/BAUDRATE))
 
 #define BITS (10)
 #define LEN_BITFRAME  BAUD_RATE
@@ -158,115 +158,8 @@ int    bitpos;
 ui8_t  bitframe[LEN_BITFRAME+1] = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 1};
 ui8_t  byteframe[LEN_BYTEFRAME+1];
 
-
-double x[N];
-double complex  Z[N], w[N], expw[N][N], ew[N*N];
-
-int    ptr;
-double Hann[N], buffer[N+1], xn[N];
-
-
-void init_dft() {
-    int i, k, n;
-
-    for (i = 0; i < N; i++)     Hann[i] = 0;
-    for (i = 0; i < WLEN; i++)  Hann[i] = 0.5 * (1 - cos( 2 * M_PI * i / (double)(WLEN-1) ) );
-                              //Hann[i+(N-1-WLEN)/2] = 0.5 * (1 - cos( 2 * M_PI * i / (double)(WLEN-1) ) );
-
-    for (k = 0; k < N; k++) {
-        w[k] = -I*2*M_PI * k / (double)N;
-        for (n = 0; n < N; n++) {
-            expw[k][n] = cexp( w[k] * n );
-            ew[k*n] = expw[k][n];
-        }
-    }
-}
-
-
-double dft_k(int k) {
-    int n;
-    double complex  Zk;
-
-    Zk = 0;
-    for (n = 0; n < N; n++) {
-        Zk += xn[n] * ew[k*n];
-    }
-    return cabs(Zk);
-}
-
-void dft() {
-    int k, n;
-
-    for (k = 0; k < N/2; k++) {  // xn reell, brauche nur N/2 unten
-        Z[k] = 0;
-        for (n = 0; n < N; n++) {
-            Z[k] += xn[n] * ew[k*n];
-        }
-    }
-}
-
-void dft2() {
-    int s, l, l2, i, j, k;
-    double complex  w1, w2, T;
-
-    for (i = 0; i < N; i++) {
-        Z[i] = (double complex)xn[i];
-    }
-
-    j = 1;
-    for (i = 1; i < N; i++) {
-        if (i < j) {
-            T = Z[j-1];
-            Z[j-1] = Z[i-1];
-            Z[i-1] = T;
-        }
-        k = N/2;
-        while (k < j) {
-            j = j - k;
-            k = k/2;
-        }
-        j = j + k;
-    }
-
-    for (s = 0; s < LOG2N; s++) {
-        l2 = 1 << s;
-        l  = l2 << 1;
-        w1 = (double complex)1.0;
-        w2 = cexp(-I*M_PI/(double)l2);
-        for (j = 1; j <= l2; j++) {
-            for (i = j; i <= N; i += l) {
-                k = i + l2;
-                T = Z[k-1] * w1;
-                Z[k-1] = Z[i-1] - T;
-                Z[i-1] = Z[i-1] + T;
-            }
-            w1 = w1 * w2;
-        }
-    }
-}
-
-int max_bin() {
-    int k, kmax;
-    double max;
-
-    max = 0; kmax = 0;
-    for (k = 0; k < N/2-1; k++) {
-        if (cabs(Z[k]) > max) {
-            max = cabs(Z[k]);
-            kmax = k;
-        }
-    }
-
-    return kmax;
-}
-
-double freq2bin(int f) {
-    return  f * N / (double)sample_rate;
-}
-
-int bin2freq(int k) {
-    return  sample_rate * k / N;
-}
+int    N, ptr;
+float *buffer = NULL;
 
 
 /* ------------------------------------------------------------------------------------ */
@@ -365,24 +258,24 @@ packet size = 18 bytes
 */
 #define pos_GPSlat  0x02  // 4 byte float
 #define pos_GPSlon  0x06  // 4 byte float
-#define pos_GPSsats 0x0C  // 1 byte
 #define pos_GPSalt  0x0A  // 2 byte int
+#define pos_GPSsats 0x0C  // 1 byte
 #define pos_GPStim  0x0D  // 3 byte
 #define pos_GPScrc  0x10  // 2 byte
 
-void print_GPS(int pos) {
+int print_GPS(int pos) {
     float lat, lon;
     int alt, sats;
     int std, min, sek;
-    int crc1, crc2;
+    int crc_val, crc;
 
-    crc1 = ((byteframe+pos)[pos_GPScrc] << 8) | (byteframe+pos)[pos_GPScrc+1];
-    crc2 = crc16(byteframe+pos, pos_GPScrc); // len=pos
+    crc_val = ((byteframe+pos)[pos_GPScrc] << 8) | (byteframe+pos)[pos_GPScrc+1];
+    crc = crc16(byteframe+pos, pos_GPScrc); // len=pos
 
     lat = *(float*)(byteframe+pos+pos_GPSlat);
     lon = *(float*)(byteframe+pos+pos_GPSlon);
     alt = ((byteframe+pos)[pos_GPSalt+1]<<8)+(byteframe+pos)[pos_GPSalt] - 5000;
-    sats = (byteframe+pos)[pos_GPSsats+0];
+    sats = (byteframe+pos)[pos_GPSsats];
     std = (byteframe+pos)[pos_GPStim+0];
     min = (byteframe+pos)[pos_GPStim+1];
     sek = (byteframe+pos)[pos_GPStim+2];
@@ -394,22 +287,25 @@ void print_GPS(int pos) {
     fprintf(stdout, " sats: %d ", sats);
 
     fprintf(stdout, " # ");
-    fprintf(stdout, " CRC: %04X ", crc1);
-    fprintf(stdout, "- %04X ", crc2);
-    if (crc1 == crc2){ 
+    fprintf(stdout, " CRC: %04X ", crc_val);
+    fprintf(stdout, "- %04X ", crc);
+    if (crc_val == crc) {
         fprintf(stdout, "[OK]");
-        json_data.gps_valid = 1;
-        json_data.lat = lat;
-        json_data.lon = lon;
-        json_data.alt = alt;
-        json_data.sats = sats;
-        json_data.hour = std;
-        json_data.min = min;
-        json_data.sec = sek;
-    }else{ 
-        fprintf(stdout, "[NO]");
-        json_data.gps_valid = 0;
+        gpx.gps_valid = 1;
+        gpx.lat = lat;
+        gpx.lon = lon;
+        gpx.alt = alt;
+        gpx.sats = sats;
+        gpx.hour = std;
+        gpx.min = min;
+        gpx.sec = sek;
     }
+    else {
+        fprintf(stdout, "[NO]");
+        gpx.gps_valid = 0;
+    }
+
+    return (crc_val != crc);
 }
 
 
@@ -436,14 +332,14 @@ packet size = 20 bytes
 #define pos_PTUbat  0x0B  // 1 byte
 #define pos_PTUcrc  0x12  // 2 byte
 
-void print_ePTU(int pos) {
+int print_ePTU(int pos) {
     int P, U;
     short T;
     int bat, pcknum;
-    int crc1, crc2;
+    int crc_val, crc;
 
-    crc1 = ((byteframe+pos)[pos_PTUcrc] << 8) | (byteframe+pos)[pos_PTUcrc+1];
-    crc2 = crc16(byteframe+pos, pos_PTUcrc); // len=pos
+    crc_val = ((byteframe+pos)[pos_PTUcrc] << 8) | (byteframe+pos)[pos_PTUcrc+1];
+    crc = crc16(byteframe+pos, pos_PTUcrc); // len=pos
 
     P   = (byteframe+pos)[pos_PTUprs] | ((byteframe+pos)[pos_PTUprs+1]<<8) | ((byteframe+pos)[pos_PTUprs+2]<<16);
     T   = (byteframe+pos)[pos_PTUtem] | ((byteframe+pos)[pos_PTUtem+1]<<8);
@@ -459,41 +355,39 @@ void print_ePTU(int pos) {
     fprintf(stdout, " bat:%.1fV ", bat/10.0);
 
     fprintf(stdout, " # ");
-    fprintf(stdout, " CRC: %04X ", crc1);
-    fprintf(stdout, "- %04X ", crc2);
-    if (crc1 == crc2){
-        fprintf(stdout, "[OK]"); 
-        json_data.frame = pcknum;
-        json_data.ptu_valid = 1;
-        json_data.temp = T/100.0;
-        json_data.humidity = U/100.0;
-        json_data.batt = bat/10.0;
-        json_data.pressure = P/100.0;
-    }else{
+    fprintf(stdout, " CRC: %04X ", crc_val);
+    fprintf(stdout, "- %04X ", crc);
+    if (crc_val == crc) {
+        fprintf(stdout, "[OK]");
+        gpx.ptu_valid = 1;
+        gpx.frame = pcknum;
+        gpx.pressure = P/100.0;
+        gpx.temp = T/100.0;
+        gpx.humidity = U/100.0;
+        gpx.batt = bat/10.0;
+    }
+    else {
         fprintf(stdout, "[NO]");
-        json_data.ptu_valid = 0;
+        gpx.ptu_valid = 0;
     }
 
+    return (crc_val != crc);
 }
-
-
-void print_JSON(){
-    if(json_data.gps_valid && json_data.ptu_valid){
-        fprintf(stdout, "{ \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"batt\":%.1f}\n",  json_data.frame, json_data.hour, json_data.min, json_data.sec, json_data.lat, json_data.lon, json_data.alt, json_data.sats, json_data.temp, json_data.humidity, json_data.pressure, json_data.batt);
-        fflush(stdout);
-    }
-
-}
-
 
 /* -------------------------------------------------------------------------- */
 
 int print_frame(int len) {
     int i;
     int framelen;
+    int crc_err1 = 0,
+        crc_err2 = 0;
+    int out = 0;
 
     if ( len < 2 || len > LEN_BYTEFRAME) return -1;
     for (i = len; i < LEN_BYTEFRAME; i++) byteframe[i] = 0;
+
+    gpx.gps_valid = 0;
+    gpx.ptu_valid = 0;
 
     if (option_rawbits)
     {
@@ -508,18 +402,19 @@ int print_frame(int len) {
                 fprintf(stdout, "%02X ", byteframe[i]);
             }
             fprintf(stdout, "\n");
+            out |= 4;
         }
         //else
         {
             if ((byteframe[0] == 0x01) && (byteframe[1] == 0x02)) { // GPS Data Packet
-                print_GPS(0x00);  // packet offset in byteframe
+                crc_err1 = print_GPS(0x00);  // packet offset in byteframe
                 fprintf(stdout, "\n");
+                out |= 1;
             }
             if ((byteframe[pos_GPScrc+2+0] == 0x01) && (byteframe[pos_GPScrc+2+1] == 0x04)) { // PTU Data Packet
-                print_ePTU(pos_GPScrc+2);  // packet offset in byteframe
+                crc_err2 = print_ePTU(pos_GPScrc+2);  // packet offset in byteframe
                 fprintf(stdout, "\n");
-
-                if(option_json) print_JSON();
+                out |= 2;
             }
 /*
             if ((byteframe[0] == 0x01) && (byteframe[1] == 0x04)) { // PTU Data Packet
@@ -527,7 +422,18 @@ int print_frame(int len) {
                 fprintf(stdout, "\n");
             }
 */
-            fprintf(stdout, "\n");
+//          // if (crc_err1==0 && crc_err2==0) { }
+
+            if (option_json) {
+                if (gpx.gps_valid && gpx.ptu_valid) // frameNb part of PTU-pck
+                {
+                    fprintf(stdout, "{ \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\": %.2f, \"humidity\": %.2f, \"pressure\": %.2f, \"batt\": %.1f }\n",
+                            gpx.frame, gpx.hour, gpx.min, gpx.sec, gpx.lat, gpx.lon, gpx.alt, gpx.sats, gpx.temp, gpx.humidity, gpx.pressure, gpx.batt);
+                }
+            }
+
+            if (out) fprintf(stdout, "\n");
+            fflush(stdout);
         }
     }
 
@@ -536,22 +442,36 @@ int print_frame(int len) {
 
 /* -------------------------------------------------------------------------- */
 
+double complex F1sum = 0;
+double complex F2sum = 0;
 
 int main(int argc, char *argv[]) {
 
     FILE *fp;
     char *fpname;
-    int  sample;
-    unsigned int  sample_count;
-    int i, j, kmax, k0, k1;
+    unsigned int sample_count;
+    int i;
     int bit = 8, bit0 = 8;
     int pos = 0, pos0 = 0;
+    double pos_bit = 0;
     int header_found = 0;
-    int bitlen; // sample_rate/BAUD_RATE
+    double bitlen; // sample_rate/BAUD_RATE
     int len;
-    double k_f0, k_f1, k_df;
-    double cb0, cb1;
+    double f1, f2;
 
+    int n;
+    double t  = 0.0;
+    double tn = 0.0;
+    double x  = 0.0;
+    double x0 = 0.0;
+
+    double complex X0 = 0;
+    double complex X  = 0;
+
+    double xbit = 0.0;
+    float s = 0.0;
+
+    int bitbuf[3];
 
     fpname = argv[0];
     ++argv;
@@ -572,14 +492,11 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "--rawbits") == 0) ) {
             option_rawbits = 1;
         }
+        else if ( (strcmp(*argv, "-b") == 0) ) {
+            option_b = 1;
+        }
         else if ( (strcmp(*argv, "--json") == 0) ) {
             option_json = 1;
-        }
-        else if ( (strcmp(*argv, "-d1") == 0) || (strcmp(*argv, "--dft1") == 0) ) {
-            option_dft = 1;
-        }
-        else if ( (strcmp(*argv, "-d2") == 0) || (strcmp(*argv, "--dft2") == 0) ) {
-            option_dft = 2;
         }
         else {
             fp = fopen(*argv, "rb");
@@ -601,49 +518,76 @@ int main(int argc, char *argv[]) {
     }
 
 
-    bitlen = sample_rate/BAUD_RATE;
-    k_f0 = freq2bin(2200);  // bit0: 2200Hz
-    k_f1 = freq2bin(1200);  // bit1: 1200Hz
-    k_df = fabs(k_f0-k_f1)/2.5;
-    k0 = (int)(k_f0+.5);
-    k1 = (int)(k_f1+.5);
+    bitlen = sample_rate/(double)BAUD_RATE;
 
-    init_dft();
+    f1 = 2200.0;  // bit0: 2200Hz
+    f2 = 1200.0;  // bit1: 1200Hz
+
+    N = 2*bitlen + 0.5;
+    buffer = calloc( N+1, sizeof(float)); if (buffer == NULL) return -1;
 
     ptr = -1; sample_count = -1;
-    while ((sample=read_signed_sample(fp)) < EOF_INT) {
 
-        ptr++; 
-        sample_count++;
+    while (f32read_sample(fp, &s) != EOF) {
+
+        ptr++; sample_count++;
         if (ptr == N) ptr = 0;
-        buffer[ptr] = sample / (double)(1<<bits_sample);
+        buffer[ptr] = s;
 
-        if (sample_count < N) continue;
+        n = bitlen;
+        t = sample_count / (double)sample_rate;
+        tn = (sample_count-n) / (double)sample_rate;
+
+        x = buffer[sample_count % N];
+        x0 = buffer[(sample_count - n + N) % N];
+
+        // f1
+        X0 = x0 * cexp(-tn*2*M_PI*f1*I); // alt
+        X  = x  * cexp(-t *2*M_PI*f1*I); // neu
+        F1sum +=  X - X0;
+
+        // f2
+        X0 = x0 * cexp(-tn*2*M_PI*f2*I); // alt
+        X  = x  * cexp(-t *2*M_PI*f2*I); // neu
+        F2sum +=  X - X0;
+
+        xbit = cabs(F2sum) - cabs(F1sum);
+
+        s = xbit / bitlen;
 
 
-            for (j = 0; j < N; j++) {
-                xn[j] = Hann[j]*buffer[(ptr + j + 1)%N];
+        if ( s < 0 ) bit = 0;  // 2200Hz
+        else         bit = 1;  // 1200Hz
+
+        bitbuf[sample_count % 3] = bit;
+
+        if (header_found && option_b)
+        {
+            if (sample_count - pos_bit > bitlen+bitlen/5 + 3)
+            {
+                int bitsum = bitbuf[0]+bitbuf[1]+bitbuf[2];
+                if (bitsum > 1.5) bit = 1; else bit = 0;
+
+                bitframe[bitpos] = bit;
+                bitpos++;
+                if (bitpos >= LEN_BITFRAME-200) {  // LEN_GPSePTU*BITS+40
+
+                    print_frame(bitpos/BITS);
+
+                    bitpos = 0;
+                    header_found = 0;
+                }
+                pos_bit += bitlen;
             }
-
-            if (option_dft) {
-                if (option_dft == 2) dft2();
-                else                 dft();
-                kmax = max_bin();
-                if      (kmax > k_f0-k_df  &&  kmax < k_f0+k_df)  bit = 0;  // kmax = freq2bin(2200): 2200Hz
-                else if (kmax > k_f1-k_df  &&  kmax < k_f1+k_df)  bit = 1;  // kmax = freq2bin(1200): 1200Hz
-            }
-            else {
-                cb0 = dft_k(k0);
-                cb1 = dft_k(k1);
-                if      ( cb0 > cb1 )  bit = 0;  // freq2bin(2200): 2200Hz
-                else                   bit = 1;  // freq2bin(1200): 1200Hz
-            }
-
+        }
+        else
+        {
             if (bit != bit0) {
+
                 pos0 = pos;
                 pos = sample_count;  //sample_count-(N-1)/2
 
-                len = (pos-pos0+bitlen/2)/bitlen; //(pos-pos0)/bitlen + 0.5;
+                len =  (pos-pos0)/bitlen + 0.5;
                 for (i = 0; i < len; i++) {
                     inc_bufpos();
                     buf[bufpos] = 0x30 + bit0;
@@ -652,6 +596,11 @@ int main(int argc, char *argv[]) {
                         if (compare() >= HEADLEN) {
                             header_found = 1;
                             bitpos = 10;
+                            pos_bit = pos;
+                            if (option_b) {
+                                bitframe[bitpos] = bit;
+                                bitpos++;
+                            }
                         }
                     }
                     else {
@@ -668,9 +617,11 @@ int main(int argc, char *argv[]) {
                 }
                 bit0 = bit;
             }
-
+        }
     }
     fprintf(stdout, "\n");
+
+    if (buffer) { free(buffer); buffer = NULL; }
 
     fclose(fp);
 

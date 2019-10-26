@@ -66,7 +66,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		'station_lat'	: 0.0,
 		'station_lon'	: 0.0,
 		'station_alt'	: 0.0,
-		'station_code'	: 'SONDE',
+		'station_code'	: 'SONDE',	# NOTE: This will not be read from the config file, but will be left in place for now
+									# as a default setting.
 		'gpsd_enabled'	: False,
 		'gpsd_host'		: 'localhost',
 		'gpsd_port'		: 2947,
@@ -134,11 +135,15 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		# Debugging settings
 		'save_detection_audio' : False,
 		'save_decode_audio' : False,
-		'save_decode_iq' : False
+		'save_decode_iq' : False,
+		# URL for the Habitat DB Server.
+		# As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
+		# from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
+		# For now, sondehub.org just acts as a proxy to habhub.org.
+		# This setting is not exposed to users as it's only used for unit/int testing
+		'habitat_url': "https://habitat.sondehub.org/"
 
 	}
-
-	sdr_settings = {}#'0':{'ppm':0, 'gain':-1, 'bias': False}}
 
 
 	try:
@@ -198,6 +203,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
+		try: # Use the default configuration if not found
+			auto_rx_config['habitat_url'] = config.get('habitat','url') 
+		except:
+			pass
 
 		# APRS Settings
 		auto_rx_config['aprs_enabled'] = config.getboolean('aprs', 'aprs_enabled')
@@ -254,19 +263,28 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['save_decode_audio'] = config.getboolean('debugging', 'save_decode_audio')
 		auto_rx_config['save_decode_iq'] = config.getboolean('debugging', 'save_decode_iq')
 
-		auto_rx_config['station_code'] = config.get('location', 'station_code')
-		if len(auto_rx_config['station_code']) > 5:
-			auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
-			logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
+		# NOTE 2019-09-21: The station code will now be fixed at the default to avoid multiple iMet callsign issues.
+		# auto_rx_config['station_code'] = config.get('location', 'station_code')
+		# if len(auto_rx_config['station_code']) > 5:
+		# 	auto_rx_config['station_code'] = auto_rx_config['station_code'][:5]
+		# 	logging.warning("Config - Clipped station code to 5 digits: %s" % auto_rx_config['station_code'])
 
 		auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
 
 		# New demod tweaks - Added 2019-04-23
 		# Default to all experimental decoders off.
-		auto_rx_config['experimental_decoders'] = {'RS41': False, 'RS92': False, 'DFM': False, 'M10': False, 'iMet': False, 'LMS6': True, 'MK2LMS': False}
+		auto_rx_config['experimental_decoders'] = {
+			'RS41': False, 
+			'RS92': False, 
+			'DFM': False, 
+			'M10': False, 
+			'iMet': False, 
+			'LMS6': True, 
+			'MK2LMS': False, 
+			'MEISEI': False, 
+			'UDP': False}
 		auto_rx_config['rs41_drift_tweak'] = config.getboolean('advanced', 'drift_tweak')
 		auto_rx_config['decoder_spacing_limit'] = config.getint('advanced', 'decoder_spacing_limit')
-		auto_rx_config['decoder_stats'] = config.getboolean('advanced', 'enable_stats')
 		auto_rx_config['experimental_decoders']['RS41'] = config.getboolean('advanced', 'rs41_experimental')
 		auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
 		auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')

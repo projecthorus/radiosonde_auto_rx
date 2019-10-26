@@ -30,7 +30,7 @@ except ImportError:
 
 
 # List of binaries we check for on startup
-REQUIRED_RS_UTILS = ['dft_detect', 'dfm09mod', 'm10', 'imet1rs_dft', 'rs41mod', 'rs92mod', 'fsk_demod', 'mk2a_lms1680', 'lms6mod']
+REQUIRED_RS_UTILS = ['dft_detect', 'dfm09mod', 'm10mod', 'imet1rs_dft', 'rs41mod', 'rs92mod', 'fsk_demod', 'mk2a_lms1680', 'lms6Xmod', 'meisei100mod']
 
 def check_rs_utils():
     """ Check the required RS decoder binaries exist
@@ -576,6 +576,12 @@ def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 2):
     Returns:
         bool: True if the RTLSDR device is accessible, False otherwise.
     """
+
+    # Immediately return true for any SDR with a device ID that starts with TCP,
+    # as this indicates this is not actually a RTLSDR, but a client connecting to some other
+    # SDR server.
+    if device_idx.startswith('TCP'):
+        return True
 
     _rtl_cmd = "timeout 5 %s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
 

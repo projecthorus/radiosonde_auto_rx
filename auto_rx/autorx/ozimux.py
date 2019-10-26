@@ -37,7 +37,7 @@ class OziUploader(object):
     REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
 
     # Extra fields we can pass on to other programs.
-    EXTRA_FIELDS = ['bt', 'humidity', 'sats', 'batt']
+    EXTRA_FIELDS = ['bt', 'humidity', 'sats', 'batt', 'snr', 'fest', 'f_centre', 'ppm']
 
 
     def __init__(self,

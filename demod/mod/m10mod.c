@@ -89,6 +89,7 @@ typedef struct {
 
 
 /* -------------------------------------------------------------------------- */
+#define SECONDS_IN_WEEK  (604800.0)  // 7*86400
 /*
  * Convert GPS Week and Seconds to Modified Julian Day.
  * - Adapted from sci.astro FAQ.
@@ -768,6 +769,8 @@ static int print_pos(gpx_t *gpx, int csOK) {
             if (csOK) {
                 int j;
                 char sn_id[4+12] = "M10-";
+                ui8_t aprs_id[4];
+                double sec_gps0 = (double)gpx->week*SECONDS_IN_WEEK + gpx->tow_ms/1e3;
                 // UTC = GPS - UTC_OFS  (ab 1.1.2017: UTC_OFS=18sec)
                 int utc_s = gpx->gpssec - gpx->utc_ofs;
                 int utc_week = gpx->week;
@@ -787,8 +790,17 @@ static int print_pos(gpx_t *gpx, int csOK) {
                 sn_id[15] = '\0';
                 for (j = 0; sn_id[j]; j++) { if (sn_id[j] == ' ') sn_id[j] = '-'; }
 
-                fprintf(stdout, "{ \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                fprintf(stdout, "{ ");
+                fprintf(stdout, "\"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
+                fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
                                sn_id, utc_jahr, utc_monat, utc_tag, utc_std, utc_min, utc_sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV);
+                // APRS id, 9 characters
+                aprs_id[0] = gpx->frame_bytes[pos_SN+2];
+                aprs_id[1] = gpx->frame_bytes[pos_SN] & 0xF;
+                aprs_id[2] = gpx->frame_bytes[pos_SN+4];
+                aprs_id[3] = gpx->frame_bytes[pos_SN+3];
+                fprintf(stdout, ", \"aprsid\": \"ME%02X%1X%02X%02X\"", aprs_id[0], aprs_id[1], aprs_id[2], aprs_id[3]);
+                // temperature
                 if (gpx->option.ptu) {
                     float t = get_Temp(gpx, 0);
                     if (t > -273.0) fprintf(stdout, ", \"temp\": %.1f", t);
@@ -880,8 +892,11 @@ int main(int argc, char **argv) {
     //int option_res = 0;      // genauere Bitmessung
     int option_color = 0;
     int option_ptu = 0;
-    int option_dc = 0;
+    int option_min = 0;
     int option_iq = 0;
+    int option_lp = 0;
+    int option_dc = 0;
+    int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
@@ -948,9 +963,6 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--ptu") == 0) ) {
             option_ptu = 1;
         }
-        else if ( (strcmp(*argv, "--dc") == 0) ) {
-            option_dc = 1;
-        }
         else if ( (strcmp(*argv, "--spike") == 0) ) {
             spike = 1;
         }
@@ -974,11 +986,42 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--json") == 0) { gpx.option.jsn = 1; }
+        else if (strcmp(*argv, "-") == 0) {
+            int sample_rate = 0, bits_sample = 0, channels = 0;
+            ++argv;
+            if (*argv) sample_rate = atoi(*argv); else return -1;
+            ++argv;
+            if (*argv) bits_sample = atoi(*argv); else return -1;
+            channels = 2;
+            if (sample_rate < 1 || (bits_sample != 8 && bits_sample != 16 && bits_sample != 32)) {
+                fprintf(stderr, "- <sr> <bs>\n");
+                return -1;
+            }
+            pcm.sr  = sample_rate;
+            pcm.bps = bits_sample;
+            pcm.nch = channels;
+            option_pcmraw = 1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
-                fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
+                fprintf(stderr, "error: open %s\n", *argv);
                 return -1;
             }
             wavloaded = 1;
@@ -996,12 +1039,22 @@ int main(int argc, char **argv) {
 
 
     // init gpx
-    pcm.sel_ch = sel_wavch;
-    k = read_wav_header(&pcm, fp);
-    if ( k < 0 ) {
+
+    if (option_iq == 0 && option_pcmraw) {
         fclose(fp);
-        fprintf(stderr, "error: wav header\n");
+        fprintf(stderr, "error: raw data not IQ\n");
         return -1;
+    }
+    if (option_iq) sel_wavch = 0;
+
+    pcm.sel_ch = sel_wavch;
+    if (option_pcmraw == 0) {
+        k = read_wav_header(&pcm, fp);
+        if ( k < 0 ) {
+            fclose(fp);
+            fprintf(stderr, "error: wav header\n");
+            return -1;
+        }
     }
 
     // m10: BT>1?, h=1.2 ?
@@ -1024,6 +1077,11 @@ int main(int argc, char **argv) {
     dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0
     dsp.h = 0.9;  // 1.2 modulation index
     dsp.opt_iq = option_iq;
+    dsp.opt_lp = option_lp;
+    dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
+    dsp.lpFM_bw = 10e3; // FM audio lowpass
+    dsp.opt_dc = option_dc;
+    dsp.opt_IFmin = option_min;
 
     if ( dsp.sps < 8 ) {
         fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
@@ -1040,63 +1098,62 @@ int main(int argc, char **argv) {
 
     bitofs += shift;
 
-        while ( 1 )
-        {
+    while ( 1 )
+    {
+                                                                        // FM-audio:
+        header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+        _mv = dsp.mv;
 
-                header_found = find_header(&dsp, thres, 2, bitofs, option_dc);
-                _mv = dsp.mv;
+        if (header_found == EOF) break;
 
-            if (header_found == EOF) break;
+        // mv == correlation score
+        if (_mv*(0.5-gpx.option.inv) < 0) {
+            gpx.option.inv ^= 0x1;  // M10: irrelevant
+        }
 
-            // mv == correlation score
-            if (_mv*(0.5-gpx.option.inv) < 0) {
-                gpx.option.inv ^= 0x1;  // M10: irrelevant
+        if (header_found) {
+
+            bitpos = 0;
+            pos = 0;
+            pos /= 2;
+            bit0 = '0'; // oder: _mv[j] > 0
+
+            while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
+
+                if (option_iq >= 2) {
+                    float bl = -1;
+                    if (option_iq > 2) bl = 4.0;
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
+                }
+                else {
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                }
+
+                if ( bitQ == EOF ) { break; }
+
+                gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
+                pos++;
+                bit0 = bit;
+                bitpos += 1;
+            }
+            gpx.frame_bits[pos] = '\0';
+            print_frame(&gpx, pos);
+            if (pos < BITFRAME_LEN) break;
+
+            header_found = 0;
+
+            // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
+            if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
+                while ( bitpos < 5*BITFRAME_LEN ) {
+                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    if ( bitQ == EOF) break;
+                    bitpos++;
+                }
             }
 
-
-                if (header_found) {
-
-                    bitpos = 0;
-                    pos = 0;
-                    pos /= 2;
-                    bit0 = '0'; // oder: _mv[j] > 0
-
-                    while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
-
-                        if (option_iq >= 2) {
-                            float bl = -1;
-                            if (option_iq > 2) bl = 4.0;
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
-                        }
-                        else {
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
-                        }
-
-                        if ( bitQ == EOF ) { break; }
-
-                        gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
-                        pos++;
-                        bit0 = bit;
-                        bitpos += 1;
-                    }
-                    gpx.frame_bits[pos] = '\0';
-                    print_frame(&gpx, pos);
-                    if (pos < BITFRAME_LEN) break;
-
-                    header_found = 0;
-
-                    // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
-                    if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
-                        while ( bitpos < 5*BITFRAME_LEN ) {
-                            bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
-                            if ( bitQ == EOF) break;
-                            bitpos++;
-                        }
-                    }
-
-                    pos = 0;
-                }
+            pos = 0;
         }
+    }
 
 
     free_buffers(&dsp);

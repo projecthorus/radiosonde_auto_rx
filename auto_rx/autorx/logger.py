@@ -129,6 +129,12 @@ class TelemetryLogger(object):
             telemetry['freq_float'])
 
         # Other fields that may not always be present.
+        if 'snr' in telemetry:
+            _log_line += ",SNR %.1f" % telemetry['snr']
+
+        if 'f_error' in telemetry:
+            _log_line += ",FERROR %d" % int(telemetry['f_error'])
+
         if 'sats' in telemetry:
             _log_line += ",SATS %d" % telemetry['sats']
 

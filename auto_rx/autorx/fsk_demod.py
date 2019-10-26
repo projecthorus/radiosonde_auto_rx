@@ -66,18 +66,21 @@ class FSKDemodStats(object):
         """
 
         # Check input type
-        if type(data) == str:
+        if type(data) == bytes:
+            data = data.decode('ascii')
+
+        if type(data) == dict:
+            _data = data
+        
+        else:
             # Attempt to parse string.
             try:
                 _data = json.loads(data)
             except Exception as e:
-                self.log_error("FSK Demod Stats - %s" % str(e))
+                # Be quiet for now...
+                #self.log_error("FSK Demod Stats - %s" % str(e))
                 return
-        elif type(data) == dict:
-            _data = data
         
-        else:
-            return
 
         # Check for required fields in incoming dictionary.
         for _field in self.FSK_STATS_FIELDS:
@@ -155,7 +158,7 @@ if __name__ == "__main__":
             _line = json.loads(_line)
         except:
             continue
-            ß
+            
         stats.update(_line)
 
         time.sleep(1/rate)

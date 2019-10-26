@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
     ui8_t max_ch;
     ui8_t nul_ch;
+    ui8_t sn_ch;
     ui8_t chXbit;
     ui32_t SN_X;
     ui32_t chX[2];
@@ -452,37 +453,51 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         gpx->snc.max_ch = conf_id;
     }
 
-    if (conf_id > 4 && conf_id > gpx->snc.max_ch && ec == 0) { // mind. 5 Kanaele
+    if (conf_id > 5 && conf_id > gpx->snc.max_ch && ec == 0) { // mind. 6 Kanaele
         if (bits2val(conf_bits+4, 4) == 0xC) { // 0xsCaaaab
             gpx->snc.max_ch = conf_id; // reset?
         }
+/*
+        if (bits2val(conf_bits, 8) == 0x70) { // 0x70aaaab
+            gpx->snc.max_ch = conf_id; // reset?
+        }
+*/
     }
 
-    if (conf_id > 4 && (conf_id == (gpx->snc.nul_ch>>4)+1 || conf_id == gpx->snc.max_ch))
+    // SN: mind. 6 Kanaele
+    if (conf_id > 5 && (conf_id == (gpx->snc.nul_ch>>4)+1 || conf_id == gpx->snc.max_ch))
     {
         sn2_ch = bits2val(conf_bits, 8);
-        sn_ch = ((sn2_ch>>4) & 0xF);
-        if (conf_id == sn_ch)
-        {
-            if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
-                SN6 = bits2val(conf_bits+4, 4*6);   // DFM-06: Kanal 6
-                if (SN6 == gpx->SN6  &&  SN6 != 0) { // nur Nibble-Werte 0..9
-                    gpx->sonde_typ = SNbit | 6;
-                    gpx->ptu_out = 6;
-                    sprintf(gpx->sonde_id, "ID06:%6X", gpx->SN6);
-                    //sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6);
-                }
-                else { // reset
-                    gpx->sonde_typ = 0;
-                    //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
-                }
-                gpx->SN6 = SN6;
+        sn_ch = ((sn2_ch>>4) & 0xF);  // sn_ch == config_id
+
+        if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
+            SN6 = bits2val(conf_bits+4, 4*6);     // DFM-06: Kanal 6
+            if (SN6 == gpx->SN6  &&  SN6 != 0) {  // nur Nibble-Werte 0..9
+                gpx->sonde_typ = SNbit | 6;
+                gpx->ptu_out = 6;
+                sprintf(gpx->sonde_id, "ID06:%6X", gpx->SN6);
+                //sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6);
             }
-            else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
-                     || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
+            else { // reset
+                gpx->sonde_typ = 0;
+                //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
+            }
+            gpx->SN6 = SN6;
+        }
+        else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
+                 || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
+        {
+            val = bits2val(conf_bits+8, 4*5);
+            hl =  (val & 0xF);
+            if (hl < 2)
             {
-                val = bits2val(conf_bits+8, 4*5);
-                hl =  (val & 1);
+                if ( gpx->snc.sn_ch != sn_ch ) { // -> sn_ch > 0
+                    // reset
+                    gpx->snc.chXbit = 0;
+                    gpx->snc.chX[0] = 0;
+                    gpx->snc.chX[1] = 0;
+                }
+                gpx->snc.sn_ch = sn_ch;
                 gpx->snc.chX[hl] = (val >> 4) & 0xFFFF;
                 gpx->snc.chXbit |= 1 << hl;
                 if (gpx->snc.chXbit == 3) {
@@ -514,8 +529,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                     gpx->snc.chXbit = 0;
                 }
             }
-            ret = (gpx->sonde_typ & 0xF);
         }
+        ret = (gpx->sonde_typ & 0xF);
     }
 
 
@@ -835,9 +850,13 @@ int main(int argc, char **argv) {
     int option_ptu = 0;
     int option_dist = 0;     // continuous pcks 0..8
     int option_auto = 0;
+    int option_min = 0;
     int option_iq = 0;
+    int option_lp = 0;
+    int option_dc = 0;
     int option_bin = 0;
     int option_json = 0;     // JSON blob output (for auto_rx)
+    int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;       // audio channel: left
     int spike = 0;
@@ -940,11 +959,42 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
+            ++argv;
+            if (*argv) fq = atof(*argv);
+            else return -1;
+            if (fq < -0.5) fq = -0.5;
+            if (fq >  0.5) fq =  0.5;
+            dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
+            option_iq = 5;
+        }
+        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--min") == 0) {
+            option_min = 1;
+        }
         else if   (strcmp(*argv, "--dbg") == 0) { gpx.option.dbg = 1; }
+        else if (strcmp(*argv, "-") == 0) {
+            int sample_rate = 0, bits_sample = 0, channels = 0;
+            ++argv;
+            if (*argv) sample_rate = atoi(*argv); else return -1;
+            ++argv;
+            if (*argv) bits_sample = atoi(*argv); else return -1;
+            channels = 2;
+            if (sample_rate < 1 || (bits_sample != 8 && bits_sample != 16 && bits_sample != 32)) {
+                fprintf(stderr, "- <sr> <bs>\n");
+                return -1;
+            }
+            pcm.sr  = sample_rate;
+            pcm.bps = bits_sample;
+            pcm.nch = channels;
+            option_pcmraw = 1;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
-                fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
+                fprintf(stderr, "error: open %s\n", *argv);
                 return -1;
             }
             wavloaded = 1;
@@ -972,13 +1022,22 @@ int main(int argc, char **argv) {
 
 
     if (!option_bin) {
-        //if (option_iq) sel_wavch = 0;
-        pcm.sel_ch = sel_wavch;
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
             return -1;
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
         }
 
         // dfm: BT=1?, h=2.4?
@@ -1001,6 +1060,11 @@ int main(int argc, char **argv) {
         dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
         dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 12e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 4e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
 
         if ( dsp.sps < 8 ) {
             fprintf(stderr, "note: sample rate low\n");
@@ -1036,8 +1100,8 @@ int main(int argc, char **argv) {
                 header_found = find_binhead(fp, &hdb, &_mv); // symbols or bits?
                 hdrcnt += nfrms;
             }
-            else {
-                header_found = find_header(&dsp, thres, 2, bitofs, 0);
+            else {                                                              // FM-audio:
+                header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
                 _mv = dsp.mv;
             }
             if (header_found == EOF) break;
