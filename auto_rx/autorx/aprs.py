@@ -104,10 +104,21 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     elif len(_object_name) < 9:
         _object_name = _object_name + " "*(9-len(_object_name))
 
+    # Use the actual sonde frequency, if we have it.
+    if 'f_centre' in sonde_data:
+        # We have an estimate of the sonde's centre frequency from the modem, use this in place of
+        # the RX frequency.
+        # Round to 1 kHz
+        _freq = round(sonde_data['f_centre']/1000.0)
+        # Convert to MHz.
+        _freq = "%.3f MHz" % (_freq/1e3)
+    else:
+        # Otherwise, use the normal frequency.
+        _freq = sonde_data['freq']
     
     # Generate the comment field.
     _aprs_comment = aprs_comment
-    _aprs_comment = _aprs_comment.replace("<freq>", sonde_data['freq'])
+    _aprs_comment = _aprs_comment.replace("<freq>", _freq)
     _aprs_comment = _aprs_comment.replace("<id>", sonde_data['id'])
     _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data['temp'])
     _aprs_comment = _aprs_comment.replace("<vel_v>", "%.1fm/s" % sonde_data['vel_v'])
@@ -585,7 +596,8 @@ class APRSUploader(object):
 
         # Discard any telemetry which is indicated to be encrypted.
         if 'encrypted' in telemetry:
-            return
+            if telemetry['encrypted'] == True:
+                return
 
         # Check the telemetry dictionary contains the required fields.
         for _field in self.REQUIRED_FIELDS:
