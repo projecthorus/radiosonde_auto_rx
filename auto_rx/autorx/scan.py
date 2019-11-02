@@ -685,9 +685,13 @@ class SondeScanner(object):
             peak_frequencies = peak_frequencies[np.sort(peak_idx)]
 
 
+            # Blacklist & Temporary block list behaviour change as of v1.2.3
+            # Was: peak_frequencies==_frequency   (This only matched an exact frequency in the blacklist)
+            # Now (1.2.3): Block if the peak frequency is within +/-quantization/2.0 of a blacklist or blocklist frequency.
+
             # Remove any frequencies in the blacklist.
             for _frequency in np.array(self.blacklist)*1e6:
-                _index = np.argwhere(peak_frequencies==_frequency)
+                _index = np.argwhere(np.abs(peak_frequencies-_frequency) < (self.quantization/2.0))
                 peak_frequencies = np.delete(peak_frequencies, _index)
 
             # Limit to the user-defined number of peaks to search over.
@@ -704,7 +708,7 @@ class SondeScanner(object):
                 # Check the time the block was added.
                 if self.temporary_block_list[_frequency] > (time.time()-self.temporary_block_time*60):
                     # We should still be blocking this frequency, so remove any peaks with this frequency.
-                    _index = np.argwhere(peak_frequencies==_frequency)
+                    _index = np.argwhere(np.abs(peak_frequencies-_frequency) < (self.quantization/2.0))
                     peak_frequencies = np.delete(peak_frequencies, _index)
                     if len(_index) > 0:
                         self.log_debug("Peak on %.3f MHz was removed due to temporary block." % (_frequency/1e6))
