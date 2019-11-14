@@ -34,14 +34,14 @@ except ImportError:
 # Global for latest scan result
 scan_result = {'freq':[], 'power':[], 'peak_freq':[], 'peak_lvl':[], 'timestamp':'No data yet.', 'threshold':0}
 
-def run_rtl_power(start, stop, step, filename="log_power.csv", dwell = 20, sdr_power='rtl_power', device_idx = 0, ppm = 0, gain = -1, bias = False):
+def run_rtl_power(start, stop, step, filename="/tmp/log_power.csv", dwell = 20, sdr_power='rtl_power', device_idx = 0, ppm = 0, gain = -1, bias = False):
     """ Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
 
     Args:
         start (int): Start of search window, in Hz.
         stop (int): End of search window, in Hz.
         step (int): Search step, in Hz.
-        filename (str): Output results to this file. Defaults to ./log_power.csv
+        filename (str): Output results to this file. Defaults to /tmp/log_power.csv
         dwell (int): How long to average on the frequency range for.
         sdr_power (str): Path to the rtl_power utility.
         device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
