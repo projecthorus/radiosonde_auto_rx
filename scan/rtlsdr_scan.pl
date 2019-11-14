@@ -18,7 +18,7 @@ my $log_dir = "log";
 my $utc = strftime('%Y%m%d_%H%M%S', gmtime);
 print $utc, "UTC", "\n";
 
-my $powfile = sprintf "log_power\.csv";
+my $powfile = sprintf "/tmp/log_power\.csv";
 
 
 my $ppm = 54;
