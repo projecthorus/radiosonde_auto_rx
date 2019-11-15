@@ -627,7 +627,7 @@ class SondeScanner(object):
             run_rtl_power(self.min_freq*1e6,
                 self.max_freq*1e6,
                 self.search_step,
-                filename="log_power_%s.csv" % self.device_idx,
+                filename="/tmp/log_power_%s.csv" % self.device_idx,
                 dwell=self.scan_dwell_time,
                 sdr_power=self.sdr_power,
                 device_idx=self.device_idx,
@@ -641,7 +641,7 @@ class SondeScanner(object):
 
             # Read in result.
             # This step will throw an IOError if the file does not exist.
-            (freq, power, step) = read_rtl_power("log_power_%s.csv" % self.device_idx)
+            (freq, power, step) = read_rtl_power("/tmp/log_power_%s.csv" % self.device_idx)
             # Sanity check results.
             if step == 0 or len(freq)==0 or len(power)==0:
                 # Otherwise, if a file has been written but contains no data, it can indicate
