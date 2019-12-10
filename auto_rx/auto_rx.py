@@ -448,7 +448,7 @@ def telemetry_filter(telemetry):
     vaisala_callsign_valid = re.match(r'[E-Z][0-5][\d][1-7]\d{4}', _serial)
 
     # Regex to check DFM06/09/15/17 callsigns. Also catches the 'unknown' types (xC, xD, etc)
-    dfm_callsign_valid = re.match(r'DFM[01x][5679CD]-\d{6}', _serial)
+    dfm_callsign_valid = re.match(r'DFM[01x][5679ABCD]-\d{6}', _serial)
 
     # Check Meisei sonde callsigns for validity.
     # meisei_ims returns a callsign of IMS100-0 until it receives the serial number, so we filter based on the 0 being present or not.
