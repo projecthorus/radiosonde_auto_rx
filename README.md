@@ -33,6 +33,8 @@ Currently we support the following radiosonde types:
 * Graw DFM06/DFM09/DFM17/PS-15
 * Meteomodem M10 (Thanks Viproz!)
 * Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
+* Lockheed Martin LMS6 and Mk2a
+* Meisei iMS-100
 
 Support for other radiosondes may be added as required (please send us
 sondes to test with!)
