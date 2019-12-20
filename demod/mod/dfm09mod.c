@@ -474,17 +474,15 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
             SN6 = bits2val(conf_bits+4, 4*6);     // DFM-06: Kanal 6
             if (SN6 == gpx->SN6  &&  SN6 != 0) {  // nur Nibble-Werte 0..9
                 gpx->sonde_typ = SNbit | 6;
-                gpx->ptu_out = 6;
+                gpx->ptu_out = 6; // <-> DFM-06
                 sprintf(gpx->sonde_id, "ID06:%6X", gpx->SN6);
-                //sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6);
             }
             else { // reset
                 gpx->sonde_typ = 0;
-                //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
             }
             gpx->SN6 = SN6;
-        }
-        else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-17? 0xD=?
+        }                                    // SN in last pck/channel, #{pcks} depends on (sensor) config; observed:
+        else if (   (sn2_ch & 0xF) == 0xC    // 0xsCaaaab, s==sn_ch , s: 0xA=DFM-09 , 0xC=DFM-09P , 0xB=DFM-17 , 0xD=DFM-17P?
                  || (sn2_ch & 0xF) == 0x0 )  // 0xs0aaaab, s==sn_ch , s: 0x7,0x8: pilotsonde PS-15?
         {
             val = bits2val(conf_bits+8, 4*5);
@@ -507,23 +505,22 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                         gpx->sonde_typ = SNbit | sn_ch;
                         gpx->SN = SN;
 
-                        if (sn_ch == 0xA /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; else gpx->ptu_out = 0;
-                        if (sn_ch == 0xC) gpx->ptu_out = sn_ch;// DFM-09P, DFM-17 ?
-                        if (sn_ch == 0xD && gpx->option.dbg) gpx->ptu_out = sn_ch;// DFM-17 (P?)? test 0xD ...?
-                        // PS-15 ? (sn2_ch & 0xF) == 0x0 :  gpx->ptu_out = 0
+                        gpx->ptu_out = 0;
+                        if (sn_ch == 0xA /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; // <+> DFM-09
+                        if (sn_ch == 0xB /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; // <-> DFM-17
+                        if (sn_ch == 0xC) gpx->ptu_out = sn_ch; // <+> DFM-09P(?)
+                        if (sn_ch == 0xD) gpx->ptu_out = sn_ch; // <-> DFM-17P?
+                        // PS-15 ? (sn2_ch & 0xF) == 0x0 :  gpx->ptu_out = 0 // <-> PS-15
 
                         if ( (gpx->sonde_typ & 0xF) == 0xA) {
                             sprintf(gpx->sonde_id, "ID09:%6u", gpx->SN);
-                            //sprintf(json_sonde_id, "DFM09-%6u", gpx->SN);
                         }
                         else {
                             sprintf(gpx->sonde_id, "ID-%1X:%6u", gpx->sonde_typ & 0xF, gpx->SN);
-                            //sprintf(json_sonde_id, "DFMx%1X-%6u", gpx->sonde_typ & 0xF,gpx->SN);
                         }
                     }
                     else { // reset
                         gpx->sonde_typ = 0;
-                        //sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); //json_sonde_id[0] = '\0';
                     }
                     gpx->snc.SN_X = SN;
                     gpx->snc.chXbit = 0;
@@ -643,7 +640,7 @@ static void print_gpx(gpx_t *gpx) {
 
                 }
             }
-            if (gpx->option.vbs == 3  &&  (gpx->ptu_out == 0xA || gpx->ptu_out >= 0xC)) {
+            if (gpx->option.vbs == 3  &&  gpx->ptu_out >= 0xA) {
                 printf("  U: %.2fV ", gpx->status[0]);
                 printf("  Ti: %.1fK ", gpx->status[1]);
             }
@@ -660,13 +657,14 @@ static void print_gpx(gpx_t *gpx) {
         if (gpx->option.jsn && jsonout)
         {
             // JSON Buffer to store sonde ID
-            char json_sonde_id[] = "DFMxx-xxxxxxxx\0\0";
-            switch (gpx->sonde_typ & 0xF) {
-                case   0: sprintf(json_sonde_id, "DFMxx-xxxxxxxx"); break; //json_sonde_id[0] = '\0';
-                case   6: sprintf(json_sonde_id, "DFM06-%6X", gpx->SN6); break;
-                case 0xA: sprintf(json_sonde_id, "DFM09-%6u", gpx->SN); break;
-                // 0x7: PS-15?, 0xC: DFM-17? (0xD: DFM-17?p)
-                default : sprintf(json_sonde_id, "DFMx%1X-%6u", gpx->sonde_typ & 0xF,gpx->SN);
+            char json_sonde_id[] = "DFM-xxxxxxxx\0\0";
+            ui8_t dfm_typ = (gpx->sonde_typ & 0xF);
+            switch ( dfm_typ ) {
+                case   0: sprintf(json_sonde_id, "DFM-xxxxxxxx"); break; //json_sonde_id[0] = '\0';
+                case   6: sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); break; // DFM-06
+                case 0xA: sprintf(json_sonde_id, "DFM-%6u", gpx->SN); break;  // DFM-09
+                // 0x7:PS-15?, 0xB:DFM-17? 0xC:DFM-09P? 0xD:DFM-17P?
+                default : sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
             }
 
             // Print JSON blob     // valid sonde_ID?
@@ -676,6 +674,7 @@ static void print_gpx(gpx_t *gpx) {
                 float t = get_Temp(gpx); // ecc-valid temperature?
                 if (t > -270.0) printf(", \"temp\": %.1f", t);
             }
+            if (dfm_typ > 0) printf(", \"subtype\": \"0x%1X\"", dfm_typ);
             printf(" }\n");
             printf("\n");
         }
