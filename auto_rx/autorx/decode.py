@@ -795,7 +795,7 @@ class SondeDecoder(object):
 
             # Add in the sonde type field.
             if 'subtype' in _telemetry:
-                if self.sonde_freq == 'RS41':
+                if self.sonde_type == 'RS41':
                     # For RS41 sondes, we are provided with a more specific subtype string (RS41-SG, RS41-SGP, RS41-SGM)
                     # in the subtype field, so we can use this directly.
                     _telemetry['type'] = _telemetry['subtype']
