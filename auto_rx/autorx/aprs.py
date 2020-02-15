@@ -39,34 +39,23 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
         if ('RS92' in sonde_data['type']) or ('RS41' in sonde_data['type']):
             # We can use the Vaisala sonde ID directly.
             _object_name = sonde_data["id"].strip()
-        elif sonde_data['type'] == 'DFM':
-            # The DFM sonde IDs are too long to use directly.
+        elif 'DFM' in sonde_data['type']:
+            # As per agreement with other radiosonde decoding software developers, we will now
+            # use the DFM serial number verbatim in the APRS ID, prefixed with 'D'.
+            # For recent DFM sondes, this will result in a object ID of: Dyynnnnnn
+            # Where yy is the manufacture year, and nnnnnn is a sequential serial.
+            # Older DFMs may have only a 6-digit ID of Dnnnnnn.
+            # Mark J - 2019-12-29
 
             # Split out just the serial number part of the ID, and cast it to an int
+            # This acts as another check that we have been provided with a numeric serial.
             _dfm_id = int(sonde_data['id'].split('-')[-1])
+
+            # Create the object name
+            _object_name = "D%d" % _dfm_id
 
             # Convert to upper-case hex, and take the last 5 nibbles.
             _id_suffix = hex(_dfm_id).upper()[-5:]
-
-            # Append the hex ID to a shortened sonde-type.
-            if "DFM09" in sonde_data['id']:
-                _object_name = "DF9" + _id_suffix
-                sonde_data['type'] = 'DFM09'
-            elif "DFM06" in sonde_data['id']:
-                _object_name = "DF6" + _id_suffix
-                sonde_data['type'] = 'DFM06'
-            elif "DFM15" in sonde_data['id']:
-                _object_name = "DF5" + _id_suffix
-                sonde_data['type'] = 'DFM15'
-            elif "DFM17" in sonde_data['id']:
-                _object_name = "DF7" + _id_suffix
-                sonde_data['type'] = 'DFM17'
-            elif 'DFMx' in sonde_data['id']:
-                # Catch-all for the 'unknown' DFM types.
-                _object_name = "DF" + sonde_data['id'][4] + _id_suffix
-                sonde_data['type'] = sonde_data['id'].split('-')[0]
-            else:
-                return (None, None)
 
         elif 'M10' in sonde_data['type']:
             # Use the generated id same as dxlAPRS
@@ -668,10 +657,13 @@ if __name__ == "__main__":
     # Some unit tests for the APRS packet generation code.
     # ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
     test_telem = [
-        {'id':'DFM06-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
-        {'id':'DFM09-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
-        {'id':'DFM15-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
-        {'id':'DFM17-12345678', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        # These types of DFM serial IDs are deprecated
+        #{'id':'DFM06-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        #{'id':'DFM09-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        #{'id':'DFM15-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        #{'id':'DFM17-12345678', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'DFM-19123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM17', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
+        {'id':'DFM-123456', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'DFM06', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         {'id':'N1234567', 'frame':10, 'lat':-10.00001, 'lon':9.99999999, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         {'id':'M1234567', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS92', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()},
         ]
