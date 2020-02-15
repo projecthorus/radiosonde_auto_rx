@@ -79,6 +79,33 @@ def imet_unique_id(telemetry, custom=""):
 	return "IMET-" + _hash[-8:]
 
 
+#
+#	DFM Sonde Subtypes
+#
+def decode_dfm_subtype(subtype):
+	"""
+	Decode a DFM subtype (0xB through 0xD) into a possible model number.
+	NOTE: These are best guesses as to the relationship between subtype ID nibble
+	and actual model number. Graw have said that sonde decoders should not rely on
+	this nibble for identification.
+	"""
+	if '0x' not in subtype:
+		return "DFM-Unknown"
+
+	if subtype == "0x6":
+		return "DFM06"
+	elif subtype == '0xA':
+		return "DFM09"
+	elif subtype == '0xB':
+		return "DFM17"
+	elif subtype == '0xC':
+		return "DFM09P"
+	elif subtype == '0xD':
+		return "DFM17"
+	else:
+		# Unknown subtype
+		return "DFMx" + subtype[-1]
+
 
 
 if __name__ == "__main__":

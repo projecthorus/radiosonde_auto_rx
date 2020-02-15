@@ -794,14 +794,22 @@ class SondeDecoder(object):
                 return False
 
             # Add in the sonde type field.
-            # If we are provided with a subtype field from the decoder, use this,
-            # otherwise use the detected sonde type.
             if 'subtype' in _telemetry:
-                _telemetry['type'] = _telemetry['subtype']
+                if self.sonde_type == 'RS41':
+                    # For RS41 sondes, we are provided with a more specific subtype string (RS41-SG, RS41-SGP, RS41-SGM)
+                    # in the subtype field, so we can use this directly.
+                    _telemetry['type'] = _telemetry['subtype']
+                elif self.sonde_type == 'DFM':
+                    # For DFM sondes, we need to use a lookup to convert the subtype field into a model.
+                    _telemetry['type'] = decode_dfm_subtype(_telemetry['subtype'])
+                else:
+                    # For other sonde types, we leave the type field as it is, even if we are provided
+                    # a subtype field. (This shouldn't happen)
+                    _telemetry['type'] = self.sonde_type
             else:
+                # If no subtype field provided, we use the identified sonde type.
                 _telemetry['type'] = self.sonde_type
 
-            # TODO: Use frequency data provided by the decoder, if available.
             _telemetry['freq_float'] = self.sonde_freq/1e6
             _telemetry['freq'] = "%.3f MHz" % (self.sonde_freq/1e6)
 
