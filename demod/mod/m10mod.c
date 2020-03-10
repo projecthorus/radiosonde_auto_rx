@@ -85,6 +85,7 @@ typedef struct {
     char frame_bits[BITFRAME_LEN+BITAUX_LEN+8];
     int auxlen; // 0 .. 0x76-0x64
     option_t option;
+    double bLevel;
 } gpx_t;
 
 
@@ -442,6 +443,23 @@ static int get_SN(gpx_t *gpx) {
     return 0;
 }
 
+// Battery Voltage
+static int get_BatteryLevel(gpx_t *gpx) {
+
+    double batteryLevel = 0.0;
+
+    unsigned short batLvl;
+	
+    batLvl = (gpx->frame_bytes[70] << 8) | gpx->frame_bytes[69];
+	
+    // Thanks F5MVO for the formula !
+    batteryLevel = (double)batLvl/1000.*6.62;
+
+    gpx->bLevel = batteryLevel ;
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 /*
 g : F^n -> F^16      // checksum, linear
@@ -654,33 +672,64 @@ static float get_Tntc2(gpx_t *gpx, int csOK) {
 #define LN2         0.693147181
 #define ADR_108A    1000.0       // 0x3E8=1000
 
+float get_count_55(gpx_t *gpx) { // CalRef 55%RH , T=20C ?
+    ui32_t TBCREF_1000 = gpx->frame_bytes[0x32] | (gpx->frame_bytes[0x33]<<8) | (gpx->frame_bytes[0x34]<<16);
+    return TBCREF_1000 / ADR_108A;
+}
+
 static float get_count_RH(gpx_t *gpx) {  // capture 1000 rising edges
     ui32_t TBCCR1_1000 = gpx->frame_bytes[0x35] | (gpx->frame_bytes[0x36]<<8) | (gpx->frame_bytes[0x37]<<16);
     return TBCCR1_1000 / ADR_108A;
 }
-static float get_TLC555freq(gpx_t *gpx) {
+static float get_TLC555freq(gpx_t *gpx, float count) {
     return FREQ_CAPCLK / get_count_RH(gpx);
 }
-/*
-double get_C_RH() {  // TLC555 astable: R_A=3.65k, R_B=338k
-    double R_B = 338e3;
-    double R_A = 3.65e3;
-    double C_RH = 1/get_TLC555freq() / (LN2 * (R_A + 2*R_B));
+
+float get_C_RH(float freq, float T) {  // TLC555 astable: R_A=3.65k, R_B=338k
+    float R_B = 338e3;
+    float R_A = 3.65e3;
+    float td = 0;
+    float C_RH = (1/freq - 2*td) / (LN2 * (R_A + 2*R_B));
+    // freq/T compensation ...
     return C_RH;
 }
-double get_RH(int csOK) {
+
+float cRHc55_RH(gpx_t *gpx, float cRHc55) {  // C_RH / C_55
 // U.P.S.I.
 // C_RH/C_55 = 0.8955 + 0.002*RH , T=20C
 // C_RH = C_RH(RH,T) , RH = RH(C_RH,T)
 // C_RH/C_55 approx.eq. count_RH/count_ref
-// c55=270pF? diff=C_55-c55, T=20C
-    ui32_t c = gpx->frame_bytes[0x32] | (gpx->frame_bytes[0x33]<<8) | (gpx->frame_bytes[0x34]<<16); // CalRef 55%RH , T=20C ?
-    double count_ref = c / ADR_108A; // CalRef 55%RH , T=20C ?
-    double C_RH = get_C_RH();
-    double T = get_Tntc2(csOK);
-    return 0;
+    float TH = get_Tntc2(gpx, 0);
+    float Tc = get_Temp(gpx, 0);
+    float rh = (cRHc55-0.8955)/0.002; // UPSI linear transfer function
+    // temperature compensation
+    float T0 = 0.0, T1 = -30.0; // T/C
+    float T = Tc; // TH, TH-Tc (sensorT - T)
+    if (T < T0) rh += T0 - T/5.5;        // approx/empirical
+    if (T < T1) rh *= 1.0 + (T1-T)/75.0; // approx/empirical
+    if (rh < 0.0) rh = 0.0;
+    if (rh > 100.0) rh = 100.0;
+    return rh;
 }
-*/
+
+float get_RHc(gpx_t *gpx, int csOK) { // experimental/raw, errors~10%
+    float Tc = get_Temp(gpx, 0);
+    float count_ref = get_count_55(gpx); // CalRef 55%RH , T=20C ?
+    float count_RH = get_count_RH(gpx);
+    float C_55 = get_C_RH(get_TLC555freq(gpx, count_ref), 20.0); // CalRef 55%RH , T=20C ?
+    float C_RH = get_C_RH(get_TLC555freq(gpx, count_RH), Tc); // Tc == T_555 ?
+    float  cRHc55 = C_RH / C_55;
+    return cRHc55_RH(gpx, cRHc55);
+}
+
+float get_RH(gpx_t *gpx, int csOK) { // experimental/raw, errors~10%
+    //ui32_t TBCREF_1000 = frame_bytes[0x32] | (frame_bytes[0x33]<<8) | (frame_bytes[0x34]<<16); // CalRef 55%RH , T=20C ?
+    //ui32_t TBCCR1_1000 = frame_bytes[0x35] | (frame_bytes[0x36]<<8) | (frame_bytes[0x37]<<16); // FrqCnt TLC555
+    //float  cRHc55 = TBCCR1_1000 / (float)TBCREF_1000; // CalRef 55%RH , T=20C ?
+    float  cRHc55 = get_count_RH(gpx) / get_count_55(gpx); // CalRef 55%RH , T=20C ?
+    return cRHc55_RH(gpx, cRHc55);
+}
+
 /* -------------------------------------------------------------------------- */
 
 static int print_pos(gpx_t *gpx, int csOK) {
@@ -693,6 +742,7 @@ static int print_pos(gpx_t *gpx, int csOK) {
     err |= get_GPSlon(gpx);
     err |= get_GPSalt(gpx);
     err2 = get_GPSvel(gpx);
+    err |= get_BatteryLevel(gpx);
 
     if (!err) {
 
@@ -709,7 +759,7 @@ static int print_pos(gpx_t *gpx, int csOK) {
             fprintf(stdout, " alt: "col_GPSalt"%.2f"col_TXT" ", gpx->alt);
             if (!err2) {
                 //if (gpx->option.vbs == 2) fprintf(stdout, "  "col_GPSvel"(%.1f , %.1f : %.1f)"col_TXT" ", gpx->vx, gpx->vy, gpx->vD2);
-                fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
+                fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT"  BV: "col_GPSvel"%.2f"col_TXT, gpx->vH, gpx->vD, gpx->vV, gpx->bLevel);
             }
             if (gpx->option.vbs >= 2) {
                 get_SN(gpx);
@@ -722,11 +772,14 @@ static int print_pos(gpx_t *gpx, int csOK) {
             }
             if (gpx->option.ptu) {
                 float t = get_Temp(gpx, csOK);
+                float rh = get_RH(gpx, csOK);
                 if (t > -270.0) fprintf(stdout, "  T=%.1fC ", t);
+                if (gpx->option.vbs >= 3) { if (rh > -0.5) fprintf(stdout, "_RH=%.0f%% ", rh); }
                 if (gpx->option.vbs >= 3) {
                     float t2 = get_Tntc2(gpx, csOK);
-                    float fq555 = get_TLC555freq(gpx);
+                    float fq555 = get_TLC555freq(gpx, get_count_RH(gpx));
                     if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) (%.3fkHz) ", t2, fq555/1e3);
+                    fprintf(stdout, "(cRH=%.1f%%) ", get_RHc(gpx,csOK));
                 }
             }
             fprintf(stdout, ANSI_COLOR_RESET"");
@@ -741,7 +794,7 @@ static int print_pos(gpx_t *gpx, int csOK) {
             fprintf(stdout, " alt: %.2f ", gpx->alt);
             if (!err2) {
                 //if (gpx->option.vbs == 2) fprintf(stdout, "  (%.1f , %.1f : %.1f) ", gpx->vx, gpx->vy, gpx->vD2);
-                fprintf(stdout, "  vH: %.1f  D: %.1f  vV: %.1f ", gpx->vH, gpx->vD, gpx->vV);
+                fprintf(stdout, "  vH: %.1f  D: %.1f  vV: %.1f  BV: %.2f", gpx->vH, gpx->vD, gpx->vV, gpx->bLevel);
             }
             if (gpx->option.vbs >= 2) {
                 get_SN(gpx);
@@ -753,11 +806,14 @@ static int print_pos(gpx_t *gpx, int csOK) {
             }
             if (gpx->option.ptu) {
                 float t = get_Temp(gpx, csOK);
+                float rh = get_RH(gpx, csOK);
                 if (t > -270.0) fprintf(stdout, "  T=%.1fC ", t);
+                if (gpx->option.vbs >= 3) { if (rh > -0.5) fprintf(stdout, "_RH=%.0f%% ", rh); }
                 if (gpx->option.vbs >= 3) {
                     float t2 = get_Tntc2(gpx, csOK);
-                    float fq555 = get_TLC555freq(gpx);
+                    float fq555 = get_TLC555freq(gpx,get_count_RH(gpx));
                     if (t2 > -270.0) fprintf(stdout, " (T2:%.1fC) (%.3fkHz) ", t2, fq555/1e3);
+                    fprintf(stdout, "(cRH=%.1f%%) ", get_RHc(gpx,csOK));
                 }
             }
         }
@@ -792,8 +848,12 @@ static int print_pos(gpx_t *gpx, int csOK) {
 
                 fprintf(stdout, "{ ");
                 fprintf(stdout, "\"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
-                fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
-                               sn_id, utc_jahr, utc_monat, utc_tag, utc_std, utc_min, utc_sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV);
+                fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"batt\": %.2f",
+                               sn_id, utc_jahr, utc_monat, utc_tag, utc_std, utc_min, utc_sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->bLevel);
+                float rh = get_RH(gpx, csOK);
+                if (gpx->option.ptu && rh > -0.5) {
+                    fprintf(stdout, ", \"humidity\": %.1f",  rh );
+                }
                 // APRS id, 9 characters
                 aprs_id[0] = gpx->frame_bytes[pos_SN+2];
                 aprs_id[1] = gpx->frame_bytes[pos_SN] & 0xF;
