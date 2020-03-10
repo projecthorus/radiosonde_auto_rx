@@ -150,6 +150,11 @@ class TelemetryLogger(object):
         if 'aux' in telemetry:
             _log_line += ",AUX %s" % telemetry['aux'].strip()
 
+        if 'vel_v' in telemetry:
+            _log_line += ",vel_v %.1f" % telemetry['vel_v']
+
+        if 'vel_h' in telemetry:
+            _log_line += ",vel_h %.1f" % telemetry['vel_h']
 
         # Terminate the log line.
         _log_line += "\n"
