@@ -220,7 +220,7 @@
                             var _look_angles = calculate_lookangles(_station, _bal);
 
                             sonde_id_data.azimuth = _look_angles.azimuth.toFixed(0);
-                            sonde_id_data.elevation = _look_angles.elevation.toFixed(0);
+                            sonde_id_data.elevation = _look_angles.elevation.toFixed(1);
                             sonde_id_data.range = (_look_angles.range/1000).toFixed(1);
                         } else{
                             // Insert blank data.
@@ -254,6 +254,21 @@
                             if ((sonde_id_data.bt >= 0) && (sonde_id_data.bt < 65535)) {
                                 sonde_id_data.other += "BT " + new Date(sonde_id_data.bt*1000).toISOString().substr(11, 8) + " ";
                             }
+                        }
+
+                        // Battery level for M10s
+                        if (sonde_id_data.hasOwnProperty('batt')){
+                            if ((sonde_id_data.batt >= 0) && (sonde_id_data.batt < 6)) {
+                                sonde_id_data.other += "batt " + sonde_id_data.batt.toString() + " ";
+                            }
+                        }
+
+                        if (sonde_id_data.hasOwnProperty('vel_h')){
+                                sonde_id_data.other += "vel_h " + sonde_id_data.vel_h.toFixed(2).toString() + " ";
+                        }
+
+                        if (sonde_id_data.hasOwnProperty('sats')){
+                                sonde_id_data.other += "sats " + sonde_id_data.sats.toString() + " ";
                         }
 
                         telem_data.push(sonde_id_data);
