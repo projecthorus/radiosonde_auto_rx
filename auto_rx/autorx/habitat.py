@@ -629,27 +629,31 @@ class HabitatUploader(object):
         # race conditions resulting in multiple payload docs being created.
         self.upload_lock.acquire()
 
-        # Create a habitat document if one does not already exist:
-        if not self.observed_payloads[telem['id']]['habitat_document']:
-            # Check if there has already been telemetry from this ID observed on Habhub
-            _document_exists = check_callsign(_callsign)
-            # If so, we don't need to create a new document
-            if _document_exists:
-                self.observed_payloads[telem['id']]['habitat_document'] = True
-            else:
-                # Otherwise, we attempt to create a new document.
-                if self.inhibit:
-                    # If we have an upload inhibit, don't create a payload doc.
-                    _created = True
-                else:
-                    _created = initPayloadDoc(_callsign, description="Meteorology Radiosonde", frequency=telem['freq_float'])
+
+        # Habitat Payload document creation has been disabled as of 2020-03-20.
+        # We now use a common payload document for all radiosonde telemetry.
+        #
+        # # Create a habitat document if one does not already exist:
+        # if not self.observed_payloads[telem['id']]['habitat_document']:
+        #     # Check if there has already been telemetry from this ID observed on Habhub
+        #     _document_exists = check_callsign(_callsign)
+        #     # If so, we don't need to create a new document
+        #     if _document_exists:
+        #         self.observed_payloads[telem['id']]['habitat_document'] = True
+        #     else:
+        #         # Otherwise, we attempt to create a new document.
+        #         if self.inhibit:
+        #             # If we have an upload inhibit, don't create a payload doc.
+        #             _created = True
+        #         else:
+        #             _created = initPayloadDoc(_callsign, description="Meteorology Radiosonde", frequency=telem['freq_float'])
                 
-                if _created:
-                    self.observed_payloads[telem['id']]['habitat_document'] = True
-                else:
-                    self.log_error("Error creating payload document!")
-                    self.upload_lock.release()
-                    return
+        #         if _created:
+        #             self.observed_payloads[telem['id']]['habitat_document'] = True
+        #         else:
+        #             self.log_error("Error creating payload document!")
+        #             self.upload_lock.release()
+        #             return
 
         if immediate:
             self.log_info("Performing immediate upload for first telemetry sentence of %s." % telem['id'])

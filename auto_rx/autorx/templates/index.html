@@ -181,6 +181,7 @@
                     {title:"Latitude", field:"lat", headerSort:false},
                     {title:"Longitude", field:"lon", headerSort:false},
                     {title:"Alt (m)", field:"alt", headerSort:false},
+                    {title:"Vel (kph)", field:"vel_h", headerSort:false},
                     {title:"Asc (m/s)", field:"vel_v", headerSort:false},
                     {title:"Temp (°C)", field:"temp", headerSort:false},
                     {title:"RH (%)", field:"humidity", headerSort:false},
@@ -219,8 +220,8 @@
 
                             var _look_angles = calculate_lookangles(_station, _bal);
 
-                            sonde_id_data.azimuth = _look_angles.azimuth.toFixed(0);
-                            sonde_id_data.elevation = _look_angles.elevation.toFixed(0);
+                            sonde_id_data.azimuth = _look_angles.azimuth.toFixed(1);
+                            sonde_id_data.elevation = _look_angles.elevation.toFixed(1);
                             sonde_id_data.range = (_look_angles.range/1000).toFixed(1);
                         } else{
                             // Insert blank data.
@@ -234,6 +235,7 @@
                         sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
+                        sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
                         // Add a link to HabHub if we have habitat enabled.
                         if ("habitat_enabled" in autorx_config){
                             if(autorx_config.habitat_enabled ==true){
@@ -254,6 +256,9 @@
                             if ((sonde_id_data.bt >= 0) && (sonde_id_data.bt < 65535)) {
                                 sonde_id_data.other += "BT " + new Date(sonde_id_data.bt*1000).toISOString().substr(11, 8) + " ";
                             }
+                        }
+                        if (sonde_id_data.hasOwnProperty('batt')){
+                            sonde_id_data.other += sonde_id_data.batt.toFixed(1) + " V";
                         }
 
                         telem_data.push(sonde_id_data);
