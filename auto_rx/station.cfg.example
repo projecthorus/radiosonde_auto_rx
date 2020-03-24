@@ -196,7 +196,7 @@ station_beacon_rate = 30
 
 # Station beacon comment.
 # <version> will be replaced with the current auto_rx version number
-station_beacon_commment = radiosonde_auto_rx SondeGate v<version>
+station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
 
 # Station Beacon Icon
 # The APRS icon to use, as defined in http://www.aprs.org/symbols.html
