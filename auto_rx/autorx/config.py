@@ -8,6 +8,7 @@
 
 import copy
 import logging
+import os
 import traceback
 import json
 from .utils import rtlsdr_test
@@ -147,6 +148,12 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 
 	try:
+
+		# Check the file exists.
+		if not os.path.isfile(filename):
+			logging.critical("Config file %s does not exist!" % filename)
+			return None
+
 		config = RawConfigParser(auto_rx_config)
 		config.read(filename)
 
@@ -168,7 +175,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 				if auto_rx_config['email_smtp_authentication'] not in ['None', 'TLS', 'SSL']:
 					logging.error("Config - Invalid email authentication setting. Must be None, TLS or SSL.")
-					raise Exception()
+					return None
 
 			except:
 				logging.error("Config - Invalid or missing email settings. Disabling.")

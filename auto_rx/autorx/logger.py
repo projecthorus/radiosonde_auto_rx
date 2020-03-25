@@ -33,10 +33,12 @@ class TelemetryLogger(object):
     # Close any open file handles after X seconds of no activity.
     # This will help avoid having lots of file handles open for a long period of time if we are handling telemetry
     # from multiple sondes.
-    FILE_ACTIVITY_TIMEOUT = 30
+    FILE_ACTIVITY_TIMEOUT = 300
 
     # We require the following fields to be present in the input telemetry dict.
-    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'type', 'freq', 'datetime_dt']
+    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'type', 'freq', 'datetime_dt', 'vel_v', 'vel_h', 'heading']
+
+    LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq,other\n"
 
     def __init__(self,
         log_directory = "./log"):
@@ -116,13 +118,17 @@ class TelemetryLogger(object):
         Args:
             telemetry (dict): Telemetry dictionary to process.
         """
-        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%s,%.3f" % (
+        # timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq,other
+        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%s,%.3f" % (
             telemetry['datetime'],
             telemetry['id'],
             telemetry['frame'],
             telemetry['lat'],
             telemetry['lon'],
             telemetry['alt'],
+            telemetry['vel_v'],
+            telemetry['vel_h'],
+            telemetry['heading'],
             telemetry['temp'],
             telemetry['humidity'],
             telemetry['type'],
@@ -188,7 +194,10 @@ class TelemetryLogger(object):
                 _log_file_name = os.path.join(self.log_directory, _log_suffix)
                 self.log_info("Opening new log file: %s" % _log_file_name)
                 # Create entry in open logs dictionary
-                self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}               
+                self.open_logs[_id] = {'log':open(_log_file_name,'a'), 'last_time':time.time()}
+
+                # Write in a header line.
+                self.open_logs[_id]['log'].write(self.LOG_HEADER)
 
 
         # Produce log file sentence.
