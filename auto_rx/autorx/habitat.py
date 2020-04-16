@@ -142,7 +142,7 @@ def check_callsign(callsign, timeout=10):
         bool: True if callsign has been observed within the last 6 hour, False otherwise.
     """
 
-    _url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
+    _url_check_callsign = "http://legacy-snus.habhub.org/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
 
     logging.debug("Habitat - Checking if %s has been observed recently..." % callsign)
     # Perform the request
@@ -165,7 +165,7 @@ def check_callsign(callsign, timeout=10):
 
     except Exception as e:
         # Handle errors with JSON parsing.
-        logging.error("Habitat - Unable to request payload positions from spacenear.us - %s" % str(e))
+        logging.error("Habitat - Unable to request payload positions from legacy-snus.habhub.org - %s" % str(e))
         return False
 
 
