@@ -186,15 +186,15 @@ def read_log_file(filename, decimation=10, min_altitude=100):
                 _lat = float(_fields[3])
                 _lon = float(_fields[4])
                 _alt = float(_fields[5])
-                _temp = float(_fields[6])
-                _hum = float(_fields[7])
+                _temp = float(_fields[9])
+                _hum = float(_fields[10])
 
-                if 'SNR' in _fields[10]:
-                    _snr = float(_fields[10].split(' ')[1])
+                if 'SNR' in _fields[13]:
+                    _snr = float(_fields[13].split(' ')[1])
                 else:
                     _snr = -1.0
 
-                if 'FERROR' in _fields[11]:
+                if 'FERROR' in _fields[13]:
                     _ferror = float(_fields[11].split(' ')[1])
                 else:
                     _ferror = 0.0
@@ -405,7 +405,7 @@ def process_directory(log_dir, output_dir, status_file, time_limit = 60):
 
         # Read in the file!
         try:
-            (data, burst, startalt,  last_time) = read_log_file(_file, decimation=10)
+            (data, burst, startalt,  last_time, snr, ferror) = read_log_file(_file, decimation=10)
 
             # Don't process files with a starting altitude well above ground.
             # This indicates it's likely a sonde from a long way away.
