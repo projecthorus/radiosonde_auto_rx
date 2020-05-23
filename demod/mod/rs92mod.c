@@ -2,7 +2,7 @@
 /*
  *  rs92
  *  sync header: correlation/matched filter
- *  files: rs92mod.c nav_gps_vel.c bch_ecc_mod.c demod_mod.c demod_mod.h
+ *  files: rs92mod.c nav_gps_vel.c bch_ecc_mod.c bch_ecc_mod.h demod_mod.c demod_mod.h
  *  compile:
  *  (a)
  *      gcc -c demod_mod.c
@@ -1177,7 +1177,9 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
             // Print out telemetry data as JSON  //even if we don't have a valid GPS lock
             if ((gpx->crc & (crc_FRAME | crc_GPS))==0 && (gpx->gps.almanac || gpx->gps.ephem)) //(!err1 && !err3)
             {   // eigentlich GPS, d.h. UTC = GPS - UTC_OFS (UTC_OFS=18sec ab 1.1.2017)
-                fprintf(stdout, "\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                fprintf(stdout, "\n");
+                fprintf(stdout, "{ \"type\": \"%s\"", "RS92");
+                fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vU);
                 if ((gpx->crc & crc_AUX)==0 && (gpx->aux[0] != 0 || gpx->aux[1] != 0 || gpx->aux[2] != 0 || gpx->aux[3] != 0)) {
                     fprintf(stdout, ", \"aux\": \"%04x%04x%04x%04x\"", gpx->aux[0], gpx->aux[1], gpx->aux[2], gpx->aux[3]);

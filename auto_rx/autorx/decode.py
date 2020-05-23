@@ -793,6 +793,12 @@ class SondeDecoder(object):
                 self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock)" % str(e))
                 return False
 
+            if self.sonde_type == 'UDP':
+                # If we are accepting sondes via UDP, we make use of the 'type' field provided by
+                # the decoder.
+                # Note that the types returned by the 
+                self.sonde_type = _telemetry['type']
+
             # Add in the sonde type field.
             if 'subtype' in _telemetry:
                 if self.sonde_type == 'RS41':
@@ -817,13 +823,15 @@ class SondeDecoder(object):
             _telemetry['sdr_device_idx'] = self.device_idx
 
             # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
-            # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
+            # which is most likely an Ozone sensor (though could be something different!)
+            # We append -Ozone to the sonde type field to indicate this.
+            # TODO: Decode device ID from aux field to indicate what the aux payload actually is?
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
 
 
             # iMet Specific actions
-            if self.sonde_type == 'iMet':
+            if self.sonde_type == 'IMET':
                 # Check we have GPS lock.
                 if _telemetry['sats'] < 4:
                     # No GPS lock means an invalid time, which means we can't accurately calculate a unique ID.
@@ -842,8 +850,8 @@ class SondeDecoder(object):
                 _telemetry['station_code'] = self.imet_location
 
 
-            # LMS6 Specific Actions
-            if self.sonde_type == 'MK2LMS' or self.sonde_type == 'LMS6':
+            # LMS Specific Actions (LMS6, MK2LMS)
+            if 'LMS' in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
                 _telemetry['datetime_dt'] = fix_datetime(_telemetry['datetime'])
 

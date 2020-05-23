@@ -61,11 +61,11 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
             # Use the generated id same as dxlAPRS
             _object_name = sonde_data['aprsid']
 
-        elif 'iMet' in sonde_data['type']:
+        elif 'IMET' in sonde_data['type']:
             # Use the last 5 characters of the unique ID we have generated.
             _object_name = "IMET" + sonde_data['id'][-5:]
 
-        elif ('MK2LMS' in sonde_data['type']) or ('LMS6' in sonde_data['type']):
+        elif 'LMS' in sonde_data['type']:
             # Use the last 5 hex digits of the sonde ID.
             _id_suffix = int(sonde_data['id'].split('-')[1])
             _id_hex = hex(_id_suffix).upper()
@@ -83,6 +83,7 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
+            logging.error('No APRS ID conversion available for sonde type: %s'  % sonde_data['type'])
             return (None, None)
     else:
         _object_name = object_name

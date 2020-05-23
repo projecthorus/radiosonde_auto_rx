@@ -2,7 +2,7 @@
 /*
  *  rs41
  *  sync header: correlation/matched filter
- *  files: rs41mod.c bch_ecc_mod.c demod_mod.c demod_mod.h
+ *  files: rs41mod.c bch_ecc_mod.c bch_ecc_mod.h demod_mod.c demod_mod.h
  *  compile, either (a) or (b):
  *  (a)
  *      gcc -c demod_mod.c
@@ -1327,7 +1327,8 @@ static int print_position(gpx_t *gpx, int ec) {
                     // Print out telemetry data as JSON
                     if ((!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                         // eigentlich GPS, d.h. UTC = GPS - 18sec (ab 1.1.2017)
-                        fprintf(stdout, "{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
+                        fprintf(stdout, "{ \"type\": \"%s\"", "RS41");
+                        fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
                                        gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->conf_cd, gpx->batt );
                         if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
                             fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
