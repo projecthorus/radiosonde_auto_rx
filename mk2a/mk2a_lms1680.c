@@ -643,6 +643,7 @@ void print_frame(int len) {
                         printf(", \"subtype\": \"%s\"", "MK2A");
                         printf(" }\n");
                         printf("\n");
+                        fflush(stdout);
                         gpx.prev_frnr = gpx.frnr;
                     }
                 }

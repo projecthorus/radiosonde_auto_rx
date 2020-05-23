@@ -285,8 +285,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 			'RS92': False, 
 			'DFM': False, 
 			'M10': False, 
-			'iMet': False, 
-			'LMS6': True, 
+			'IMET': False, 
+			'LMS': True, 
 			'MK2LMS': False, 
 			'MEISEI': False, 
 			'UDP': False}
@@ -296,7 +296,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
 		auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
 		auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
-		auto_rx_config['experimental_decoders']['LMS6'] = config.getboolean('advanced', 'lms6-400_experimental')
+		auto_rx_config['experimental_decoders']['LMS'] = config.getboolean('advanced', 'lms6-400_experimental')
 
 		try:
 			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')

@@ -21,7 +21,7 @@ from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'M20', 'IMET', 'LMSX', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
@@ -70,7 +70,7 @@ class SondeDecoder(object):
     }
 
     # TODO: Use the global valid sonde type list.
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'M20', 'IMET', 'LMSX', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
     def __init__(self,
         sonde_type="None",
@@ -347,7 +347,7 @@ class SondeDecoder(object):
             # M10 decoder
             decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
 
-        elif self.sonde_type == "iMet":
+        elif self.sonde_type == "IMET":
             # iMet-4 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
@@ -378,7 +378,7 @@ class SondeDecoder(object):
             else:
                 decode_cmd += "./mk2a_lms1680 --json 2>/dev/null"
 
-        elif self.sonde_type == "LMS6":
+        elif self.sonde_type.startswith("LMS"):
             # LMS6 Decoder command.
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
@@ -594,7 +594,7 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = _freq
 
-        elif self.sonde_type == "LMS6":
+        elif self.sonde_type.startswith("LMS"):
             # LMS6 (400 MHz variant) Decoder command.
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
             _output_rate = 48000
@@ -854,6 +854,8 @@ class SondeDecoder(object):
             if 'LMS' in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
                 _telemetry['datetime_dt'] = fix_datetime(_telemetry['datetime'])
+                # Re-generate the datetime string.
+                _telemetry['datetime'] = _telemetry['datetime_dt'].strftime("%Y-%m-%dT%H:%M:%SZ")
 
             # Grab a snapshot of modem statistics, if we are using an experimental decoder.
             if self.demod_stats is not None:
