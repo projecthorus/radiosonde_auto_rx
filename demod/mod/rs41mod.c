@@ -369,14 +369,14 @@ static int get_BattVolts(gpx_t *gpx, int ofs) {
     int i;
     unsigned byte;
     ui8_t batt_bytes[2];
-    float batt_volts;
+    ui16_t batt_volts; // signed voltage?
 
     for (i = 0; i < 2; i++) {
         byte = gpx->frame[pos_BattVolts+ofs + i];
         batt_bytes[i] = byte;
     }
-
-    batt_volts = (float)(batt_bytes[0] + (batt_bytes[1] << 8));
+                                // 2 bytes? V > 25.5 ?
+    batt_volts = batt_bytes[0]; // + (batt_bytes[1] << 8);
     gpx->batt = batt_volts/10.0;
 
     return 0;
@@ -895,10 +895,10 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
             byte = gpx->frame[pos_CalData+ofs+1+i];
             fprintf(stdout, "%02x ", byte);
         }
-/*
+        /*
         if (err == 0) fprintf(stdout, "[OK]");
         else          fprintf(stdout, "[NO]");
-*/
+        */
         fprintf(stdout, " ");
     }
 
@@ -1160,7 +1160,7 @@ static int prn_sat3(gpx_t *gpx, int ofs) {
     pDOP = gpx->frame[pos_pDOP+ofs]/10.0; if (gpx->frame[pos_pDOP+ofs] == 0xFF) pDOP = -1.0;
     fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
 
-/*
+    /*
     fprintf(stdout, "CRC: ");
     fprintf(stdout, " %04X", pck_GPS1);
     if (check_CRC(gpx, pos_GPS1+ofs, pck_GPS1)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
@@ -1173,7 +1173,7 @@ static int prn_sat3(gpx_t *gpx, int ofs) {
     //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS3, pck_GPS3));
 
     fprintf(stdout, "\n");
-*/
+    */
     return 0;
 }
 

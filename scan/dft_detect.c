@@ -135,7 +135,7 @@ static rsheader_t rs_hdr[Nrs] = {
     { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",    tn_DFM,    0, 0, 0.0}, // DFM6: -2 ?
     { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",    tn_RS41,   0, 0, 0.0},
     { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92",    tn_RS92,   0, 0, 0.0}, // RS92NGP: 1680/400=4.2
-    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, 2, NULL, "LMS6",    tn_LMS6,   0, 0, 0.0}, // lmsX: 7?
+    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",    tn_LMS6,   0, 0, 0.0}, // lmsX: 7?
     { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",  tn_MK2LMS, 1, 2, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
     { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",     tn_M10,    1, 1, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
     { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",  tn_MEISEI, 0, 1, 0.0},
