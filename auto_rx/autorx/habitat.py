@@ -101,6 +101,9 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
         if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
             _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
 
+    if 'batt' in telemetry:
+        _sentence += " %.1fV" % telemetry['batt']
+
     # Add on any custom comment data if provided.
     if comment != None:
         comment = comment.replace(',','_')

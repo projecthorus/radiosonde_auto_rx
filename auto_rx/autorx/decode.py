@@ -436,7 +436,7 @@ class SondeDecoder(object):
 
         """
 
-        self.log_info("Using experimental decoder chain.")
+        self.log_info("Using fsk_demod decoder chain.")
         # Common options to rtl_fm
 
         # Add a -T option if bias is enabled

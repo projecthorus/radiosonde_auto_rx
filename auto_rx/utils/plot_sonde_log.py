@@ -181,6 +181,9 @@ def read_log_file(filename, decimation=10, min_altitude=100):
             try:
                 _fields = line.split(',')
 
+                # Log fields:   0          1      2     3   4   5   6     7     8       9    10       11   12       13  14         15   16     17          18
+                #               "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
+
                 # Attempt to parse the line
                 _time = _fields[0]
                 _lat = float(_fields[3])
@@ -188,15 +191,13 @@ def read_log_file(filename, decimation=10, min_altitude=100):
                 _alt = float(_fields[5])
                 _temp = float(_fields[9])
                 _hum = float(_fields[10])
-
-                if 'SNR' in _fields[13]:
-                    _snr = float(_fields[13].split(' ')[1])
-                else:
-                    _snr = -1.0
-
-                if 'FERROR' in _fields[13]:
-                    _ferror = float(_fields[11].split(' ')[1])
-                else:
+                try:
+                    # Attempt to extract SNR and frequency error fields.
+                    # These may not be present on older log files.
+                    _snr = float(_fields[13])
+                    _ferror = float(_fields[14])
+                except:
+                    _snr = -99
                     _ferror = 0.0
 
                 # Append data to arrays.
