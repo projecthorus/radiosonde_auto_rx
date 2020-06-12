@@ -197,6 +197,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
             'RS92' - Vaisala RS92
             'DFM' - Graw DFM06 / DFM09 (similar telemetry formats)
             'M10' - MeteoModem M10
+            'M20' - MeteoModem M20
             'iMet' - interMet iMet
             'MK2LMS' - LMS6, 1680 MHz variant (using MK2A 9600 baud telemetry)
 
@@ -345,9 +346,12 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
     elif 'M10' in _type:
         logging.debug("Scanner #%s - Detected a M10 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
         _sonde_type = "M10"
+    elif 'M20' in _type:
+        logging.debug("Scanner #%s - Detected a M20 Sonde! (Not yet supported...) (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
+        _sonde_type = "M20"
     elif 'IMET4' in _type:
         logging.debug("Scanner #%s - Detected a iMet-4 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))  
-        _sonde_type = "iMet"
+        _sonde_type = "IMET"
     elif 'IMET1' in _type:
         logging.debug("Scanner #%s - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)" % (str(device_idx), _type, _score))
         _sonde_type = "IMET1"
@@ -355,7 +359,7 @@ def detect_sonde(frequency, rs_path="./", dwell_time=10, sdr_fm='rtl_fm', device
         logging.debug("Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))
         _sonde_type = "LMS6"
     elif 'C34' in _type:
-        logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Unsupported) (Score: %.2f)" % (str(device_idx), _score))
+        logging.debug("Scanner #%s - Detected a Meteolabor C34/C50 Sonde! (Not yet supported...) (Score: %.2f)" % (str(device_idx), _score))
         _sonde_type = "C34C50"
     elif 'MK2LMS' in _type:
         logging.debug("Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)" % (str(device_idx), _score, _offset_est))

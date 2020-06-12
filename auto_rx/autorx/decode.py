@@ -21,7 +21,7 @@ from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'M20', 'IMET', 'LMSX', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
@@ -70,7 +70,7 @@ class SondeDecoder(object):
     }
 
     # TODO: Use the global valid sonde type list.
-    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'iMet', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
+    VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'M20', 'IMET', 'LMSX', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
     def __init__(self,
         sonde_type="None",
@@ -347,7 +347,7 @@ class SondeDecoder(object):
             # M10 decoder
             decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
 
-        elif self.sonde_type == "iMet":
+        elif self.sonde_type == "IMET":
             # iMet-4 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
@@ -363,6 +363,8 @@ class SondeDecoder(object):
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
             # TODO: see if we need to use a high-pass filter, and how much it degrades telemetry reception.
+            # This fsk_demod command *almost* works (using the updated fsk_demod)
+            # rtl_fm -p 0 -d 0 -M raw -F9 -s 307712 -f 1676000000 2>/dev/null |~/Dev/codec2-upstream/build/src/fsk_demod --cs16 -p 32 --mask=100000 --stats=5  2 307712 9616 - - 2> stats.txt | python ./test/bit_to_samples.py 48080 9616 | sox -t raw -r 48080 -e unsigned-integer -b 8 -c 1 - -r 48080 -b 8 -t wav - 2>/dev/null| ./mk2a_lms1680 --json
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 200k -f %d 2>/dev/null |" % (self.sdr_fm, bias_option, int(self.ppm), str(self.device_idx), gain_param, self.sonde_freq)
             decode_cmd += "sox -t raw -r 200k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
@@ -378,7 +380,7 @@ class SondeDecoder(object):
             else:
                 decode_cmd += "./mk2a_lms1680 --json 2>/dev/null"
 
-        elif self.sonde_type == "LMS6":
+        elif self.sonde_type.startswith("LMS"):
             # LMS6 Decoder command.
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
@@ -434,7 +436,7 @@ class SondeDecoder(object):
 
         """
 
-        self.log_info("Using experimental decoder chain.")
+        self.log_info("Using fsk_demod decoder chain.")
         # Common options to rtl_fm
 
         # Add a -T option if bias is enabled
@@ -594,7 +596,7 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = _freq
 
-        elif self.sonde_type == "LMS6":
+        elif self.sonde_type.startswith("LMS"):
             # LMS6 (400 MHz variant) Decoder command.
             _sdr_rate = 48000 # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
             _output_rate = 48000
@@ -793,6 +795,12 @@ class SondeDecoder(object):
                 self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock)" % str(e))
                 return False
 
+            if self.sonde_type == 'UDP':
+                # If we are accepting sondes via UDP, we make use of the 'type' field provided by
+                # the decoder.
+                # Note that the types returned by the 
+                self.sonde_type = _telemetry['type']
+
             # Add in the sonde type field.
             if 'subtype' in _telemetry:
                 if self.sonde_type == 'RS41':
@@ -817,13 +825,15 @@ class SondeDecoder(object):
             _telemetry['sdr_device_idx'] = self.device_idx
 
             # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
-            # which is most likely an Ozone sensor. We append -Ozone to the sonde type field to indicate this.
+            # which is most likely an Ozone sensor (though could be something different!)
+            # We append -Ozone to the sonde type field to indicate this.
+            # TODO: Decode device ID from aux field to indicate what the aux payload actually is?
             if 'aux' in _telemetry:
                 _telemetry['type'] += "-Ozone"
 
 
             # iMet Specific actions
-            if self.sonde_type == 'iMet':
+            if self.sonde_type == 'IMET':
                 # Check we have GPS lock.
                 if _telemetry['sats'] < 4:
                     # No GPS lock means an invalid time, which means we can't accurately calculate a unique ID.
@@ -842,10 +852,12 @@ class SondeDecoder(object):
                 _telemetry['station_code'] = self.imet_location
 
 
-            # LMS6 Specific Actions
-            if self.sonde_type == 'MK2LMS' or self.sonde_type == 'LMS6':
+            # LMS Specific Actions (LMS6, MK2LMS)
+            if 'LMS' in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
                 _telemetry['datetime_dt'] = fix_datetime(_telemetry['datetime'])
+                # Re-generate the datetime string.
+                _telemetry['datetime'] = _telemetry['datetime_dt'].strftime("%Y-%m-%dT%H:%M:%SZ")
 
             # Grab a snapshot of modem statistics, if we are using an experimental decoder.
             if self.demod_stats is not None:

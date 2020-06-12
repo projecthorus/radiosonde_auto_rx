@@ -2,7 +2,7 @@
 /*
  *  rs41
  *  sync header: correlation/matched filter
- *  files: rs41mod.c bch_ecc_mod.c demod_mod.c demod_mod.h
+ *  files: rs41mod.c bch_ecc_mod.c bch_ecc_mod.h demod_mod.c demod_mod.h
  *  compile, either (a) or (b):
  *  (a)
  *      gcc -c demod_mod.c
@@ -369,14 +369,14 @@ static int get_BattVolts(gpx_t *gpx, int ofs) {
     int i;
     unsigned byte;
     ui8_t batt_bytes[2];
-    float batt_volts;
+    ui16_t batt_volts; // signed voltage?
 
     for (i = 0; i < 2; i++) {
         byte = gpx->frame[pos_BattVolts+ofs + i];
         batt_bytes[i] = byte;
     }
-
-    batt_volts = (float)(batt_bytes[0] + (batt_bytes[1] << 8));
+                                // 2 bytes? V > 25.5 ?
+    batt_volts = batt_bytes[0]; // + (batt_bytes[1] << 8);
     gpx->batt = batt_volts/10.0;
 
     return 0;
@@ -895,10 +895,10 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
             byte = gpx->frame[pos_CalData+ofs+1+i];
             fprintf(stdout, "%02x ", byte);
         }
-/*
+        /*
         if (err == 0) fprintf(stdout, "[OK]");
         else          fprintf(stdout, "[NO]");
-*/
+        */
         fprintf(stdout, " ");
     }
 
@@ -1160,7 +1160,7 @@ static int prn_sat3(gpx_t *gpx, int ofs) {
     pDOP = gpx->frame[pos_pDOP+ofs]/10.0; if (gpx->frame[pos_pDOP+ofs] == 0xFF) pDOP = -1.0;
     fprintf(stdout, "numSatsFix: %2d  sAcc: %.1f  pDOP: %.1f\n", numSV, sAcc, pDOP);
 
-/*
+    /*
     fprintf(stdout, "CRC: ");
     fprintf(stdout, " %04X", pck_GPS1);
     if (check_CRC(gpx, pos_GPS1+ofs, pck_GPS1)==0) fprintf(stdout, "[OK]"); else fprintf(stdout, "[NO]");
@@ -1173,7 +1173,7 @@ static int prn_sat3(gpx_t *gpx, int ofs) {
     //fprintf(stdout, "[%+d]", check_CRC(gpx, pos_GPS3, pck_GPS3));
 
     fprintf(stdout, "\n");
-*/
+    */
     return 0;
 }
 
@@ -1327,7 +1327,8 @@ static int print_position(gpx_t *gpx, int ec) {
                     // Print out telemetry data as JSON
                     if ((!err && !err1 && !err3) || (!err && encrypted)) { // frame-nb/id && gps-time && gps-position  (crc-)ok; 3 CRCs, RS not needed
                         // eigentlich GPS, d.h. UTC = GPS - 18sec (ab 1.1.2017)
-                        fprintf(stdout, "{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
+                        fprintf(stdout, "{ \"type\": \"%s\"", "RS41");
+                        fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
                                        gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->conf_cd, gpx->batt );
                         if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
                             fprintf(stdout, ", \"temp\": %.1f",  gpx->T );

@@ -42,35 +42,35 @@ typedef struct {
 } RS_t;
 
 
-static GF_t GF256RS = { f    : 0x11D,  // RS-GF(2^8): X^8 + X^4 + X^3 + X^2 + 1 : 0x11D
-                        ord  : 256,    // 2^8
-                        alpha: 0x02,   // generator: alpha = X
-                        exp_a: {0},
-                        log_a: {0} };
+static GF_t GF256RS = { .f     = 0x11D,  // RS-GF(2^8): X^8 + X^4 + X^3 + X^2 + 1 : 0x11D
+                        .ord   = 256,    // 2^8
+                        .alpha = 0x02,   // generator: alpha = X
+                        .exp_a = {0},
+                        .log_a = {0} };
 
-static GF_t GF256RSccsds = { f    : 0x187,  // RS-GF(2^8): X^8 + X^7 + X^2 + X + 1 : 0x187
-                             ord  : 256,    // 2^8
-                             alpha: 0x02,   // generator: alpha = X
-                             exp_a: {0},
-                             log_a: {0} };
+static GF_t GF256RSccsds = { .f     = 0x187,  // RS-GF(2^8): X^8 + X^7 + X^2 + X + 1 : 0x187
+                             .ord   = 256,    // 2^8
+                             .alpha = 0x02,   // generator: alpha = X
+                             .exp_a = {0},
+                             .log_a = {0} };
 
-static GF_t GF64BCH = { f    : 0x43,   // BCH-GF(2^6): X^6 + X + 1 : 0x43
-                        ord  : 64,     // 2^6
-                        alpha: 0x02,   // generator: alpha = X
-                        exp_a: {0},
-                        log_a: {0} };
+static GF_t GF64BCH = { .f     = 0x43,   // BCH-GF(2^6): X^6 + X + 1 : 0x43
+                        .ord   = 64,     // 2^6
+                        .alpha = 0x02,   // generator: alpha = X
+                        .exp_a = {0},
+                        .log_a = {0} };
 
-static GF_t GF16RS = { f    : 0x13,   // RS-GF(2^4): X^4 + X + 1 : 0x13
-                       ord  : 16,     // 2^4
-                       alpha: 0x02,   // generator: alpha = X
-                       exp_a: {0},
-                       log_a: {0} };
+static GF_t GF16RS = { .f     = 0x13,   // RS-GF(2^4): X^4 + X + 1 : 0x13
+                       .ord   = 16,     // 2^4
+                       .alpha = 0x02,   // generator: alpha = X
+                       .exp_a = {0},
+                       .log_a = {0} };
 
-static GF_t GF256AES = { f    : 0x11B,  // AES-GF(2^8): X^8 + X^4 + X^3 + X + 1 : 0x11B
-                         ord  : 256,    // 2^8
-                         alpha: 0x03,   // generator: alpha = X+1
-                         exp_a: {0},
-                         log_a: {0} };
+static GF_t GF256AES = { .f     = 0x11B,  // AES-GF(2^8): X^8 + X^4 + X^3 + X + 1 : 0x11B
+                         .ord   = 256,    // 2^8
+                         .alpha = 0x03,   // generator: alpha = X+1
+                         .exp_a = {0},
+                         .log_a = {0} };
 
 
 static RS_t RS256 = { 255, 12, 24, 231, 0, 1, 1, {0}, {0} };

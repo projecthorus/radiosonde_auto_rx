@@ -38,7 +38,7 @@ class TelemetryLogger(object):
     # We require the following fields to be present in the input telemetry dict.
     REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'type', 'freq', 'datetime_dt', 'vel_v', 'vel_h', 'heading']
 
-    LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq,other\n"
+    LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
 
     def __init__(self,
         log_directory = "./log"):
@@ -136,25 +136,39 @@ class TelemetryLogger(object):
 
         # Other fields that may not always be present.
         if 'snr' in telemetry:
-            _log_line += ",SNR %.1f" % telemetry['snr']
+            _log_line += ",%.1f" % telemetry['snr']
+        else:
+            _log_line += ",-99.0"
 
         if 'f_error' in telemetry:
-            _log_line += ",FERROR %d" % int(telemetry['f_error'])
+            _log_line += ",%d" % int(telemetry['f_error'])
+        else:
+            _log_line += ",0"
 
         if 'sats' in telemetry:
-            _log_line += ",SATS %d" % telemetry['sats']
+            _log_line += ",%d" % telemetry['sats']
+        else:
+            _log_line += ",-1"
 
         if 'batt' in telemetry:
-            _log_line += ",BATT %.1f" % telemetry['batt']
+            _log_line += ",%.1f" % telemetry['batt']
+        else:
+            _log_line += ",-1"
 
         # Check for Burst/Kill timer data, and add in.
         if 'bt' in telemetry:
             if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
-                _log_line += ",BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
+                _log_line += ",%s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
+            else:
+                _log_line += ",-1"
+        else:
+            _log_line += ",-1"
 
         # Add Aux data, if it exists.
         if 'aux' in telemetry:
-            _log_line += ",AUX %s" % telemetry['aux'].strip()
+            _log_line += ",%s" % telemetry['aux'].strip()
+        else:
+            _log_line += ",-1"
 
 
         # Terminate the log line.

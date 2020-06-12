@@ -720,7 +720,8 @@ int main(int argc, char **argv) {
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
                                         sprintf(id_str, "%.0f", gpx.sn);
                                     }
-                                    printf("{ \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f }\n",
+                                    printf("{ \"type\": \"%s\"", "IMS100");
+                                    printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f }\n",
                                            gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD );
                                     printf("\n");
                                 }
