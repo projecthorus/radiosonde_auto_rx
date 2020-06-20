@@ -420,14 +420,24 @@ lms6-400_experimental = True
 ngp_tweak = False
 
 
-# Position Filtering Options
+######################
+# POSITION FILTERING #
+######################
 #   These are used to discard positions which are clearly bad, such as where the payload has jumped halfway around the world,
 #   or has suddenly ended up in orbit.
-#   Adjust only if absolutely necessary.
+#
+#   Users can also decide to temporary block sondes which are outside of a radius range.
+#
 [filtering]
 # Discard positions with an altitude greater than 50000 metres. 
 max_altitude = 50000
-# Discard positions more than 1000 km from the observation station location (if set)
+
+# Discard positions from sondes which are outside the following min/max radius limits.
+# This requires the ground-station location to be set.
 max_radius_km = 1000
+min_radius_km = 0
 
-
+# Temporarily block the frequency of sondes which report a position outside of the above limits.
+# WARNING: This may cause sondes which sometimes report glitchy positions (RS92, DFM) to be blocked.
+# (True or False)
+radius_temporary_block = False

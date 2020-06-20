@@ -15,7 +15,7 @@ import traceback
 from dateutil.parser import parse
 from threading import Thread
 from types import FunctionType, MethodType
-from .utils import AsynchronousFileReader, rtlsdr_test
+from .utils import AsynchronousFileReader, rtlsdr_test, position_info
 from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
@@ -91,7 +91,8 @@ class SondeDecoder(object):
         rs92_ephemeris = None,
         rs41_drift_tweak = False,
         experimental_decoder = False,
-        imet_location = "SONDE"):
+        imet_location = "SONDE"
+        ):
         """ Initialise and start a Sonde Decoder.
 
         Args:
@@ -852,20 +853,29 @@ class SondeDecoder(object):
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
             # By default, we will assume the telemetry is OK.
-            _telem_ok = True
+            _telem_ok = "OK"
             if self.telem_filter is not None:
                 try:
                     _telem_ok = self.telem_filter(_telemetry)
                 except Exception as e:
                     self.log_error("Failed to run telemetry filter - %s" % str(e))
-                    _telem_ok = True
+                    _telem_ok = "OK"
+
+
+            # Check if the telemetry filter has indicated that we should block this frequency for some time.
+            if _telem_ok == "TempBlock":
+                self.log_error("Temporary block requested by Telemetry Filter. Closing Decoder.")
+                self.exit_state = "TempBlock"
+                self.decoder_running = False
+                return False
+
 
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
                 return
             else:
-                if _telem_ok:
+                if _telem_ok == "OK":
                     for _exporter in self.exporters:
                         try:
                             _exporter(_telemetry)

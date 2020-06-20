@@ -75,6 +75,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		# Position Filter Settings
 		'max_altitude'	: 50000,
 		'max_radius_km'	: 1000,
+		'min_radius_km' : 0,
+		'radius_temporary_block': False,
 		# Habitat Settings
 		'habitat_enabled': False,
 		'habitat_upload_rate': 30,
@@ -309,7 +311,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 			auto_rx_config['web_control'] = False
 			auto_rx_config['ngp_tweak'] = False
 			auto_rx_config['gpsd_enabled'] = False
-
+		
+		try:
+			auto_rx_config['min_radius_km'] = config.getint('filtering', 'min_radius_km')
+			auto_rx_config['radius_temporary_block'] = config.getboolean('filtering', 'radius_temporary_block')
+		except:
+			logging.warning("Config - Did not find minimum radius filter setting, using default (0km).")
+			auto_rx_config['min_radius_km'] = 0
+			auto_rx_config['radius_temporary_block'] = False
 
 		# If we are being called as part of a unit test, just return the config now.
 		if no_sdr_test:
