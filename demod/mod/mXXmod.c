@@ -192,7 +192,8 @@ frame[0x44..0x45]: frame check
 #define pos_GPSvE     0x0B  // 2 byte
 #define pos_GPSvN     0x0D  // 2 byte
 #define pos_GPSvU     0x18  // 2 byte
-#define pos_Cnt       0x15  // 1 byte
+#define pos_SN        0x12  // 3 byte
+#define pos_CNT       0x15  // 1 byte
 #define pos_BlkChk    0x16  // 2 byte
 #define pos_Check     (stdFLEN-1)  // 2 byte
 
@@ -209,6 +210,7 @@ frame[0x44..0x45]: frame check
 
 #define XTERM_COLOR_BROWN   "\x1b[38;5;94m"  // 38;5;{0..255}m
 
+#define col_Mtype      "\x1b[38;5;250m" // 1 byte
 #define col_GPSweek    "\x1b[38;5;20m"  // 2 byte
 #define col_GPSTOW     "\x1b[38;5;27m"  // 3 byte
 #define col_GPSdate    "\x1b[38;5;94m" //111
@@ -217,6 +219,7 @@ frame[0x44..0x45]: frame check
 #define col_GPSalt     "\x1b[38;5;82m"  // 3 byte
 #define col_GPSvel     "\x1b[38;5;36m"  // 6 byte
 #define col_SN         "\x1b[38;5;58m"  // 3 byte
+#define col_CNT        "\x1b[38;5;172m" // 1 byte
 #define col_Check      "\x1b[38;5;11m"  // 2 byte
 #define col_TXT        "\x1b[38;5;244m"
 #define col_FRTXT      "\x1b[38;5;244m"
@@ -530,7 +533,7 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
         if (gpx->option.col) {
             fprintf(stdout, col_TXT);
             if (gpx->option.vbs >= 3) {
-                fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_Cnt]);
+                fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_CNT]);
                 fprintf(stdout, " (W "col_GPSweek"%d"col_TXT") ", gpx->week);
             }
             fprintf(stdout, col_GPSTOW"%s"col_TXT" ", weekday[gpx->wday]);
@@ -543,14 +546,14 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
             }
             if (gpx->option.vbs >= 3 && (bcOK || csOK)) { // SN
-                ui8_t  b0 = gpx->frame_bytes[0x12];
-                ui32_t s2 = (gpx->frame_bytes[0x14]<<8) | gpx->frame_bytes[0x13];
+                ui8_t  b0 = gpx->frame_bytes[pos_SN]; //0x12
+                ui32_t s2 = (gpx->frame_bytes[pos_SN+2]<<8) | gpx->frame_bytes[pos_SN+1];
                 ui8_t ym = b0 & 0x7F;  // #{0x0,..,0x77}=120=10*12
                 ui8_t y = ym / 12;
                 ui8_t m = (ym % 12)+1; // there is b0=0x69<0x80 from 2018-09-19 ...
                 fprintf(stdout, " (%u%02u", y, m); // more samples needed
                 fprintf(stdout, " _ "); // (b0>>7)+1? (s2&0x3)+2?
-                fprintf(stdout, "_"); // ? (s2>>13)&0x3  ?? (s2&0x3)?
+                fprintf(stdout, "_"); // ?(s2>>(2+13))&0x1 ?? (s2&0x3)?
                 fprintf(stdout, "%04u)", (s2>>2)&0x1FFF);
             }
             if (gpx->option.vbs >= 2) {
@@ -570,7 +573,7 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
         }
         else {
             if (gpx->option.vbs >= 3) {
-                fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_Cnt]);
+                fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_CNT]);
                 fprintf(stdout, " (W %d) ", gpx->week);
             }
             fprintf(stdout, "%s ", weekday[gpx->wday]);
@@ -629,6 +632,7 @@ static int print_frame(gpx_t *gpx, int pos) {
             fprintf(stdout, col_FRTXT);
             for (i = 0; i < FRAME_LEN+gpx->auxlen; i++) {
                 byte = gpx->frame_bytes[i];
+                if  (i == 1) fprintf(stdout, col_Mtype);
                 if ((i >= pos_GPSTOW)   &&  (i < pos_GPSTOW+3))   fprintf(stdout, col_GPSTOW);
                 if ((i >= pos_GPSlat)   &&  (i < pos_GPSlat+4))   fprintf(stdout, col_GPSlat);
                 if ((i >= pos_GPSlon)   &&  (i < pos_GPSlon+4))   fprintf(stdout, col_GPSlon);
@@ -637,6 +641,8 @@ static int print_frame(gpx_t *gpx, int pos) {
                 if ((i >= pos_GPSvE)    &&  (i < pos_GPSvE+2))    fprintf(stdout, col_GPSvel);
                 if ((i >= pos_GPSvN)    &&  (i < pos_GPSvN+2))    fprintf(stdout, col_GPSvel);
                 if ((i >= pos_GPSvU)    &&  (i < pos_GPSvU+2))    fprintf(stdout, col_GPSvel);
+                if ((i >= pos_SN)       &&  (i < pos_SN+3))       fprintf(stdout, col_SN);
+                if  (i == pos_CNT) fprintf(stdout, col_CNT);
                 if ((i >= pos_BlkChk)   &&  (i < pos_BlkChk+2))   fprintf(stdout, col_Check);
                 if ((i >= pos_Check+gpx->auxlen)  &&  (i < pos_Check+gpx->auxlen+2))  fprintf(stdout, col_Check);
                 fprintf(stdout, "%02x", byte);

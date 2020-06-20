@@ -465,9 +465,9 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             
-            decode_cmd = "./rs41mod --ptu --json --bin 2>/dev/null"
+            decode_cmd = "./rs41mod --ptu --json --softin -i 2>/dev/null"
 
             # RS41s transmit pulsed beacons - average over the last 2 frames, and use a peak-hold 
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -520,15 +520,9 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             
-            decode_cmd = " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_output_rate, _baud_rate, _output_rate, _output_rate)
-
-            # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
-
-            decode_cmd += "./rs92mod -vx -v --crc --ecc --vel --json %s 2>/dev/null" % _rs92_gps_data
+            decode_cmd = "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s 2>/dev/null" % _rs92_gps_data
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
@@ -550,15 +544,10 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
-
-            decode_cmd = ""
-            # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
 
             # DFM decoder
-            decode_cmd += "./dfm09mod -vv --ecc --json --dist --auto --bin 2>/dev/null"
+            decode_cmd = "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
 
             # DFM sondes transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
@@ -581,16 +570,10 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
-            
-            decode_cmd = " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null| " % (_sdr_rate, _baud_rate, _sdr_rate, _sdr_rate)
-
-            # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s -p 5 --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
 
             # M10 decoder
-            decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
+            decode_cmd = "./m10mod --json --ptu -vvv --softin -i 2>/dev/null"
 
             # M10 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -611,15 +594,9 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
-            
-            decode_cmd = " python ./test/bit_to_samples.py %d %d | sox -t raw -r %d -e unsigned-integer -b 8 -c 1 - -r %d -b 8 -t wav - 2>/dev/null|" % (_output_rate, _baud_rate, _output_rate, _output_rate)
-            
-            # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
 
-            decode_cmd += "./lms6Xmod --json 2>/dev/null"
+            decode_cmd = "./lms6Xmod --json --softin -i 2>/dev/null"
 
             # LMS sondes transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
