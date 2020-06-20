@@ -1102,6 +1102,8 @@ static int print_frame(gpx_t *gpx, int pos) {
     return (gpx->frame_bytes[0]<<8)|gpx->frame_bytes[1];
 }
 
+/* -------------------------------------------------------------------------- */
+
 
 int main(int argc, char **argv) {
 
@@ -1115,6 +1117,8 @@ int main(int argc, char **argv) {
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_chk = 0;
+    int option_softin = 0;
     int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
@@ -1129,6 +1133,7 @@ int main(int argc, char **argv) {
     int bitpos = 0;
     int bitQ;
     int pos;
+    hsbit_t hsbit, hsbit1;
 
     //int headerlen = 0;
 
@@ -1143,6 +1148,8 @@ int main(int argc, char **argv) {
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
+
+    hdb_t hdb = {0};
 
     gpx_t gpx = {0};
 
@@ -1185,8 +1192,10 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--spike") == 0) ) {
             spike = 1;
         }
-        else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if ( (strcmp(*argv, "--ths") == 0) ) {
+        else if   (strcmp(*argv, "--chk3") == 0) { option_chk = 3; }
+        else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
@@ -1250,6 +1259,7 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
+    // init gpx
     gpx.option.inv = option_inv; // irrelevant
     gpx.option.vbs = option_verbose;
     gpx.option.raw = option_raw;
@@ -1257,71 +1267,105 @@ int main(int argc, char **argv) {
     gpx.option.col = option_color;
 
 
-    // init gpx
-
-    if (option_iq == 0 && option_pcmraw) {
-        fclose(fp);
-        fprintf(stderr, "error: raw data not IQ\n");
-        return -1;
+    #ifdef EXT_FSK
+    if (!option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
     }
-    if (option_iq) sel_wavch = 0;
+    #endif
 
-    pcm.sel_ch = sel_wavch;
-    if (option_pcmraw == 0) {
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+    if (!option_softin) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
+            return -1;
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
+        }
+
+        // m10: BT>1?, h=1.2 ?
+        symlen = 2;
+
+        // init dsp
+        //
+        dsp.fp = fp;
+        dsp.sr = pcm.sr;
+        dsp.bps = pcm.bps;
+        dsp.nch = pcm.nch;
+        dsp.ch = pcm.sel_ch;
+        dsp.br = (float)BAUD_RATE;
+        dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.symlen = symlen;
+        dsp.symhd = 1; // M10!header
+        dsp._spb = dsp.sps*symlen;
+        dsp.hdr = rawheader;
+        dsp.hdrlen = strlen(rawheader);
+        dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0
+        dsp.h = 0.9;  // 1.2 modulation index
+        dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 10e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
+
+        if ( dsp.sps < 8 ) {
+            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+        }
+
+        //headerlen = dsp.hdrlen;
+
+
+        k = init_buffers(&dsp);
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
+            return -1;
+        }
+
+        bitofs += shift;
+    }
+    else {
+        // init circular header bit buffer
+        hdb.hdr = rawheader;
+        hdb.len = strlen(rawheader);
+        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+        hdb.bufpos = -1;
+        hdb.buf = NULL;
+        /*
+        calloc(hdb.len, sizeof(char));
+        if (hdb.buf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
+        */
+        hdb.ths = 0.8; // caution 0.7: false positive / offset
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
             return -1;
         }
     }
 
-    // m10: BT>1?, h=1.2 ?
-    symlen = 2;
-
-    // init dsp
-    //
-    dsp.fp = fp;
-    dsp.sr = pcm.sr;
-    dsp.bps = pcm.bps;
-    dsp.nch = pcm.nch;
-    dsp.ch = pcm.sel_ch;
-    dsp.br = (float)BAUD_RATE;
-    dsp.sps = (float)dsp.sr/dsp.br;
-    dsp.symlen = symlen;
-    dsp.symhd = 1; // M10!header
-    dsp._spb = dsp.sps*symlen;
-    dsp.hdr = rawheader;
-    dsp.hdrlen = strlen(rawheader);
-    dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0
-    dsp.h = 0.9;  // 1.2 modulation index
-    dsp.opt_iq = option_iq;
-    dsp.opt_lp = option_lp;
-    dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
-    dsp.lpFM_bw = 10e3; // FM audio lowpass
-    dsp.opt_dc = option_dc;
-    dsp.opt_IFmin = option_min;
-
-    if ( dsp.sps < 8 ) {
-        fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
-    }
-
-    //headerlen = dsp.hdrlen;
-
-    k = init_buffers(&dsp);
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
-
-
-    bitofs += shift;
 
     while ( 1 )
     {
-                                                                        // FM-audio:
-        header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
-        _mv = dsp.mv;
+        if (option_softin) {
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+        }
+        else {                                                              // FM-audio:
+            header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+            _mv = dsp.mv;
+        }
 
         if (header_found == EOF) break;
 
@@ -1339,15 +1383,31 @@ int main(int argc, char **argv) {
 
             while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
 
-                if (option_iq >= 2) {
-                    float bl = -1;
-                    if (option_iq > 2) bl = 4.0;
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
+                if (option_softin) {
+                    float s1 = 0.0;
+                    float s2 = 0.0;
+                    float s = 0.0;
+                    bitQ = f32soft_read(fp, &s1);
+                    if (bitQ != EOF) {
+                        bitQ = f32soft_read(fp, &s2);
+                        if (bitQ != EOF) {
+                            s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
+                            bit = (s>=0.0); // no soft decoding
+                        }
+                    }
                 }
                 else {
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    float bl = -1;
+                    if (option_iq >= 2) spike = 0;
+                    if (option_iq > 2)  bl = 4.0;
+                    //bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
+                    bitQ = read_softbit2p(&dsp, &hsbit, 0, bitofs, bitpos, bl, spike, &hsbit1); // symlen=1
+                    bit = hsbit.hb;
+                    if (option_chk == 3 && option_iq) {
+                    //if (hsbit.sb*hsbit1.sb < 0)
+                        bit = (hsbit.sb+0.25*hsbit1.sb)>=0;
+                    }
                 }
-
                 if ( bitQ == EOF ) { break; }
 
                 gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
@@ -1364,7 +1424,13 @@ int main(int argc, char **argv) {
             // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
             if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
                 while ( bitpos < 5*BITFRAME_LEN ) {
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    if (option_softin) {
+                        float s = 0.0;
+                        bitQ = f32soft_read(fp, &s);
+                    }
+                    else {
+                        bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=2
+                    }
                     if ( bitQ == EOF) break;
                     bitpos++;
                 }
@@ -1374,7 +1440,11 @@ int main(int argc, char **argv) {
         }
     }
 
-    free_buffers(&dsp);
+
+    if (!option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
 
     fclose(fp);
 
