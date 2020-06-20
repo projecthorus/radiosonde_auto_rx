@@ -337,8 +337,8 @@ def clean_task_list():
         if _running == False:
             # This task has stopped.
             # Check the exit state of the task for any abnormalities:
-            if _exit_state == "Encrypted":
-                # This task was a decoder, and it has encountered an encrypted sonde.
+            if (_exit_state == "Encrypted") or (_exit_state == "TempBlock"):
+                # This task was a decoder, and it has encountered an encrypted sonde, or one too far away.
                 logging.info("Task Manager - Adding temporary block for frequency %.3f MHz" % (_key/1e6))
                 # Add the sonde's frequency to the global temporary block-list
                 temporary_block_list[_key] = time.time()
@@ -435,7 +435,16 @@ def telemetry_filter(telemetry):
         if _info['straight_distance'] > config['max_radius_km']*1000:
             _radius_breach = _info['straight_distance']/1000.0 - config['max_radius_km']
             logging.warning("Sonde %s position breached radius cap by %.1f km." % (telemetry['id'], _radius_breach))
-            return False
+
+            if config['radius_temporary_block']:
+                logging.warning("Blocking for %d minutes." % config['temporary_block_time'])
+                return "TempBlock"
+            else:
+                return False
+
+        if (_info['straight_distance'] < config['min_radius_km']*1000) and config['radius_temporary_block']:
+            logging.warning("Sonde %s within minimum radius limit (%.1f km). Blocking for %d minutes." % (telemetry['id'], config['min_radius_km'], config['temporary_block_time']))
+            return "TempBlock"
 
     # Payload Serial Number Checks
     _serial = telemetry['id']
@@ -460,7 +469,7 @@ def telemetry_filter(telemetry):
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
     if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('LMS' in telemetry['type']) or  ('IMET' in telemetry['type']):
-        return True
+        return "OK"
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']
         # Add in a note about DFM sondes and their oddness...
