@@ -597,7 +597,7 @@ class SondeDecoder(object):
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
 
-            decode_cmd = "./lms6Xmod --json --softin -i 2>/dev/null"
+            decode_cmd = "./lms6Xmod --json --softin --vit2 -i 2>/dev/null"
 
             # LMS sondes transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
