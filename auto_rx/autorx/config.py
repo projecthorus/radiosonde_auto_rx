@@ -281,14 +281,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['temporary_block_time'] = config.getint('advanced', 'temporary_block_time')
 
 		# New demod tweaks - Added 2019-04-23
-		# Default to all experimental decoders off.
+		# Default to all experimental decoders on.
 		auto_rx_config['experimental_decoders'] = {
-			'RS41': False, 
-			'RS92': False, 
-			'DFM': False, 
-			'M10': False, 
+			'RS41': True, 
+			'RS92': True, 
+			'DFM': True, 
+			'M10': True, 
 			'IMET': False, 
-			'LMS': True, 
+			'LMS6': True, 
 			'MK2LMS': False, 
 			'MEISEI': False, 
 			'UDP': False}
@@ -298,7 +298,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['experimental_decoders']['RS92'] = config.getboolean('advanced', 'rs92_experimental')
 		auto_rx_config['experimental_decoders']['M10'] = config.getboolean('advanced', 'm10_experimental')
 		auto_rx_config['experimental_decoders']['DFM'] = config.getboolean('advanced', 'dfm_experimental')
-		auto_rx_config['experimental_decoders']['LMS'] = config.getboolean('advanced', 'lms6-400_experimental')
+		auto_rx_config['experimental_decoders']['LMS6'] = config.getboolean('advanced', 'lms6-400_experimental')
 
 		try:
 			auto_rx_config['web_control'] = config.getboolean('web', 'web_control')
