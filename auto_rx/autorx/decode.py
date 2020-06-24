@@ -21,7 +21,7 @@ from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
 
 # Global valid sonde types list.
-VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'IMET', 'LMSX', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
+VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'IMET', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
 
 # Known 'Drifty' Radiosonde types
 # NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
