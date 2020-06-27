@@ -75,6 +75,11 @@ static char rawheader[] = "10011001100110010100110010011001";
 #define BITAUX_LEN      (AUX_LEN*BITS)
 
 
+#define t_M2K2     0x8F
+#define t_M10      0x9F
+#define t_M10plus  0xAF
+#define t_M20      0x20
+
 typedef struct {
     int week; int tow_ms; int gpssec;
     int jahr; int monat; int tag;
@@ -86,10 +91,12 @@ typedef struct {
     ui8_t numSV;
     ui8_t utc_ofs;
     char SN[12];
+    ui8_t SNraw[3];
     ui8_t frame_bytes[FRAME_LEN+AUX_LEN+4];
     char frame_bits[BITFRAME_LEN+BITAUX_LEN+8];
-    int auxlen; // 0 .. 0x76-0x64
+    int auxlen; // ? 0 .. 0x57-0x45
     option_t option;
+    ui8_t type;
 } gpx_t;
 
 
@@ -177,10 +184,9 @@ frame[0x1C..0x1F]: GPS latitude
 frame[0x20..0x23]: GPS longitude
 
 frame[0x44..0x45]: frame check
-
 */
 
-#define stdFLEN       0x64  // pos[0]=0x45  // M20: 0x45 (0x43)  M10: 0x64
+#define stdFLEN       0x45  // pos[0]=0x45  // M20: 0x45 (0x43)  M10: 0x64
 #define pos_GPSTOW    0x0F  // 3 byte
 #define pos_GPSlat    0x1C  // 4 byte
 #define pos_GPSlon    0x20  // 4 byte
@@ -372,21 +378,20 @@ static int get_GPSvel(gpx_t *gpx) {
     ui8_t gpsVel_bytes[2];
     short vel16;
     double vx, vy, dir, alpha;
-    const double ms2kn100 = 1e2; //2e2;  // m/s -> knots: 1 m/s = 3.6/1.852 kn = 1.94 kn
 
     for (i = 0; i < 2; i++) {
         byte = gpx->frame_bytes[pos_GPSvE + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vx = vel16 / ms2kn100; // ost
+    vx = vel16 / 1e2; // ost
 
     for (i = 0; i < 2; i++) {
         byte = gpx->frame_bytes[pos_GPSvN + i];
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    vy= vel16 / ms2kn100; // nord
+    vy= vel16 / 1e2; // nord
 
     gpx->vx = vx;
     gpx->vy = vy;
@@ -406,11 +411,32 @@ static int get_GPSvel(gpx_t *gpx) {
         gpsVel_bytes[i] = byte;
     }
     vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
-    gpx->vV = vel16 / ms2kn100;
+    gpx->vV = vel16 / 1e2;
 
     return 0;
 }
 
+static int get_SN(gpx_t *gpx) {
+    int i;
+    ui8_t  b0 = gpx->frame_bytes[pos_SN]; //0x12
+    ui32_t s2 = (gpx->frame_bytes[pos_SN+2]<<8) | gpx->frame_bytes[pos_SN+1];
+    ui8_t ym = b0 & 0x7F;  // #{0x0,..,0x77}=120=10*12
+    ui8_t y = ym / 12;
+    ui8_t m = (ym % 12)+1; // there is b0=0x69<0x80 from 2018-09-19 ...
+
+    for (i = 0; i < 11; i++) gpx->SN[i] = ' '; gpx->SN[11] = '\0';
+
+    for (i = 0; i < 3; i++) {
+        gpx->SNraw[i] = gpx->frame_bytes[pos_SN + i];
+    }
+
+    sprintf(gpx->SN, "%u%02u", y, m);           // more samples needed
+    sprintf(gpx->SN+3, " %u ", (s2&0x3)+2);     // (b0>>7)+1? (s2&0x3)+2?
+    sprintf(gpx->SN+6, "%u", (s2>>(2+13))&0x1); // ?(s2>>(2+13))&0x1 ?? (s2&0x3)?
+    sprintf(gpx->SN+7, "%04u", (s2>>2)&0x1FFF);
+
+    return 0;
+}
 
 /* -------------------------------------------------------------------------- */
 /*
@@ -518,17 +544,22 @@ static float get_Tntc0(gpx_t *gpx) {
 static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
     int err, err2;
 
-    err = 0;
-    err |= get_GPSweek(gpx);
-    err |= get_GPStime(gpx);
-    err |= get_GPSlat(gpx);
-    err |= get_GPSlon(gpx);
-    err |= get_GPSalt(gpx);
-    err2 = get_GPSvel(gpx);
+    if (1 || gpx->type == t_M20)
+    {
+        err = 0;
+        err |= get_GPSweek(gpx);
+        err |= get_GPStime(gpx);
+        err |= get_GPSlat(gpx);
+        err |= get_GPSlon(gpx);
+        err |= get_GPSalt(gpx);
+        err2 = get_GPSvel(gpx);
+    }
+    else err = 0xFF;
 
     if (!err) {
 
         Gps2Date(gpx->week, gpx->gpssec, &gpx->jahr, &gpx->monat, &gpx->tag);
+        get_SN(gpx);
 
         if (gpx->option.col) {
             fprintf(stdout, col_TXT);
@@ -545,16 +576,8 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
             if (!err2) {
                 fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
             }
-            if (gpx->option.vbs >= 3 && (bcOK || csOK)) { // SN
-                ui8_t  b0 = gpx->frame_bytes[pos_SN]; //0x12
-                ui32_t s2 = (gpx->frame_bytes[pos_SN+2]<<8) | gpx->frame_bytes[pos_SN+1];
-                ui8_t ym = b0 & 0x7F;  // #{0x0,..,0x77}=120=10*12
-                ui8_t y = ym / 12;
-                ui8_t m = (ym % 12)+1; // there is b0=0x69<0x80 from 2018-09-19 ...
-                fprintf(stdout, " (%u%02u", y, m); // more samples needed
-                fprintf(stdout, " _ "); // (b0>>7)+1? (s2&0x3)+2?
-                fprintf(stdout, "_"); // ?(s2>>(2+13))&0x1 ?? (s2&0x3)?
-                fprintf(stdout, "%04u)", (s2>>2)&0x1FFF);
+            if (gpx->option.vbs >= 2 && (bcOK || csOK)) { // SN
+                fprintf(stdout, "  SN: "col_SN"%s"col_TXT, gpx->SN);
             }
             if (gpx->option.vbs >= 2) {
                 fprintf(stdout, "  # ");
@@ -585,6 +608,9 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
             if (!err2) {
                 fprintf(stdout, "  vH: %.1f  D: %.1f  vV: %.1f ", gpx->vH, gpx->vD, gpx->vV);
             }
+            if (gpx->option.vbs >= 2 && (bcOK || csOK)) { // SN
+                fprintf(stdout, "  SN: %s", gpx->SN);
+            }
             if (gpx->option.vbs >= 2) {
                 fprintf(stdout, "  # ");
                 if (bcOK) fprintf(stdout, " (ok)"); else fprintf(stdout, " (no)");
@@ -599,6 +625,27 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
         }
         fprintf(stdout, "\n");
 
+        if (gpx->option.jsn) {
+            // Print out telemetry data as JSON
+            if (csOK) {
+                int j;
+                char sn_id[4+12] = "M20-";
+                double sec_gps0 = (double)gpx->week*SECONDS_IN_WEEK + gpx->tow_ms/1e3;
+
+                strncpy(sn_id+4, gpx->SN, 12);
+                sn_id[15] = '\0';
+                for (j = 0; sn_id[j]; j++) { if (sn_id[j] == ' ') sn_id[j] = '-'; }
+
+                fprintf(stdout, "{ \"type\": \"%s\"", "M20");
+                fprintf(stdout, ", \"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
+                fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                               sn_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV);
+                fprintf(stdout, ", \"rawid\": \"M20_%02X%02X%02X\"", gpx->frame_bytes[pos_SN], gpx->frame_bytes[pos_SN+1], gpx->frame_bytes[pos_SN+2]); // gpx->type
+                fprintf(stdout, ", \"subtype\": \"0x%02X\"", gpx->type);
+                fprintf(stdout, " }\n");
+                fprintf(stdout, "\n");
+            }
+        }
 
     }
 
@@ -617,7 +664,7 @@ static int print_frame(gpx_t *gpx, int pos) {
     if (flen == stdFLEN) gpx->auxlen = 0;
     else {
         gpx->auxlen = flen - stdFLEN;
-        //if (gpx->auxlen < 0 || gpx->auxlen > AUX_LEN) gpx->auxlen = 0;
+        //if (gpx->auxlen < 0 || gpx->auxlen > AUX_LEN) gpx->auxlen = 0; // 0x43,0x45
     }
 
     cs1 = (gpx->frame_bytes[pos_Check+gpx->auxlen] << 8) | gpx->frame_bytes[pos_Check+gpx->auxlen+1];
@@ -626,11 +673,19 @@ static int print_frame(gpx_t *gpx, int pos) {
     bc1 = (gpx->frame_bytes[pos_BlkChk] << 8) | gpx->frame_bytes[pos_BlkChk+1];
     bc2 = blk_checkM10(len_BlkChk, gpx->frame_bytes+2); // len(essentialBlock+chk16) = 0x16
 
+    switch (gpx->frame_bytes[1]) {
+        case 0x8F: gpx->type = t_M2K2;    break;
+        case 0x9F: gpx->type = t_M10;     break;
+        case 0xAF: gpx->type = t_M10plus; break;
+        case 0x20: gpx->type = t_M20;     break;
+        default  : gpx->type = t_M10;
+    }
+
     if (gpx->option.raw) {
 
-        if (gpx->option.col  &&  gpx->frame_bytes[1] != 0x49) {
+        if (gpx->option.col /* &&  gpx->frame_bytes[1] != 0x49 */) {
             fprintf(stdout, col_FRTXT);
-            for (i = 0; i < FRAME_LEN+gpx->auxlen; i++) {
+            for (i = 0; i < flen+1; i++) {
                 byte = gpx->frame_bytes[i];
                 if  (i == 1) fprintf(stdout, col_Mtype);
                 if ((i >= pos_GPSTOW)   &&  (i < pos_GPSTOW+3))   fprintf(stdout, col_GPSTOW);
@@ -658,7 +713,7 @@ static int print_frame(gpx_t *gpx, int pos) {
             fprintf(stdout, ANSI_COLOR_RESET"\n");
         }
         else {
-            for (i = 0; i < FRAME_LEN+gpx->auxlen; i++) {
+            for (i = 0; i < flen+1; i++) {
                 byte = gpx->frame_bytes[i];
                 fprintf(stdout, "%02x", byte);
             }
@@ -671,6 +726,7 @@ static int print_frame(gpx_t *gpx, int pos) {
         }
 
     }
+    /*
     else if (gpx->frame_bytes[1] == 0x49) {
         if (gpx->option.vbs == 3) {
             for (i = 0; i < FRAME_LEN+gpx->auxlen; i++) {
@@ -680,10 +736,13 @@ static int print_frame(gpx_t *gpx, int pos) {
             fprintf(stdout, "\n");
         }
     }
+    */
     else print_pos(gpx, bc1 == bc2, cs1 == cs2);
 
     return (gpx->frame_bytes[0]<<8)|gpx->frame_bytes[1];
 }
+
+/* -------------------------------------------------------------------------- */
 
 
 int main(int argc, char **argv) {
@@ -698,6 +757,7 @@ int main(int argc, char **argv) {
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_softin = 0;
     int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
@@ -714,6 +774,7 @@ int main(int argc, char **argv) {
     int bitpos = 0;
     int bitQ;
     int pos;
+    hsbit_t hsbit, hsbit1;
 
     //int headerlen = 0;
 
@@ -728,6 +789,8 @@ int main(int argc, char **argv) {
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
+
+    hdb_t hdb = {0};
 
     gpx_t gpx = {0};
 
@@ -767,7 +830,7 @@ int main(int argc, char **argv) {
             ++argv;
             if (*argv) {
                 baudrate = atof(*argv);
-                if (baudrate < 9000 || baudrate > 10000) baudrate = BAUD_RATE; // default: 9615
+                if (baudrate < 9000 || baudrate > 10000) baudrate = BAUD_RATE; // default: M20:9600, M10:9615
             }
             else return -1;
         }
@@ -779,6 +842,7 @@ int main(int argc, char **argv) {
             spike = 1;
         }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
             if (*argv) {
@@ -843,6 +907,7 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
+    // init gpx
     gpx.option.inv = option_inv; // irrelevant
     gpx.option.vbs = option_verbose;
     gpx.option.raw = option_raw;
@@ -850,77 +915,111 @@ int main(int argc, char **argv) {
     gpx.option.col = option_color;
 
 
-    // init gpx
-
-    if (option_iq == 0 && option_pcmraw) {
-        fclose(fp);
-        fprintf(stderr, "error: raw data not IQ\n");
-        return -1;
+    #ifdef EXT_FSK
+    if (!option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
     }
-    if (option_iq) sel_wavch = 0;
+    #endif
 
-    pcm.sel_ch = sel_wavch;
-    if (option_pcmraw == 0) {
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+    if (!option_softin) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
+            return -1;
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
+        }
+
+        // m10: BT>1?, h=1.2 ?
+        symlen = 2;
+
+        // init dsp
+        //
+        dsp.fp = fp;
+        dsp.sr = pcm.sr;
+        dsp.bps = pcm.bps;
+        dsp.nch = pcm.nch;
+        dsp.ch = pcm.sel_ch;
+        dsp.br = (float)BAUD_RATE;
+        dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.symlen = symlen;
+        dsp.symhd = 1; // M10!header
+        dsp._spb = dsp.sps*symlen;
+        dsp.hdr = rawheader;
+        dsp.hdrlen = strlen(rawheader);
+        dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0  // M20 ?
+        dsp.h = 0.9;  // 1.2 modulation index       // M20 ?
+        dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 10e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
+
+        if ( dsp.sps < 8 ) {
+            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+        }
+
+        if (baudrate > 0) {
+            dsp.br = (float)baudrate;
+            dsp.sps = (float)dsp.sr/dsp.br;
+            fprintf(stderr, "sps corr: %.4f\n", dsp.sps);
+        }
+
+        //headerlen = dsp.hdrlen;
+
+
+        k = init_buffers(&dsp);
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
+            return -1;
+        }
+
+        bitofs += shift;
+    }
+    else {
+        // init circular header bit buffer
+        hdb.hdr = rawheader;
+        hdb.len = strlen(rawheader);
+        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+        hdb.bufpos = -1;
+        hdb.buf = NULL;
+        /*
+        calloc(hdb.len, sizeof(char));
+        if (hdb.buf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
+        */
+        hdb.ths = 0.8; // caution 0.7: false positive / offset
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
             return -1;
         }
     }
 
-    // m10: BT>1?, h=1.2 ?
-    symlen = 2;
-
-    // init dsp
-    //
-    dsp.fp = fp;
-    dsp.sr = pcm.sr;
-    dsp.bps = pcm.bps;
-    dsp.nch = pcm.nch;
-    dsp.ch = pcm.sel_ch;
-    dsp.br = (float)BAUD_RATE;
-    dsp.sps = (float)dsp.sr/dsp.br;
-    dsp.symlen = symlen;
-    dsp.symhd = 1; // M10!header
-    dsp._spb = dsp.sps*symlen;
-    dsp.hdr = rawheader;
-    dsp.hdrlen = strlen(rawheader);
-    dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0  // M20 ?
-    dsp.h = 0.9;  // 1.2 modulation index       // M20 ?
-    dsp.opt_iq = option_iq;
-    dsp.opt_lp = option_lp;
-    dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
-    dsp.lpFM_bw = 10e3; // FM audio lowpass
-    dsp.opt_dc = option_dc;
-    dsp.opt_IFmin = option_min;
-
-    if ( dsp.sps < 8 ) {
-        fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
-    }
-
-    if (baudrate > 0) {
-        dsp.br = (float)baudrate;
-        dsp.sps = (float)dsp.sr/dsp.br;
-        fprintf(stderr, "sps corr: %.4f\n", dsp.sps);
-    }
-
-    //headerlen = dsp.hdrlen;
-
-    k = init_buffers(&dsp);
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
-
-
-    bitofs += shift;
 
     while ( 1 )
     {
-                                                                        // FM-audio:
-        header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
-        _mv = dsp.mv;
+        if (option_softin) {
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+        }
+        else {                                                              // FM-audio:
+            header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+            _mv = dsp.mv;
+        }
 
         if (header_found == EOF) break;
 
@@ -938,15 +1037,27 @@ int main(int argc, char **argv) {
 
             while ( pos < BITFRAME_LEN+BITAUX_LEN ) {
 
-                if (option_iq >= 2) {
-                    float bl = -1;
-                    if (option_iq > 2) bl = 4.0;
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
+                if (option_softin) {
+                    float s1 = 0.0;
+                    float s2 = 0.0;
+                    float s = 0.0;
+                    bitQ = f32soft_read(fp, &s1);
+                    if (bitQ != EOF) {
+                        bitQ = f32soft_read(fp, &s2);
+                        if (bitQ != EOF) {
+                            s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
+                            bit = (s>=0.0); // no soft decoding
+                        }
+                    }
                 }
                 else {
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    float bl = -1;
+                    if (option_iq >= 2) spike = 0;
+                    if (option_iq > 2)  bl = 4.0;
+                    //bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
+                    bitQ = read_softbit2p(&dsp, &hsbit, 0, bitofs, bitpos, bl, spike, &hsbit1); // symlen=2
+                    bit = hsbit.hb;
                 }
-
                 if ( bitQ == EOF ) { break; }
 
                 gpx.frame_bits[pos] = 0x31 ^ (bit0 ^ bit);
@@ -963,7 +1074,7 @@ int main(int argc, char **argv) {
             // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
             if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
                 while ( bitpos < 5*BITFRAME_LEN ) {
-                    bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike); // symlen=2
+                    bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=2
                     if ( bitQ == EOF) break;
                     bitpos++;
                 }
@@ -974,7 +1085,10 @@ int main(int argc, char **argv) {
     }
 
 
-    free_buffers(&dsp);
+    if (!option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
 
     fclose(fp);
 

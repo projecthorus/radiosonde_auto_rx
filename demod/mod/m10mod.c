@@ -89,6 +89,7 @@ typedef struct {
     ui8_t numSV;
     ui8_t utc_ofs;
     char SN[12];
+    ui8_t SNraw[5];
     ui8_t frame_bytes[FRAME_LEN+AUX_LEN+4];
     char frame_bits[BITFRAME_LEN+BITAUX_LEN+8];
     int auxlen; // 0 .. 0x76-0x64
@@ -449,19 +450,17 @@ static int get_GPSvel(gpx_t *gpx) {
 static int get_SN(gpx_t *gpx) {
     int i;
     unsigned byte;
-    ui8_t sn_bytes[5];
 
     for (i = 0; i < 11; i++) gpx->SN[i] = ' '; gpx->SN[11] = '\0';
 
     for (i = 0; i < 5; i++) {
-        byte = gpx->frame_bytes[pos_SN + i];
-        sn_bytes[i] = byte;
+        gpx->SNraw[i] = gpx->frame_bytes[pos_SN + i];
     }
 
-    byte = sn_bytes[2];
+    byte = gpx->SNraw[2];
     sprintf(gpx->SN, "%1X%02u", (byte>>4)&0xF, byte&0xF);
-    byte = sn_bytes[3] | (sn_bytes[4]<<8);
-    sprintf(gpx->SN+3, " %1X %1u%04u", sn_bytes[0]&0xF, (byte>>13)&0x7, byte&0x1FFF);
+    byte = gpx->SNraw[3] | (gpx->SNraw[4]<<8);
+    sprintf(gpx->SN+3, " %1X %1u%04u", gpx->SNraw[0]&0xF, (byte>>13)&0x7, byte&0x1FFF);
 
     return 0;
 }
@@ -867,6 +866,7 @@ static int print_pos(gpx_t *gpx, int csOK) {
         gpx->_RH  = get_RH(gpx);
         gpx->Ti   = get_intTemp(gpx);
         gpx->batV = get_BatV(gpx);
+        get_SN(gpx);
 
 
         if (gpx->option.col) {
@@ -886,7 +886,6 @@ static int print_pos(gpx_t *gpx, int csOK) {
                 fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
             }
             if (gpx->option.vbs >= 2) {
-                get_SN(gpx);
                 fprintf(stdout, "  SN: "col_SN"%s"col_TXT, gpx->SN);
             }
             if (gpx->option.vbs >= 2) {
@@ -925,7 +924,6 @@ static int print_pos(gpx_t *gpx, int csOK) {
                 fprintf(stdout, "  vH: %.1f  D: %.1f  vV: %.1f ", gpx->vH, gpx->vD, gpx->vV);
             }
             if (gpx->option.vbs >= 2) {
-                get_SN(gpx);
                 fprintf(stdout, "  SN: %s", gpx->SN);
             }
             if (gpx->option.vbs >= 2) {
@@ -1003,6 +1001,8 @@ static int print_pos(gpx_t *gpx, int csOK) {
                         if (gpx->_RH > -0.5) fprintf(stdout, ", \"humidity\": %.1f", gpx->_RH);
                     }
                 }
+                fprintf(stdout, ", \"rawid\": \"M10_%02X%02X%02X%02X%02X\"", gpx->frame_bytes[pos_SN], gpx->frame_bytes[pos_SN+1],
+                                               gpx->frame_bytes[pos_SN+2], gpx->frame_bytes[pos_SN+3], gpx->frame_bytes[pos_SN+4]); // gpx->type
                 fprintf(stdout, ", \"subtype\": \"0x%02X\"", gpx->type);
                 fprintf(stdout, " }\n");
                 fprintf(stdout, "\n");
@@ -1401,7 +1401,7 @@ int main(int argc, char **argv) {
                     if (option_iq >= 2) spike = 0;
                     if (option_iq > 2)  bl = 4.0;
                     //bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
-                    bitQ = read_softbit2p(&dsp, &hsbit, 0, bitofs, bitpos, bl, spike, &hsbit1); // symlen=1
+                    bitQ = read_softbit2p(&dsp, &hsbit, 0, bitofs, bitpos, bl, spike, &hsbit1); // symlen=2
                     bit = hsbit.hb;
                     if (option_chk == 3 && option_iq) {
                     //if (hsbit.sb*hsbit1.sb < 0)

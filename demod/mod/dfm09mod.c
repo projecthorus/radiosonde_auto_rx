@@ -772,8 +772,8 @@ static void print_gpx(gpx_t *gpx) {
 
             // Print JSON blob     // valid sonde_ID?
             printf("{ \"type\": \"%s\"", "DFM");
-            printf(", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
-                   gpx->frnr, json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV);
+            printf(", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                   gpx->frnr, json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->gps.nSV);
             if (gpx->ptu_out >= 0xA && gpx->status[0] > 0) { // DFM>=09(P): Battery (STM32)
                 printf(", \"batt\": %.2f", gpx->status[0]);
             }
@@ -926,6 +926,8 @@ int main(int argc, char **argv) {
     float thres = 0.65;
     float _mv = 0.0;
 
+    float lpIQ_bw = 12e3;
+
     int symlen = 2;
     int bitofs = 2; // +1 .. +2
     int shift = 0;
@@ -1023,6 +1025,14 @@ int main(int argc, char **argv) {
             option_min = 1;
         }
         else if   (strcmp(*argv, "--dbg") == 0) { gpx.option.dbg = 1; }
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            double bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6 && bw < 24.0) lpIQ_bw = bw*1e3;
+            option_lp = 1;
+        }
         else if   (strcmp(*argv, "--sat") == 0) { gpx.option.sat = 1; }
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
@@ -1138,7 +1148,7 @@ int main(int argc, char **argv) {
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
         dsp.opt_iq = option_iq;
         dsp.opt_lp = option_lp;
-        dsp.lpIQ_bw = 12e3; // IF lowpass bandwidth
+        dsp.lpIQ_bw = lpIQ_bw;  // 12e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
         dsp.opt_dc = option_dc;
         dsp.opt_IFmin = option_min;
