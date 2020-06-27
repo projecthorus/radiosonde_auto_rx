@@ -468,7 +468,7 @@ def telemetry_filter(telemetry):
         meisei_callsign_valid = False
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('LMS' in telemetry['type']) or  ('IMET' in telemetry['type']):
+    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('M20' in telemetry['type']) or ('LMS' in telemetry['type']) or  ('IMET' in telemetry['type']):
         return "OK"
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']
