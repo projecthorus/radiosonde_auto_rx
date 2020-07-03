@@ -61,6 +61,8 @@ config = None
 exporter_objects = []   # This list will hold references to each exporter instance that is created.
 exporter_functions = [] # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
+# Separate reference to the e-mail exporter, as we may want to use this for error notifications.
+email_exporter = None
 
 # GPSDAdaptor Instance, if used.
 gpsd_adaptor = None
@@ -90,7 +92,7 @@ def allocate_sdr(check_only = False, task_description = ""):
             else:
                 # Otherwise, set the SDR as in-use.
                 autorx.sdr_list[_idx]['in_use'] = True
-                logging.info("SDR #%s has been allocated to %s." % (str(_idx), task_description))
+                logging.info("Task Manager - SDR #%s has been allocated to %s." % (str(_idx), task_description))
 
             return _idx
 
@@ -323,6 +325,7 @@ def handle_scan_results():
 
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
+    global email_exporter
 
     for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
@@ -346,10 +349,20 @@ def clean_task_list():
                 if 'SCAN' in autorx.task_list:
                     autorx.task_list['SCAN']['task'].add_temporary_block(_key)
 
+            if (_exit_state == "FAILED SDR"):
+                # The SDR was not able to be recovered after many attempts.
+                # Remove it from the SDR list and flag an error.
+                autorx.sdr_list.pop(_task_sdr)
+                logging.error("Task Manager - Removed SDR %s from SDR list due to repeated failures." % (str(_task_sdr)))
+                
+                if email_exporter:
+                    # TODO: Send e-mail notification.
+                    pass
 
-            # Release its associated SDR.
-            autorx.sdr_list[_task_sdr]['in_use'] = False
-            autorx.sdr_list[_task_sdr]['task'] = None
+            else:
+                # Release its associated SDR.
+                autorx.sdr_list[_task_sdr]['in_use'] = False
+                autorx.sdr_list[_task_sdr]['task'] = None
 
             # Pop the task from the task list.
             autorx.task_list.pop(_key)
@@ -502,7 +515,7 @@ def station_position_update(position):
 
 def main():
     """ Main Loop """
-    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor
+    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
 
     # Command line arguments.
     parser = argparse.ArgumentParser()
@@ -613,7 +626,8 @@ def main():
             mail_to = config['email_to'],
             mail_subject = config['email_subject'],
             station_position = (config['station_lat'], config['station_lon'], config['station_alt'])
-	)
+	    )
+        email_exporter = _email_notification
 
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
@@ -740,6 +754,11 @@ def main():
         handle_scan_results()
         # Sleep a little bit.
         time.sleep(2)
+
+        if len(autorx.sdr_list) == 0:
+            # No Functioning SDRs!
+            logging.critical("Task Manager - No SDRs available! Cannot continue...")
+            raise IOError("No SDRs available!")
 
         # Allow a timeout after a set time, for users who wish to run auto_rx
         # within a cronjob.
