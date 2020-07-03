@@ -511,7 +511,7 @@ class SondeScanner(object):
         if not _rtlsdr_ok:
             self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
             self.sonde_scanner_running = False
-            self.exit_state = "Failed SDR"
+            self.exit_state = "FAILED SDR"
             return
 
         self.exit_state = "OK"

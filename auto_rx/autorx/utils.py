@@ -563,7 +563,7 @@ def reset_all_rtlsdrs():
 
 
 
-def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 2):
+def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 5):
     """ Test that a RTLSDR with supplied device ID is accessible.
 
     This function attempts to read a small set of samples from a rtlsdr using rtl-sdr.
@@ -630,6 +630,7 @@ def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 2):
         time.sleep(2)
 
     # If we run out of retries, clearly the RTLSDR isn't working.
+    logging.error("RTLSDR - RTLSDR with serial #%s was not recovered after %d reset attempts." % (str(device_idx),retries))
     return False
 
 

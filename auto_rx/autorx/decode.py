@@ -179,6 +179,7 @@ class SondeDecoder(object):
         if not _rtlsdr_ok:
             self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
             self.decoder_running = False
+            self.exit_state = "FAILED SDR"
             return
 
         # We can accept a few different types in the exporter argument..
