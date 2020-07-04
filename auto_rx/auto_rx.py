@@ -83,7 +83,8 @@ def allocate_sdr(check_only = False, task_description = ""):
         (str): The device index/serial number of the free/allocated SDR, if one is free, else None.
     """
 
-    for _idx in autorx.sdr_list.keys():
+
+    for _idx in sorted(autorx.sdr_list.keys()):
         if autorx.sdr_list[_idx]['in_use'] == False:
             # Found a free SDR!
             if check_only:
