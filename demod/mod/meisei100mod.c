@@ -212,6 +212,7 @@ int main(int argc, char **argv) {
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_softin = 0;
     int option_pcmraw = 0;
     int sel_wavch = 0;
     int wavloaded = 0;
@@ -267,6 +268,8 @@ int main(int argc, char **argv) {
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
 
+    hdb_t hdb = {0};
+
     gpx_t gpx = {0};
 
 
@@ -308,8 +311,9 @@ int main(int argc, char **argv) {
             }
             else return -1;
         }
-        else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if ( (strcmp(*argv, "--ths") == 0) ) {
+        else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
@@ -378,63 +382,98 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
-    if (option_iq == 0 && option_pcmraw) {
-        fclose(fp);
-        fprintf(stderr, "error: raw data not IQ\n");
-        return -1;
+    #ifdef EXT_FSK
+    if (!option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
     }
-    if (option_iq) sel_wavch = 0;
+    #endif
 
-    pcm.sel_ch = sel_wavch;
-    if (option_pcmraw == 0) {
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+    if (!option_softin) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
+            return -1;
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
+        }
+
+        symlen = 1;
+
+        // init dsp
+        //
+        dsp.fp = fp;
+        dsp.sr = pcm.sr;
+        dsp.bps = pcm.bps;
+        dsp.nch = pcm.nch;
+        dsp.ch = pcm.sel_ch;
+        dsp.br = (float)BAUD_RATE;
+        dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.symlen = symlen;
+        dsp.symhd = 1;
+        dsp._spb = dsp.sps*symlen;
+        dsp.hdr = rawheader;
+        dsp.hdrlen = strlen(rawheader);
+        dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0
+        dsp.h = 2.4;  // 2.8
+        dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 4e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
+
+        if ( dsp.sps < 8 ) {
+            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+        }
+
+        if (baudrate > 0) {
+            dsp.br = (float)baudrate;
+            dsp.sps = (float)dsp.sr/dsp.br;
+            fprintf(stderr, "sps corr: %.4f\n", dsp.sps);
+        }
+
+
+        k = init_buffers(&dsp);
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
+            return -1;
+        }
+
+        bitofs += shift;
+    }
+    else {
+        // init circular header bit buffer
+        hdb.hdr = rawheader;
+        hdb.len = strlen(rawheader);
+        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+        hdb.bufpos = -1;
+        hdb.buf = NULL;
+        /*
+        calloc(hdb.len, sizeof(char));
+        if (hdb.buf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
+        */
+        hdb.ths = 0.8; // caution/test false positive
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
             return -1;
         }
     }
 
-    symlen = 1;
-
-    // init dsp
-    //
-    dsp.fp = fp;
-    dsp.sr = pcm.sr;
-    dsp.bps = pcm.bps;
-    dsp.nch = pcm.nch;
-    dsp.ch = pcm.sel_ch;
-    dsp.br = (float)BAUD_RATE;
-    dsp.sps = (float)dsp.sr/dsp.br;
-    dsp.symlen = symlen;
-    dsp.symhd = 1;
-    dsp._spb = dsp.sps*symlen;
-    dsp.hdr = rawheader;
-    dsp.hdrlen = strlen(rawheader);
-    dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0
-    dsp.h = 2.4;  // 2.8
-    dsp.opt_iq = option_iq;
-    dsp.opt_lp = option_lp;
-    dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
-    dsp.lpFM_bw = 4e3; // FM audio lowpass
-    dsp.opt_dc = option_dc;
-    dsp.opt_IFmin = option_min;
-
-    if ( dsp.sps < 8 ) {
-        fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
-    }
-
-    if (baudrate > 0) {
-        dsp.br = (float)baudrate;
-        dsp.sps = (float)dsp.sr/dsp.br;
-        fprintf(stderr, "sps corr: %.4f\n", dsp.sps);
-    }
-
-    k = init_buffers(&dsp);
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
 
     if (option_ecc) {
         rs_init_BCH64(&gpx.RS);
@@ -442,14 +481,16 @@ int main(int argc, char **argv) {
 
     gpx.sn = -1;
 
-    bitofs += shift;
-
 
     while ( 1 )
     {
-                                                                        // FM-audio:
-        header_found = find_header(&dsp, thres, 1, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
-        _mv = dsp.mv;
+        if (option_softin) {
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+        }
+        else {                                                              // FM-audio:
+            header_found = find_header(&dsp, thres, 1, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+            _mv = dsp.mv;
+        }
 
         if (header_found == EOF) break;
 
@@ -462,9 +503,14 @@ int main(int argc, char **argv) {
 
 
             while (bitpos < RAWBITFRAME_LEN/2-RAWHEADLEN) {  // 2*600-48
-
-                bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=1
-
+                if (option_softin) {
+                    float s = 0.0;
+                    bitQ = f32soft_read(fp, &s);
+                    if (bitQ != EOF) bit = (s>=0.0); // no soft decoding
+                }
+                else {
+                    bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=1
+                }
                 if (bitQ == EOF) { break; }
 
                 gpx.frame_rawbits[bitpos] = 0x30 + bit;
@@ -720,7 +766,8 @@ int main(int argc, char **argv) {
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
                                         sprintf(id_str, "%.0f", gpx.sn);
                                     }
-                                    printf("{ \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f }\n",
+                                    printf("{ \"type\": \"%s\"", "IMS100");
+                                    printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f }\n",
                                            gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD );
                                     printf("\n");
                                 }
@@ -767,7 +814,11 @@ int main(int argc, char **argv) {
 
     printf("\n");
 
-    free_buffers(&dsp);
+
+    if (!option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
 
     fclose(fp);
 

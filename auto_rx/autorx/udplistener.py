@@ -36,9 +36,10 @@ def udp_rx_loop(hostname='localhost', port=50000):
         
         if m != None:
             try:
-                sys.stdout.write(m[0])
+                sys.stdout.write(m[0].decode())
                 sys.stdout.flush()
-            except:
+            except Exception as e:
+                traceback.print_exc()
                 pass
 
     s.close()

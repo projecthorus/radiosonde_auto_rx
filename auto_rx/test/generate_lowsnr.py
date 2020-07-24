@@ -38,7 +38,7 @@ NORMALISE = True
 
 SAMPLES = [
     ['rs41_96k_float.bin', 4800, -20.0, 96000], 
-    ['rs92_96k_float.bin', 2400, -100, 96000], # No threshold set, as signal is continuous.
+    ['rs92_96k_float.bin', 4800, -100, 96000], # No threshold set, as signal is continuous.
     ['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
     ['m10_96k_float.bin', 9616, -10.0, 96000],  # Really weird baud rate.
     ['imet4_96k_float.bin', 1200, -10.0, 96000], # 1200 baud, but AFSK, so we expect 7-8 dB worse performance than the other sondes.

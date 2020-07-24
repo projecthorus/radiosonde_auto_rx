@@ -3,6 +3,10 @@
  *  LMS6
  *  (403 MHz)
  *
+ *  soft decision test:
+ *      IQ-decoding: --vit2 (soft decision) better performance (low dB)
+ *      FM-decoding: --vit1 (hard decision) better than --vit2
+ *
  *  sync header: correlation/matched filter
  *  files: lms6Xmod.c demod_mod.c demod_mod.h bch_ecc_mod.c bch_ecc_mod.h
  *  compile, either (a) or (b):
@@ -16,7 +20,8 @@
  *
  *  usage:
  *      ./lms6Xmod --vit --ecc <audio.wav>
- *      ( --vit recommended)
+ *      ./lms6Xmod --vit2 --ecc --IQ 0.0 <iq_data.wav>
+ *      ( --vit/--vit2 recommended)
  *  author: zilog80
  */
 
@@ -116,12 +121,11 @@ typedef struct {
     ui8_t bIn;
     ui8_t codeIn;
     ui8_t prevState;  // 0..M=64
-    int w;  // > 255 : if (w>250): w=250 ?
-    //float sw;
+    float w;
 } states_t;
 
 typedef struct {
-    char rawbits[RAWBITFRAME_LEN+OVERLAP*BITS*2 +8];
+    hsbit_t  rawbits[RAWBITFRAME_LEN+OVERLAP*BITS*2 +8];
     states_t state[RAWBITFRAME_LEN+OVERLAP +8][M];
     states_t d[N];
 } VIT_t;
@@ -138,7 +142,7 @@ typedef struct {
     double lat; double lon; double alt;
     double vH; double vD; double vV;
     double vE; double vN; double vU;
-    char  blk_rawbits[RAWBITBLOCK_LEN+SYNC_LEN*BITS*2 +9];
+    hsbit_t  blk_rawbits[RAWBITBLOCK_LEN+SYNC_LEN*BITS*2 +9];
     ui8_t frame[FRM_LEN];  // = { 0x24, 0x54, 0x00, 0x00}; // dataheader
     int frm_pos;     // ecc_blk <-> frm_blk
     int sf6;
@@ -213,12 +217,16 @@ static int vit_initCodes(gpx_t *gpx) {
     return 0;
 }
 
-static int vit_dist(int c, char *rc) {
-    return (((c>>1)^rc[0])&1) + ((c^rc[1])&1);
+static float vit_dist2(int c, hsbit_t *rc) {
+    int c0 = 2*((c>>1) & 1)-1; // {0,1} -> {-1,+1}
+    int c1 = 2*(c & 1)-1;
+    float d2 = (c0-rc[0].sb)*(c0-rc[0].sb) + (c1-rc[1].sb)*(c1-rc[1].sb);
+    return d2;
 }
 
-static int vit_start(VIT_t *vit, char *rc) {
-    int t, m, j, c, d;
+static int vit_start(VIT_t *vit, hsbit_t *rc) {
+    int t, m, j, c;
+    float d;
 
     t = L-1;
     m = M;
@@ -236,7 +244,7 @@ static int vit_start(VIT_t *vit, char *rc) {
             c = vit_code[j];
             vit->state[t][j].bIn = j % 2;
             vit->state[t][j].codeIn = c;
-            d = vit_dist( c, rc+2*(t-1) );
+            d = vit_dist2( c, rc+2*(t-1) );
             vit->state[t][j].w = vit->state[t-1][vit->state[t][j].prevState].w + d;
         }
         m *= 2;
@@ -245,7 +253,7 @@ static int vit_start(VIT_t *vit, char *rc) {
     return t;
 }
 
-static int vit_next(VIT_t *vit, int t, char *rc) {
+static int vit_next(VIT_t *vit, int t, hsbit_t *rc) {
     int b, nstate;
     int j, index;
 
@@ -255,7 +263,7 @@ static int vit_next(VIT_t *vit, int t, char *rc) {
             vit->d[nstate].bIn = b;
             vit->d[nstate].codeIn = vit_code[nstate];
             vit->d[nstate].prevState = j;
-            vit->d[nstate].w = vit->state[t][j].w + vit_dist( vit->d[nstate].codeIn, rc );
+            vit->d[nstate].w = vit->state[t][j].w + vit_dist2( vit->d[nstate].codeIn, rc );
         }
      }
 
@@ -272,11 +280,11 @@ static int vit_next(VIT_t *vit, int t, char *rc) {
 static int vit_path(VIT_t *vit, int j, int t) {
     int c;
 
-    vit->rawbits[2*t] = '\0';
+    vit->rawbits[2*t].hb = '\0';
     while (t > 0) {
         c = vit->state[t][j].codeIn;
-        vit->rawbits[2*t -2] = 0x30 + ((c>>1) & 1);
-        vit->rawbits[2*t -1] = 0x30 + (c & 1);
+        vit->rawbits[2*t -2].hb = 0x30 + ((c>>1) & 1);
+        vit->rawbits[2*t -1].hb = 0x30 + (c & 1);
         j = vit->state[t][j].prevState;
         t--;
     }
@@ -284,13 +292,20 @@ static int vit_path(VIT_t *vit, int j, int t) {
     return 0;
 }
 
-static int viterbi(VIT_t *vit, char *rc) {
+static int hbstr_len(hsbit_t *hsbit) {
+    int len = 0;
+    while (hsbit[len].hb) len++;
+    return len;
+}
+
+static int viterbi(VIT_t *vit, hsbit_t *rc) {
     int t, tmax;
-    int j, j_min, w_min;
+    int j, j_min;
+    float w_min;
 
     vit_start(vit, rc);
 
-    tmax = strlen(rc)/2;
+    tmax = hbstr_len(rc)/2;
 
     for (t = L-1; t < tmax; t++)
     {
@@ -315,15 +330,15 @@ static int viterbi(VIT_t *vit, char *rc) {
 
 // ------------------------------------------------------------------------
 
-static int deconv(char* rawbits, char *bits) {
+static int deconv(hsbit_t *rawbits, char *bits) {
 
     int j, n, bitA, bitB;
-    char *p;
+    hsbit_t *p;
     int len;
     int errors = 0;
     int m = L-1;
 
-    len = strlen(rawbits);
+    len = hbstr_len(rawbits);
     for (j = 0; j < m; j++) bits[j] = '0';
     n = 0;
     while ( 2*(m+n) < len ) {
@@ -333,10 +348,10 @@ static int deconv(char* rawbits, char *bits) {
             bitA ^= (bits[n+j]&1) & (polyA[j]&1);
             bitB ^= (bits[n+j]&1) & (polyB[j]&1);
         }
-        if      ( (bitA^(p[0]&1))==(polyA[m]&1)  &&  (bitB^(p[1]&1))==(polyB[m]&1) ) bits[n+m] = '1';
-        else if ( (bitA^(p[0]&1))==0             &&  (bitB^(p[1]&1))==0            ) bits[n+m] = '0';
+        if      ( (bitA^(p[0].hb&1))==(polyA[m]&1)  &&  (bitB^(p[1].hb&1))==(polyB[m]&1) ) bits[n+m] = '1';
+        else if ( (bitA^(p[0].hb&1))==0             &&  (bitB^(p[1].hb&1))==0            ) bits[n+m] = '0';
         else {
-            if ( (bitA^(p[0]&1))!=(polyA[m]&1) && (bitB^(p[1]&1))==(polyB[m]&1) ) bits[n+m] = 0x39;
+            if ( (bitA^(p[0].hb&1))!=(polyA[m]&1) && (bitB^(p[1].hb&1))==(polyB[m]&1) ) bits[n+m] = 0x39;
             else bits[n+m] = 0x38;
             errors = n;
             break;
@@ -738,11 +753,13 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                     // UTC oder GPS?
                     char sntyp[] = "LMS6-";
                     if (gpx->typ == 10) sntyp[3] = 'X';
-                    printf("{ \"frame\": %d, \"id\": \"%s%d\", \"datetime\": \"", gpx->frnr, sntyp, gpx->sn );
+                    printf("{ \"type\": \"%s\"", "LMS");
+                    printf(", \"frame\": %d, \"id\": \"%s%d\", \"datetime\": \"", gpx->frnr, sntyp, gpx->sn );
                     //if (gpx->week > 0) printf("%04d-%02d-%02dT", gpx->jahr, gpx->monat, gpx->tag );
                     printf("%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                            gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV );
                     printf(", \"gpstow\": %d", gpx->gpstow );
+                    printf(", \"subtype\": \"%c\"", sntyp[3]); // "6":LMS6-403, "X":lms6X, "MK2A":LMS6-1680/Mk2a
                     printf(" }\n");
                     printf("\n");
                 }
@@ -793,7 +810,7 @@ static void proc_frame(gpx_t *gpx, int len) {
     ui8_t block_bytes[FRAME_LEN+8];
     ui8_t rs_cw[rs_N];
     char  frame_bits[BITFRAME_LEN+OVERLAP*BITS +8];  // init L-1 bits mit 0
-    char *rawbits = NULL;
+    hsbit_t *rawbits = NULL;
     int i, j;
     int err = 0;
     int errs = 0;
@@ -802,13 +819,17 @@ static void proc_frame(gpx_t *gpx, int len) {
 
 
     if ((len % 8) > 4) {
-        while (len % 8) gpx->blk_rawbits[len++] = '0';
+        while (len % 8) {
+            gpx->blk_rawbits[len].hb = '0';
+            gpx->blk_rawbits[len].sb = -1;
+            len++;
+        }
     }
-    gpx->blk_rawbits[len] = '\0';
+    gpx->blk_rawbits[len].hb = '\0';
 
     flen = len / (2*BITS);
 
-    if (gpx->option.vit == 1) {
+    if (gpx->option.vit) {
         viterbi(gpx->vit, gpx->blk_rawbits);
         rawbits = gpx->vit->rawbits;
     }
@@ -920,6 +941,8 @@ static void proc_frame(gpx_t *gpx, int len) {
 
 }
 
+/* -------------------------------------------------------------------------- */
+
 
 int main(int argc, char **argv) {
 
@@ -928,6 +951,7 @@ int main(int argc, char **argv) {
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_softin = 0;
     int option_pcmraw = 0;
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
@@ -938,7 +962,7 @@ int main(int argc, char **argv) {
 
     int k;
 
-    int bit, rbit;
+    hsbit_t hsbit, rhsbit, rhsbit1;
     int bitpos = 0;
     int bitQ;
     int pos;
@@ -946,15 +970,17 @@ int main(int argc, char **argv) {
 
     int header_found = 0;
 
-    float thres = 0.76;
+    float thres = 0.65;
     float _mv = 0.0;
+
+    float lpIQ_bw = 16e3;
 
     int symlen = 1;
     int bitofs = 0;
     int shift = 0;
 
-    int bitofs6 = 1; // +1 .. +2
-    int bitofsX = 0; // 0 .. +1
+    int bitofs6 = 0; // -1 .. +2
+    int bitofsX = 0; // -1 .. +1
 
     unsigned int bc = 0;
 
@@ -964,16 +990,20 @@ int main(int argc, char **argv) {
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
-/*
+
+    hdb_t hdb = {0};
+
+    /*
     // gpx_t _gpx = {0}; gpx_t *gpx = &_gpx;  // stack size ...
     gpx_t *gpx = NULL;
     gpx = calloc(1, sizeof(gpx_t));
     //memset(gpx, 0, sizeof(gpx_t));
-*/
+    */
     gpx_t _gpx = {0}; gpx_t *gpx = &_gpx;
 
     gpx->auto_detect = 1;
     gpx->reset_dsp = 0;
+
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
@@ -1008,7 +1038,9 @@ int main(int argc, char **argv) {
             gpx->option.raw = 1; // bytes - rs_ecc_codewords
         }
         else if   (strcmp(*argv, "--ecc" ) == 0) { gpx->option.ecc = 1; } // RS-ECC
-        else if   (strcmp(*argv, "--vit" ) == 0) { gpx->option.vit = 1; } // viterbi
+        else if   (strcmp(*argv, "--ecc3") == 0) { gpx->option.ecc = 3; } // RS-ECC
+        else if   (strcmp(*argv, "--vit"  ) == 0) { gpx->option.vit = 1; } // viterbi-hard
+        else if   (strcmp(*argv, "--vit2" ) == 0) { gpx->option.vit = 2; } // viterbi-soft
         else if ( (strcmp(*argv, "--gpsweek") == 0) ) {
             ++argv;
             if (*argv) {
@@ -1020,8 +1052,9 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
-        else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if ( (strcmp(*argv, "--ths") == 0) ) {
+        else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
@@ -1051,6 +1084,14 @@ int main(int argc, char **argv) {
             option_iq = 5;
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            double bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6 && bw < 24.0) lpIQ_bw = bw*1e3;
+            option_lp = 1;
+        }
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
@@ -1092,70 +1133,112 @@ int main(int argc, char **argv) {
     if (gpx->option.raw == 4) gpx->option.ecc = 1;
 
     // init gpx
-    memcpy(gpx->blk_rawbits, blk_syncbits, sizeof(blk_syncbits));
     memcpy(gpx->frame, frm_sync6, sizeof(frm_sync6));
     gpx->frm_pos = 0;     // ecc_blk <-> frm_blk
     gpx->sf6 = 0;
     gpx->sfX = 0;
+    //memcpy(gpx->blk_rawbits, blk_syncbits, sizeof(blk_syncbits));
+    for (k = 0; k < strlen(blk_syncbits); k++) { // strlen(blk_syncbits)=BLOCKSTART
+        int hbit = blk_syncbits[k] & 1;
+        gpx->blk_rawbits[k].hb = hbit + 0x30;
+        gpx->blk_rawbits[k].sb = 2*hbit-1;
+    }
 
 
     gpx->option.inv = option_inv; // irrelevant
 
     gpx->week = gpsweek;
 
-    if (option_iq == 0 && option_pcmraw) {
-        fclose(fp);
-        fprintf(stderr, "error: raw data not IQ\n");
-        return -1;
-    }
-    if (option_iq) sel_wavch = 0;
 
-    pcm.sel_ch = sel_wavch;
-    if (option_pcmraw == 0) {
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+    #ifdef EXT_FSK
+    if (!option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
+    }
+    #endif
+
+    if (!option_softin) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
+            return -1;
+        }
+        if (option_iq == 0 && gpx->option.vit == 2) {  // FM-demodulated data not recommended
+            gpx->option.vit = 1;                       // for soft-decoding
+            fprintf(stderr, "info: soft decoding only for IQ\n");
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
+        }
+
+        symlen = 1;
+
+        // init dsp
+        //
+        dsp.fp = fp;
+        dsp.sr = pcm.sr;
+        dsp.bps = pcm.bps;
+        dsp.nch = pcm.nch;
+        dsp.ch = pcm.sel_ch;
+        dsp.br = (float)BAUD_RATE6;
+        dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.symlen = symlen;
+        dsp.symhd = 1;
+        dsp._spb = dsp.sps*symlen;
+        dsp.hdr = rawheader;
+        dsp.hdrlen = strlen(rawheader);
+        dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0  // BT(lmsX) < BT(lms6) ? -> init_buffers()
+        dsp.h = 0.9;  // 0.95 modulation index
+        dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = lpIQ_bw;  // 16e3; // IF lowpass bandwidth // soft decoding?
+        dsp.lpFM_bw = 6e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
+
+        if ( dsp.sps < 8 ) {
+            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+        }
+
+        //headerlen = dsp.hdrlen;
+
+
+        k = init_buffers(&dsp);  // baud difference not significant
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
             return -1;
         }
     }
-
-    symlen = 1;
-
-    // init dsp
-    //
-    dsp.fp = fp;
-    dsp.sr = pcm.sr;
-    dsp.bps = pcm.bps;
-    dsp.nch = pcm.nch;
-    dsp.ch = pcm.sel_ch;
-    dsp.br = (float)BAUD_RATE6;
-    dsp.sps = (float)dsp.sr/dsp.br;
-    dsp.symlen = symlen;
-    dsp.symhd = 1;
-    dsp._spb = dsp.sps*symlen;
-    dsp.hdr = rawheader;
-    dsp.hdrlen = strlen(rawheader);
-    dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0  // BT(lmsX) < BT(lms6) ? -> init_buffers()
-    dsp.h = 0.9;  // 0.95 modulation index
-    dsp.opt_iq = option_iq;
-    dsp.opt_lp = option_lp;
-    dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
-    dsp.lpFM_bw = 6e3; // FM audio lowpass
-    dsp.opt_dc = option_dc;
-    dsp.opt_IFmin = option_min;
-
-    if ( dsp.sps < 8 ) {
-        fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+    else {
+        // init circular header bit buffer
+        hdb.hdr = rawheader;
+        hdb.len = strlen(rawheader);
+        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+        hdb.bufpos = -1;
+        hdb.buf = NULL;
+        /*
+        calloc(hdb.len, sizeof(char));
+        if (hdb.buf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
+        */
+        hdb.ths = 0.7; // caution/test false positive
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
     }
-
-    //headerlen = dsp.hdrlen;
-
-    k = init_buffers(&dsp);  // baud difference not significant
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
 
 
     if (gpx->option.vit) {
@@ -1192,9 +1275,13 @@ int main(int argc, char **argv) {
 
     while ( 1 )
     {
-                                                                        // FM-audio:
-        header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
-        _mv = dsp.mv;
+        if (option_softin) {
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+        }
+        else {                                                               // FM-audio:
+            header_found = find_header(&dsp, thres, 10, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+            _mv = dsp.mv;
+        }
 
         if (header_found == EOF) break;
 
@@ -1218,19 +1305,49 @@ int main(int argc, char **argv) {
 
             while ( pos < rawbitblock_len ) {
 
-                bitQ = read_slbit(&dsp, &rbit, 0, bitofs, bitpos, -1, 0); // symlen=1
-
+               if (option_softin) {
+                    float s = 0.0;
+                    bitQ = f32soft_read(fp, &s);
+                    if (bitQ != EOF) {
+                        rhsbit.sb = s;
+                        rhsbit.hb = (s>=0.0);
+                    }
+                }
+                else {
+                    //bitQ = read_softbit(&dsp, &rhsbit, 0, bitofs, bitpos, -1, 0); // symlen=1
+                    bitQ = read_softbit2p(&dsp, &rhsbit, 0, bitofs, bitpos, -1, 0, &rhsbit1); // symlen=1
+                    if (gpx->option.ecc == 3) {
+                    if (rhsbit.sb*rhsbit1.sb < 0) {
+                        rhsbit.sb += rhsbit1.sb;
+                        rhsbit.hb = (rhsbit.sb>=0.0);
+                    }
+                    }
+                }
                 if (bitQ == EOF) { break; }
 
-                bit = rbit ^ (bc%2);  // (c0,inv(c1))
-                gpx->blk_rawbits[pos] = 0x30 + bit;
+                // optional:
+                // normalize soft bit s_j by
+                //   rhsbit.sb /= dsp._spb+1; // all samples in [-1,+1]
+                // or at the end by max|s_j| over all bits in rawframe
+                // (only if |sj| >> 1 by factor 100)
+
+                hsbit.hb = rhsbit.hb ^ (bc%2);  // (c0,inv(c1))
+                int sgn = -2*(((unsigned int)bc)%2)+1;
+                hsbit.sb = sgn * rhsbit.sb;
+
+                if (gpx->option.vit == 1) { // hard decision
+                    hsbit.sb = 2*hsbit.hb -1;
+                }
+
+                gpx->blk_rawbits[pos] = hsbit;
+                gpx->blk_rawbits[pos].hb += 0x30;
 
                 bc++;
                 pos++;
                 bitpos += 1;
             }
 
-            gpx->blk_rawbits[pos] = '\0';
+            gpx->blk_rawbits[pos].hb = '\0';
 
             time_elapsed_sec = dsp.sample_in / (double)dsp.sr;
             proc_frame(gpx, pos);
@@ -1274,7 +1391,11 @@ int main(int argc, char **argv) {
     }
 
 
-    free_buffers(&dsp);
+    if (!option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
+
     if (gpx->vit) { free(gpx->vit); gpx->vit = NULL; }
 
     fclose(fp);

@@ -61,6 +61,8 @@ config = None
 exporter_objects = []   # This list will hold references to each exporter instance that is created.
 exporter_functions = [] # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
+# Separate reference to the e-mail exporter, as we may want to use this for error notifications.
+email_exporter = None
 
 # GPSDAdaptor Instance, if used.
 gpsd_adaptor = None
@@ -81,7 +83,8 @@ def allocate_sdr(check_only = False, task_description = ""):
         (str): The device index/serial number of the free/allocated SDR, if one is free, else None.
     """
 
-    for _idx in autorx.sdr_list.keys():
+
+    for _idx in sorted(autorx.sdr_list.keys()):
         if autorx.sdr_list[_idx]['in_use'] == False:
             # Found a free SDR!
             if check_only:
@@ -90,7 +93,7 @@ def allocate_sdr(check_only = False, task_description = ""):
             else:
                 # Otherwise, set the SDR as in-use.
                 autorx.sdr_list[_idx]['in_use'] = True
-                logging.info("SDR #%s has been allocated to %s." % (str(_idx), task_description))
+                logging.info("Task Manager - SDR #%s has been allocated to %s." % (str(_idx), task_description))
 
             return _idx
 
@@ -323,6 +326,7 @@ def handle_scan_results():
 
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
+    global email_exporter
 
     for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
@@ -337,8 +341,8 @@ def clean_task_list():
         if _running == False:
             # This task has stopped.
             # Check the exit state of the task for any abnormalities:
-            if _exit_state == "Encrypted":
-                # This task was a decoder, and it has encountered an encrypted sonde.
+            if (_exit_state == "Encrypted") or (_exit_state == "TempBlock"):
+                # This task was a decoder, and it has encountered an encrypted sonde, or one too far away.
                 logging.info("Task Manager - Adding temporary block for frequency %.3f MHz" % (_key/1e6))
                 # Add the sonde's frequency to the global temporary block-list
                 temporary_block_list[_key] = time.time()
@@ -346,10 +350,20 @@ def clean_task_list():
                 if 'SCAN' in autorx.task_list:
                     autorx.task_list['SCAN']['task'].add_temporary_block(_key)
 
+            if (_exit_state == "FAILED SDR"):
+                # The SDR was not able to be recovered after many attempts.
+                # Remove it from the SDR list and flag an error.
+                autorx.sdr_list.pop(_task_sdr)
+                logging.error("Task Manager - Removed SDR %s from SDR list due to repeated failures." % (str(_task_sdr)))
+                
+                if email_exporter:
+                    # TODO: Send e-mail notification.
+                    pass
 
-            # Release its associated SDR.
-            autorx.sdr_list[_task_sdr]['in_use'] = False
-            autorx.sdr_list[_task_sdr]['task'] = None
+            else:
+                # Release its associated SDR.
+                autorx.sdr_list[_task_sdr]['in_use'] = False
+                autorx.sdr_list[_task_sdr]['task'] = None
 
             # Pop the task from the task list.
             autorx.task_list.pop(_key)
@@ -435,7 +449,16 @@ def telemetry_filter(telemetry):
         if _info['straight_distance'] > config['max_radius_km']*1000:
             _radius_breach = _info['straight_distance']/1000.0 - config['max_radius_km']
             logging.warning("Sonde %s position breached radius cap by %.1f km." % (telemetry['id'], _radius_breach))
-            return False
+
+            if config['radius_temporary_block']:
+                logging.warning("Blocking for %d minutes." % config['temporary_block_time'])
+                return "TempBlock"
+            else:
+                return False
+
+        if (_info['straight_distance'] < config['min_radius_km']*1000) and config['radius_temporary_block']:
+            logging.warning("Sonde %s within minimum radius limit (%.1f km). Blocking for %d minutes." % (telemetry['id'], config['min_radius_km'], config['temporary_block_time']))
+            return "TempBlock"
 
     # Payload Serial Number Checks
     _serial = telemetry['id']
@@ -459,8 +482,8 @@ def telemetry_filter(telemetry):
         meisei_callsign_valid = False
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
-    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('MK2LMS' in telemetry['type']) or ('LMS6' in telemetry['type']) or ('iMet' in telemetry['type']) or ('UDP' in telemetry['type']):
-        return True
+    if vaisala_callsign_valid or dfm_callsign_valid or meisei_callsign_valid or ('M10' in telemetry['type']) or ('M20' in telemetry['type']) or ('LMS' in telemetry['type']) or  ('IMET' in telemetry['type']):
+        return "OK"
     else:
         _id_msg = "Payload ID %s is invalid." % telemetry['id']
         # Add in a note about DFM sondes and their oddness...
@@ -493,7 +516,7 @@ def station_position_update(position):
 
 def main():
     """ Main Loop """
-    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor
+    global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
 
     # Command line arguments.
     parser = argparse.ArgumentParser()
@@ -604,7 +627,8 @@ def main():
             mail_to = config['email_to'],
             mail_subject = config['email_subject'],
             station_position = (config['station_lat'], config['station_lon'], config['station_alt'])
-	)
+	    )
+        email_exporter = _email_notification
 
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
@@ -731,6 +755,11 @@ def main():
         handle_scan_results()
         # Sleep a little bit.
         time.sleep(2)
+
+        if len(autorx.sdr_list) == 0:
+            # No Functioning SDRs!
+            logging.critical("Task Manager - No SDRs available! Cannot continue...")
+            raise IOError("No SDRs available!")
 
         # Allow a timeout after a set time, for users who wish to run auto_rx
         # within a cronjob.

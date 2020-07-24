@@ -10,7 +10,7 @@ echo "Building dft_detect"
 cd ../scan/
 gcc dft_detect.c -lm -o dft_detect -DNOC34C50
 
-echo "Building RS92/RS41/DFM/LMS6/iMS Demodulators"
+echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20 Demodulators"
 #cd ../demod/
 #gcc -c demod.c
 #gcc -c demod_dft.c
@@ -27,6 +27,7 @@ gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -o lms6mod -w
 gcc lms6Xmod.c demod_mod.o bch_ecc_mod.o -lm -o lms6Xmod -w
 gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -o meisei100mod -w
 gcc m10mod.c demod_mod.o -lm -o m10mod -w
+gcc mXXmod.c demod_mod.o -lm -o mXXmod -w
 
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 Demodulator."
@@ -64,6 +65,7 @@ cp ../mk2a/mk2a_lms1680 .
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
 cp ../demod/mod/m10mod .
+cp ../demod/mod/mXXmod .
 cp ../demod/mod/rs92mod .
 cp ../demod/mod/lms6Xmod .
 cp ../demod/mod/meisei100mod .

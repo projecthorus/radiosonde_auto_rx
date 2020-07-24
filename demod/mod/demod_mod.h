@@ -3,6 +3,11 @@
 #include <math.h>
 #include <complex.h>
 
+#ifndef M_PI
+    #define M_PI  (3.1415926535897932384626433832795)
+#endif
+
+
 typedef unsigned char  ui8_t;
 typedef unsigned short ui16_t;
 typedef unsigned int   ui32_t;
@@ -133,15 +138,36 @@ typedef struct {
 } pcm_t;
 
 
+typedef struct {
+    ui8_t hb;
+    float sb;
+} hsbit_t;
+
+
+typedef struct {
+    char *hdr;
+    char *buf;
+    float *sbuf;
+    int len;
+    int bufpos;
+    float thb;
+    float ths;
+} hdb_t;
+
 
 float read_wav_header(pcm_t *, FILE *);
 int f32buf_sample(dsp_t *, int);
 int read_slbit(dsp_t *, int*, int, int, int, float, int);
+int read_softbit(dsp_t *, hsbit_t *, int, int, int, float, int);
+int read_softbit2p(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike, hsbit_t *shb1);
 
 int init_buffers(dsp_t *);
 int free_buffers(dsp_t *);
 
-ui32_t get_sample(dsp_t *);
-
 int find_header(dsp_t *, float, int, int, int);
+
+int f32soft_read(FILE *fp, float *s);
+int find_binhead(FILE *fp, hdb_t *hdb, float *score);
+int find_softbinhead(FILE *fp, hdb_t *hdb, float *score);
+
 

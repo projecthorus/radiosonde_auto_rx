@@ -52,6 +52,12 @@ typedef struct {
     ui32_t chX[2];
 } sn_t;
 
+typedef struct {
+    ui32_t prn; // SVs used (PRN)
+    float dMSL; // Alt_MSL - Alt_ellipsoid = -N = - geoid_height =  ellipsoid - geoid
+    ui8_t nSV; // numSVs used
+} gpsdat_t;
+
 #define BITFRAME_LEN  280
 
 typedef struct {
@@ -68,12 +74,13 @@ typedef struct {
     float status[2];
     float _frmcnt;
     char sonde_id[16]; // "ID__:xxxxxxxx\0\0"
-    char frame_bits[BITFRAME_LEN+4];
+    hsbit_t frame[BITFRAME_LEN+4];  // char frame_bits[BITFRAME_LEN+4];
     char dat_str[9][13+1];
     sn_t snc;
     pcksts_t pck[9];
     option_t option;
     int ptu_out;
+    gpsdat_t gps;
 } gpx_t;
 
 
@@ -98,6 +105,15 @@ static char dfm_header[] = "0100010111001111";
 #define DAT2 (16+160) // 104 bit
                // frame: 280 bit
 
+static ui8_t G[8][4] =  // Generator
+                     {{ 1, 0, 0, 0},
+                      { 0, 1, 0, 0},
+                      { 0, 0, 1, 0},
+                      { 0, 0, 0, 1},
+                      { 0, 1, 1, 1},
+                      { 1, 0, 1, 1},
+                      { 1, 1, 0, 1},
+                      { 1, 1, 1, 0}};
 static ui8_t H[4][8] =  // Parity-Check
                      {{ 0, 1, 1, 1, 1, 0, 0, 0},
                       { 1, 0, 1, 1, 0, 1, 0, 0},
@@ -105,6 +121,28 @@ static ui8_t H[4][8] =  // Parity-Check
                       { 1, 1, 1, 0, 0, 0, 0, 1}};
 static ui8_t He[8] = { 0x7, 0xB, 0xD, 0xE, 0x8, 0x4, 0x2, 0x1}; // Spalten von H:
                                                                 // 1-bit-error-Syndrome
+static ui8_t codewords[16][8]; // (valid) Hamming codewords
+
+static int nib4bits(ui8_t nib, ui8_t *bits) { // big endian
+    int j;
+
+    nib &= 0xF;
+    for (j = 0; j < 4; j++) {
+        bits[j] = (nib>>(3-j)) & 0x1;
+    }
+    return 0;
+}
+
+static int gencode(ui8_t msg[4], ui8_t code[8]) {
+    int i, j;                  // Gm=c
+    for (i = 0; i < 8; i++) {
+        code[i] = 0;
+        for (j = 0; j < 4; j++) {
+            code[i] ^= G[i][j] & msg[j];
+        }
+    }
+    return 0;
+}
 
 static ui32_t bits2val(ui8_t *bits, int len) { // big endian
     int j;
@@ -117,18 +155,16 @@ static ui32_t bits2val(ui8_t *bits, int len) { // big endian
     return val;
 }
 
-static void deinterleave(char *str, int L, ui8_t *block) {
+static void deinterleave(hsbit_t *str, int L, hsbit_t *block) {
     int i, j;
     for (j = 0; j < B; j++) {  // L = 7, 13
         for (i = 0; i < L; i++) {
-            if (str[L*j+i] >= 0x30 && str[L*j+i] <= 0x31) {
-                block[B*i+j] = str[L*j+i] - 0x30; // ASCII -> bit
-            }
+            block[B*i+j] = str[L*j+i];
         }
     }
 }
 
-static int check(ui8_t code[8]) {
+static int check(int opt_ecc, hsbit_t code[8]) {
     int i, j;               // Bei Demodulierung durch Nulldurchgaenge, wenn durch Fehler ausser Takt,
     ui32_t synval = 0;      // verschieben sich die bits. Fuer Hamming-Decode waere es besser,
     ui8_t syndrom[4];       // sync zu Beginn mit Header und dann Takt beibehalten fuer decision.
@@ -137,7 +173,7 @@ static int check(ui8_t code[8]) {
     for (i = 0; i < 4; i++) { // S = 4
         syndrom[i] = 0;
         for (j = 0; j < 8; j++) { // B = 8
-            syndrom[i] ^= H[i][j] & code[j];
+            syndrom[i] ^= H[i][j] & code[j].hb;
         }
     }
     synval = bits2val(syndrom, 4);
@@ -151,22 +187,67 @@ static int check(ui8_t code[8]) {
         }
     }
     else ret = 0;
-    if (ret > 0) code[ret-1] ^= 0x1;
+
+    if (ret > 0) code[ret-1].hb ^= 0x1; // d=1: 1-bit-error
+    else if (ret < 0 && opt_ecc == 2) { // d=2: 2-bit-error: soft decision
+        // Hamming(8,4)
+        // 256 words:
+        //   16 codewords
+        //   16*8=128 1-error words (dist=1)
+        //   16*7=112 2-error words (dist=2)
+        //     each 2-error word has 4 codewords w/ dist=2,
+        //     choose best match/correlation
+        int n;
+        int maxn = -1;
+        int d = 0;
+        float sum = 0.0;
+        float maxsum = 0.0;
+        /*
+        sum = 0.0;                 // s<0: h=0 , s>0: h=1
+        for (i = 0; i < 8; i++) {  // h\in{0,1} -> 2h-1\in{-1,+1}
+            sum += (2*code[i].hb-1)*code[i].sb;  // i.e. sum_i |s_i|
+        } // original score
+        */
+        for (n = 0; n < 16; n++) {
+            d = 0;
+            for (i = 0; i < 8; i++) { // d(a,b) = sum_i a[i]^b[i]
+                if (code[i].hb != codewords[n][i]) d++;
+            }
+            if (d == 2) { // check dist=2 codewords - in principle, all codewords could be tested
+                // softbits correlation:
+                //      - interleaving
+                //      + no pulse-shaping -> sum
+                sum = 0.0;
+                for (i = 0; i < 8; i++) {
+                    sum += (2*codewords[n][i]-1) * code[i].sb;
+                }
+                if (sum >= maxsum) { // best match
+                    maxsum = sum;
+                    maxn = n;
+                }
+            }
+        }
+        if (maxn >= 0) {
+            for (i = 0; i < 8; i++) {
+                if (code[i].hb = codewords[maxn][i]);
+            }
+        }
+    }
 
     return ret;
 }
 
-static int hamming(int opt_ecc, ui8_t *ham, int L, ui8_t *sym) {
+static int hamming(int opt_ecc, hsbit_t *ham, int L, ui8_t *sym) {
     int i, j;
     int ecc = 0, ret = 0;      // L = 7, 13
     for (i = 0; i < L; i++) {  // L * 2 nibble (data+parity)
         if (opt_ecc) {
-            ecc = check(ham+B*i);
+            ecc = check(opt_ecc, ham+B*i);
             if (ecc > 0) ret |= (1<<i);
             if (ecc < 0) ret |= ecc; // -1
         }
         for (j = 0; j < S; j++) {  // systematic: bits 0..S-1 data
-            sym[S*i+j] = ham[B*i+j];
+            sym[S*i+j] = ham[B*i+j].hb;
         }
     }
     return ret;
@@ -220,6 +301,9 @@ static int dat_out(gpx_t *gpx, ui8_t *dat_bits, int ec) {
         }
     }
 
+    // GPS data
+    // SiRF msg ID 41: Geodetic Navigation Data
+
     if (fr_id == 0) {
         //start = 0x1000;
         frnr = bits2val(dat_bits+24, 8);
@@ -227,7 +311,8 @@ static int dat_out(gpx_t *gpx, ui8_t *dat_bits, int ec) {
     }
 
     if (fr_id == 1) {
-        // 00..31: ? GPS-Sats in Sicht?
+        // 00..31: GPS-Sats in solution (bitmap)
+        gpx->gps.prn = bits2val(dat_bits, 32); // SV/PRN used
         msek = bits2val(dat_bits+32, 16);  // UTC (= GPS - 18sec  ab 1.1.2017)
         gpx->sek = msek/1000.0;
     }
@@ -254,6 +339,8 @@ static int dat_out(gpx_t *gpx, ui8_t *dat_bits, int ec) {
     }
 
     if (fr_id == 5) {
+        short dMSL = bits2val(dat_bits, 16);
+        gpx->gps.dMSL = dMSL/1e2;
     }
 
     if (fr_id == 6) { // sat data
@@ -268,6 +355,7 @@ static int dat_out(gpx_t *gpx, ui8_t *dat_bits, int ec) {
         gpx->tag   = bits2val(dat_bits+16, 5);
         gpx->std   = bits2val(dat_bits+21, 5);
         gpx->min   = bits2val(dat_bits+26, 6);
+        gpx->gps.nSV = bits2val(dat_bits+32, 8);
     }
 
     ret = fr_id;
@@ -561,6 +649,11 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
             gpx->status[1] = val/100.0;
         }
     }
+    else {
+        gpx->status[0] = 0;
+        gpx->status[1] = 0;
+    }
+
 
     return ret;
 }
@@ -654,6 +747,16 @@ static void print_gpx(gpx_t *gpx) {
         }
         printf("\n");
 
+        if (gpx->option.sat) {
+            printf("  ");
+            printf("  dMSL: %+.2f", gpx->gps.dMSL); // MSL = alt + gps.dMSL
+            printf("  sats: %d", gpx->gps.nSV);
+            printf("  (");
+            for (j = 0; j < 32; j++) { if ((gpx->gps.prn >> j)&1) printf(" %02d", j+1); }
+            printf(" )");
+            printf("\n");
+        }
+
         if (gpx->option.jsn && jsonout)
         {
             // JSON Buffer to store sonde ID
@@ -668,8 +771,12 @@ static void print_gpx(gpx_t *gpx) {
             }
 
             // Print JSON blob     // valid sonde_ID?
-            printf("{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"batt\": %.2f",
-                   gpx->frnr, json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->status[0]);
+            printf("{ \"type\": \"%s\"", "DFM");
+            printf(", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                   gpx->frnr, json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->gps.nSV);
+            if (gpx->ptu_out >= 0xA && gpx->status[0] > 0) { // DFM>=09(P): Battery (STM32)
+                printf(", \"batt\": %.2f", gpx->status[0]);
+            }
             if (gpx->ptu_out) { // get temperature
                 float t = get_Temp(gpx); // ecc-valid temperature?
                 if (t > -270.0) printf(", \"temp\": %.1f", t);
@@ -691,17 +798,17 @@ static int print_frame(gpx_t *gpx) {
     int ret0, ret1, ret2;
     int ret = 0;
 
-    ui8_t hamming_conf[ 7*B];  //  7*8=56
-    ui8_t hamming_dat1[13*B];  // 13*8=104
-    ui8_t hamming_dat2[13*B];
+    hsbit_t hamming_conf[ 7*B];  //  7*8=56
+    hsbit_t hamming_dat1[13*B];  // 13*8=104
+    hsbit_t hamming_dat2[13*B];
 
     ui8_t block_conf[ 7*S];  //  7*4=28
     ui8_t block_dat1[13*S];  // 13*4=52
     ui8_t block_dat2[13*S];
 
-    deinterleave(gpx->frame_bits+CONF,  7, hamming_conf);
-    deinterleave(gpx->frame_bits+DAT1, 13, hamming_dat1);
-    deinterleave(gpx->frame_bits+DAT2, 13, hamming_dat2);
+    deinterleave(gpx->frame+CONF,  7, hamming_conf);
+    deinterleave(gpx->frame+DAT1, 13, hamming_dat1);
+    deinterleave(gpx->frame+DAT2, 13, hamming_dat2);
 
     ret0 = hamming(gpx->option.ecc, hamming_conf,  7, block_conf);
     ret1 = hamming(gpx->option.ecc, hamming_dat1, 13, block_dat1);
@@ -750,14 +857,14 @@ static int print_frame(gpx_t *gpx) {
     }
     else if (gpx->option.ecc) {
 
-        if (ret0 == 0 || ret0 > 0) {
+        if (ret0 == 0 || ret0 > 0 || gpx->option.ecc == 2) {
             conf_out(gpx, block_conf, ret0);
         }
-        if (ret1 == 0 || ret1 > 0) {
+        if (ret1 == 0 || ret1 > 0 || gpx->option.ecc == 2) {
             frid = dat_out(gpx, block_dat1, ret1);
             if (frid == 8) print_gpx(gpx);
         }
-        if (ret2 == 0 || ret2 > 0) {
+        if (ret2 == 0 || ret2 > 0 || gpx->option.ecc == 2) {
             frid = dat_out(gpx, block_dat2, ret2);
             if (frid == 8) print_gpx(gpx);
         }
@@ -778,67 +885,6 @@ static int print_frame(gpx_t *gpx) {
 
 /* -------------------------------------------------------------------------- */
 
-// header bit buffer
-typedef struct {
-    char *hdr;
-    char *buf;
-    char len;
-    int bufpos;
-    float ths;
-} hdb_t;
-
-static float cmp_hdb(hdb_t *hdb) { // bit-errors?
-    int i, j;
-    int headlen = hdb->len;
-    int berrs1 = 0, berrs2 = 0;
-
-    i = 0;
-    j = hdb->bufpos;
-    while (i < headlen) {
-        if (j < 0) j = headlen-1;
-        if (hdb->buf[j] != hdb->hdr[headlen-1-i]) berrs1 += 1;
-        j--;
-        i++;
-    }
-
-    i = 0;
-    j = hdb->bufpos;
-    while (i < headlen) {
-        if (j < 0) j = headlen-1;
-        if ((hdb->buf[j]^0x01) != hdb->hdr[headlen-1-i]) berrs2 += 1;
-        j--;
-        i++;
-    }
-    if (berrs2 < berrs1) return (-headlen+berrs2)/(float)headlen;
-    else                 return ( headlen-berrs1)/(float)headlen;
-
-    return 0;
-}
-
-static int find_binhead(FILE *fp, hdb_t *hdb, float *score) {
-    int bit;
-    int headlen = hdb->len;
-    float mv;
-
-    //*score = 0.0;
-
-    while ( (bit = fgetc(fp)) != EOF )
-    {
-        bit &= 1;
-
-        hdb->bufpos = (hdb->bufpos+1) % headlen;
-        hdb->buf[hdb->bufpos] = 0x30 | bit;  // Ascii
-
-        mv = cmp_hdb(hdb);
-        if ( fabs(mv) > hdb->ths ) {
-            *score = mv;
-            return 1;
-        }
-    }
-
-    return EOF;
-}
-
 
 int main(int argc, char **argv) {
 
@@ -854,6 +900,7 @@ int main(int argc, char **argv) {
     int option_lp = 0;
     int option_dc = 0;
     int option_bin = 0;
+    int option_softin = 0;
     int option_json = 0;     // JSON blob output (for auto_rx)
     int option_pcmraw = 0;
     int wavloaded = 0;
@@ -866,7 +913,7 @@ int main(int argc, char **argv) {
     int ret = 0;
     int k;
 
-    int bit;
+    hsbit_t hsbit;
     int bitpos = 0;
     int bitQ;
     int pos;
@@ -878,6 +925,8 @@ int main(int argc, char **argv) {
 
     float thres = 0.65;
     float _mv = 0.0;
+
+    float lpIQ_bw = 12e3;
 
     int symlen = 2;
     int bitofs = 2; // +1 .. +2
@@ -926,7 +975,8 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 0x1;
         }
-        else if ( (strcmp(*argv, "--ecc") == 0) ) { option_ecc = 1; }
+        else if ( (strcmp(*argv, "--ecc" ) == 0) ) { option_ecc = 1; }
+        else if ( (strcmp(*argv, "--ecc2") == 0) ) { option_ecc = 2; }
         else if ( (strcmp(*argv, "--ptu") == 0) ) {
             option_ptu = 1;
             //gpx.ptu_out = 1; // force ptu (non PS-15)
@@ -934,12 +984,13 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "--spike") == 0) ) {
             spike = 1;
         }
-        else if ( (strcmp(*argv, "--auto") == 0) ) { option_auto = 1; }
-        else if   (strcmp(*argv, "--bin") == 0) { option_bin = 1; }   // bit/byte binary input
-        else if ( (strcmp(*argv, "--dist") == 0) ) { option_dist = 1; option_ecc = 1; }
-        else if ( (strcmp(*argv, "--json") == 0) ) { option_json = 1; option_ecc = 1; }
-        else if ( (strcmp(*argv, "--ch2") == 0) ) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if ( (strcmp(*argv, "--ths") == 0) ) {
+        else if   (strcmp(*argv, "--auto") == 0) { option_auto = 1; }
+        else if   (strcmp(*argv, "--bin") == 0) { option_bin = 1; }  // bit/byte binary input
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--dist") == 0) { option_dist = 1; option_ecc = 1; }
+        else if   (strcmp(*argv, "--json") == 0) { option_json = 1; option_ecc = 1; }
+        else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
@@ -974,6 +1025,15 @@ int main(int argc, char **argv) {
             option_min = 1;
         }
         else if   (strcmp(*argv, "--dbg") == 0) { gpx.option.dbg = 1; }
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            double bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6 && bw < 24.0) lpIQ_bw = bw*1e3;
+            option_lp = 1;
+        }
+        else if   (strcmp(*argv, "--sat") == 0) { gpx.option.sat = 1; }
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
             ++argv;
@@ -1002,9 +1062,31 @@ int main(int argc, char **argv) {
     }
     if (!wavloaded) fp = stdin;
 
+    // ecc2-soft_decision accepts also 2-error words,
+    // so the probability for 3 errors is high and will
+    // produce wrong codewords. hence ecc2 is not recommended
+    // for reliable frame decoding.
+    //
+    if ( option_dist || option_json ) option_ecc = 1;
+
+
+    if (option_ecc)
+    {
+        ui8_t nib, msg[4], code[8];
+        for (nib = 0; nib < 16; nib++) {
+            nib4bits(nib, msg);
+            gencode(msg, code);
+            for (k = 0; k < 8; k++) codewords[nib][k] = code[k];
+        }
+    }
 
     // init gpx
-    strcpy(gpx.frame_bits, dfm_header); //, sizeof(dfm_header);
+    //strcpy(gpx.frame_bits, dfm_header); //, sizeof(dfm_header);
+    for (k = 0; k < strlen(dfm_header); k++) {
+        gpx.frame[k].hb = dfm_header[k] & 1;
+        gpx.frame[k].sb = 2*gpx.frame[k].hb - 1;
+    }
+
     for (k = 0; k < 9; k++) gpx.pck[k].ec = -1; // init ecc-status
 
     gpx.option.inv = option_inv;
@@ -1016,11 +1098,17 @@ int main(int argc, char **argv) {
     gpx.option.dst = option_dist;
     gpx.option.jsn = option_json;
 
-
     headerlen = strlen(dfm_rawheader);
 
 
-    if (!option_bin) {
+    #ifdef EXT_FSK
+    if (!option_bin && !option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
+    }
+    #endif
+
+    if (!option_bin && !option_softin) {
 
         if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
@@ -1060,7 +1148,7 @@ int main(int argc, char **argv) {
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
         dsp.opt_iq = option_iq;
         dsp.opt_lp = option_lp;
-        dsp.lpIQ_bw = 12e3; // IF lowpass bandwidth
+        dsp.lpIQ_bw = lpIQ_bw;  // 12e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
         dsp.opt_dc = option_dc;
         dsp.opt_IFmin = option_min;
@@ -1068,115 +1156,141 @@ int main(int argc, char **argv) {
         if ( dsp.sps < 8 ) {
             fprintf(stderr, "note: sample rate low\n");
         }
+
+
+        k = init_buffers(&dsp);
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
+            return -1;
+        }
+
+        bitofs += shift;
     }
     else {
+        if (option_bin && option_softin) option_bin = 0;
         // init circular header bit buffer
         hdb.hdr = dfm_rawheader;
         hdb.len = strlen(dfm_rawheader);
-        hdb.ths = 1.0 - 2.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen // max 1.1 !!
+        hdb.thb = 1.0 - 2.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen // max 1.1 !!
         hdb.bufpos = -1;
         hdb.buf = calloc(hdb.len, sizeof(char));
         if (hdb.buf == NULL) {
             fprintf(stderr, "error: malloc\n");
             return -1;
         }
+        hdb.ths = 0.7; // caution/test false positive
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
     }
 
 
-    k = init_buffers(&dsp);
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
+    while ( 1 )
+    {
+        if (option_bin) { // aka find_binrawhead()
+            header_found = find_binhead(fp, &hdb, &_mv); // symbols or bits?
+            hdrcnt += nfrms;
+        }
+        else if (option_softin) {
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+            hdrcnt += nfrms;
+        }
+        else {                                    //2 (false positive)      // FM-audio:
+            header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
+            _mv = dsp.mv;
+        }
+        if (header_found == EOF) break;
 
+        // mv == correlation score
+        if (_mv *(0.5-gpx.option.inv) < 0) {
+            if (gpx.option.aut == 0) header_found = 0;
+            else gpx.option.inv ^= 0x1;
+        }
 
-    bitofs += shift;
-
-
-        while ( 1 )
+        if (header_found)
         {
-            if (option_bin) { // aka find_binrawhead()
-                header_found = find_binhead(fp, &hdb, &_mv); // symbols or bits?
-                hdrcnt += nfrms;
-            }
-            else {                                                              // FM-audio:
-                header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
-                _mv = dsp.mv;
-            }
-            if (header_found == EOF) break;
+            bitpos = 0;
+            pos = headerlen;
+            pos /= 2;
 
-            // mv == correlation score
-            if (_mv *(0.5-gpx.option.inv) < 0) {
-                if (gpx.option.aut == 0) header_found = 0;
-                else gpx.option.inv ^= 0x1;
-            }
+            //if (fabs(mv) > 0.85) nfrms = 8; else nfrms = 4; // test OK/KO/NO count
 
-            if (header_found)
-            {
-                bitpos = 0;
-                pos = headerlen;
-                pos /= 2;
-
-                //if (fabs(mv) > 0.85) nfrms = 8; else nfrms = 4; // test OK/KO/NO count
-
-                frm = 0;
-                while ( frm < nfrms ) { // nfrms=1,2,4,8
+            frm = 0;
+            while ( frm < nfrms ) { // nfrms=1,2,4,8
+                if (option_bin || option_softin) {
+                    gpx._frmcnt = hdrcnt + frm;
+                }
+                else {
+                    gpx._frmcnt = dsp.mv_pos/(2.0*dsp.sps*BITFRAME_LEN) + frm;
+                }
+                while ( pos < BITFRAME_LEN )
+                {
                     if (option_bin) {
-                        gpx._frmcnt = hdrcnt + frm;
+                        // symbols or bits?
+                        // manchester1 1->10,0->01: 1.bit (DFM-06)
+                        // manchester2 0->10,1->01: 2.bit (DFM-09)
+                        bitQ = fgetc(fp);
+                        if (bitQ != EOF) {
+                            hsbit.hb = bitQ & 0x1;
+                            bitQ = fgetc(fp);  // check: rbit0^rbit1=1 (Manchester)
+                            if (bitQ != EOF) hsbit.hb = bitQ & 0x1; // 2.bit (DFM-09)
+                            hsbit.sb = 2*hsbit.hb - 1;
+                        }
+                    }
+                    else if (option_softin) {
+                        float s1 = 0.0;
+                        float s2 = 0.0;
+                        float s  = 0.0;
+                        bitQ = f32soft_read(fp, &s1);
+                        if (bitQ != EOF) {
+                            bitQ = f32soft_read(fp, &s2);
+                            if (bitQ != EOF) {
+                                s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
+                                hsbit.sb = s;
+                                hsbit.hb = (s>=0.0);
+                            }
+                        }
                     }
                     else {
-                        gpx._frmcnt = dsp.mv_pos/(2.0*dsp.sps*BITFRAME_LEN) + frm;
+                        float bl = -1;
+                        if (option_iq >= 2) spike = 0;
+                        if (option_iq > 2)  bl = 4.0;
+                        bitQ = read_softbit(&dsp, &hsbit, 0, bitofs, bitpos, bl, spike); // symlen=2
+                        // optional:
+                        // normalize soft bit s_j by
+                        //   rhsbit.sb /= dsp._spb+1; // all samples in [-1,+1]
                     }
-                    while ( pos < BITFRAME_LEN )
-                    {
-                        if (option_bin) {
-                            // symbols or bits?
-                            // manchester1 1->10,0->01: 1.bit (DFM-06)
-                            // manchester2 0->10,1->01: 2.bit (DFM-09)
-                            bitQ = fgetc(fp);
-                            if (bitQ != EOF) {
-                                bit = bitQ & 0x1;
-                                bitQ = fgetc(fp);  // check: rbit0^rbit1=1 (Manchester)
-                                if (bitQ != EOF) bit = bitQ & 0x1; // 2.bit (DFM-09)
-                            }
-                        }
-                        else {
-                            if (option_iq >= 2) {
-                                float bl = -1;
-                                if (option_iq > 2) bl = 4.0;
-                                bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, 0);
-                            }
-                            else {
-                                bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, -1, spike);
-                            }
-                        }
-                        if ( bitQ == EOF ) { frm = nfrms; break; } // liest 2x EOF
+                    if ( bitQ == EOF ) { frm = nfrms; break; } // liest 2x EOF
 
-                        if (gpx.option.inv) bit ^= 1;
-
-                        gpx.frame_bits[pos] = 0x30 + bit;
-                        pos++;
-                        bitpos += 1;
+                    if (gpx.option.inv) {
+                        hsbit.hb ^= 1;
+                        hsbit.sb = -hsbit.sb;
                     }
-                    gpx.frame_bits[pos] = '\0';
 
-                    ret = print_frame(&gpx);
-                    if (pos < BITFRAME_LEN) break;
-                    pos = 0;
-                    frm += 1;
-                    //if (ret < 0) frms += 1;
+                    gpx.frame[pos] = hsbit;
+                    pos++;
+                    bitpos += 1;
                 }
+
+                ret = print_frame(&gpx);
+                if (pos < BITFRAME_LEN) break;
+                pos = 0;
+                frm += 1;
+                //if (ret < 0) frms += 1;
             }
-
-            header_found = 0;
-            pos = headerlen;
         }
 
-        if (!option_bin) free_buffers(&dsp);
-        else {
-            if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
-        }
+        header_found = 0;
+        pos = headerlen;
+    }
 
+
+    if (!option_bin && !option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
 
     fclose(fp);
 

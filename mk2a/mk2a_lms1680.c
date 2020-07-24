@@ -634,14 +634,18 @@ void print_frame(int len) {
 
             if (option_jsn) {
                 // Print JSON output required by auto_rx.
-                if (gpx.prev_frnr != gpx.frnr){
-                    if (crc_err==0 && (gpx.id & 0xFFFF0000)) { // CRC-OK and FullID
+                if (crc_err==0 && (gpx.id & 0xFFFF0000)) { // CRC-OK and FullID
+                    if (gpx.prev_frnr != gpx.frnr) { //|| gpx.id != _id0
                         // UTC oder GPS?
-                        printf("{ \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f }\n",
+                        printf("{ \"type\": \"%s\"", "LMS");
+                        printf(", \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                gpx.frnr, gpx.id, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
+                        printf(", \"subtype\": \"%s\"", "MK2A");
+                        printf(" }\n");
                         printf("\n");
+                        fflush(stdout);
+                        gpx.prev_frnr = gpx.frnr;
                     }
-                    gpx.prev_frnr = gpx.frnr;
                 }
             }
 

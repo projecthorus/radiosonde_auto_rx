@@ -101,12 +101,8 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
         if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
             _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
 
-    # NOTE: Disabled as of 2019-09-21
-    # Add on the station code, which will only be present if we are receiving an iMet sonde.
-    # This may assist multiple receiving stations in the vicinity of an iMet launch site coordinate
-    # the iMet unique ID generation.
-    #if 'station_code' in telemetry:
-    #    _sentence += " LOC: %s" % telemetry['station_code']
+    if 'batt' in telemetry:
+        _sentence += " %.1fV" % telemetry['batt']
 
     # Add on any custom comment data if provided.
     if comment != None:
@@ -142,7 +138,7 @@ def check_callsign(callsign, timeout=10):
         bool: True if callsign has been observed within the last 6 hour, False otherwise.
     """
 
-    _url_check_callsign = "http://spacenear.us/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
+    _url_check_callsign = "http://legacy-snus.habhub.org/tracker/datanew.php?mode=6hours&type=positions&format=json&max_positions=10&position_id=0&vehicle=%s"
 
     logging.debug("Habitat - Checking if %s has been observed recently..." % callsign)
     # Perform the request
@@ -165,7 +161,7 @@ def check_callsign(callsign, timeout=10):
 
     except Exception as e:
         # Handle errors with JSON parsing.
-        logging.error("Habitat - Unable to request payload positions from spacenear.us - %s" % str(e))
+        logging.error("Habitat - Unable to request payload positions from legacy-snus.habhub.org - %s" % str(e))
         return False
 
 

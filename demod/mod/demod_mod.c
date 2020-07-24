@@ -3,6 +3,10 @@
  *  sync header: correlation/matched filter
  *  compile:
  *      gcc -c demod_mod.c
+ *  speedup:
+ *      gcc -O2 -c demod_mod.c
+ *   or
+ *      gcc -Ofast -c demod_mod.c
  *
  *  author: zilog80
  */
@@ -19,6 +23,8 @@
 
 /* ------------------------------------------------------------------------------------ */
 
+
+#ifndef EXT_FSK
 
 static void raw_dft(dft_t *dft, float complex *Z) {
     int s, l, l2, i, j, k;
@@ -122,7 +128,7 @@ static int dft_window(dft_t *dft, int w) {
                     dft->win[n] = 0.5 * ( 1.0 - cos(2*M_PI*n/(float)(dft->N2-1)) );
                     break ;
             case 2: // Hamming
-                    dft->win[n] = 25/46.0 + (1.0 - 25/46.0)*cos(2*M_PI*n / (float)(dft->N2-1));
+                    dft->win[n] = 25/46.0 - (1.0 - 25/46.0)*cos(2*M_PI*n / (float)(dft->N2-1));
                     break ;
             case 3: // Blackmann
                     dft->win[n] =  7938/18608.0
@@ -509,7 +515,7 @@ static int lowpass_init(float f, int taps, float **pws) {
 
     h = (double*)calloc( taps+1, sizeof(double)); if (h == NULL) return -1;
     w = (double*)calloc( taps+1, sizeof(double)); if (w == NULL) return -1;
-    ws = (float*)calloc( taps+1, sizeof(float)); if (ws == NULL) return -1;
+    ws = (float*)calloc( 2*taps+1, sizeof(float)); if (ws == NULL) return -1;
 
     for (n = 0; n < taps; n++) {
         w[n] = 7938/18608.0 - 9240/18608.0*cos(2*M_PI*n/(taps-1)) + 1430/18608.0*cos(4*M_PI*n/(taps-1)); // Blackmann
@@ -520,6 +526,9 @@ static int lowpass_init(float f, int taps, float **pws) {
     for (n = 0; n < taps; n++) {
         ws[n] /= norm; // 1-norm
     }
+
+    for (n = 0; n < taps; n++) ws[taps+n] = ws[n]; // duplicate/unwrap
+
     *pws = ws;
 
     free(h); h = NULL;
@@ -551,13 +560,15 @@ static int lowpass_update(float f, int taps, float *ws) {
         ws[n] /= norm; // 1-norm
     }
 
+    for (n = 0; n < taps; n++) ws[taps+n] = ws[n];
+
     free(h); h = NULL;
     free(w); w = NULL;
 
     return taps;
 }
 
-static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+static float complex lowpass0(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     double complex w = 0;
     for (n = 0; n < taps; n++) {
@@ -565,12 +576,31 @@ static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps,
     }
     return (float complex)w;
 }
+static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+    ui32_t n;
+    ui32_t s = sample % taps;
+    double complex w = 0;
+    for (n = 0; n < taps; n++) {
+        w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
+    }
+    return (float complex)w;
+// symmetry: ws[n] == ws[taps-1-n]
+}
 
-static float re_lowpass(float buffer[], ui32_t sample, ui32_t taps, float *ws) {
+static float re_lowpass0(float buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     double w = 0;
     for (n = 0; n < taps; n++) {
         w += buffer[(sample+n+1)%taps]*ws[taps-1-n];
+    }
+    return (float)w;
+}
+static float re_lowpass(float buffer[], ui32_t sample, ui32_t taps, float *ws) {
+    ui32_t n;
+    ui32_t s = sample % taps;
+    double w = 0;
+    for (n = 0; n < taps; n++) {
+        w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
     return (float)w;
 }
@@ -807,7 +837,7 @@ int read_slbit(dsp_t *dsp, int *bit, int inv, int ofs, int pos, float l, int spi
             }
             sample -= dc;
 
-            if ( l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum -= sample;
+            if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum -= sample;
 
             dsp->sc++;
         } while (dsp->sc < bg);  // n < dsp->sps
@@ -825,9 +855,9 @@ int read_slbit(dsp_t *dsp, int *bit, int inv, int ofs, int pos, float l, int spi
                       +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
             sample = avg + scale*(sample - avg); // spikes
         }
-            sample -= dc;
+        sample -= dc;
 
-        if ( l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum += sample;
+        if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum += sample;
 
         dsp->sc++;
     } while (dsp->sc < bg);  // n < dsp->sps
@@ -835,6 +865,171 @@ int read_slbit(dsp_t *dsp, int *bit, int inv, int ofs, int pos, float l, int spi
 
     if (sum >= 0) *bit = 1;
     else          *bit = 0;
+
+    return 0;
+}
+
+int read_softbit(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike) {
+// symlen==2: manchester2 10->0,01->1: 2.bit
+
+    float sample;
+    float avg;
+    float ths = 0.5, scale = 0.27;
+
+    double sum = 0.0;
+    double mid;
+    //double l = 1.0;
+
+    double bg = pos*dsp->symlen*dsp->sps;
+    double dc = 0.0;
+
+    ui8_t bit = 0;
+
+
+    if (dsp->opt_dc && dsp->opt_iq < 2) dc = dsp->dc;
+
+    if (pos == 0) {
+        bg = 0;
+        dsp->sc = 0;
+    }
+
+
+    if (dsp->symlen == 2) {
+        mid = bg + (dsp->sps-1)/2.0;
+        bg += dsp->sps;
+        do {
+            if (dsp->buffered > 0) dsp->buffered -= 1;
+            else if (f32buf_sample(dsp, inv) == EOF) return EOF;
+
+            sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+            if (spike && fabs(sample - avg) > ths) {
+                avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                          +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+                sample = avg + scale*(sample - avg); // spikes
+            }
+            sample -= dc;
+
+            if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum -= sample;
+
+            dsp->sc++;
+        } while (dsp->sc < bg);  // n < dsp->sps
+    }
+
+    mid = bg + (dsp->sps-1)/2.0;
+    bg += dsp->sps;
+    do {
+        if (dsp->buffered > 0) dsp->buffered -= 1;
+        else if (f32buf_sample(dsp, inv) == EOF) return EOF;
+
+        sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+        if (spike && fabs(sample - avg) > ths) {
+            avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                      +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+            sample = avg + scale*(sample - avg); // spikes
+        }
+        sample -= dc;
+
+        if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) sum += sample;
+
+        dsp->sc++;
+    } while (dsp->sc < bg);  // n < dsp->sps
+
+
+    if (sum >= 0) bit = 1;
+    else          bit = 0;
+
+    shb->hb = bit;
+    shb->sb = (float)sum;
+
+    return 0;
+}
+
+int read_softbit2p(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike, hsbit_t *shb1) {
+// symlen==2: manchester2 10->0,01->1: 2.bit
+
+    float sample, sample1;
+    float avg;
+    float ths = 0.5, scale = 0.27;
+
+    double sum = 0.0, sum1 = 0.0;
+    double mid;
+    //double l = 1.0;
+
+    double bg = pos*dsp->symlen*dsp->sps;
+
+    double dc = 0.0;
+
+    ui8_t bit = 0, bit1 = 0;
+
+
+    if (dsp->opt_dc && dsp->opt_iq < 2) dc = dsp->dc;
+
+    if (pos == 0) {
+        bg = 0;
+        dsp->sc = 0;
+    }
+
+
+    if (dsp->symlen == 2) {
+        mid = bg + (dsp->sps-1)/2.0;
+        bg += dsp->sps;
+        do {
+            if (dsp->buffered > 0) dsp->buffered -= 1;
+            else if (f32buf_sample(dsp, inv) == EOF) return EOF;
+
+            sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+            sample1 = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs-1 + dsp->M) % dsp->M];
+            if (spike && fabs(sample - avg) > ths) {
+                avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                          +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+                sample = avg + scale*(sample - avg); // spikes
+            }
+            sample -= dc;
+            sample1 -= dc;
+
+            if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) {
+                sum -= sample;
+                sum1 -= sample1;
+            }
+
+            dsp->sc++;
+        } while (dsp->sc < bg);  // n < dsp->sps
+    }
+
+    mid = bg + (dsp->sps-1)/2.0;
+    bg += dsp->sps;
+    do {
+        if (dsp->buffered > 0) dsp->buffered -= 1;
+        else if (f32buf_sample(dsp, inv) == EOF) return EOF;
+
+        sample = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs + dsp->M) % dsp->M];
+        sample1 = dsp->bufs[(dsp->sample_out-dsp->buffered + ofs-1 + dsp->M) % dsp->M];
+        if (spike && fabs(sample - avg) > ths) {
+            avg = 0.5*(dsp->bufs[(dsp->sample_out-dsp->buffered-1 + ofs + dsp->M) % dsp->M]
+                      +dsp->bufs[(dsp->sample_out-dsp->buffered+1 + ofs + dsp->M) % dsp->M]);
+            sample = avg + scale*(sample - avg); // spikes
+        }
+        sample -= dc;
+        sample1 -= dc;
+
+        if (l < 0 || (mid-l < dsp->sc && dsp->sc < mid+l)) {
+            sum += sample;
+            sum1 += sample1;
+        }
+
+        dsp->sc++;
+    } while (dsp->sc < bg);  // n < dsp->sps
+
+
+    if (sum >= 0) bit = 1;
+    else          bit = 0;
+    shb->hb = bit;
+    shb->sb = (float)sum;
+
+    if (sum1 >= 0) bit1 = 1;
+    else           bit1 = 0;
+    shb1->hb = bit1;
+    shb1->sb = (float)sum1;
 
     return 0;
 }
@@ -1172,12 +1367,6 @@ int free_buffers(dsp_t *dsp) {
 
 /* ------------------------------------------------------------------------------------ */
 
-ui32_t get_sample(dsp_t *dsp) {
-    return dsp->sample_out;
-}
-
-/* ------------------------------------------------------------------------------------ */
-
 
 int find_header(dsp_t *dsp, float thres, int hdmax, int bitofs, int opt_dc) {
     ui32_t k = 0;
@@ -1237,6 +1426,148 @@ int find_header(dsp_t *dsp, float thres, int hdmax, int bitofs, int opt_dc) {
             }
         }
 
+    }
+
+    return EOF;
+}
+
+/* ------------------------------------------------------------------------------------ */
+
+
+#else
+// external FSK demod: read float32 soft symbols
+
+float read_wav_header(pcm_t *pcm, FILE *fp) {}
+int f32buf_sample(dsp_t *dsp, int inv) {}
+int read_slbit(dsp_t *dsp, int *bit, int inv, int ofs, int pos, float l, int spike) {}
+int read_softbit(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike) {}
+int read_softbit2p(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike, hsbit_t *shb1) {}
+
+int init_buffers(dsp_t *dsp) {}
+int free_buffers(dsp_t *dsp) {}
+
+int find_header(dsp_t *dsp, float thres, int hdmax, int bitofs, int opt_dc) {}
+
+#endif
+
+
+static float cmp_hdb(hdb_t *hdb) { // bit-errors?
+    int i, j;
+    int headlen = hdb->len;
+    int berrs1 = 0, berrs2 = 0;
+
+    i = 0;
+    j = hdb->bufpos;
+    while (i < headlen) {
+        if (j < 0) j = headlen-1;
+        if (hdb->buf[j] != hdb->hdr[headlen-1-i]) berrs1 += 1;
+        j--;
+        i++;
+    }
+
+    i = 0;
+    j = hdb->bufpos;
+    while (i < headlen) {
+        if (j < 0) j = headlen-1;
+        if ((hdb->buf[j]^0x01) != hdb->hdr[headlen-1-i]) berrs2 += 1;
+        j--;
+        i++;
+    }
+
+    if (berrs2 < berrs1) return (-headlen+berrs2)/(float)headlen;
+    else                 return ( headlen-berrs1)/(float)headlen;
+
+    return 0;
+}
+
+int find_binhead(FILE *fp, hdb_t *hdb, float *score) {
+    int bit;
+    int headlen = hdb->len;
+    float mv;
+
+    //*score = 0.0;
+
+    while ( (bit = fgetc(fp)) != EOF )
+    {
+        bit &= 1;
+
+        hdb->bufpos = (hdb->bufpos+1) % headlen;
+        hdb->buf[hdb->bufpos] = 0x30 | bit;  // Ascii
+
+        mv = cmp_hdb(hdb);
+        if ( fabs(mv) > hdb->thb ) {
+            *score = mv;
+            return 1;
+        }
+    }
+
+    return EOF;
+}
+
+static float corr_softhdb(hdb_t *hdb) { // max score in window probably not needed
+    int i, j;
+    int headlen = hdb->len;
+    double sum = 0.0;
+    double normx = 0.0,
+           normy = 0.0;
+    float x, y;
+
+    i = 0;
+    j = hdb->bufpos + 1;
+
+    while (i < headlen) {
+        if (j >= headlen) j = 0;
+        x = hdb->sbuf[j];
+        y = 2.0*(hdb->hdr[i]&0x1) - 1.0;
+        sum += y * hdb->sbuf[j];
+        normx += x*x;
+        normy += y*y;
+        j++;
+        i++;
+    }
+    sum /= sqrt(normx*normy);
+
+    return sum;
+}
+
+int f32soft_read(FILE *fp, float *s) {
+    unsigned int word = 0;
+    short *b = (short*)&word;
+    float *f = (float*)&word;
+    int bps = 32;
+
+    if (fread( &word, bps/8, 1, fp) != 1) return EOF;
+
+    if (bps == 32) {
+        *s = *f;
+    }
+    else {
+        if (bps ==  8) { *b -= 128; }
+        *s = *b/128.0;
+        if (bps == 16) { *s /= 256.0; }
+    }
+
+    return 0;
+}
+
+int find_softbinhead(FILE *fp, hdb_t *hdb, float *score) {
+    int headlen = hdb->len;
+    float sbit;
+    float mv;
+
+    //*score = 0.0;
+
+    while ( f32soft_read(fp, &sbit) != EOF )
+    {
+        hdb->bufpos = (hdb->bufpos+1) % headlen;
+        hdb->sbuf[hdb->bufpos] = sbit;
+
+        mv = corr_softhdb(hdb);
+
+        if ( fabs(mv) > hdb->ths ) {
+            *score = mv;
+            return 1;
+        }
     }
 
     return EOF;

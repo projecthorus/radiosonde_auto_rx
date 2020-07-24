@@ -28,11 +28,13 @@ CSV_DIR = "./results/"
 # 	'M10': {'csv':'m10_rtlfm.txt', 'packets': 120, 'color': 'C3'},
 # }
 
+
 sonde_types = {
-	'RS41': {'csv':'rs41_fsk_demod.txt', 'packets': 120, 'color': 'C0'},
-	'RS92': {'csv':'rs92_fsk_demod.txt', 'packets': 120, 'color': 'C1'},
-	'DFM09': {'csv':'dfm_fsk_demod.txt', 'packets': 96, 'color': 'C2'},
-	'M10': {'csv':'m10_fsk_demod.txt', 'packets': 120, 'color': 'C3'},
+	'RS41': {'csv':'rs41_fsk_demod_soft.txt', 'packets': 118, 'color': 'C0'},
+	'RS92': {'csv':'rs92_fsk_demod_soft.txt', 'packets': 120, 'color': 'C1'},
+	'DFM09': {'csv':'dfm_fsk_demod_soft.txt', 'packets': 96, 'color': 'C2'},
+	'M10': {'csv':'m10_fsk_demod_soft.txt', 'packets': 120, 'color': 'C3'},
+	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft.txt', 'packets': 120, 'color': 'C4'},
 }
 
 
@@ -60,7 +62,7 @@ def read_csv(filename):
 
 
 # Sort list of sonde types.
-_types = sonde_types.keys()
+_types = list(sonde_types.keys())
 _types.sort()
 
 
@@ -80,5 +82,5 @@ plt.legend()
 plt.grid()
 plt.ylabel("Packet Error Rate")
 plt.xlabel("Eb/No (dB)")
-plt.title("auto_rx Decode Chain Performance - fsk_demod test 1")
+plt.title("auto_rx Decode Chain Performance - fsk_demod")
 plt.show()

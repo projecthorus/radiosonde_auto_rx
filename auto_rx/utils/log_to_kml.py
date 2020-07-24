@@ -54,6 +54,10 @@ def read_telemetry_csv(filename,
             # Split line by comma delimiters.
             _fields = line.split(delimiter)
 
+            if _fields[0] == 'timestamp':
+                # First line in file - header line.
+                continue
+
             # Attempt to parse fields.
             _datetime = parse(_fields[datetime_field])
             _latitude = float(_fields[latitude_field])

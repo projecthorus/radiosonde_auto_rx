@@ -2,7 +2,7 @@
 /*
  *  rs92
  *  sync header: correlation/matched filter
- *  files: rs92mod.c nav_gps_vel.c bch_ecc_mod.c demod_mod.c demod_mod.h
+ *  files: rs92mod.c nav_gps_vel.c bch_ecc_mod.c bch_ecc_mod.h demod_mod.c demod_mod.h
  *  compile:
  *  (a)
  *      gcc -c demod_mod.c
@@ -1177,7 +1177,9 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
             // Print out telemetry data as JSON  //even if we don't have a valid GPS lock
             if ((gpx->crc & (crc_FRAME | crc_GPS))==0 && (gpx->gps.almanac || gpx->gps.ephem)) //(!err1 && !err3)
             {   // eigentlich GPS, d.h. UTC = GPS - UTC_OFS (UTC_OFS=18sec ab 1.1.2017)
-                fprintf(stdout, "\n{ \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                fprintf(stdout, "\n");
+                fprintf(stdout, "{ \"type\": \"%s\"", "RS92");
+                fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vU);
                 if ((gpx->crc & crc_AUX)==0 && (gpx->aux[0] != 0 || gpx->aux[1] != 0 || gpx->aux[2] != 0 || gpx->aux[3] != 0)) {
                     fprintf(stdout, ", \"aux\": \"%04x%04x%04x%04x\"", gpx->aux[0], gpx->aux[1], gpx->aux[2], gpx->aux[3]);
@@ -1219,10 +1221,12 @@ static void print_frame(gpx_t *gpx, int len) {
             if (ec < 0) fprintf(stdout, " (-)");
         }
         fprintf(stdout, "\n");
-//        fprintf(stdout, "\n");
+        // fprintf(stdout, "\n");
     }
     else print_position(gpx, ec);
 }
+
+/* -------------------------------------------------------------------------- */
 
 
 int main(int argc, char *argv[]) {
@@ -1235,6 +1239,7 @@ int main(int argc, char *argv[]) {
     int option_iq = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_softin = 0;
     int option_pcmraw = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
@@ -1262,6 +1267,8 @@ int main(int argc, char *argv[]) {
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
+
+    hdb_t hdb = {0};
 
     gpx_t gpx = {0};
 
@@ -1373,18 +1380,19 @@ int main(int argc, char *argv[]) {
             }
             else return -1;
         }
-        else if (strcmp(*argv, "-g1") == 0) { gpx.gps.opt_vergps = 1; }  //  verbose1 GPS
-        else if (strcmp(*argv, "-g2") == 0) { gpx.gps.opt_vergps = 2; }  //  verbose2 GPS (bancroft)
-        else if (strcmp(*argv, "-gg") == 0) { gpx.gps.opt_vergps = 8; }  // vverbose GPS
-        else if (strcmp(*argv, "--json") == 0) {
+        else if   (strcmp(*argv, "-g1") == 0) { gpx.gps.opt_vergps = 1; }  //  verbose1 GPS
+        else if   (strcmp(*argv, "-g2") == 0) { gpx.gps.opt_vergps = 2; }  //  verbose2 GPS (bancroft)
+        else if   (strcmp(*argv, "-gg") == 0) { gpx.gps.opt_vergps = 8; }  // vverbose GPS
+        else if   (strcmp(*argv, "--json") == 0) {
             gpx.option.jsn = 1;
             gpx.option.ecc = 2;
             gpx.option.crc = 1;
             gpx.gps.opt_vel = 4;
         }
-        else if (strcmp(*argv, "--spike") == 0) { spike = 1; }
-        else if (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if (strcmp(*argv, "--ths") == 0) {
+        else if   (strcmp(*argv, "--spike") == 0) { spike = 1; }
+        else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
                 thres = atof(*argv);
@@ -1478,70 +1486,112 @@ int main(int argc, char *argv[]) {
     // init gpx
     memcpy(gpx.frame, rs92_header_bytes, sizeof(rs92_header_bytes)); // 6 header bytes
 
-    if (option_iq == 0 && option_pcmraw) {
-        fclose(fp);
-        fprintf(stderr, "error: raw data not IQ\n");
-        return -1;
-    }
-    if (option_iq) sel_wavch = 0;
 
-    pcm.sel_ch = sel_wavch;
-    if (option_pcmraw == 0) {
-        k = read_wav_header(&pcm, fp);
-        if ( k < 0 ) {
+    #ifdef EXT_FSK
+    if (!option_softin) {
+        option_softin = 1;
+        fprintf(stderr, "reading float32 soft symbols\n");
+    }
+    #endif
+
+    if (!option_softin) {
+
+        if (option_iq == 0 && option_pcmraw) {
             fclose(fp);
-            fprintf(stderr, "error: wav header\n");
+            fprintf(stderr, "error: raw data not IQ\n");
+            return -1;
+        }
+        if (option_iq) sel_wavch = 0;
+
+        pcm.sel_ch = sel_wavch;
+        if (option_pcmraw == 0) {
+            k = read_wav_header(&pcm, fp);
+            if ( k < 0 ) {
+                fclose(fp);
+                fprintf(stderr, "error: wav header\n");
+                return -1;
+            }
+        }
+
+        // rs92-sgp: BT=0.5, h=1.0 ?
+        symlen = 2;
+
+        // init dsp
+        //
+        dsp.fp = fp;
+        dsp.sr = pcm.sr;
+        dsp.bps = pcm.bps;
+        dsp.nch = pcm.nch;
+        dsp.ch = pcm.sel_ch;
+        dsp.br = (float)BAUD_RATE;
+        dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.symlen = symlen;
+        dsp.symhd  = symlen;
+        dsp._spb = dsp.sps*symlen;
+        dsp.hdr = rs92_rawheader;
+        dsp.hdrlen = strlen(rs92_rawheader);
+        dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
+        dsp.h = 0.8; // 1.0 modulation index abzgl. BT
+        dsp.opt_iq = option_iq;
+        dsp.opt_lp = option_lp;
+        dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
+        dsp.lpFM_bw = 6e3; // FM audio lowpass
+        dsp.opt_dc = option_dc;
+        dsp.opt_IFmin = option_min;
+        if (gpx.option.ngp) { // L-band rs92-ngp
+            dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
+            dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3
+        }
+
+        if ( dsp.sps < 8 ) {
+            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+        }
+
+
+        k = init_buffers(&dsp); // BT=0.5  (IQ-Int: BT > 0.5 ?)
+        if ( k < 0 ) {
+            fprintf(stderr, "error: init buffers\n");
+            return -1;
+        };
+
+        bitofs += shift;
+    }
+    else {
+        // init circular header bit buffer
+        hdb.hdr = rs92_rawheader;
+        hdb.len = strlen(rs92_rawheader);
+        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+        hdb.bufpos = -1;
+        hdb.buf = NULL;
+        /*
+        calloc(hdb.len, sizeof(char));
+        if (hdb.buf == NULL) {
+            fprintf(stderr, "error: malloc\n");
+            return -1;
+        }
+        */
+        // caution ths=0.7: -3 byte offset, false positive
+        // 2A 2A 2A 2A 2A 10|65 10 ..
+        // header sync could be extended into the frame
+        hdb.ths = 0.8;
+        hdb.sbuf = calloc(hdb.len, sizeof(float));
+        if (hdb.sbuf == NULL) {
+            fprintf(stderr, "error: malloc\n");
             return -1;
         }
     }
 
-    // rs92-sgp: BT=0.5, h=1.0 ?
-    symlen = 2;
 
-    // init dsp
-    //
-    dsp.fp = fp;
-    dsp.sr = pcm.sr;
-    dsp.bps = pcm.bps;
-    dsp.nch = pcm.nch;
-    dsp.ch = pcm.sel_ch;
-    dsp.br = (float)BAUD_RATE;
-    dsp.sps = (float)dsp.sr/dsp.br;
-    dsp.symlen = symlen;
-    dsp.symhd  = symlen;
-    dsp._spb = dsp.sps*symlen;
-    dsp.hdr = rs92_rawheader;
-    dsp.hdrlen = strlen(rs92_rawheader);
-    dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
-    dsp.h = 0.8; // 1.0 modulation index abzgl. BT
-    dsp.opt_iq = option_iq;
-    dsp.opt_lp = option_lp;
-    dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
-    dsp.lpFM_bw = 6e3; // FM audio lowpass
-    dsp.opt_dc = option_dc;
-    dsp.opt_IFmin = option_min;
-    if (gpx.option.ngp) { // L-band rs92-ngp
-        dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
-        dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3
-    }
-
-    if ( dsp.sps < 8 ) {
-        fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
-    }
-
-
-    k = init_buffers(&dsp); // BT=0.5  (IQ-Int: BT > 0.5 ?)
-    if ( k < 0 ) {
-        fprintf(stderr, "error: init buffers\n");
-        return -1;
-    };
-
-    bitofs += shift;
-
-    while ( 1 ) {
-
-        header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc);
-        _mv = dsp.mv;
+    while ( 1 )
+    {
+        if (option_softin) {
+            for (k = 0; k < hdb.len; k++) hdb.sbuf[k] = 0.0;
+            header_found = find_softbinhead(fp, &hdb, &_mv);
+        }
+        else {
+            header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc);
+            _mv = dsp.mv;
+        }
 
         if (header_found == EOF) break;
 
@@ -1558,9 +1608,25 @@ int main(int argc, char *argv[]) {
             b8pos = 0;
 
             while ( byte_count < FRAME_LEN ) {
-                float bl = -1;
-                if (option_iq > 2) bl = 4.0;
-                bitQ = read_slbit(&dsp, &bit, 0/*gpx.option.inv*/, bitofs, bitpos, bl, spike);
+
+                if (option_softin) {
+                    float s1 = 0.0;
+                    float s2 = 0.0;
+                    float s = 0.0;
+                    bitQ = f32soft_read(fp, &s1);
+                    if (bitQ != EOF) {
+                        bitQ = f32soft_read(fp, &s2);
+                        if (bitQ != EOF) {
+                            s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
+                            bit = (s>=0.0); // no soft decoding
+                        }
+                    }
+                }
+                else {
+                    float bl = -1;
+                    if (option_iq > 2) bl = 4.0;
+                    bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
+                }
                 if ( bitQ == EOF) break;
 
                 if (gpx.option.inv) bit ^= 1;
@@ -1584,9 +1650,13 @@ int main(int argc, char *argv[]) {
     }
 
 
-    free_buffers(&dsp);
+    if (!option_softin) free_buffers(&dsp);
+    else {
+        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+    }
 
     if (gpx.gps.ephs) free(gpx.gps.ephs);
+
     fclose(fp);
 
     return 0;
