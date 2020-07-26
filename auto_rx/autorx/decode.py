@@ -852,6 +852,8 @@ class SondeDecoder(object):
                 if self.imet_id == None:
                     self.imet_id = imet_unique_id(_telemetry, custom=self.imet_location)
                 
+                # Re-generate the datetime string.
+                _telemetry['datetime'] = _telemetry['datetime_dt'].strftime("%Y-%m-%dT%H:%M:%SZ")
                 _telemetry['id'] = self.imet_id
                 _telemetry['station_code'] = self.imet_location
 
