@@ -57,7 +57,7 @@
                   }
             });
 
-            // Grab the version information 
+            // Grab the version information
             $.ajax({
                   url: "/get_version",
                   dataType: 'text',
@@ -71,7 +71,7 @@
             // Event handler for Log data.
             socket.on('log_event', function(msg) {
                 // On receipt, add to the log table.
-                var log_entry = "<tr><td class='col-2'>"+msg.timestamp+"</td><td class='col-1'>"+msg.level+"</td><td class='col-9'>"+msg.msg+"</td></tr>";
+                var log_entry = "<tr><td>"+msg.timestamp+"</td><td>"+msg.level+"</td><td>"+msg.msg+"</td></tr>";
                 $('#log_data > tbody').prepend(log_entry);
                 // Scroll to the bottom of the log table
                 //$("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
@@ -124,12 +124,12 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(sondemap);
 
-            var esrimapLink = 
+            var esrimapLink =
             '<a href="http://www.esri.com/">Esri</a>';
-            var esriwholink = 
+            var esriwholink =
             'i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
             var esri_sat_map = L.tileLayer(
-            'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
+            'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             {
                 attribution: '&copy; '+esrimapLink+', '+esriwholink,
                 maxZoom: 18,
@@ -163,12 +163,12 @@
             }
             sondemap.on('dragend',mapMovedEvent);
 
-            
+
             // Telemetry Data Table
             // Using tabulator makes this *really* easy.
             $("#telem_table").tabulator({
                 height:180,
-                layout:"fitData", 
+                layout:"fitData",
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:false},
@@ -288,7 +288,7 @@
             // }
 
 
-            
+
             // Grab the recent archive of telemetry data
             // This should only ever be run once - on page load.
             var initial_load_complete = false;
@@ -374,7 +374,7 @@
                     return
                 }
 
-                // Have we seen this sonde before? 
+                // Have we seen this sonde before?
                 if (sonde_positions.hasOwnProperty(msg.id) == false){
                     // Nope, add a property to the sonde_positions object, and setup markers for the sonde.
                     sonde_positions[msg.id] = {
@@ -385,7 +385,7 @@
                                             // Create markers
                     sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(sondemap);
 
-                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})                            
+                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})
                         .bindTooltip(msg.id,{permanent:false,direction:'right'})
                         .addTo(sondemap);
 
@@ -454,7 +454,7 @@
                 if ( (now_time-sonde_positions[sonde_currently_following].age) > sonde_follow_timeout){
                     sonde_currently_following = "none";
                 }
-            }, sonde_follow_timeout);            
+            }, sonde_follow_timeout);
 
 
             // Update telemetry table every 5 seconds (this is mainly to update the age field)
@@ -519,12 +519,12 @@
         <div class="row">
             <div class='col-12'>
                 <h2>Log:</h2>
-                <table id="log_data" class="table table-fixed">
+                <table id="log_data" class="table">
                     <thead>
                         <tr>
-                            <th class="col-2">Time</th>
-                            <th class="col-1">Level</th>
-                            <th class="col-9">Message</th>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th>Message</th>
                         </tr>
                     </thead>
                     <tbody>
