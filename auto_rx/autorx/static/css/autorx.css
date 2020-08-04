@@ -7,14 +7,9 @@
     #scan_chart .c3-line-Threshold {
         stroke-dasharray: 5,5;
     }
-    .table-fixed thead {
-        width: 97%;
-    }
-    .table-fixed tbody {
-      height: 400px;
-      overflow-y: auto;
-      width: 100%;
-    }
-    .table-fixed tbody td, .table-fixed thead > tr> th {
-      border-bottom-width: 0;
-    }
+
+    .tableFixHead          { overflow-y: auto; height: 400px; }
+    .tableFixHead thead th { position: sticky; top: 0; }
+    table  { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px 16px; }
+    th     { background:#eee; }

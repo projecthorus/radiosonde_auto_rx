@@ -71,7 +71,13 @@
             // Event handler for Log data.
             socket.on('log_event', function(msg) {
                 // On receipt, add to the log table.
-                var log_entry = "<tr><td>"+msg.timestamp+"</td><td>"+msg.level+"</td><td>"+msg.msg+"</td></tr>";
+                var log_entry = `
+                <tr>
+                    <td>${msg.timestamp}</td>
+                    <td>${msg.level}</td>
+                    <td>${msg.msg}</td>
+                </tr>`;
+
                 $('#log_data > tbody').prepend(log_entry);
                 // Scroll to the bottom of the log table
                 //$("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
@@ -519,17 +525,19 @@
         <div class="row">
             <div class='col-12'>
                 <h2>Log:</h2>
-                <table id="log_data" class="table">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Level</th>
-                            <th>Message</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <div class="tableFixHead">
+                    <table id="log_data" class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Time</th>
+                                <th scope="col">Level</th>
+                                <th scope="col">Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
