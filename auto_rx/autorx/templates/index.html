@@ -6,6 +6,7 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tabulator_simple.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet">
 
@@ -14,6 +15,7 @@
     <script src="{{ url_for('static', filename='js/jquery-ui.min.js')}}"></script>
     <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
@@ -135,6 +137,7 @@
                 maxZoom: 18,
             });
             sondemap.addControl(new L.Control.Layers({'OSM':osm_map, 'ESRI Satellite':esri_sat_map}));
+            sondemap.addControl(new L.Control.Fullscreen());
 
             // Home Icon.
             var homeIcon = L.icon({
