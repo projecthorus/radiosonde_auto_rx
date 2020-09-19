@@ -436,6 +436,25 @@ def lsusb():
     return devices
 
 
+def is_not_linux():
+    """
+    Attempt to detect a non-native-Linux system (e.g. OSX or WSL),
+    where lsusb isn't going to work.
+    """
+    # Basic check for non-Linux platforms (e.g. Darwin or Windows)
+    if platform.system() != 'Linux':
+        return True
+    
+    # Second check for the existence of '-Microsoft' in the uname release field.
+    # This is a good check that we are running in WSL.
+    # Note the use of indexing instead of the named field, for Python 2 & 3 compatability.
+    if 'Microsoft' in platform.uname()[2]:
+        return True
+
+    # Else, we're probably in native Linux!
+    return False
+
+
 def reset_usb(bus, device):
     """Reset the USB device with the given bus and device."""
     usb_file_path = '/dev/bus/usb/%03d/%03d' % (bus, device)
@@ -463,7 +482,8 @@ def reset_rtlsdr_by_serial(serial):
     """ Attempt to reset a RTLSDR with a provided serial number """
 
     # If not Linux, return immediately.
-    if platform.system() != 'Linux':
+    if is_not_linux():
+        logging.debug("RTLSDR - Not a native Linux system, skipping reset attempt.")
         return
 
     lsusb_info = lsusb()
@@ -496,7 +516,8 @@ def find_rtlsdr(serial=None):
     """ Search through lsusb and see if an RTLSDR exists """
 
     # If not Linux, return immediately, and assume the RTLSDR exists..
-    if platform.system() != 'Linux':
+    if is_not_linux():
+        logging.debug("RTLSDR - Not a native Linux system, skipping RTLSDR search.")
         return True
 
     lsusb_info = lsusb()
@@ -535,7 +556,8 @@ def reset_all_rtlsdrs():
     """ Reset all RTLSDR devices found in the lsusb tree """
 
     # If not Linux, return immediately.
-    if platform.system() != 'Linux':
+    if is_not_linux():
+        logging.debug("RTLSDR - Not a native Linux system, skipping reset attempt.")
         return
 
     lsusb_info = lsusb()
@@ -581,6 +603,7 @@ def rtlsdr_test(device_idx='0', rtl_sdr_path="rtl_sdr", retries = 5):
     # as this indicates this is not actually a RTLSDR, but a client connecting to some other
     # SDR server.
     if device_idx.startswith('TCP'):
+        logging.debug("RTLSDR - TCP Device, skipping RTLSDR test step.")
         return True
 
     _rtl_cmd = "timeout 5 %s -d %s -n 200000 - > /dev/null" % (rtl_sdr_path, str(device_idx))
