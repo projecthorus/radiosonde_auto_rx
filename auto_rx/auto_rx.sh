@@ -10,7 +10,7 @@
 #
 
 # change into appropriate directory
-cd /home/pi/radiosonde_auto_rx/auto_rx/
+cd $(dirname $0)
 
 # Clean up old files
 rm log_power*.csv
