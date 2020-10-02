@@ -351,6 +351,7 @@ class APRSUploader(object):
             self.object_name_override = "<id>"
         else:
             self.object_name_override = object_name_override
+            self.log_info("Using APRS Object Name Override: %s" % self.object_name_override)
 
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.

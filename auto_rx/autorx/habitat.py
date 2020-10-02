@@ -402,7 +402,6 @@ class HabitatUploader(object):
                 user_callsign = 'N0CALL', 
                 station_position = (0.0,0.0,0.0),
                 user_antenna = "",
-                payload_callsign_override = None,
                 synchronous_upload_time = 30,
                 callsign_validity_threshold = 5,
                 upload_queue_size = 16,
@@ -420,10 +419,6 @@ class HabitatUploader(object):
             station_position (tuple): Optional - a tuple consisting of (lat, lon, alt), which if populated,
                 is used to plot the listener's position on the Habitat map, both when this class is initialised, and
                 when a new sonde ID is observed.
-
-            payload_callsign_override (str): Override the payload callsign in the uploaded sentence with this value.
-                WARNING: This will horribly break the tracker map if multiple sondes are uploaded under the same callsign.
-                USE WITH CAUTION!!!
 
             synchronous_upload_time (int): Upload the most recent telemetry when time.time()%synchronous_upload_time == 0
                 This is done in an attempt to get multiple stations uploading the same telemetry sentence simultaneously,
@@ -446,7 +441,6 @@ class HabitatUploader(object):
         self.user_callsign = user_callsign
         self.station_position = station_position
         self.user_antenna = user_antenna
-        self.payload_callsign_override = payload_callsign_override
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
         self.upload_retry_interval = upload_retry_interval
@@ -502,6 +496,7 @@ class HabitatUploader(object):
     def user_position_upload(self):
         """ Upload the the station position to Habitat. """
         if self.station_position == None:
+            # Upload is successful, just flag it as OK and move on.
             self.last_user_position_upload = time.time()
             return False
 
@@ -510,6 +505,8 @@ class HabitatUploader(object):
             self.last_user_position_upload = time.time()
             return _success
         else:
+            # No position set, just flag the update as successful.
+            self.last_user_position_upload = time.time()
             return False
 
 
