@@ -181,8 +181,8 @@
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
                     {title:"Time", field:"datetime", headerSort:false},
                     {title:"Frame", field:"frame", headerSort:false},
-                    {title:"Latitude", field:"lat", headerSort:false},
-                    {title:"Longitude", field:"lon", headerSort:false},
+                    {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
+                    {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
                     {title:"Alt (m)", field:"alt", headerSort:false},
                     {title:"Vel (kph)", field:"vel_h", headerSort:false},
                     {title:"Asc (m/s)", field:"vel_v", headerSort:false},
@@ -234,8 +234,13 @@
                         }
 
                         // Modify some of the fields to fixed point values.
-                        sonde_id_data.lat = sonde_id_data.lat.toFixed(5);
-                        sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
+
+                        // Add Geo ref links to lat/lon fields.
+                        temp_lat = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lat.toFixed(5) + "</a>";
+                        temp_lon = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lon.toFixed(5) + "</a>";
+                        sonde_id_data.lat = temp_lat;
+                        sonde_id_data.lon = temp_lon;
+
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);

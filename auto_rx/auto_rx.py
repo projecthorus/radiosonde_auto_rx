@@ -635,10 +635,6 @@ def main():
 
     # Habitat Uploader
     if config['habitat_enabled']:
-        if config['habitat_payload_callsign'] == "<id>":
-            _habitat_payload_call = None
-        else:
-            _habitat_payload_call = config['habitat_payload_callsign']
 
         if config['habitat_upload_listener_position'] is False:
             _habitat_station_position = None
@@ -649,7 +645,6 @@ def main():
             user_callsign = config['habitat_uploader_callsign'],
             user_antenna = config['habitat_uploader_antenna'],
             station_position = _habitat_station_position,
-            payload_callsign_override = _habitat_payload_call,
             synchronous_upload_time = config['habitat_upload_rate'],
             callsign_validity_threshold = config['payload_id_valid'],
             url = config['habitat_url']
@@ -661,7 +656,8 @@ def main():
 
     # APRS Uploader
     if config['aprs_enabled']:
-        if config['aprs_object_id'] == "<id>":
+
+        if (config['aprs_object_id'] == "<id>") or (config['aprs_use_custom_object_id'] == False):
             _aprs_object = None
         else:
             _aprs_object = config['aprs_object_id']

@@ -23,6 +23,12 @@ except ImportError:
     # Python 3
     from configparser import RawConfigParser
 
+# Fixed minimum update rates for APRS & Habitat
+# These are set to avoid congestion on the APRS-IS network, and on the Habitat server
+# Please respect other users of these networks and leave these settings as they are.
+MINIMUM_APRS_UPDATE_RATE = 30
+MINIMUM_HABITAT_UPDATE_RATE = 30
+
 def read_auto_rx_config(filename, no_sdr_test=False):
 	""" Read an Auto-RX v2 Station Configuration File.
 
@@ -91,6 +97,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		'aprs_pass'		: '00000',
 		'aprs_server'	: 'rotate.aprs2.net',
 		'aprs_object_id': '<id>',
+		'aprs_use_custom_object_id': False,
 		'aprs_custom_comment': 'Radiosonde Auto-RX <freq>',
 		'aprs_position_report': False,
 		'station_beacon_enabled': False,
@@ -208,7 +215,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		# Habitat Settings
 		auto_rx_config['habitat_enabled'] = config.getboolean('habitat', 'habitat_enabled')
 		auto_rx_config['habitat_upload_rate'] = config.getint('habitat', 'upload_rate')
-		auto_rx_config['habitat_payload_callsign'] = config.get('habitat', 'payload_callsign')
 		auto_rx_config['habitat_uploader_callsign'] = config.get('habitat', 'uploader_callsign')
 		auto_rx_config['habitat_upload_listener_position'] = config.getboolean('habitat','upload_listener_position')
 		auto_rx_config['habitat_uploader_antenna'] = config.get('habitat', 'uploader_antenna').strip()
@@ -216,6 +222,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 			auto_rx_config['habitat_url'] = config.get('habitat','url') 
 		except:
 			pass
+
+		if auto_rx_config['habitat_upload_rate'] < MINIMUM_HABITAT_UPDATE_RATE:
+			logging.warning("Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat." % MINIMUM_HABITAT_UPDATE_RATE)
+			auto_rx_config['habitat_upload_rate'] = MINIMUM_HABITAT_UPDATE_RATE
 
 		# APRS Settings
 		auto_rx_config['aprs_enabled'] = config.getboolean('aprs', 'aprs_enabled')
@@ -230,6 +240,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config['station_beacon_rate'] = config.getint('aprs', 'station_beacon_rate')
 		auto_rx_config['station_beacon_comment'] = config.get('aprs', 'station_beacon_comment')
 		auto_rx_config['station_beacon_icon'] = config.get('aprs', 'station_beacon_icon')
+
+		if auto_rx_config['aprs_upload_rate'] < MINIMUM_APRS_UPDATE_RATE:
+			logging.warning("Config - APRS Update Rate clipped to minimum of %d seconds. Please be respectful of other users of APRS-IS." % MINIMUM_APRS_UPDATE_RATE)
+			auto_rx_config['aprs_upload_rate'] = MINIMUM_APRS_UPDATE_RATE
 
 		# OziPlotter Settings
 		auto_rx_config['ozi_enabled'] = config.getboolean('oziplotter', 'ozi_enabled')
@@ -321,6 +335,12 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 			auto_rx_config['min_radius_km'] = 0
 			auto_rx_config['radius_temporary_block'] = False
 
+		try:
+			auto_rx_config['aprs_use_custom_object_id'] = config.getboolean('aprs','aprs_use_custom_object_id')
+		except:
+			logging.warning("Config - Did not find aprs_use_custom_object_id setting, using default (False)")
+			auto_rx_config['aprs_use_custom_object_id'] = False
+
 		# If we are being called as part of a unit test, just return the config now.
 		if no_sdr_test:
 			return auto_rx_config
@@ -353,10 +373,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 				continue
 
 		# Sanity checks when using more than one SDR
-		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['habitat_payload_callsign'] != "<id>"):
-			logging.critical("Fixed Habitat Payload callsign used in a multi-SDR configuration. Go read the warnings in the config file!")
-			return None
-
 		if (len(auto_rx_config['sdr_settings'].keys()) > 1) and (auto_rx_config['aprs_object_id'] != "<id>"):
 			logging.critical("Fixed APRS object ID used in a multi-SDR configuration. Go read the warnings in the config file!")
 			return None
