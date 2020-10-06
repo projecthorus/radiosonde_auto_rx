@@ -175,7 +175,6 @@ class SondeDecoder(object):
         self.rs41_drift_tweak = rs41_drift_tweak
         self.experimental_decoder = experimental_decoder
         self.imet_location = imet_location
-        self.telemetry = {}
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
         # which don't necessarily have a consistent packet count to time increment ratio.
@@ -1162,11 +1161,11 @@ class SondeDecoder(object):
                             _exporter(_telemetry)
                         except Exception as e:
                             self.log_error("Exporter Error %s" % str(e))
-            self.telemetry = _telemetry
+
             return _telem_ok
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading.
+        """ Helper function to log a debug message with a descriptive heading. 
         Args:
             line (str): Message to be logged.
         """
@@ -1203,16 +1202,13 @@ class SondeDecoder(object):
             self.decoder.join()
 
     def running(self):
-        """ Check if the decoder subprocess is running.
+        """ Check if the decoder subprocess is running. 
 
         Returns:
             bool: True if the decoder subprocess is running.
         """
         return self.decoder_running
 
-    def getTelemetry(self):
-        """ Return telemetry data """
-        return self.telemetry
 
 if __name__ == "__main__":
     # Test script.
