@@ -140,7 +140,7 @@ def flak_get_kml():
 def flak_get_kml_feed():
     """ Return KML with RS telemetry """
 
-    header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://earth.google.com/kml/2.2\">"
+    header = "<kml xmlns=\"http://earth.google.com/kml/2.2\">"
     body = ""
     # Read in the task list, index by SDR ID.
     _task_list = {}
@@ -169,7 +169,7 @@ def flak_get_kml_feed():
                 </Placemark>"
             except:
                 pass
-    footer = "</kml></xml>"
+    footer = "</kml>"
     return header+body+footer, 200, { 'content-type':'application/vnd.google-earth.kml+xml' }
 
 @app.route("/rs.kml")
