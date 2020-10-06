@@ -118,6 +118,59 @@ def flask_get_task_list():
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
 
+@app.route("/rs.kml")
+def flak_get_kml():
+    """ Return KML with autorefresh """
+    kml = "<kml xmlns=\"http://earth.google.com/kml/2.0\" > \
+      <Document>\
+        <NetworkLink>\
+          <name>Radiosonde AutoRX</name>\
+          <description>Live tracking of high altitude balloons via Google Earth</description>\
+          <Url>\
+          <href>" + flask.request.host_url + "rs_feed.kml</href>\
+            <refreshMode>onInterval</refreshMode>\
+            <refreshInterval>10</refreshInterval>\
+          </Url>\
+        </NetworkLink>\
+      </Document>\
+    </kml>"
+    return kml, 200, { 'content-type':'application/vnd.google-earth.kml+xml' }
+
+@app.route("/rs_feed.kml")
+def flak_get_kml_feed():
+    """ Return KML with RS telemetry """
+
+    header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://earth.google.com/kml/2.2\">"
+    body = ""
+    # Read in the task list, index by SDR ID.
+    _task_list = {}
+    for _task in autorx.task_list.keys():
+        if hasattr(autorx.task_list[_task]['task'], "getTelemetry"):
+            try:
+                telemetry = autorx.task_list[_task]['task'].getTelemetry()
+                print (telemetry);
+                body += "<Placemark> \
+                <name>"+telemetry['id']+"</name> \
+                <description>"+telemetry['type']+"</description> \
+                <visibility>1</visibility>\
+                <LookAt>\
+                  <longitude>"+str(telemetry['lon'])+"</longitude>\
+                  <latitude>"+str(telemetry['lat'])+"</latitude>\
+                  <altitude>"+str(telemetry['alt'])+"</altitude>\
+                  <altitudeMode>absolute</altitudeMode>\
+                  <range>20000</range>\
+                  <tilt>25</tilt>\
+                  <heading>0</heading>\
+                </LookAt>\
+                <Point> \
+                <altitudeMode>absolute</altitudeMode>\
+                <coordinates>"+str(telemetry['lat'])+","+str(telemetry['lon'])+","+str(telemetry['alt'])+"</coordinates> \
+                </Point> \
+                </Placemark>"
+            except:
+                pass
+    footer = "</kml></xml>"
+    return header+body+footer, 200, { 'content-type':'application/vnd.google-earth.kml+xml' }
 
 @app.route("/rs.kml")
 def flask_get_kml():
