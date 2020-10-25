@@ -133,6 +133,7 @@ class EmailNotification(object):
                         _subject += " - ENCRYPTED SONDE"
 
                 logging.debug("Email - Subject: %s" % _subject)
+                logging.debug("Email - Message: %s" % msg)
 
 
                 # Connect to the SMTP server.
@@ -169,6 +170,57 @@ class EmailNotification(object):
                 self.log_error("Error sending E-mail - %s" % str(e))
 
         self.sondes[_id] = { 'last_time': time.time() }
+
+
+    def send_notification_email(self, subject="radiosonde_auto_rx Station Notification", message="Foobar"):
+        """ Generic e-mail notification function, for sending error messages. """
+        try:
+            msg  = 'radiosonde_auto_rx Email Notification Message:\n'
+            msg += 'Timestamp: %s\n' % datetime.datetime.now().isoformat()
+            msg += message
+            msg += '\n'
+
+            # Construct subject
+            _subject = subject
+
+            logging.debug("Email - Subject: %s" % _subject)
+            logging.debug("Email - Message: %s" % msg)
+
+            # Connect to the SMTP server.
+
+            if self.smtp_authentication == 'SSL':
+                s = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            else:
+                s = smtplib.SMTP(self.smtp_server, self.smtp_port)
+
+            if self.smtp_authentication == 'TLS':
+                s.starttls()
+
+            if self.smtp_login != "None":
+                s.login(self.smtp_login, self.smtp_password) 
+
+            # Send messages to all recepients.
+            for _destination in self.mail_to.split(';'):
+                mime_msg = MIMEText(msg, 'plain', 'UTF-8')
+
+                mime_msg['From'] = self.mail_from
+                mime_msg['To'] = _destination
+                mime_msg["Date"] = formatdate()
+                mime_msg['Subject'] = _subject
+
+                s.sendmail(mime_msg['From'], _destination, mime_msg.as_string())
+
+                time.sleep(2)
+
+            
+            s.quit()
+
+            self.log_info("E-mail notification sent.")
+        except Exception as e:
+            self.log_error("Error sending E-mail notification - %s" % str(e))
+        
+
+        pass
 
 
     def close(self):
@@ -215,6 +267,7 @@ class EmailNotification(object):
 
 if __name__ == "__main__":
     # Test Script - Send an example email using the settings in station.cfg
+    import sys
 
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.DEBUG)
     
@@ -235,6 +288,10 @@ if __name__ == "__main__":
 
     # Wait a second..
     time.sleep(1)
+
+    if len(sys.argv) > 1:
+        _email_notification.send_notification_email(message="This is a test message")
+        time.sleep(1)
 
     # Add in a packet of telemetry, which will cause the email notifier to send an email.
     _email_notification.add({'id':'N1234557', 'frame':10, 'lat':-10.0, 'lon':10.0, 'alt':10000, 'temp':1.0, 'type':'RS41', 'freq':'401.520 MHz', 'freq_float':401.52, 'heading':0.0, 'vel_h':5.1, 'vel_v':-5.0, 'datetime_dt':datetime.datetime.utcnow()})

@@ -50,6 +50,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		'per_sonde_log' : True,
         # Email Settings
         'email_enabled': False,
+		'email_error_notifications': False,
         'email_smtp_server': 'localhost',
         'email_smtp_port': 25,
         'email_smtp_authentication': 'None',
@@ -340,6 +341,12 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		except:
 			logging.warning("Config - Did not find aprs_use_custom_object_id setting, using default (False)")
 			auto_rx_config['aprs_use_custom_object_id'] = False
+
+		try:
+			auto_rx_config['email_error_notifications'] = config.getboolean('email', 'email_error_notifications')
+		except:
+			logging.warning("Config - Did not find email_error_notifications setting, using default (False)")
+			auto_rx_config['email_error_notifications'] = False
 
 		# If we are being called as part of a unit test, just return the config now.
 		if no_sdr_test:

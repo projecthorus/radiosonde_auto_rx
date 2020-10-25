@@ -326,7 +326,6 @@ def handle_scan_results():
 
 def clean_task_list():
     """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
-    global email_exporter
 
     for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
@@ -354,11 +353,11 @@ def clean_task_list():
                 # The SDR was not able to be recovered after many attempts.
                 # Remove it from the SDR list and flag an error.
                 autorx.sdr_list.pop(_task_sdr)
-                logging.error("Task Manager - Removed SDR %s from SDR list due to repeated failures." % (str(_task_sdr)))
+                _error_msg = "Task Manager - Removed SDR %s from SDR list due to repeated failures." % (str(_task_sdr))
+                logging.error(_error_msg)
                 
-                if email_exporter:
-                    # TODO: Send e-mail notification.
-                    pass
+                # Send email if configured.
+                email_error(_error_msg)
 
             else:
                 # Release its associated SDR.
@@ -512,6 +511,18 @@ def station_position_update(position):
             traceback.print_exc()
             logging.error("Error updating exporter station position.")
 
+
+def email_error(message="foo"):
+    """ Helper function to email an error message, if the email exporter is available """
+    global email_exporter
+
+    if email_exporter and config['email_error_notifications']:
+        try:
+            email_exporter.send_notification_email(message=message)
+        except Exception as e:
+            logging.error("Error attempting to send notification email: %s" % str(e))
+    else:
+        logging.debug("Not sending Email notification, as Email not configured.")
 
 
 def main():
@@ -755,6 +766,7 @@ def main():
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!
             logging.critical("Task Manager - No SDRs available! Cannot continue...")
+            email_error("auto_rx exited due to all SDRs being marked as failed.")
             raise IOError("No SDRs available!")
 
         # Allow a timeout after a set time, for users who wish to run auto_rx

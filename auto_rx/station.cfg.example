@@ -252,6 +252,11 @@ payload_summary_port = 55673
 [email]
 email_enabled = False
 
+# Enable sending critical error notifications via email.
+# WARNING: If an error is persistent and you are running as a systemd service, this could result
+# in many e-mails being sent!
+email_error_notifications = False
+
 # Server details. Note that usually Port 465 is used for SSL auth, and 587 is used for TLS.
 smtp_server = localhost
 smtp_port = 25
