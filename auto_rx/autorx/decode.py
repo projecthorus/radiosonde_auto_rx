@@ -158,6 +158,9 @@ class SondeDecoder(object):
 
         self.exit_state = "OK"
 
+        # UDP Mode - Accepts incoming data via UDP.
+        self.udp_mode = sonde_type == "UDP"
+
         # Detect if we have an 'inverted' sonde.
         if self.sonde_type.startswith('-'):
             self.inverted = True
@@ -694,7 +697,7 @@ class SondeDecoder(object):
 
 
             # Check timeout counter.
-            if time.time() > (_last_packet + self.timeout):
+            if (time.time() > (_last_packet + self.timeout)) and not self.udp_mode:
                 # If we have not seen data for a while, break.
                 self.log_error("RX Timed out.")
                 self.exit_state = "Timeout"
@@ -799,7 +802,7 @@ class SondeDecoder(object):
                 self.log_error("Invalid date/time in telemetry dict - %s (Sonde may not have GPS lock)" % str(e))
                 return False
 
-            if self.sonde_type == 'UDP':
+            if self.udp_mode:
                 # If we are accepting sondes via UDP, we make use of the 'type' field provided by
                 # the decoder.
                 self.sonde_type = _telemetry['type']
