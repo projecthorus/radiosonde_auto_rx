@@ -805,9 +805,9 @@ class SondeDecoder(object):
                 self.sonde_type = _telemetry['type']
 
                 # If frequency has been provided, make used of it.
-                # Frequency must be supplied in Hz!
+                # Frequency must be supplied in kHz!
                 if 'freq' in _telemetry:
-                    self.sonde_freq = _telemetry['freq']
+                    self.sonde_freq = float(_telemetry['freq'])*1e3
 
             # Add in the sonde type field.
             if 'subtype' in _telemetry:
