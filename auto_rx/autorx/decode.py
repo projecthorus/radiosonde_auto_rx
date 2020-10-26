@@ -802,8 +802,12 @@ class SondeDecoder(object):
             if self.sonde_type == 'UDP':
                 # If we are accepting sondes via UDP, we make use of the 'type' field provided by
                 # the decoder.
-                # Note that the types returned by the 
                 self.sonde_type = _telemetry['type']
+
+                # If frequency has been provided, make used of it.
+                # Frequency must be supplied in Hz!
+                if 'freq' in _telemetry:
+                    self.sonde_freq = _telemetry['freq']
 
             # Add in the sonde type field.
             if 'subtype' in _telemetry:

@@ -20,6 +20,9 @@ sdr_quantity = 1
 #	If using multiple SDRs, you MUST allocate each SDR a unique serial number using rtl_eeprom
 #	i.e. to set the serial number of a (single) connected RTLSDR: rtl_eeprom -s 00000002
 #	Then set the device_idx below to 00000002, and repeat for the other [sdr_n] sections below
+#
+#   For the special case when auto_rx is used entirely with a JSON-via-UDP input, set the below to TCP001
+#   This will bypass all RTLSDR checks and allow auto_rx to continue running.
 device_idx = 0
 
 # Frequency Correction (ppm offset)
