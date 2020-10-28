@@ -129,7 +129,7 @@ def flak_get_kml():
     netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
         netlink.link.refreshinterval = _config['kml_refresh_rate']
-    except:
+    except KeyError:
         netlink.link.refreshinterval = 10
     netlink.link.refreshmode = 'onInterval'
     return kml.kml(), 200, \
@@ -151,7 +151,7 @@ def flak_get_kml_feed():
                                    description=telemetry['type'])
                 pnt.coords = [(telemetry['lon'], telemetry['lat'],
                               telemetry['alt'])]
-            except:
+            except Exception:
                 pass
     return kml.kml(), 200, \
         {'content-type': 'application/vnd.google-earth.kml+xml'}
