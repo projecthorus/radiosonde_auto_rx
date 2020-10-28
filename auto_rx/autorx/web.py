@@ -118,6 +118,7 @@ def flask_get_task_list():
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
 
+
 @app.route("/rs.kml")
 def flak_get_kml():
     """ Return KML with autorefresh """
@@ -125,33 +126,36 @@ def flak_get_kml():
     _config = autorx.config.global_config
     kml = simplekml.Kml()
     netlink = kml.newnetworklink(name="Radiosonde AutoRX")
-    netlink.link.href = flask.request.host_url
+    netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
         netlink.link.refreshinterval = _config['kml_refresh_rate']
     except:
         netlink.link.refreshinterval = 10
-    netlink.link.refreshmode = 'interval'
-    return kml.kml(), 200, { 'content-type':'application/vnd.google-earth.kml+xml' }
+    netlink.link.refreshmode = 'onInterval'
+    return kml.kml(), 200, \
+        {'content-type': 'application/vnd.google-earth.kml+xml'}
+
 
 @app.route("/rs_feed.kml")
 def flak_get_kml_feed():
     """ Return KML with RS telemetry """
 
-    header = "<kml xmlns=\"http://earth.google.com/kml/2.2\">"
-    body = ""
     kml = simplekml.Kml()
     # Read in the task list, index by SDR ID.
-    _task_list = {}
     for _task in autorx.task_list.keys():
         if hasattr(autorx.task_list[_task]['task'], "getTelemetry"):
             try:
                 telemetry = autorx.task_list[_task]['task'].getTelemetry()
-                print (telemetry);
-                pnt = kml.newpoint(name=telemetry['id'], description=telemetry['type'])
-                pnt.coords = [(telemetry['lat'], telemetry['lon'], telemetry['alt'])]
+                print(telemetry)
+                pnt = kml.newpoint(name=telemetry['id'],
+                                   description=telemetry['type'])
+                pnt.coords = [(telemetry['lon'], telemetry['lat'],
+                              telemetry['alt'])]
             except:
                 pass
-    return kml.kml(), 200, { 'content-type':'application/vnd.google-earth.kml+xml' }
+    return kml.kml(), 200, \
+        {'content-type': 'application/vnd.google-earth.kml+xml'}
+
 
 @app.route("/rs.kml")
 def flask_get_kml():
