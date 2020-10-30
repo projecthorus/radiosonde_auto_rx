@@ -474,8 +474,8 @@ def telemetry_filter(telemetry):
     dfm_callsign_valid = re.match(r'DFM-\d{6}', _serial)
 
     # Check Meisei sonde callsigns for validity.
-    # meisei_ims returns a callsign of IMS100-0 until it receives the serial number, so we filter based on the 0 being present or not.
-    if 'MEISEI' in telemetry['type']:
+    # meisei_ims returns a callsign of IMS100-xxxxxx until it receives the serial number, so we filter based on the x's being present or not.
+    if 'IMS100' in telemetry['type']:
         meisei_callsign_valid = 'x' not in _serial.split('-')[1]
     else:
         meisei_callsign_valid = False
