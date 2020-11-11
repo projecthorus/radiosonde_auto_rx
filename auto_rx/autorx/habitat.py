@@ -403,7 +403,7 @@ class HabitatUploader(object):
                 station_position = (0.0,0.0,0.0),
                 user_antenna = "",
                 synchronous_upload_time = 30,
-                callsign_validity_threshold = 5,
+                callsign_validity_threshold = 2,
                 upload_queue_size = 16,
                 upload_timeout = 10,
                 upload_retries = 5,
@@ -705,7 +705,7 @@ class HabitatUploader(object):
 
                 if _id not in self.observed_payloads:
                     # We haven't seen this ID before, so create a new dictionary entry for it.
-                    self.observed_payloads[_id] = {'count':1, 'data':Queue(), 'habitat_document': False, 'listener_updated': False}
+                    self.observed_payloads[_id] = {'count':1, 'data':Queue(), 'habitat_document': False, 'first_uploaded': False}
                     self.log_debug("New Payload %s. Not observed enough to allow upload." % _id)
                     # However, we don't yet add anything to the queue for this payload...
                 else:
@@ -716,12 +716,14 @@ class HabitatUploader(object):
                     # If we have seen this particular ID enough times, add the data to the ID's queue.
                     if self.observed_payloads[_id]['count'] >= self.callsign_validity_threshold:
 
-                        # If this is the first time we have observed this payload, update the listener position.
-                        if (self.observed_payloads[_id]['listener_updated'] == False) and (self.station_position is not None):
-                            self.observed_payloads[_id]['listener_updated'] = self.user_position_upload()
+                        # If this is the first time we have observed this payload, immediately upload the first position we got.
+                        if self.observed_payloads[_id]['first_uploaded'] == False:
                             # Because receiving balloon telemetry appears to be a competition, immediately upload the
                             # first valid position received.
                             self.handle_telem_dict(_telem, immediate=True)
+
+                            self.observed_payloads[_id]['first_uploaded'] = True
+
                         else:
                             # Otherwise, add the telemetry to the upload queue
                             self.observed_payloads[_id]['data'].put(_telem)
