@@ -96,12 +96,17 @@ def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
     # Add in a comment field, containing the sonde type, serial number, and frequency.
     _sentence += ",%s %s %s" % (telemetry['type'], telemetry['id'], _freq)
 
+    # Add in pressure data, if valid (not -1)
+    if telemetry['pressure'] > 0.0:
+        _sentence += " %.1fhPa" % telemetry['pressure']
+
     # Check for Burst/Kill timer data, and add in.
     if 'bt' in telemetry:
         if (telemetry['bt'] != -1) and (telemetry['bt'] != 65535):
             _sentence += " BT %s" % time.strftime("%H:%M:%S", time.gmtime(telemetry['bt']))
 
-    if 'batt' in telemetry:
+    # Add in battery voltage, if the field is valid (e.g. not -1)
+    if telemetry['batt'] > 0.0:
         _sentence += " %.1fV" % telemetry['batt']
 
     # Add on any custom comment data if provided.

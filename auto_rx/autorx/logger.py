@@ -36,9 +36,9 @@ class TelemetryLogger(object):
     FILE_ACTIVITY_TIMEOUT = 300
 
     # We require the following fields to be present in the input telemetry dict.
-    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'type', 'freq', 'datetime_dt', 'vel_v', 'vel_h', 'heading']
+    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'humidity', 'pressure', 'type', 'freq', 'datetime_dt', 'vel_v', 'vel_h', 'heading']
 
-    LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
+    LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,pressure,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
 
     def __init__(self,
         log_directory = "./log"):
@@ -119,7 +119,7 @@ class TelemetryLogger(object):
             telemetry (dict): Telemetry dictionary to process.
         """
         # timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq,other
-        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%s,%.3f" % (
+        _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%s,%.3f" % (
             telemetry['datetime'],
             telemetry['id'],
             telemetry['frame'],
@@ -131,6 +131,7 @@ class TelemetryLogger(object):
             telemetry['heading'],
             telemetry['temp'],
             telemetry['humidity'],
+            telemetry['pressure'],
             telemetry['type'],
             telemetry['freq_float'])
 
