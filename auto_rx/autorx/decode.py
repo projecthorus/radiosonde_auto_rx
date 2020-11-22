@@ -59,15 +59,23 @@ class SondeDecoder(object):
         "datetime_dt" (datetime): Telemetry sentence time, as a datetime object.
     '''
 
+    # IF we don't have any of the following fields provided, we discard the incoming packet.
     DECODER_REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt']
+    # If we are missing any of the following fields, we add in default values to the telemetry
+    # object which is passed on to the various other consumers.
     DECODER_OPTIONAL_FIELDS = {
         'temp'      : -273.0,
-        'humidity'  : -1,
+        'humidity'  : -1.0,
+        'pressure'  : -1,
         'batt'      : -1,
         'vel_h'     : 0.0,
         'vel_v'     : 0.0,
         'heading'   : 0.0
     }
+    # Note: The decoders may also supply other fields, such as:
+    # 'batt' - Battery voltage, in volts.
+    # 'pressure' - Pressure, in hPa
+    # 'bt' - RS41 burst timer data.
 
     # TODO: Use the global valid sonde type list.
     VALID_SONDE_TYPES = ['RS92', 'RS41', 'DFM', 'M10', 'M20', 'IMET', 'MK2LMS', 'LMS6', 'MEISEI', 'UDP']
@@ -779,7 +787,10 @@ class SondeDecoder(object):
                     self.log_error("JSON object missing required field %s" % _field)
                     return False
 
-            # Check for optional fields, and add them if necessary.
+
+            # Check for fields which we need for logging purposes, but may not always be provided
+            # in the incoming JSON object.
+            # These get added in with dummy values.
             for _field in self.DECODER_OPTIONAL_FIELDS.keys():
                 if _field not in _telemetry:
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]

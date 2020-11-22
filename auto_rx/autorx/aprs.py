@@ -111,6 +111,9 @@ def telemetry_to_aprs_position(sonde_data, object_name="<id>", aprs_comment="BOM
     _aprs_comment = _aprs_comment.replace("<freq>", _freq)
     _aprs_comment = _aprs_comment.replace("<id>", sonde_data['id'])
     _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data['temp'])
+    _aprs_comment = _aprs_comment.replace("<pressure>", "%.1fhPa" % sonde_data['pressure'])
+    _aprs_comment = _aprs_comment.replace("<humidity>", "%.1f" % sonde_data['humidity'] + "%")
+    _aprs_comment = _aprs_comment.replace("<batt>", "%.1fV" % sonde_data['batt'])
     _aprs_comment = _aprs_comment.replace("<vel_v>", "%.1fm/s" % sonde_data['vel_v'])
     _aprs_comment = _aprs_comment.replace("<type>", sonde_data['type'])
 
