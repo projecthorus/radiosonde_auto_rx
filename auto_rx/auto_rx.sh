@@ -15,5 +15,5 @@ cd /home/pi/radiosonde_auto_rx/auto_rx/
 # Clean up old files
 rm log_power*.csv
 
-# Start auto_rx process with a 3 hour timeout.
-python auto_rx.py -t 180
+# Start auto_rx process
+python auto_rx.py
