@@ -566,10 +566,10 @@ static float get_RH(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T) {
     float a1 = 350.0/gpx->ptu_calH[0]; // empirical
     float fh = (f-f1)/(float)(f2-f1);
     float rh = 100.0 * ( a1*fh - a0 );
-    float T0 = 0.0, T1 = -25.0, T2 = -40.0; // T/C
+    float T0 = 0.0, T1 = -20.0, T2 = -40.0; // T/C    v0.4
     rh += T0 - T/5.5;                       // empir. temperature compensation
-    if (T < T1) rh *= 1.0 + (T1-T)/90.0;    // empir. temperature compensation
-    if (T < T2) rh *= 1.0 + (T2-T)/100.0;   // empir. temperature compensation v0.3
+    if (T < T1) rh *= 1.0 + (T1-T)/100.0;   // empir. temperature compensation
+    if (T < T2) rh *= 1.0 + (T2-T)/120.0;   // empir. temperature compensation
     if (rh < 0.0) rh = 0.0;
     if (rh > 100.0) rh = 100.0;
     if (T < -273.0) rh = -1.0;
@@ -597,7 +597,7 @@ static float vaporSatP(float Tc) {
 
     return (float)p; // [Pa]
 }
-// cf. github DF9DQ  // offset stratosphere rh=5% ?
+// cf. github DF9DQ  // offset stratosphere RH2(-60C)=+5% , RH2(-40C)=+1% ?
 static float get_RH2adv(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T, float TH) {
     float rh  = 0.0;
     float cfh = (f-f1)/(float)(f2-f1);
