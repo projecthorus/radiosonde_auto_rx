@@ -603,7 +603,7 @@ static float get_RH2adv(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T, flo
     float cfh = (f-f1)/(float)(f2-f1);
     float cap = gpx->ptu_Cf1+(gpx->ptu_Cf2-gpx->ptu_Cf1)*cfh;
     double Cp = (cap / gpx->ptu_calH[0] - 1.0) * gpx->ptu_calH[1];
-    double Trh = TH;
+    double Trh_20_180 = (TH - 20.0) / 180.0;
     double _rh = 0.0;
     double aj = 1.0;
     double bk = 1.0, b[6];
@@ -612,7 +612,7 @@ static float get_RH2adv(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T, flo
     bk = 1.0;
     for (k = 0; k < 6; k++) {
         b[k] = bk;
-        bk *= (Trh - 20.0) / 180.0;
+        bk *= Trh_20_180;
     }
 
     aj = 1.0;
@@ -621,6 +621,11 @@ static float get_RH2adv(gpx_t *gpx, ui32_t f, ui32_t f1, ui32_t f2, float T, flo
             _rh += aj * b[k] * gpx->ptu_mtxH[6*j+k];
         }
         aj *= Cp;
+    }
+
+    if ( 1 ) {   // empirical correction
+        float T2 = -40;
+        if (T < T2) { _rh += (T-T2)/12.0; }
     }
 
     rh = _rh * vaporSatP(TH)/vaporSatP(T);
@@ -737,7 +742,7 @@ static int get_PTU(gpx_t *gpx, int ofs, int pck) {
             printf("3: %8d %8d %8d", meas[6], meas[7], meas[8]);
             printf("   #   ");
 
-            //if (Tc > -273.0 && RH > -0.5)
+            if (0 && Tc > -273.0 && RH > -0.5)
             {
                 printf("  ");
                 printf(" Tc:%.2f ", Tc);
@@ -1699,14 +1704,18 @@ static int print_position(gpx_t *gpx, int ec) {
                         fprintf(stdout, "{ \"type\": \"%s\"", "RS41");
                         fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d, \"bt\": %d, \"batt\": %.2f",
                                        gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSV, gpx->conf_cd, gpx->batt );
-                        if (gpx->option.ptu && !err0 && gpx->T > -273.0) {
-                            fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
-                        }
-                        if (gpx->option.ptu > 1 && !err0 && gpx->RH2 > -0.5) {
-                            fprintf(stdout, ", \"humidity\": %.1f",  gpx->RH2 );
-                        }
-                        if (gpx->option.ptu && !err0 && gpx->P > 0.0) {
-                            fprintf(stdout, ", \"pressure\": %.2f",  gpx->P );
+                        if (gpx->option.ptu && !err0) {
+                            float _RH = gpx->RH;
+                            if (gpx->option.ptu == 2) _RH = gpx->RH2;
+                            if (gpx->T > -273.0) {
+                                fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
+                            }
+                            if (_RH > -0.5) {
+                                fprintf(stdout, ", \"humidity\": %.1f",  _RH );
+                            }
+                            if (gpx->P > 0.0) {
+                                fprintf(stdout, ", \"pressure\": %.2f",  gpx->P );
+                            }
                         }
                         if (gpx->aux) { // <=> gpx->xdata[0]!='\0'
                             fprintf(stdout, ", \"aux\": \"%s\"",  gpx->xdata );
