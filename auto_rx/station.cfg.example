@@ -26,7 +26,7 @@ sdr_quantity = 1
 device_idx = 0
 
 # Frequency Correction (ppm offset)
-# 	Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
+# Refer here for a method of determining this correction: https://gist.github.com/darksidelemm/b517e6a9b821c50c170f1b9b7d65b824
 ppm = 0
 
 # SDR Gain Setting
