@@ -283,7 +283,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            decode_cmd += "./rs41mod --ptu --json 2>/dev/null"
+            decode_cmd += "./rs41mod --ptu2 --json 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -480,7 +480,7 @@ class SondeDecoder(object):
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (_lower, _upper, _stats_rate, _sdr_rate, _baud_rate)
             
-            decode_cmd = "./rs41mod --ptu --json --softin -i 2>/dev/null"
+            decode_cmd = "./rs41mod --ptu2 --json --softin -i 2>/dev/null"
 
             # RS41s transmit pulsed beacons - average over the last 2 frames, and use a peak-hold 
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)

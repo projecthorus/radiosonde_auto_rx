@@ -54,6 +54,7 @@ bias = False
 [search_params]
 # Minimum and maximum search frequencies, in MHz.
 # Australia: Use 400.05 - 403 MHz
+# New Zealand: Use 400.05 - 404 MHz
 # Europe: Use 400.05 - 406 MHz
 # US: 
 #   Some areas have transitioned to the 400.05 - 406 MHz band.
@@ -65,7 +66,7 @@ bias = False
 min_freq = 400.05
 max_freq = 403.0
 
-# Have the decoder timeout after X seconds of no valid data.
+# After rx_timeout seconds of no valid data from a decoder, stop the decoder and go back to scanning (if a SDR is available)
 rx_timeout = 180
 
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
@@ -147,6 +148,7 @@ aprs_enabled = False
 # APRS-IS Login Information
 # The aprs_user field can have an SSID on the end if desired, i.e. N0CALL-4
 aprs_user = N0CALL
+# APRS-IS Passcode. You can generate one for your callsign here: https://apps.magicbug.co.uk/passcode/
 aprs_pass = 00000
 
 # APRS Upload Rate - Upload a packet every X seconds.

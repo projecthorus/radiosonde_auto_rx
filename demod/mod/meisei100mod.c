@@ -122,7 +122,7 @@ typedef short i16_t;
 #define RAWBITFRAME_LEN (BITFRAME_LEN*2)
 
 typedef struct {
-    int frnr;
+    int frnr; int frnr1;
     int jahr; int monat; int tag;
     int std; int min; float sek;
     double lat; double lon; double alt;
@@ -134,6 +134,7 @@ typedef struct {
     ui32_t _sn;
     float sn; //  0 mod 16
     float fq; // 15 mod 64
+    int jsn_freq;   // freq/kHz (SDR)
     RS_t RS;
 } gpx_t;
 
@@ -210,12 +211,14 @@ int main(int argc, char **argv) {
         option_jsn = 0;    // JSON output (auto_rx)
     int option_min = 0;
     int option_iq = 0;
+    int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
     int option_softin = 0;
     int option_pcmraw = 0;
     int sel_wavch = 0;
     int wavloaded = 0;
+    int cfreq = -1;
 
     int option1 = 0,
         option2 = 0;
@@ -229,6 +232,7 @@ int main(int argc, char **argv) {
     int err_frm = 0;
     int gps_chk_sum = 0;
     int gps_err = 0;
+    int err_blks = 0;
 
     ui8_t block_err[6];
     int block;
@@ -264,6 +268,8 @@ int main(int argc, char **argv) {
     int symlen = 1;
     int bitofs = 0; // 0..+1
     int shift = 0;
+
+    int reset_gpx = 0;
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
@@ -332,6 +338,7 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--iqdc") == 0) { option_iqdc = 1; }  // iq-dc removal (iq0,2,3)
         else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
             double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
             ++argv;
@@ -350,6 +357,13 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--json") == 0) {
             option_jsn = 1;
             option_ecc = 1;
+        }
+        else if   (strcmp(*argv, "--jsn_cfq") == 0) {
+            int frq = -1;  // center frequency / Hz
+            ++argv;
+            if (*argv) frq = atoi(*argv); else return -1;
+            if (frq < 300000000) frq = -1;
+            cfreq = frq;
         }
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
@@ -381,6 +395,8 @@ int main(int argc, char **argv) {
     }
     if (!wavloaded) fp = stdin;
 
+    if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
+
 
     #ifdef EXT_FSK
     if (!option_softin) {
@@ -408,6 +424,11 @@ int main(int argc, char **argv) {
             }
         }
 
+        if (cfreq > 0) {
+            int fq_kHz = (cfreq - dsp.xlt_fq*pcm.sr + 500)/1e3;
+            gpx.jsn_freq = fq_kHz;
+        }
+
         symlen = 1;
 
         // init dsp
@@ -427,6 +448,7 @@ int main(int argc, char **argv) {
         dsp.BT = 1.2; // bw/time (ISI) // 1.0..2.0
         dsp.h = 2.4;  // 2.8
         dsp.opt_iq = option_iq;
+        dsp.opt_iqdc = option_iqdc;
         dsp.opt_lp = option_lp;
         dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
@@ -525,10 +547,11 @@ int main(int argc, char **argv) {
                 gps_chk_sum = 0;
                 gps_err = 0;
                 err_frm = 0;
+                err_blks = 0;
 
                 for (subframe = 0; subframe < 2; subframe++)
                 {                                                       // option2:
-                    subframe_bits = gpx.frame_bits;                         // subframe 0: 049DCE
+                    subframe_bits = gpx.frame_bits;                     // subframe 0: 049DCE
                     if (subframe > 0) subframe_bits += BITFRAME_LEN/4;  // subframe 1: FB6230
 
                     if (option_ecc) {
@@ -571,13 +594,23 @@ int main(int argc, char **argv) {
                             }
                             else  block_err[block] = errors;
 
+                            err_blks += (errors != 0);
                         }
                     }
 
                     if (!option2 && !option_raw) {
             jmpRS11:
+                        if (reset_gpx) {
+                            memset(&gpx, sizeof(gpx), 0);
+                            sn = 0;
+                            reset_gpx = 0;
+                        }
                         if (header_found % 2 == 1)
                         {
+                            ui16_t w16[2];
+                            ui32_t w32;
+                            float *fcfg = (float *)&w32;
+
                             val = bits2val(subframe_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
                             printf("[%d] ", counter);
@@ -587,7 +620,17 @@ int main(int argc, char **argv) {
                             if ( (val & 0xFF) >= 0xC0 && err_frm == 0) {
                                 option2 = 1;
                                 printf("\n");
+                                reset_gpx = 1;
                                 goto jmpIMS;
+                            }
+
+                            w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
+                            w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
+                            w32 = (w16[1]<<16) | w16[0];
+
+                            if (err_blks == 0) // err_frm zu schwach
+                            {
+                                 if (counter % 0x10 == 0) { sn = w32; gpx.sn = sn; gpx._sn = w32; }
                             }
 
                             if (counter % 2 == 1) {
@@ -596,15 +639,41 @@ int main(int argc, char **argv) {
                                 ms = (t1 << 8) | t2;
                                 std = bits2val(subframe_bits+HEADLEN+5*46+17, 8);
                                 min = bits2val(subframe_bits+HEADLEN+5*46+25, 8);
-                                printf("  ");
-                                printf("%02d:%02d:%06.3f ", std, min, (double)ms/1000.0);
+                                if (std < 24 && min < 60 && ms < 60000) { // ui32_t ms, min, std
+                                    printf("  ");
+                                    printf("%02d:%02d:%06.3f ", std, min, (double)ms/1000.0);
+                                }
                                 printf("\n");
+
+                                if (err_blks == 0) {
+                                    gpx.frnr1 = counter;
+                                    gpx.std = std;
+                                    gpx.min = min;
+                                    gpx.sek = (double)ms/1000.0;
+
+                                    if (0 && option_jsn && err_blks==0 && gpx.frnr1-gpx.frnr==1) {
+                                        char id_str[] = "xxxxxx\0\0\0\0\0\0";
+                                        if (gpx._sn > 0) {
+                                            sprintf(id_str, "__%05d", gpx._sn & 0xFFFF); // last 5 digits?
+                                        }
+                                        printf("{ \"type\": \"%s\"", "MEISEI");
+                                        printf(", \"frame\": %d, \"id\": \"RS11G-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                                               gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
+                                        printf(", \"subtype\": \"RS11G\"");
+                                        if (gpx.jsn_freq > 0) {
+                                            printf(", \"freq\": %d", gpx.jsn_freq);
+                                        }
+                                        printf(" }\n");
+                                        printf("\n");
+                                    }
+
+                                }
                             }
                         }
 
                         if (header_found % 2 == 0)
                         {
-                            if ((counter % 2 == 0)) {
+                            if (counter % 2 == 0) {
                                 //offset=24+16+1;
 
                                 lat1 = bits2val(subframe_bits+HEADLEN+46*0+17, 16);
@@ -634,7 +703,26 @@ int main(int argc, char **argv) {
                                 jj = bits2val(subframe_bits+HEADLEN+5*46+ 8, 8) + 0x0700;
                                 mm = bits2val(subframe_bits+HEADLEN+5*46+17, 8);
                                 tt = bits2val(subframe_bits+HEADLEN+5*46+25, 8);
-                                printf(" %4d-%02d-%02d ", jj, mm, tt);
+                                if (jj > 1980 && mm > 0 && mm < 13 && tt > 0 && tt < 32) { // ui32_t tt, mm, jj
+                                    printf(" %4d-%02d-%02d ", jj, mm, tt);
+                                }
+
+                                if (err_blks == 0) { // err_frm zu schwach
+                                    gpx.frnr = counter;
+                                    gpx.tag = tt;
+                                    gpx.monat = mm;
+                                    gpx.jahr = jj;
+                                    gpx.lat = (double)lat/1e7;
+                                    gpx.lon = (double)lon/1e7;
+                                    gpx.alt = (double)alt/1e2;
+                                    gpx.vH = velH;
+                                    gpx.vD = velD;
+                                    gpx.vV = velU;
+                                }
+                                if (err_blks == 0 && counter%0x10==0 && gpx._sn > 0) { // gpx._sn>>16 = 0x5697 , 0x7297
+                                    //fprintf(stdout, " : sn 0x%08x = %05d %d", gpx._sn, gpx._sn & 0xFFFF, (gpx._sn>>16) & 0xFFFF);
+                                    fprintf(stdout, " : _sn %05d", gpx._sn & 0xFFFF);
+                                }
                                 printf("\n");
                             }
                         }
@@ -642,6 +730,11 @@ int main(int argc, char **argv) {
                     }
                     else if (option2 && !option_raw) { // iMS-100
             jmpIMS:
+                        if (reset_gpx) {
+                            memset(&gpx, sizeof(gpx), 0);
+                            sn = 0;
+                            reset_gpx = 0;
+                        }
                         if (header_found % 2 == 1) { // 049DCE
                             ui16_t w16[2];
                             ui32_t w32;
@@ -655,6 +748,7 @@ int main(int argc, char **argv) {
                             if ( (val & 0xFF) < 0xC0 && err_frm == 0) {
                                 option2 = 0;
                                 printf("\n");
+                                reset_gpx = 1;
                                 goto jmpRS11;
                             }
 
@@ -666,8 +760,8 @@ int main(int argc, char **argv) {
                             w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
                             w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
                             w32 = (w16[1]<<16) | w16[0];
-
-                            if (err_frm == 0) // oder kleineren subblock pruefen
+                                             // counter ok   and    w16[] ok  (max 1 error)
+                            if (err_frm == 0 && block_err[0] < 2 && block_err[1] < 2)
                             {
                                 gpx.cfg[counter%64] = *fcfg;
 
@@ -699,13 +793,16 @@ int main(int argc, char **argv) {
                             for (j = 0; j < 11; j++) gps_chk_sum += get_w16(subframe_bits, j);
                             gps_err =  (gps_chk_sum & 0xFFFF) != get_w16(subframe_bits, 11); // 1st+2nd subframe
 
-                            if ((counter % 2 == 0)) {
+                            if (counter % 2 == 0) {
                                 //offset=24+16+1;
+                                int _y = 0;
 
                                 dat2 = bits2val(subframe_bits+HEADLEN, 16);
                                 gpx.tag = dat2/1000;
                                 gpx.monat = (dat2/10)%100;
-                                gpx.jahr = 2000 + (dat2%10)+10;
+                                _y = (dat2%10)+10;
+                                if (_y < 14) _y += 10; // 2020
+                                gpx.jahr = 2000 + _y;
                                 //if (option_verbose) printf("%05u  ", dat2);
                                 //printf("(%02d-%02d-%02d) ", gpx.tag, gpx.monat, gpx.jahr%100); // 2020: +20 ?
                                 printf("(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag); // 2020: +20 ?
@@ -766,9 +863,14 @@ int main(int argc, char **argv) {
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
                                         sprintf(id_str, "%.0f", gpx.sn);
                                     }
-                                    printf("{ \"type\": \"%s\"", "IMS100");
-                                    printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f }\n",
+                                    printf("{ \"type\": \"%s\"", "MEISEI"); // alt: "IMS100"
+                                    printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f",
                                            gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD );
+                                    printf(", \"subtype\": \"IMS100\"");
+                                    if (gpx.jsn_freq > 0) { // not gpx.fq, because gpx.sn not in every frame
+                                        printf(", \"freq\": %d", gpx.jsn_freq);
+                                    }
+                                    printf(" }\n");
                                     printf("\n");
                                 }
 

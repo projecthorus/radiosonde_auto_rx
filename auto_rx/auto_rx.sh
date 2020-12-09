@@ -16,4 +16,6 @@ cd $(dirname $0)
 rm log_power*.csv
 
 # Start auto_rx process with a 3 hour timeout.
-python auto_rx.py -t 180
+# auto_rx will exit after this time.
+
+python3 auto_rx.py -t 180
