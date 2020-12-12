@@ -360,7 +360,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 			_section = "sdr_%d" % _n
 			try:
 				_device_idx = config.get(_section,'device_idx')
-				_ppm = round(config.getfloat(_section, 'ppm'))
+				_ppm = config.getint(_section, 'ppm')
 				_gain = config.getfloat(_section, 'gain')
 				_bias = config.getboolean(_section, 'bias')
 
