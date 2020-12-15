@@ -126,6 +126,7 @@ def flask_get_kml():
     _config = autorx.config.global_config
     kml = Kml()
     netlink = kml.newnetworklink(name="Radiosonde AutoRX")
+    netlink.open = 1
     netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
         netlink.link.refreshinterval = _config['kml_refresh_rate']
@@ -139,15 +140,14 @@ def flask_get_kml():
 @app.route("/rs_feed.kml")
 def flask_get_kml_feed():
     """ Return KML with RS telemetry """
-    global flask_telemetry_store
     kml = Kml()
     for rs_id in flask_telemetry_store:
         try:
-            track = []
-            ts = []
+            coordinates = []
+
             for tp in flask_telemetry_store[rs_id]['track'].track_history:
-                track.append((tp[1], tp[2], tp[3]))
-                ts.append(tp[0].isoformat(sep='T', timespec='auto'))
+                coordinates.append((tp[2], tp[1], tp[3]))
+
             rs_data = '''\
             {type}/{subtype}
             Frequency: {freq}
@@ -159,16 +159,32 @@ def flask_get_kml_feed():
             Humidity: {humidity}%
             Pressure: {pressure}hPa
             '''
-            trk = kml.newgxtrack(name=rs_id,
-                                 altitudemode=AltitudeMode.clamptoground,
-                                 description=rs_data.
-                                 format(**flask_telemetry_store[rs_id]
-                                        ['latest_telem']))
-            trk.newwhen(ts)
-            trk.newgxcoord(track)
+            if flask_telemetry_store[rs_id]['latest_telem']['vel_v'] > -5:
+                icon = flask.request.host_url + 'static/img/balloon-green.png'
+            else:
+                icon = flask.request.host_url + 'static/img/parachute-green.png'
 
-        except Exception:
-            pass
+            pnt = kml.newpoint(name=rs_id,
+                               altitudemode=AltitudeMode.absolute,
+                               description=rs_data.
+                               format(**flask_telemetry_store[rs_id]
+                                      ['latest_telem']))
+            pnt.iconstyle.icon.href = icon
+            pnt.coords = [(flask_telemetry_store[rs_id]
+                           ['latest_telem']['lon'], flask_telemetry_store[rs_id]
+                           ['latest_telem']['lat'],
+                           flask_telemetry_store[rs_id]
+                           ['latest_telem']['alt'])]
+            linestring = kml.newlinestring(name=rs_id)
+            linestring.coords = coordinates
+            linestring.altitudemode = AltitudeMode.absolute
+            linestring.extrude = 1
+            linestring.stylemap.normalstyle.linestyle.color = 'ff03bafc'
+            linestring.stylemap.highlightstyle.linestyle.color = 'ff03bafc'
+            linestring.stylemap.normalstyle.polystyle.color = 'AA03bafc'
+            linestring.stylemap.highlightstyle.polystyle.color = 'CC03bafc'
+        except Exception as e:
+            print(e)
     return kml.kml(), 200, \
         {'content-type': 'application/vnd.google-earth.kml+xml'}
 
