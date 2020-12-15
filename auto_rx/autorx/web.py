@@ -37,7 +37,7 @@ try:
 except ImportError:
     # Python 3
     from queue import Queue
-import simplekml
+from simplekml import Kml, AltitudeMode
 
 # Inhibit Flask warning message about running a development server... (we know!)
 cli = sys.modules["flask.cli"]
@@ -120,11 +120,11 @@ def flask_get_task_list():
 
 
 @app.route("/rs.kml")
-def flak_get_kml():
+def flask_get_kml():
     """ Return KML with autorefresh """
 
     _config = autorx.config.global_config
-    kml = simplekml.Kml()
+    kml = Kml()
     netlink = kml.newnetworklink(name="Radiosonde AutoRX")
     netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
@@ -137,22 +137,38 @@ def flak_get_kml():
 
 
 @app.route("/rs_feed.kml")
-def flak_get_kml_feed():
+def flask_get_kml_feed():
     """ Return KML with RS telemetry """
+    global flask_telemetry_store
+    kml = Kml()
+    for rs_id in flask_telemetry_store:
+        try:
+            track = []
+            ts = []
+            for tp in flask_telemetry_store[rs_id]['track'].track_history:
+                track.append((tp[1], tp[2], tp[3]))
+                ts.append(tp[0].isoformat(sep='T', timespec='auto'))
+            rs_data = '''\
+            {type}/{subtype}
+            Frequency: {freq}
+            Altitude: {alt}m
+            Heading: {heading}
+            Velocity: {vel_h}
+            Vertical speed: {vel_v}
+            Temperature: {temp}C
+            Humidity: {humidity}%
+            Pressure: {pressure}hPa
+            '''
+            trk = kml.newgxtrack(name=rs_id,
+                                 altitudemode=AltitudeMode.clamptoground,
+                                 description=rs_data.
+                                 format(**flask_telemetry_store[rs_id]
+                                        ['latest_telem']))
+            trk.newwhen(ts)
+            trk.newgxcoord(track)
 
-    kml = simplekml.Kml()
-    # Read in the task list, index by SDR ID.
-    for _task in autorx.task_list.keys():
-        if hasattr(autorx.task_list[_task]['task'], "getTelemetry"):
-            try:
-                telemetry = autorx.task_list[_task]['task'].getTelemetry()
-                print(telemetry)
-                pnt = kml.newpoint(name=telemetry['id'],
-                                   description=telemetry['type'])
-                pnt.coords = [(telemetry['lon'], telemetry['lat'],
-                              telemetry['alt'])]
-            except Exception:
-                pass
+        except Exception:
+            pass
     return kml.kml(), 200, \
         {'content-type': 'application/vnd.google-earth.kml+xml'}
 
