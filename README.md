@@ -68,7 +68,7 @@ instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
 ### Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
-* [Michael Wheeler](https://github.com/TheSkorm) - git@mwheeler.org
+* [Michaela Wheeler](https://github.com/TheSkorm) - radiosonde@michaela.lgbt
 
 You can often find us in the #highaltitude IRC Channel on
 [Freenode](https://webchat.freenode.net/).
