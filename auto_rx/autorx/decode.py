@@ -832,6 +832,12 @@ class SondeDecoder(object):
                 elif self.sonde_type == 'DFM':
                     # For DFM sondes, we need to use a lookup to convert the subtype field into a model.
                     _telemetry['type'] = decode_dfm_subtype(_telemetry['subtype'])
+
+                    # Check frame ID here to ensure we are on dfm09mod version with the frame number fixes (2020-12).
+                    if _telemetry['frame'] < 256:
+                        self.log_error("DFM Frame ID is <256, have you run build.sh recently?")
+                        return False
+
                 else:
                     # For other sonde types, we leave the type field as it is, even if we are provided
                     # a subtype field. (This shouldn't happen)

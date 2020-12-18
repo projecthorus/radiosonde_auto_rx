@@ -638,7 +638,7 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 for (j = 0; sn_id[j]; j++) { if (sn_id[j] == ' ') sn_id[j] = '-'; }
 
                 fprintf(stdout, "{ \"type\": \"%s\"", "M20");
-                fprintf(stdout, ", \"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
+                fprintf(stdout, ", \"frame\": %lu, ", (unsigned long)(sec_gps0+0.5));
                 fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                sn_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV);
                 fprintf(stdout, ", \"rawid\": \"M20_%02X%02X%02X\"", gpx->frame_bytes[pos_SN], gpx->frame_bytes[pos_SN+1], gpx->frame_bytes[pos_SN+2]); // gpx->type
