@@ -195,7 +195,7 @@ def flask_get_kml():
 
     _config = autorx.config.global_config
     kml = Kml()
-    netlink = kml.newnetworklink(name="Radiosonde Auto-RX Live Telemetry")
+    netlink = kml.newnetworklink(name="Radiosonde AutoRX")
     netlink.open = 1
     netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
