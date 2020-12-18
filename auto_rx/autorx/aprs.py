@@ -452,9 +452,9 @@ class APRSUploader(object):
             _start = time.time()
             _data = self.aprsis_socket.recv(32768)
             _dur = time.time() - _start
-            self.log_debug("%.2f s, Buffer Contents: %s" % (_dur, _data.decode()))
+            self.log_debug("Incoming data from APRS-IS: %s" % (_data.decode()))
         except:
-            # Don't handle any exceptions from attemptingto read the buffer.
+            # Ignore any exceptions from attempting to read the buffer.
             pass
         
     
