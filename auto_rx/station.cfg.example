@@ -170,7 +170,7 @@ aprs_server = radiosondy.info
 #
 # Using <id> means the uploads from multiple stations remain consistent, and we don't end up with
 # lots of duplicate sondes on APRS-IS. If you enable the station location beaconing (below), maps
-# like aprs.fi will show your station as the receiver.
+# like aprs.fi and radiosondy.info will show your station as the receiver.
 #
 # If used, this field should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
 # or <id>, which will be replaced with the radiosondes serial number.
@@ -346,6 +346,8 @@ archive_age = 120
 # Do not set this to True on an internet-facing auto_rx instance!!!
 web_control = False
 
+# KML refresh rate
+kml_refresh_rate = 10
 
 ##################
 # DEBUG SETTINGS #

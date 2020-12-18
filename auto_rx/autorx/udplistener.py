@@ -10,12 +10,13 @@ import traceback
 import socket
 import sys
 
-def udp_rx_loop(hostname='localhost', port=50000):
+
+def udp_rx_loop(hostname="localhost", port=50000):
     """
     Listen for incoming UDP packets, and emit them via stdout.
     """
 
-    s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(1)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -23,7 +24,7 @@ def udp_rx_loop(hostname='localhost', port=50000):
     except:
         pass
     s.bind((hostname, port))
-    
+
     while True:
         try:
             m = s.recvfrom(1024)
@@ -33,7 +34,7 @@ def udp_rx_loop(hostname='localhost', port=50000):
             break
         except:
             traceback.print_exc()
-        
+
         if m != None:
             try:
                 sys.stdout.write(m[0].decode())
@@ -43,6 +44,7 @@ def udp_rx_loop(hostname='localhost', port=50000):
                 pass
 
     s.close()
+
 
 if __name__ == "__main__":
     #
@@ -54,5 +56,5 @@ if __name__ == "__main__":
         _port = int(sys.argv[1])
     else:
         _port = 50000
-    
+
     udp_rx_loop(port=_port)
