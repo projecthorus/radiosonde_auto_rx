@@ -80,6 +80,7 @@ typedef struct {
     pcksts_t pck[9];
     option_t option;
     int ptu_out;
+    int jsn_freq;   // freq/kHz (SDR)
     gpsdat_t gps;
 } gpx_t;
 
@@ -93,6 +94,27 @@ static char dfm_header[] = "0100010111001111";
 
 #define BAUD_RATE   2500
 
+/* ------------------------------------------------------------------------------------ */
+static int datetime2GPSweek(int yy, int mm, int dd,
+                            int hr, int min, int sec,
+                            int *week, int *tow) {
+    int ww = 0;
+    int tt = 0;
+    int gpsDays = 0;
+
+    if ( mm < 3 ) { yy -= 1; mm += 12; }
+
+    gpsDays = (int)(365.25*yy) + (int)(30.6001*(mm+1.0)) + dd - 723263; // 1980-01-06
+
+    ww = gpsDays / 7;
+    tt = gpsDays % 7;
+    tt = tt*86400 + hr*3600 + min*60 + sec;
+
+    *week = ww;
+    *tow  = tt;
+
+    return 0;
+}
 /* ------------------------------------------------------------------------------------ */
 
 
@@ -757,9 +779,11 @@ static void print_gpx(gpx_t *gpx) {
             printf("\n");
         }
 
-        if (gpx->option.jsn && jsonout)
+        if (gpx->option.jsn && jsonout && gpx->sek < 60.0)
         {
-            // JSON Buffer to store sonde ID
+            unsigned long sec_gps = 0;
+            int week = 0;
+            int tow = 0;
             char json_sonde_id[] = "DFM-xxxxxxxx\0\0";
             ui8_t dfm_typ = (gpx->sonde_typ & 0xF);
             switch ( dfm_typ ) {
@@ -770,10 +794,15 @@ static void print_gpx(gpx_t *gpx) {
                 default : sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
             }
 
+            // JSON frame counter: seconds since GPS (ignoring leap seconds, DFM=UTC)
+            datetime2GPSweek(gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, (int)(gpx->sek+0.5), &week, &tow);
+            sec_gps = week*604800 + tow; // SECONDS_IN_WEEK=7*86400=604800
+
             // Print JSON blob     // valid sonde_ID?
             printf("{ \"type\": \"%s\"", "DFM");
-            printf(", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
-                   gpx->frnr, json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->gps.nSV);
+            printf(", \"frame\": %lu, ", sec_gps); // gpx->frnr
+            printf("\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                   json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->gps.nSV);
             if (gpx->ptu_out >= 0xA && gpx->status[0] > 0) { // DFM>=09(P): Battery (STM32)
                 printf(", \"batt\": %.2f", gpx->status[0]);
             }
@@ -782,6 +811,9 @@ static void print_gpx(gpx_t *gpx) {
                 if (t > -270.0) printf(", \"temp\": %.1f", t);
             }
             if (dfm_typ > 0) printf(", \"subtype\": \"0x%1X\"", dfm_typ);
+            if (gpx->jsn_freq > 0) {
+                printf(", \"freq\": %d", gpx->jsn_freq);
+            }
             printf(" }\n");
             printf("\n");
         }
@@ -897,6 +929,7 @@ int main(int argc, char **argv) {
     int option_auto = 0;
     int option_min = 0;
     int option_iq = 0;
+    int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
     int option_bin = 0;
@@ -906,6 +939,7 @@ int main(int argc, char **argv) {
     int wavloaded = 0;
     int sel_wavch = 0;       // audio channel: left
     int spike = 0;
+    int cfreq = -1;
 
     FILE *fp = NULL;
     char *fpname = NULL;
@@ -989,6 +1023,13 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
         else if   (strcmp(*argv, "--dist") == 0) { option_dist = 1; option_ecc = 1; }
         else if   (strcmp(*argv, "--json") == 0) { option_json = 1; option_ecc = 1; }
+        else if   (strcmp(*argv, "--jsn_cfq") == 0) {
+            int frq = -1;  // center frequency / Hz
+            ++argv;
+            if (*argv) frq = atoi(*argv); else return -1;
+            if (frq < 300000000) frq = -1;
+            cfreq = frq;
+        }
         else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
@@ -1009,6 +1050,7 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--iqdc") == 0) { option_iqdc = 1; }  // iq-dc removal (iq0,2,3)
         else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
             double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
             ++argv;
@@ -1098,6 +1140,8 @@ int main(int argc, char **argv) {
     gpx.option.dst = option_dist;
     gpx.option.jsn = option_json;
 
+    if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
+
     headerlen = strlen(dfm_rawheader);
 
 
@@ -1127,6 +1171,11 @@ int main(int argc, char **argv) {
             }
         }
 
+        if (cfreq > 0) {
+            int fq_kHz = (cfreq - dsp.xlt_fq*pcm.sr + 500)/1e3;
+            gpx.jsn_freq = fq_kHz;
+        }
+
         // dfm: BT=1?, h=2.4?
         symlen = 2;
 
@@ -1147,6 +1196,7 @@ int main(int argc, char **argv) {
         dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
         dsp.h = 1.8;  // 2.4 modulation index abzgl. BT
         dsp.opt_iq = option_iq;
+        dsp.opt_iqdc = option_iqdc;
         dsp.opt_lp = option_lp;
         dsp.lpIQ_bw = lpIQ_bw;  // 12e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
