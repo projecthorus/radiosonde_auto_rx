@@ -21,9 +21,8 @@ except ImportError:
     from queue import Queue
 
 
-
-def read_rotator(rotctld_host='localhost', rotctld_port=4533, timeout=5):
-    ''' Attempt to read a position from a rotctld server.
+def read_rotator(rotctld_host="localhost", rotctld_port=4533, timeout=5):
+    """ Attempt to read a position from a rotctld server.
 
     Args:
         rotctld_host (str): Hostname of a rotctld instance.
@@ -34,7 +33,7 @@ def read_rotator(rotctld_host='localhost', rotctld_port=4533, timeout=5):
             list: [azimuth, elevation]
         If unsuccessful:
             None
-    '''
+    """
 
     try:
         # Initialize the socket.
@@ -46,15 +45,15 @@ def read_rotator(rotctld_host='localhost', rotctld_port=4533, timeout=5):
         _s.connect((rotctld_host, rotctld_port))
 
         # Send position request
-        _s.send(b'p\n')
+        _s.send(b"p\n")
 
         # Attempt to receive reply.
         _reply = _s.recv(4096)
 
         # Split reply into lines
-        _fields = _reply.decode('ascii').split('\n')
+        _fields = _reply.decode("ascii").split("\n")
         # Check for an error response, indicated by 'RPRT' in the returned line.
-        if 'RPRT' in _fields[0]:
+        if "RPRT" in _fields[0]:
             logging.error("Rotator - rotctld reported error - %s" % _fields[0].strip())
             return None
         else:
@@ -69,9 +68,10 @@ def read_rotator(rotctld_host='localhost', rotctld_port=4533, timeout=5):
         return None
 
 
-
-def set_rotator(rotctld_host='localhost', rotctld_port=4533, azimuth=0.0, elevation = 0.0, timeout=5):
-    ''' Attempt to read a position from a rotctld server.
+def set_rotator(
+    rotctld_host="localhost", rotctld_port=4533, azimuth=0.0, elevation=0.0, timeout=5
+):
+    """ Attempt to read a position from a rotctld server.
 
     Args:
         rotctld_host (str): Hostname of a rotctld instance.
@@ -84,7 +84,7 @@ def set_rotator(rotctld_host='localhost', rotctld_port=4533, azimuth=0.0, elevat
             True
         If unsuccessful:
             False
-    '''
+    """
 
     try:
         # Initialize the socket.
@@ -101,13 +101,13 @@ def set_rotator(rotctld_host='localhost', rotctld_port=4533, azimuth=0.0, elevat
 
         # Send position set command
         _cmd = "P %.1f %.1f\n" % (_az, _el)
-        _s.send(_cmd.encode('ascii'))
+        _s.send(_cmd.encode("ascii"))
 
         # Attempt to receive reply.
-        _reply = _s.recv(4096).decode('ascii')
+        _reply = _s.recv(4096).decode("ascii")
 
         # Check for an 'OK' response, indicated by 'RPRT 0'
-        if 'RPRT 0' in _reply:
+        if "RPRT 0" in _reply:
             return True
         else:
             # Anything else indicates an error.
@@ -128,17 +128,19 @@ class Rotator(object):
     """
 
     # We require the following fields to be present in the input telemetry dict.
-    REQUIRED_FIELDS = [ 'id', 'lat', 'lon', 'alt', 'type', 'freq']
+    REQUIRED_FIELDS = ["id", "lat", "lon", "alt", "type", "freq"]
 
-    def __init__(self, 
-        station_position = (0.0,0.0,0.0),
-        rotctld_host = 'localhost',
-        rotctld_port = 4533,
-        rotator_update_rate = 30,
-        rotator_update_threshold = 5.0,
-        rotator_homing_enabled = False,
-        rotator_homing_delay = 10,
-        rotator_home_position = [0.0,0.0]):
+    def __init__(
+        self,
+        station_position=(0.0, 0.0, 0.0),
+        rotctld_host="localhost",
+        rotctld_port=4533,
+        rotator_update_rate=30,
+        rotator_update_threshold=5.0,
+        rotator_homing_enabled=False,
+        rotator_homing_delay=10,
+        rotator_home_position=[0.0, 0.0],
+    ):
         """ Start a new Rotator Control object. 
 
         Args:
@@ -168,7 +170,6 @@ class Rotator(object):
         self.rotator_homing_delay = rotator_homing_delay
         self.rotator_home_position = rotator_home_position
 
-
         # Latest telemetry.
         self.latest_telemetry = None
         self.latest_telemetry_time = 0
@@ -179,11 +180,10 @@ class Rotator(object):
 
         # Start queue processing thread.
         self.rotator_thread_running = True
-        self.rotator_thread = Thread(target = self.rotator_update_thread)
+        self.rotator_thread = Thread(target=self.rotator_update_thread)
         self.rotator_thread.start()
 
         self.log_info("Started Rotator Thread")
-
 
     def add(self, telemetry):
         """ Add a telemetery dictionary to the input queue. """
@@ -201,15 +201,15 @@ class Rotator(object):
         finally:
             self.telem_lock.release()
 
-
     def move_rotator(self, azimuth, elevation):
-        ''' Move the rotator to a new position, if the new position
+        """ Move the rotator to a new position, if the new position
             is further than <rotator_update_threshold> away from the current position
-        '''
+        """
 
         # Get current position
-        _pos = read_rotator(rotctld_host = self.rotctld_host,
-            rotctld_port = self.rotctld_port)
+        _pos = read_rotator(
+            rotctld_host=self.rotctld_host, rotctld_port=self.rotctld_port
+        )
 
         # If we can't get the current position of the rotator, then we won't be able to move it either
         # May as well return immediately.
@@ -221,28 +221,44 @@ class Rotator(object):
         _curr_az = _pos[0] % 360.0
         _curr_el = _pos[1]
 
-        if (abs(azimuth-_curr_az) > self.rotator_update_threshold) or (abs(elevation-_curr_el) > self.rotator_update_threshold):
+        if (abs(azimuth - _curr_az) > self.rotator_update_threshold) or (
+            abs(elevation - _curr_el) > self.rotator_update_threshold
+        ):
             # Move to the target position.
-            self.log_info("New rotator target is outside current antenna view (%.1f, %.1f +/- %.1f deg), moving rotator to %.1f, %.1f" % (_curr_az, _curr_el, self.rotator_update_threshold, azimuth, elevation))
-            return set_rotator(rotctld_host = self.rotctld_host,
-                rotctld_port = self.rotctld_port,
-                azimuth = azimuth,
-                elevation = elevation)
+            self.log_info(
+                "New rotator target is outside current antenna view (%.1f, %.1f +/- %.1f deg), moving rotator to %.1f, %.1f"
+                % (
+                    _curr_az,
+                    _curr_el,
+                    self.rotator_update_threshold,
+                    azimuth,
+                    elevation,
+                )
+            )
+            return set_rotator(
+                rotctld_host=self.rotctld_host,
+                rotctld_port=self.rotctld_port,
+                azimuth=azimuth,
+                elevation=elevation,
+            )
         else:
             # We are close enough to the target position, no need to move yet.
-            self.log_debug("New target is within current antenna view (%.1f, %.1f +/- %.1f deg), not moving rotator." % (_curr_az, _curr_el, self.rotator_update_threshold))
+            self.log_debug(
+                "New target is within current antenna view (%.1f, %.1f +/- %.1f deg), not moving rotator."
+                % (_curr_az, _curr_el, self.rotator_update_threshold)
+            )
             return True
 
-
     def home_rotator(self):
-        ''' Move the rotator to it's home position '''
+        """ Move the rotator to it's home position """
         self.log_info("Moving rotator to home position.")
-        self.move_rotator(azimuth = self.rotator_home_position[0],
-            elevation = self.rotator_home_position[1])
-
+        self.move_rotator(
+            azimuth=self.rotator_home_position[0],
+            elevation=self.rotator_home_position[1],
+        )
 
     def rotator_update_thread(self):
-        ''' Rotator updater thread '''
+        """ Rotator updater thread """
 
         if self.rotator_homing_enabled:
             # Move rotator to 'home' position on startup.
@@ -266,26 +282,34 @@ class Rotator(object):
             if _telem != None:
                 try:
                     # Check if the telemetry is very old.
-                    _telem_age = time.time() -_telem_time
+                    _telem_age = time.time() - _telem_time
 
                     # If the telemetry is older than our homing delay, move to our home position.
-                    if _telem_age > self.rotator_homing_delay*60.0:
+                    if _telem_age > self.rotator_homing_delay * 60.0:
                         self.home_rotator()
 
                     else:
                         # Check that the station position is not 0,0
-                        if (self.station_position[0] == 0.0) and (self.station_position[1] == 0.0):
-                            self.log_error("Station position is 0,0 - not moving rotator.")
+                        if (self.station_position[0] == 0.0) and (
+                            self.station_position[1] == 0.0
+                        ):
+                            self.log_error(
+                                "Station position is 0,0 - not moving rotator."
+                            )
                         else:
                             # Otherwise, calculate the new azimuth/elevation.
-                            _position = position_info(self.station_position, [_telem['lat'],_telem['lon'],_telem['alt']])
+                            _position = position_info(
+                                self.station_position,
+                                [_telem["lat"], _telem["lon"], _telem["alt"]],
+                            )
 
                             # Move to the new position
-                            self.move_rotator(_position['bearing'], _position['elevation'])
+                            self.move_rotator(
+                                _position["bearing"], _position["elevation"]
+                            )
 
                 except Exception as e:
                     self.log_error("Error handling new telemetry - %s" % str(e))
-
 
             # Wait until the next update time.
             _i = 0
@@ -293,12 +317,9 @@ class Rotator(object):
                 time.sleep(1)
                 _i += 1
 
-
     def update_station_position(self, lat, lon, alt):
         """ Update the internal station position record. Used when determining the station position by GPSD """
         self.station_position = (lat, lon, alt)
-
-
 
     def close(self):
         """ Close input processing thread. """
@@ -309,7 +330,6 @@ class Rotator(object):
 
         self.log_debug("Stopped rotator control thread.")
 
-
     def running(self):
         """ Check if the logging thread is running.
 
@@ -318,7 +338,6 @@ class Rotator(object):
         """
         return self.rotator_thread_running
 
-
     def log_debug(self, line):
         """ Helper function to log a debug message with a descriptive heading. 
         Args:
@@ -326,14 +345,12 @@ class Rotator(object):
         """
         logging.debug("Rotator - %s" % line)
 
-
     def log_info(self, line):
         """ Helper function to log an informational message with a descriptive heading. 
         Args:
             line (str): Message to be logged.
         """
         logging.info("Rotator - %s" % line)
-
 
     def log_error(self, line):
         """ Helper function to log an error message with a descriptive heading. 
@@ -343,9 +360,10 @@ class Rotator(object):
         logging.error("Rotator - %s" % line)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     _host = sys.argv[1]
 
-    print(read_rotator(rotctld_host = _host))
-    print(set_rotator(rotctld_host = _host, azimuth=0.0, elevation = 0.0))
+    print(read_rotator(rotctld_host=_host))
+    print(set_rotator(rotctld_host=_host, azimuth=0.0, elevation=0.0))
