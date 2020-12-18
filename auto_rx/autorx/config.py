@@ -452,13 +452,29 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
         try:
             auto_rx_config["email_error_notifications"] = config.getboolean(
-                "email", "email_error_notifications"
+                "email", "error_notifications"
+            )
+            auto_rx_config["email_launch_notifications"] = config.getboolean(
+                "email", "launch_notifications"
+            )
+            auto_rx_config["email_landing_notifications"] = config.getboolean(
+                "email", "landing_notifications"
+            )
+            auto_rx_config["email_landing_range_threshold"] = config.getfloat(
+                "email", "landing_range_threshold"
+            )
+            auto_rx_config["email_landing_altitude_threshold"] = config.getfloat(
+                "email", "landing_altitude_threshold"
             )
         except:
             logging.warning(
-                "Config - Did not find email_error_notifications setting, using default (False)"
+                "Config - Did not find new email settings (v1.3.3), using defaults"
             )
             auto_rx_config["email_error_notifications"] = False
+            auto_rx_config["email_launch_notifications"] = True
+            auto_rx_config["email_landing_notifications"] = True
+            auto_rx_config["email_landing_range_threshold"] = 30
+            auto_rx_config["email_landing_altitude_threshold"] = 1000
 
         try:
             auto_rx_config["kml_refresh_rate"] = config.getint(

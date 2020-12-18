@@ -773,6 +773,10 @@ def main():
                 config["station_lon"],
                 config["station_alt"],
             ),
+            launch_notifications=config["email_launch_notifications"],
+            landing_notifications=config["email_landing_notifications"],
+            landing_range_threshold=config["email_landing_range_threshold"],
+            landing_altitude_threshold=config["email_landing_altitude_threshold"]
         )
         email_exporter = _email_notification
 
