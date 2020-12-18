@@ -260,10 +260,24 @@ payload_summary_port = 55673
 [email]
 email_enabled = False
 
+# Send an e-mail for each new radiosonde observed.
+launch_notifications = True
+
+# Send e-mails when a radiosonde is detected descending near your station location
+landing_notifications = True
+
+# Range threshold for Landing notifications (km)
+landing_range_threshold = 30
+
+# Altitude threshold for Landing Notifications (metres)
+# Notifications will only occur for sondes which have been observed descending (>2m/s descent rate) below this altitude
+# for at least 10 observations
+landing_altitude_threshold = 1000
+
 # Enable sending critical error notifications via email.
 # WARNING: If an error is persistent and you are running as a systemd service, this could result
 # in many e-mails being sent!
-email_error_notifications = False
+error_notifications = False
 
 # Server details. Note that usually Port 465 is used for SSL auth, and 587 is used for TLS.
 smtp_server = localhost

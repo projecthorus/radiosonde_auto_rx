@@ -46,6 +46,11 @@ class EmailNotification(object):
         mail_to=None,
         mail_subject=None,
         station_position=None,
+        launch_notifications=True,
+        landing_notifications=True,
+        landing_range_threshold=50,
+        landing_altitude_threshold=1000,
+        landing_descent_trip=10,
     ):
         """ Init a new E-Mail Notification Thread """
         self.smtp_server = smtp_server
@@ -57,6 +62,11 @@ class EmailNotification(object):
         self.mail_to = mail_to
         self.mail_subject = mail_subject
         self.station_position = station_position
+        self.launch_notifications = launch_notifications
+        self.landing_notifications = landing_notifications
+        self.landing_range_threshold = landing_range_threshold
+        self.landing_altitude_threshold = landing_altitude_threshold
+        self.landing_descent_trip = landing_descent_trip
 
         # Dictionary to track sonde IDs
         self.sondes = {}
@@ -106,83 +116,132 @@ class EmailNotification(object):
         _id = telemetry["id"]
 
         if _id not in self.sondes:
-            try:
-                # This is a new sonde. Send the email.
-                msg = "Sonde launch detected:\n"
-                msg += "\n"
+            self.sondes[_id] = {
+                "last_time": time.time(),
+                "descending_trip": 0,
+                "descent_notified": False,
+            }
 
-                if "encrypted" in telemetry:
-                    if telemetry["encrypted"] == True:
-                        msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
+            if self.launch_notifications:
 
-                msg += "Callsign:  %s\n" % _id
-                msg += "Type:      %s\n" % telemetry["type"]
-                msg += "Frequency: %s\n" % telemetry["freq"]
-                msg += "Position:  %.5f,%.5f\n" % (telemetry["lat"], telemetry["lon"])
-                msg += "Altitude:  %d m\n" % round(telemetry["alt"])
+                try:
+                    # This is a new sonde. Send the email.
+                    msg = "Sonde launch detected:\n"
+                    msg += "\n"
 
-                if self.station_position != None:
-                    _relative_position = position_info(
-                        self.station_position,
-                        (telemetry["lat"], telemetry["lon"], telemetry["alt"]),
+                    if "encrypted" in telemetry:
+                        if telemetry["encrypted"] == True:
+                            msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
+
+                    msg += "Callsign:  %s\n" % _id
+                    msg += "Type:      %s\n" % telemetry["type"]
+                    msg += "Frequency: %s\n" % telemetry["freq"]
+                    msg += "Position:  %.5f,%.5f\n" % (
+                        telemetry["lat"],
+                        telemetry["lon"],
                     )
-                    msg += "Range:     %.1f km\n" % (
-                        _relative_position["straight_distance"] / 1000.0
-                    )
-                    msg += "Bearing:   %d degrees True\n" % int(
-                        _relative_position["bearing"]
-                    )
+                    msg += "Altitude:  %d m\n" % round(telemetry["alt"])
 
-                msg += "\n"
-                # msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
-                msg += "https://sondehub.org/%s\n" % _id
+                    if self.station_position != None:
+                        _relative_position = position_info(
+                            self.station_position,
+                            (telemetry["lat"], telemetry["lon"], telemetry["alt"]),
+                        )
+                        msg += "Range:     %.1f km\n" % (
+                            _relative_position["straight_distance"] / 1000.0
+                        )
+                        msg += "Bearing:   %d degrees True\n" % int(
+                            _relative_position["bearing"]
+                        )
 
-                # Construct subject
-                _subject = self.mail_subject
-                _subject = _subject.replace("<id>", telemetry["id"])
-                _subject = _subject.replace("<type>", telemetry["type"])
-                _subject = _subject.replace("<freq>", telemetry["freq"])
+                    msg += "\n"
+                    # msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
+                    msg += "https://sondehub.org/%s\n" % _id
 
-                if "encrypted" in telemetry:
-                    if telemetry["encrypted"] == True:
-                        _subject += " - ENCRYPTED SONDE"
+                    # Construct subject
+                    _subject = self.mail_subject
+                    _subject = _subject.replace("<id>", telemetry["id"])
+                    _subject = _subject.replace("<type>", telemetry["type"])
+                    _subject = _subject.replace("<freq>", telemetry["freq"])
 
-                logging.debug("Email - Subject: %s" % _subject)
-                logging.debug("Email - Message: %s" % msg)
+                    if "encrypted" in telemetry:
+                        if telemetry["encrypted"] == True:
+                            _subject += " - ENCRYPTED SONDE"
 
-                # Connect to the SMTP server.
+                    self.send_notification_email(subject=_subject, message=msg)
 
-                if self.smtp_authentication == "SSL":
-                    s = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
-                else:
-                    s = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                except Exception as e:
+                    self.log_error("Error sending E-mail - %s" % str(e))
 
-                if self.smtp_authentication == "TLS":
-                    s.starttls()
+        else:
+            # We have seen this sonde recently. Let's check it's descending...
 
-                if self.smtp_login != "None":
-                    s.login(self.smtp_login, self.smtp_password)
+            if ("vel_v" in telemetry) and (
+                self.sondes[_id]["descent_notified"] == False
+            ):
+                # If the sonde is below our threshold altitude, *and* is descending at a reasonable rate, increment.
+                if (telemetry["alt"] < self.landing_altitude_threshold) and (
+                    telemetry["vel_v"] < -2.0
+                ):
+                    self.sondes[_id]["descending_trip"] += 1
 
-                # Send messages to all recepients.
-                for _destination in self.mail_to.split(";"):
-                    mime_msg = MIMEText(msg, "plain", "UTF-8")
+                if self.sondes[_id]["descending_trip"] > self.landing_descent_trip:
+                    # We've seen this sonde descending for enough time now.
+                    # Note that we've passed the descent threshold, so we shouldn't analyze anything from this sonde anymore.
+                    self.sondes[_id]["descent_notified"] = True
 
-                    mime_msg["From"] = self.mail_from
-                    mime_msg["To"] = _destination
-                    mime_msg["Date"] = formatdate()
-                    mime_msg["Subject"] = _subject
+                    self.log_debug("Sonde %s triggered descent threshold." % _id)
 
-                    s.sendmail(mime_msg["From"], _destination, mime_msg.as_string())
+                    # Let's check if it's within our notification zone.
 
-                    time.sleep(2)
+                    if self.station_position != None:
+                        _relative_position = position_info(
+                            self.station_position,
+                            (telemetry["lat"], telemetry["lon"], telemetry["alt"]),
+                        )
 
-                s.quit()
+                        _range = _relative_position["straight_distance"] / 1000.0
+                        self.log_debug(
+                            "Descending sonde is %.1f km away from station location"
+                            % _range
+                        )
 
-                self.log_info("E-mail sent.")
-            except Exception as e:
-                self.log_error("Error sending E-mail - %s" % str(e))
+                        if (
+                            _range < self.landing_range_threshold
+                            and self.landing_notifications
+                        ):
+                            self.log_info("Landing sonde %s triggered range threshold." % _id)
 
-        self.sondes[_id] = {"last_time": time.time()}
+                            msg = "Nearby sonde landing detected:\n\n"
+
+                            msg += "Callsign:  %s\n" % _id
+                            msg += "Type:      %s\n" % telemetry["type"]
+                            msg += "Frequency: %s\n" % telemetry["freq"]
+                            msg += "Position:  %.5f,%.5f\n" % (
+                                telemetry["lat"],
+                                telemetry["lon"],
+                            )
+                            msg += "Altitude:  %d m\n" % round(telemetry["alt"])
+
+                            msg += "Range:     %.1f km (Threshold: %.1fkm)\n" % (
+                                _relative_position["straight_distance"] / 1000.0,
+                                self.landing_range_threshold
+                            )
+                            msg += "Bearing:   %d degrees True\n" % int(
+                                _relative_position["bearing"]
+                            )
+
+                            msg += "\n"
+                            msg += "https://sondehub.org/%s\n" % _id
+                            msg += "https://sondehub.org/card/%s\n" % _id
+
+                            _subject = "Nearby Radiosonde Landing Detected - %s" % _id
+
+                            self.send_notification_email(subject=_subject, message=msg)
+
+                    else:
+                        # No station position to work with! Bomb out at this point
+                        return
 
     def send_notification_email(
         self, subject="radiosonde_auto_rx Station Notification", message="Foobar"
@@ -197,10 +256,12 @@ class EmailNotification(object):
             # Construct subject
             _subject = subject
 
-            logging.debug("Email - Subject: %s" % _subject)
-            logging.debug("Email - Message: %s" % msg)
+            self.log_debug("Subject: %s" % _subject)
+            self.log_debug("Message: %s" % msg)
 
             # Connect to the SMTP server.
+            self.log_debug("Server: " + self.smtp_server)
+            self.log_debug("Port: " + self.smtp_port)
 
             if self.smtp_authentication == "SSL":
                 s = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
@@ -208,9 +269,13 @@ class EmailNotification(object):
                 s = smtplib.SMTP(self.smtp_server, self.smtp_port)
 
             if self.smtp_authentication == "TLS":
+                self.log_debug("Initiating TLS..")
+                s.ehlo()
                 s.starttls()
+                s.ehlo()
 
             if self.smtp_login != "None":
+                self.log_debug("Login: " + self.smtp_login)
                 s.login(self.smtp_login, self.smtp_password)
 
             # Send messages to all recepients.
@@ -293,6 +358,13 @@ if __name__ == "__main__":
         mail_from=config["email_from"],
         mail_to=config["email_to"],
         mail_subject=config["email_subject"],
+        station_position=(
+            -10.0,
+            10.0,
+            0.0,
+        ),
+        landing_notifications=True,
+        launch_notifications=True,
     )
 
     # Wait a second..
@@ -303,6 +375,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
     # Add in a packet of telemetry, which will cause the email notifier to send an email.
+    print("Testing launch alert.")
     _email_notification.add(
         {
             "id": "N1234557",
@@ -323,4 +396,30 @@ if __name__ == "__main__":
 
     # Wait a little bit before shutting down.
     time.sleep(5)
+
+    _test = {
+        "id": "N1234557",
+        "frame": 10,
+        "lat": -10.01,
+        "lon": 10.01,
+        "alt": 800,
+        "temp": 1.0,
+        "type": "RS41",
+        "freq": "401.520 MHz",
+        "freq_float": 401.52,
+        "heading": 0.0,
+        "vel_h": 5.1,
+        "vel_v": -5.0,
+        "datetime_dt": datetime.datetime.utcnow(),
+    }
+
+    print("Testing landing alert.")
+    for i in range(20):
+        _email_notification.add(_test)
+        _test["alt"] = _test["alt"] - 5.0
+        _test["datetime_dt"] = datetime.datetime.utcnow()
+        time.sleep(2)
+
+    time.sleep(60)
+
     _email_notification.close()
