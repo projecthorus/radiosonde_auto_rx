@@ -8,7 +8,7 @@
 # Build rs_detect.
 echo "Building dft_detect"
 cd ../scan/
-gcc dft_detect.c -lm -o dft_detect -DNOC34C50
+gcc dft_detect.c -lm -o dft_detect -DNOC34C50 -w
 
 echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20 Demodulators"
 #cd ../demod/
