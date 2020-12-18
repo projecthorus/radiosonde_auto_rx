@@ -16,7 +16,7 @@ multiple services, including:
 * [ChaseMapper](https://github.com/projecthorus/chasemapper) for mobile
   radiosonde chasing.
 
-There is also a web interface provided (defaults to port 5000),
+There is also a web interface available on http://localhost:5000 ,
 allowing display of station status and basic tracking of the sonde
 position.
 
@@ -26,7 +26,7 @@ Currently we support the following radiosonde types:
 * Graw DFM06/DFM09/DFM17/PS-15
 * Meteomodem M10 & M20
 * Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
-* Lockheed Martin LMS6 (400 MHz and 1680 MHz variants)
+* Lockheed Martin LMS6 (400 MHz and 1680 MHz variants, including the new 'LMS-X' unreleased type)
 * Meisei iMS-100
 
 Support for other radiosondes may be added as required (please send us

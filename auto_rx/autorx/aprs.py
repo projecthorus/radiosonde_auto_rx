@@ -255,12 +255,11 @@ def generate_station_object(callsign, lat, lon, comment="radiosonde_auto_rx Sond
 class APRSUploader(object):
     ''' 
     Queued APRS Telemetry Uploader class
-    This performs uploads to the Habitat servers, and also handles generation of flight documents.
+    This performs uploads to an APRS-IS server.
 
     Incoming telemetry packets are fed into queue, which is checked regularly.
-    If a new callsign is sighted, a payload document is created in the Habitat DB.
-    The telemetry data is then converted into a UKHAS-compatible format, before being added to queue to be
-    uploaded as network speed permits.
+    At a regular interval, the most recent telemetry packet is extracted, and converted to an
+    APRS object format, and then uploaded into APRS-IS.
 
     If an upload attempt times out, the packet is discarded.
     If the queue fills up (probably indicating no network connection, and a fast packet downlink rate),
@@ -281,7 +280,7 @@ class APRSUploader(object):
                 position_report = False,
                 aprsis_host = 'rotate.aprs2.net',
                 aprsis_port = 14580,
-                aprsis_reconnect = 180,
+                aprsis_reconnect = 300,
                 station_beacon = False,
                 station_beacon_rate = 30,
                 station_beacon_position = (0.0,0.0,0.0),
@@ -310,6 +309,7 @@ class APRSUploader(object):
 
             aprsis_host (str): APRS-IS Server to upload packets to.
             aprsis_port (int): APRS-IS TCP port number.
+            aprsis_reconnect (int): Reconnect to the APRS-IS server at least every X minutes. Reconnections will occur when telemetry needs to be sent.
 
             station_beacon (bool): Enable beaconing of station position.
             station_beacon_rate (int): Time delay between beacon uploads (minutes)
@@ -476,6 +476,12 @@ class APRSUploader(object):
         
         self.aprsis_upload_lock.acquire()
 
+        # If we have not connected in a long time, reset the APRS-IS connection.
+        if (time.time() - self.aprsis_lastconnect) > (self.aprsis_reconnect * 60):
+            self.disconnect()
+            time.sleep(1)
+            self.connect()
+
         # Generate APRS packet
         if igate:
             # If we are emulating an IGATE, then we need to add in a path, a q-construct, and our own callsign.
@@ -588,11 +594,6 @@ class APRSUploader(object):
 
                 # Attempt to upload it.
                 if _packet is not None:
-                    # If we have not connected in a long time, reset the APRS-IS connection.
-                    if (time.time() - self.aprsis_lastconnect) > (self.aprsis_reconnect * 60):
-                        self.disconnect()
-                        time.sleep(1)
-                        self.connect()
 
                     # If we are uploading position reports, the source call is the generated callsign
                     # usually based on the sonde serial number, and we iGate the position report.
