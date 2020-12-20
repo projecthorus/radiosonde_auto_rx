@@ -125,7 +125,7 @@ def flask_get_kml():
 
     _config = autorx.config.global_config
     kml = Kml()
-    netlink = kml.newnetworklink(name="Radiosonde AutoRX")
+    netlink = kml.newnetworklink(name="Radiosonde Auto-RX Live Telemetry")
     netlink.open = 1
     netlink.link.href = flask.request.host_url + "rs_feed.kml"
     try:
@@ -150,13 +150,13 @@ def flask_get_kml_feed():
             rs_data = """\
             {type}/{subtype}
             Frequency: {freq}
-            Altitude: {alt}m
-            Heading: {heading}
-            Velocity: {vel_h}
-            Vertical speed: {vel_v}
-            Temperature: {temp}C
-            Humidity: {humidity}%
-            Pressure: {pressure}hPa
+            Altitude: {alt:.1f} m
+            Heading: {heading:.1f} degrees
+            Ground Speed: {vel_h:.2f} m/s
+            Ascent Rate: {vel_v:.2} m/s
+            Temperature: {temp:.1f} C
+            Humidity: {humidity:.1f} %
+            Pressure: {pressure:.1f} hPa
             """
             if flask_telemetry_store[rs_id]["latest_telem"]["vel_v"] > -5:
                 icon = flask.request.host_url + "static/img/balloon-green.png"
