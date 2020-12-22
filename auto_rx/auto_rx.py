@@ -824,6 +824,7 @@ def main():
             object_comment=config["aprs_custom_comment"],
             position_report=config["aprs_position_report"],
             aprsis_host=config["aprs_server"],
+            aprsis_port=config["aprs_port"],
             synchronous_upload_time=config["aprs_upload_rate"],
             callsign_validity_threshold=config["payload_id_valid"],
             station_beacon=config["station_beacon_enabled"],

@@ -451,6 +451,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["aprs_use_custom_object_id"] = False
 
         try:
+            auto_rx_config["aprs_port"] = config.getint(
+                "aprs", "aprs_port"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find aprs_port setting - using default of 14590. APRS packets might not be forwarded out to the wider APRS-IS network!"
+            )
+            auto_rx_config["aprs_port"] = 14590
+
+        try:
             auto_rx_config["email_error_notifications"] = config.getboolean(
                 "email", "error_notifications"
             )
