@@ -1068,6 +1068,7 @@ class SondeDecoder(object):
             else:
                 # If no subtype field provided, we use the identified sonde type.
                 _telemetry["type"] = self.sonde_type
+                _telemetry["subtype"] = self.sonde_type
 
             _telemetry["freq_float"] = self.sonde_freq / 1e6
             _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)

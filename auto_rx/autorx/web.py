@@ -187,7 +187,8 @@ def flask_get_kml_feed():
             linestring.stylemap.normalstyle.polystyle.color = "AA03bafc"
             linestring.stylemap.highlightstyle.polystyle.color = "CC03bafc"
         except Exception as e:
-            print(e)
+            logging.error("KML - Could not parse data from RS %s - %s" % (rs_id, str(e)))
+            
     return kml.kml(), 200, {"content-type": "application/vnd.google-earth.kml+xml"}
 
 
