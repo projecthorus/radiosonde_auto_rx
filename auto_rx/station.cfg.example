@@ -147,6 +147,8 @@ aprs_enabled = False
 
 # APRS-IS Login Information
 # The aprs_user field can have an SSID on the end if desired, i.e. N0CALL-4
+# If you are a licensed amateur radio operator, you may want to change the aprs_port number below 
+# to 14580, so that your position reports make their way out to the wider APRS network.
 aprs_user = N0CALL
 # APRS-IS Passcode. You can generate one for your callsign here: https://apps.magicbug.co.uk/passcode/
 aprs_pass = 00000
@@ -163,6 +165,12 @@ upload_rate = 30
 # If you wish to inject packets directly into the APRS-IS network, use rotate.aprs2.net
 aprs_server = radiosondy.info
 
+# APRS-IS Port Number to upload to.
+# When using radiosondy.info:
+#   Port 14590 - Packets stay within radiosondy.info. Non-licensed operators can use this.
+#   Port 14580 - Packets are forwarded out to the wider APRS-IS network. Only licensed amateur radio operators should use this!!
+# For all other APRS-IS servers (licensed amatuer radio operators only!), use port 14580.
+aprs_port = 14590
 
 # Custom Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
 # WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
