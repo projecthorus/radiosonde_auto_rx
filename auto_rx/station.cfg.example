@@ -169,7 +169,7 @@ aprs_server = radiosondy.info
 # When using radiosondy.info:
 #   Port 14590 - Packets stay within radiosondy.info. Non-licensed operators can use this.
 #   Port 14580 - Packets are forwarded out to the wider APRS-IS network. Only licensed amateur radio operators should use this!!
-# For all other APRS-IS servers (licensed amatuer radio operators only!), use port 14580.
+# For all other APRS-IS servers (licensed amateur radio operators only!), use port 14580.
 aprs_port = 14590
 
 # Custom Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
