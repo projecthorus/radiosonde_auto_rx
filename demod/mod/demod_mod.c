@@ -257,11 +257,13 @@ float read_wav_header(pcm_t *pcm, FILE *fp) {
     int sample_rate = 0, bits_sample = 0, channels = 0;
 
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "RIFF", 4)) return -1;
+    if (strncmp(txt, "RIFF", 4) && strncmp(txt, "RF64", 4)) return -1;
+
     if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "WAVE", 4)) return -1;
+    if (strncmp(txt, "WAVE", 4))  return -1;
+
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
