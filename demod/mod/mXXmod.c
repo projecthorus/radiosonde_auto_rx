@@ -95,6 +95,7 @@ typedef struct {
     ui8_t frame_bytes[FRAME_LEN+AUX_LEN+4];
     char frame_bits[BITFRAME_LEN+BITAUX_LEN+8];
     int auxlen; // ? 0 .. 0x57-0x45
+    int jsn_freq;   // freq/kHz (SDR)
     option_t option;
     ui8_t type;
 } gpx_t;
@@ -637,11 +638,14 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 for (j = 0; sn_id[j]; j++) { if (sn_id[j] == ' ') sn_id[j] = '-'; }
 
                 fprintf(stdout, "{ \"type\": \"%s\"", "M20");
-                fprintf(stdout, ", \"frame\": %lu ,", (unsigned long)(sec_gps0+0.5));
+                fprintf(stdout, ", \"frame\": %lu, ", (unsigned long)(sec_gps0+0.5));
                 fprintf(stdout, "\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                sn_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV);
                 fprintf(stdout, ", \"rawid\": \"M20_%02X%02X%02X\"", gpx->frame_bytes[pos_SN], gpx->frame_bytes[pos_SN+1], gpx->frame_bytes[pos_SN+2]); // gpx->type
                 fprintf(stdout, ", \"subtype\": \"0x%02X\"", gpx->type);
+                if (gpx->jsn_freq > 0) {
+                    fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq);
+                }
                 fprintf(stdout, " }\n");
                 fprintf(stdout, "\n");
             }
@@ -755,6 +759,7 @@ int main(int argc, char **argv) {
     int option_ptu = 0;
     int option_min = 0;
     int option_iq = 0;
+    int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
     int option_softin = 0;
@@ -762,6 +767,7 @@ int main(int argc, char **argv) {
     int wavloaded = 0;
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
+    int cfreq = -1;
 
     float baudrate = -1;
 
@@ -862,6 +868,7 @@ int main(int argc, char **argv) {
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iq2") == 0) { option_iq = 2; }
         else if   (strcmp(*argv, "--iq3") == 0) { option_iq = 3; }  // iq2==iq3
+        else if   (strcmp(*argv, "--iqdc") == 0) { option_iqdc = 1; }  // iq-dc removal (iq0,2,3)
         else if   (strcmp(*argv, "--IQ") == 0) { // fq baseband -> IF (rotate from and decimate)
             double fq = 0.0;                     // --IQ <fq> , -0.5 < fq < 0.5
             ++argv;
@@ -878,6 +885,13 @@ int main(int argc, char **argv) {
             option_min = 1;
         }
         else if   (strcmp(*argv, "--json") == 0) { gpx.option.jsn = 1; }
+        else if   (strcmp(*argv, "--jsn_cfq") == 0) {
+            int frq = -1;  // center frequency / Hz
+            ++argv;
+            if (*argv) frq = atoi(*argv); else return -1;
+            if (frq < 300000000) frq = -1;
+            cfreq = frq;
+        }
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
             ++argv;
@@ -914,6 +928,8 @@ int main(int argc, char **argv) {
     gpx.option.ptu = option_ptu;
     gpx.option.col = option_color;
 
+    if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
+
 
     #ifdef EXT_FSK
     if (!option_softin) {
@@ -941,6 +957,11 @@ int main(int argc, char **argv) {
             }
         }
 
+        if (cfreq > 0) {
+            int fq_kHz = (cfreq - dsp.xlt_fq*pcm.sr + 500)/1e3;
+            gpx.jsn_freq = fq_kHz;
+        }
+
         // m10: BT>1?, h=1.2 ?
         symlen = 2;
 
@@ -961,6 +982,7 @@ int main(int argc, char **argv) {
         dsp.BT = 1.8; // bw/time (ISI) // 1.0..2.0  // M20 ?
         dsp.h = 0.9;  // 1.2 modulation index       // M20 ?
         dsp.opt_iq = option_iq;
+        dsp.opt_iqdc = option_iqdc;
         dsp.opt_lp = option_lp;
         dsp.lpIQ_bw = 24e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 10e3; // FM audio lowpass

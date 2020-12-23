@@ -6,6 +6,7 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tabulator_simple.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet">
 
@@ -14,6 +15,7 @@
     <script src="{{ url_for('static', filename='js/jquery-ui.min.js')}}"></script>
     <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
@@ -135,6 +137,7 @@
                 maxZoom: 18,
             });
             sondemap.addControl(new L.Control.Layers({'OSM':osm_map, 'ESRI Satellite':esri_sat_map}));
+            sondemap.addControl(new L.Control.Fullscreen());
 
             // Home Icon.
             var homeIcon = L.icon({
@@ -178,8 +181,8 @@
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
                     {title:"Time", field:"datetime", headerSort:false},
                     {title:"Frame", field:"frame", headerSort:false},
-                    {title:"Latitude", field:"lat", headerSort:false},
-                    {title:"Longitude", field:"lon", headerSort:false},
+                    {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
+                    {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
                     {title:"Alt (m)", field:"alt", headerSort:false},
                     {title:"Vel (kph)", field:"vel_h", headerSort:false},
                     {title:"Asc (m/s)", field:"vel_v", headerSort:false},
@@ -231,8 +234,13 @@
                         }
 
                         // Modify some of the fields to fixed point values.
-                        sonde_id_data.lat = sonde_id_data.lat.toFixed(5);
-                        sonde_id_data.lon = sonde_id_data.lon.toFixed(5);
+
+                        // Add Geo ref links to lat/lon fields.
+                        temp_lat = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lat.toFixed(5) + "</a>";
+                        temp_lon = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lon.toFixed(5) + "</a>";
+                        sonde_id_data.lat = temp_lat;
+                        sonde_id_data.lon = temp_lon;
+
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
@@ -503,7 +511,7 @@
         </div>
         <div class="row">
             <div class='col-12'>
-                Auto-Follow Latest Sonde: <input type="checkbox" id="sondeAutoFollow" checked> &nbsp; &nbsp; Hide Map: <input type="checkbox" id="hideMap">
+                Auto-Follow Latest Sonde: <input type="checkbox" id="sondeAutoFollow" checked> &nbsp; &nbsp; Hide Map: <input type="checkbox" id="hideMap">&nbsp; &nbsp; <a href="./rs.kml">Live KML</a>
                 <div id="sonde_map" style="height:400px;width:100%"></div>
                 <br>
             </div>

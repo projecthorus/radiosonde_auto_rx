@@ -67,6 +67,7 @@ typedef struct {
 
     // IQ-data
     int opt_iq;
+    int opt_iqdc;
     int N_IQBUF;
     float complex *rot_iqbuf;
     float complex F1sum;

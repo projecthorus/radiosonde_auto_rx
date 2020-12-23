@@ -257,11 +257,13 @@ float read_wav_header(pcm_t *pcm, FILE *fp) {
     int sample_rate = 0, bits_sample = 0, channels = 0;
 
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "RIFF", 4)) return -1;
+    if (strncmp(txt, "RIFF", 4) && strncmp(txt, "RF64", 4)) return -1;
+
     if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "WAVE", 4)) return -1;
+    if (strncmp(txt, "WAVE", 4))  return -1;
+
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
@@ -304,6 +306,7 @@ float read_wav_header(pcm_t *pcm, FILE *fp) {
 
     if (bits_sample != 8 && bits_sample != 16 && bits_sample != 32) return -1;
 
+    if (sample_rate == 900001) sample_rate -= 1;
 
     pcm->sr  = sample_rate;
     pcm->bps = bits_sample;
@@ -346,6 +349,7 @@ typedef struct {
     double sumIQy;
     float avgIQx;
     float avgIQy;
+    float complex avgIQ;
     ui32_t cnt;
     ui32_t maxcnt;
     ui32_t maxlim;
@@ -375,16 +379,22 @@ static int f32read_csample(dsp_t *dsp, float complex *z) {
         y = (u[1]-128)/128.0;
     }
 
-    *z = (x - IQdc.avgIQx) + I*(y - IQdc.avgIQy);
+    *z = x + I*y;
 
-    IQdc.sumIQx += x;
-    IQdc.sumIQy += y;
-    IQdc.cnt += 1;
-    if (IQdc.cnt == IQdc.maxcnt) {
-        IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
-        IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
-        IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
-        if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
+    // IQ-dc removal optional
+    if (dsp->opt_iqdc) {
+        *z -= IQdc.avgIQ;
+
+        IQdc.sumIQx += x;
+        IQdc.sumIQy += y;
+        IQdc.cnt += 1;
+        if (IQdc.cnt == IQdc.maxcnt) {
+            IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
+            IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
+            IQdc.avgIQ  = IQdc.avgIQx + I*IQdc.avgIQy;
+            IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
+            if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
+        }
     }
 
     return 0;
@@ -395,63 +405,42 @@ static int f32read_cblock(dsp_t *dsp) {
     int n;
     int len;
     float x, y;
+    ui8_t s[4*2*dsp->decM]; //uin8,int16,flot32
+    ui8_t *u = (ui8_t*)s;
+    short *b = (short*)s;
+    float *f = (float*)s;
 
-    len = dsp->decM;
 
-    if (dsp->bps == 8) { //uint8
-        ui8_t u[2*dsp->decM];
-        len = fread( u, dsp->bps/8, 2*dsp->decM, dsp->fp) / 2;
-        //for (n = 0; n < len; n++) dsp->decMbuf[n] = (u[2*n]-128)/128.0 + I*(u[2*n+1]-128)/128.0;
-        // u8: 0..255, 128 -> 0V
-        for (n = 0; n < len; n++) {
+    len = fread( s, dsp->bps/8, 2*dsp->decM, dsp->fp) / 2;
+
+    //for (n = 0; n < len; n++) dsp->decMbuf[n] = (u[2*n]-128)/128.0 + I*(u[2*n+1]-128)/128.0;
+    // u8: 0..255, 128 -> 0V
+    for (n = 0; n < len; n++) {
+        if (dsp->bps == 8) { //uint8
             x = (u[2*n  ]-128)/128.0;
             y = (u[2*n+1]-128)/128.0;
-            dsp->decMbuf[n] = (x-IQdc.avgIQx) + I*(y-IQdc.avgIQy);
-            IQdc.sumIQx += x;
-            IQdc.sumIQy += y;
-            IQdc.cnt += 1;
-            if (IQdc.cnt == IQdc.maxcnt) {
-                IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
-                IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
-                IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
-                if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
-            }
         }
-    }
-    else if (dsp->bps == 16) { //int16
-        short b[2*dsp->decM];
-        len = fread( b, dsp->bps/8, 2*dsp->decM, dsp->fp) / 2;
-        for (n = 0; n < len; n++) {
+        else if (dsp->bps == 16) { //int16
             x = b[2*n  ]/32768.0;
             y = b[2*n+1]/32768.0;
-            dsp->decMbuf[n] = (x-IQdc.avgIQx) + I*(y-IQdc.avgIQy);
-            IQdc.sumIQx += x;
-            IQdc.sumIQy += y;
-            IQdc.cnt += 1;
-            if (IQdc.cnt == IQdc.maxcnt) {
-                IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
-                IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
-                IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
-                if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
-            }
         }
-    }
-    else { // dsp->bps == 32   //float32
-        float f[2*dsp->decM];
-        len = fread( f, dsp->bps/8, 2*dsp->decM, dsp->fp) / 2;
-        for (n = 0; n < len; n++) {
+        else { // dsp->bps == 32   //float32
             x = f[2*n];
             y = f[2*n+1];
-            dsp->decMbuf[n] = (x-IQdc.avgIQx) + I*(y-IQdc.avgIQy);
-            IQdc.sumIQx += x;
-            IQdc.sumIQy += y;
-            IQdc.cnt += 1;
-            if (IQdc.cnt == IQdc.maxcnt) {
-                IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
-                IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
-                IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
-                if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
-            }
+        }
+
+        // baseband: IQ-dc removal mandatory
+        dsp->decMbuf[n] = (x-IQdc.avgIQx) + I*(y-IQdc.avgIQy);
+
+        IQdc.sumIQx += x;
+        IQdc.sumIQy += y;
+        IQdc.cnt += 1;
+        if (IQdc.cnt == IQdc.maxcnt) {
+            IQdc.avgIQx = IQdc.sumIQx/(float)IQdc.maxcnt;
+            IQdc.avgIQy = IQdc.sumIQy/(float)IQdc.maxcnt;
+            IQdc.avgIQ  = IQdc.avgIQx + I*IQdc.avgIQy;
+            IQdc.sumIQx = 0; IQdc.sumIQy = 0; IQdc.cnt = 0;
+            if (IQdc.maxcnt < IQdc.maxlim) IQdc.maxcnt *= 2;
         }
     }
 

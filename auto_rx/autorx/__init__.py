@@ -17,7 +17,7 @@ except ImportError:
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.3.2"
+__version__ = "1.4.0"
 
 
 # Global Variables
@@ -29,7 +29,7 @@ __version__ = "1.3.2"
 #       'task' (class)  : If this SDR is in use, a reference to the task.
 #       'bias' (bool)   : True if the bias-tee should be enabled on this SDR, False otherwise.
 #       'ppm' (int)     : The PPM offset for this SDR.
-#       'gain' (float)  : The gain setting to use with this SDR. A setting of -1 turns on hardware AGC.    
+#       'gain' (float)  : The gain setting to use with this SDR. A setting of -1 turns on hardware AGC.
 #   }
 #
 #
@@ -45,7 +45,7 @@ sdr_list = {}
 task_list = {}
 
 
-# Scan result queue. 
+# Scan result queue.
 scan_results = Queue()
 # Global scan inhibit flag, used by web interface.
 scan_inhibit = False
