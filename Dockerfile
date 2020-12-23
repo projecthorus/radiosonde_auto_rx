@@ -17,12 +17,13 @@ RUN apt-get update && \
   python3-requests && \
   rm -rf /var/lib/apt/lists/*
 
-# Install additional Python packages that aren't available through apt-get.
-RUN pip3 --no-cache-dir install \
-  flask-socketio
-
-# Copy in radiosonde_auto_rx and build the binaries.
+# Copy in radiosonde_auto_rx
 COPY . /root/radiosonde_auto_rx
+
+# Install additional Python packages that aren't available through apt-get.
+RUN pip3 --no-cache-dir install -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
+
+# Build the binaries.
 RUN cd /root/radiosonde_auto_rx/auto_rx && \
   sh build.sh
 
