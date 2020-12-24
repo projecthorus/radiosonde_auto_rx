@@ -208,7 +208,7 @@
                     sonde_id_list.forEach( function(sonde_id){
                         var sonde_id_data = Object.assign({},sonde_positions[sonde_id].latest_data);
                         var sonde_id_age = Date.now() - sonde_positions[sonde_id].age;
-                        if (sonde_id_age>180000){
+                        if (sonde_id_age>(1000*autorx_config.rx_timeout)){
                             sonde_id_data.sdr_device_idx = "";
                             sonde_id_data.age = "old";
                         }else{
