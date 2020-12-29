@@ -573,12 +573,12 @@ class HabitatUploader(object):
                 _req = requests.put(
                     _url,
                     data=json.dumps(_data),
-                    timeout=self.upload_timeout,
+                    timeout=(self.upload_timeout, 6.1),
                     headers=headers,
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                break
+                return
 
             if _req.status_code == 201 or _req.status_code == 403:
                 # 201 = Success, 403 = Success, sentence has already seen by others.
@@ -617,18 +617,22 @@ class HabitatUploader(object):
                 # If the queue is completely full, jump to the most recent telemetry sentence.
                 if self.habitat_upload_queue.qsize() == self.upload_queue_size:
                     while not self.habitat_upload_queue.empty():
-                        sentence = self.habitat_upload_queue.get()
+                        try:
+                            sentence = self.habitat_upload_queue.get_nowait()
+                        except:
+                            pass
 
                     self.log_warning(
-                        "Uploader queue was full - possible connectivity issue."
+                        "Upload queue was full when reading from queue, now flushed - possible connectivity issue."
                     )
                 else:
                     # Otherwise, get the first item in the queue.
                     sentence = self.habitat_upload_queue.get()
 
                 # Attempt to upload it.
-                self.habitat_upload(sentence)
-
+                if sentence:
+                    self.habitat_upload(sentence)
+                    
             else:
                 # Wait for a short time before checking the queue again.
                 time.sleep(0.1)
@@ -684,9 +688,21 @@ class HabitatUploader(object):
         else:
             # Attept to add it to the habitat uploader queue.
             try:
+                if self.habitat_upload_queue.qsize() == self.upload_queue_size:
+                    # Flush queue.
+                    while not self.habitat_upload_queue.empty():
+                        try:
+                            self.habitat_upload_queue.get_nowait()
+                        except:
+                            pass
+                    
+                    self.log_error("Upload queue was full when adding to queue, now flushed - possible connectivity issue.")
+
                 self.habitat_upload_queue.put_nowait(_sentence)
+                self.log_debug("Upload queue size: %d" % self.habitat_upload_queue.qsize())
             except Exception as e:
-                self.log_error("Error adding sentence to queue: %s" % str(e))
+                self.log_error("Error adding sentence to queue, queue likely full.  %s" % str(e))
+                self.log_error("Queue Size: %d" % self.habitat_upload_queue.qsize())
 
         self.upload_lock.release()
 
