@@ -573,12 +573,12 @@ class HabitatUploader(object):
                 _req = requests.put(
                     _url,
                     data=json.dumps(_data),
-                    timeout=self.upload_timeout,
+                    timeout=(self.upload_timeout, 6.1),
                     headers=headers,
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                break
+                return
 
             if _req.status_code == 201 or _req.status_code == 403:
                 # 201 = Success, 403 = Success, sentence has already seen by others.
@@ -620,7 +620,7 @@ class HabitatUploader(object):
                         sentence = self.habitat_upload_queue.get()
 
                     self.log_warning(
-                        "Uploader queue was full - possible connectivity issue."
+                        "Upload queue was full when reading from queue, now flushed - possible connectivity issue."
                     )
                 else:
                     # Otherwise, get the first item in the queue.
@@ -684,9 +684,17 @@ class HabitatUploader(object):
         else:
             # Attept to add it to the habitat uploader queue.
             try:
+                if self.habitat_upload_queue.qsize() == self.upload_queue_size:
+                    # Flush queue.
+                    while self.habitat_upload_queue.qsize() > 0:
+                        self.habitat_upload_queue.get();
+                    
+                    self.log_error("Upload queue was full when adding to queue, now flushed - possible connectivity issue.")
+
                 self.habitat_upload_queue.put_nowait(_sentence)
             except Exception as e:
-                self.log_error("Error adding sentence to queue: %s" % str(e))
+                self.log_error("Error adding sentence to queue, queue likely full.  %s" % str(e))
+                self.log_error("Queue Size: %d" % self.habitat_upload_queue.qsize())
 
         self.upload_lock.release()
 
