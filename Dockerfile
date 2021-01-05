@@ -56,10 +56,10 @@ COPY --from=build /usr/local/lib/python3.7/dist-packages /usr/local/lib/python3.
 # Copy auto_rx from the build container to /opt.
 COPY --from=build /root/radiosonde_auto_rx/auto_rx /opt/auto_rx
 
-# Set the working directory
+# Set the working directory.
 WORKDIR /opt/auto_rx
 
-# Use tini as init
+# Use tini as init.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run auto_rx.py.
