@@ -27,7 +27,6 @@ import time
 import datetime
 import traceback
 from dateutil.parser import parse
-from .config import read_auto_rx_config
 
 
 def send_payload_summary(telemetry, port=55673):
@@ -85,8 +84,7 @@ def send_payload_summary(telemetry, port=55673):
 
         try:
             _s.sendto(
-                json.dumps(packet).encode("ascii"),
-                ("<broadcast>", port),
+                json.dumps(packet).encode("ascii"), ("<broadcast>", port),
             )
         # Catch any socket errors, that may occur when attempting to send to a broadcast address
         # when there is no network connected. In this case, re-try and send to localhost instead.
@@ -95,8 +93,7 @@ def send_payload_summary(telemetry, port=55673):
                 "Send to broadcast address failed, sending to localhost instead."
             )
             _s.sendto(
-                json.dumps(packet).encode("ascii"),
-                ("127.0.0.1", port),
+                json.dumps(packet).encode("ascii"), ("127.0.0.1", port),
             )
 
         _s.close()
@@ -105,15 +102,12 @@ def send_payload_summary(telemetry, port=55673):
         logging.debug("Error sending Payload Summary: %s" % str(e))
 
 
-def emulate_telemetry(filename,
-                    port = 55673,
-                    speed = 1.0
-                    ):
-    '''
+def emulate_telemetry(filename, port=55673, speed=1.0):
+    """
     Read in a auto_rx log file and emit payload summary messages.
-    '''
+    """
 
-    _f = open(filename,'r')
+    _f = open(filename, "r")
     # Skip header line
     _f.readline()
 
@@ -121,20 +115,19 @@ def emulate_telemetry(filename,
     _first_time = True
 
     # Log file format...
-    #timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,pressure,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data
+    # timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,pressure,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data
     # 0                       1        2    3         4         5      6   7   8     9      10   11   12   13      14   15  16 17 18 19
-    #2020-12-29T23:29:40.000Z,S1050212,2138,-34.96582,138.53122,4496.8,8.4,6.4,157.1,-273.0,-1.0,-1.0,RS41,401.500,23.6,562,8,3.0,-1,-1
+    # 2020-12-29T23:29:40.000Z,S1050212,2138,-34.96582,138.53122,4496.8,8.4,6.4,157.1,-273.0,-1.0,-1.0,RS41,401.500,23.6,562,8,3.0,-1,-1
 
     # Read in first datetime line
     _line = _f.readline()
-    _fields = _line.split(',')
+    _fields = _line.split(",")
     _telemetry_datetime = parse(_fields[0])
 
     _current_datetime = datetime.datetime.utcnow()
 
-
     for _line in _f:
-        _fields = _line.split(',')
+        _fields = _line.split(",")
 
         _time = parse(_fields[0])
         _id = _fields[1]
@@ -153,7 +146,7 @@ def emulate_telemetry(filename,
         _telemetry_datetime = _time
 
         # Calculate our delay before emitting this packet.
-        _delay_time = _time_delta.seconds*(1.0/speed)
+        _delay_time = _time_delta.seconds * (1.0 / speed)
 
         # Increment the emitted datetime field.
         _current_datetime = _current_datetime + _time_delta
@@ -164,27 +157,25 @@ def emulate_telemetry(filename,
 
         # Format telemetry data into a dictionary.
         _telemetry = {
-            'datetime_dt': _current_datetime,
-            'id': _id,
-            'lat': _lat,
-            'lon': _lon,
-            'alt': _alt,
-            'vel_h': _vel_h,
-            'heading': _heading,
-            'type': _type,
-            'temp': _temp,
-            'freq': _freq,
-            'frame': _frame
-            }
+            "datetime_dt": _current_datetime,
+            "id": _id,
+            "lat": _lat,
+            "lon": _lon,
+            "alt": _alt,
+            "vel_h": _vel_h,
+            "heading": _heading,
+            "type": _type,
+            "temp": _temp,
+            "freq": _freq,
+            "frame": _frame,
+        }
 
         send_payload_summary(_telemetry, port=port)
 
         print(_telemetry)
 
 
-if __name__ == '__main__':
-    import argparse
-    import logging
+if __name__ == "__main__":
 
     logging.basicConfig(
         format="%(asctime)s %(levelname)s:%(message)s", level=logging.DEBUG
@@ -207,12 +198,8 @@ if __name__ == '__main__':
         help="Payload Summary UDP Output Port (Default: 55673)",
     )
     parser.add_argument(
-        "log",
-        help="auto_rx log file to replay.",
+        "log", help="auto_rx log file to replay.",
     )
     args = parser.parse_args()
 
-
-    emulate_telemetry(args.log,
-                    port=args.port,
-                    speed=args.speed)
+    emulate_telemetry(args.log, port=args.port, speed=args.speed)
