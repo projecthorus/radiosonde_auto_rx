@@ -249,6 +249,9 @@
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             }
+                            else {
+                                sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                            }
                         }
 
                         // Add SNR data, if it exists.
