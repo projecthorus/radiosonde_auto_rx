@@ -244,12 +244,11 @@
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
-                        // Add a link to HabHub if we have habitat enabled.
+                        // Add a link to HabHub if we have habitat enabled otherwise add link to radiosondy.info.
                         if ("habitat_enabled" in autorx_config){
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
-                            }
-                            else {
+                            } else {
                                 sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             }
                         }
