@@ -249,7 +249,11 @@
                             if(autorx_config.habitat_enabled ==true){
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
                             } else {
-                                sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                                if(autorx_config.aprs_server == "radiosondy.info"){
+                                  sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</$
+                                } else {
+                                  sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
+                                }
                             }
                         }
 
