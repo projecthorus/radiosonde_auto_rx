@@ -383,7 +383,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "M10": True,
             "M20": True,
             "IMET": False,
-            "IMET54": False,
+            "IMET5": False,
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,

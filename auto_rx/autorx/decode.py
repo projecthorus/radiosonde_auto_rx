@@ -28,7 +28,7 @@ VALID_SONDE_TYPES = [
     "M10",
     "M20",
     "IMET",
-    "IMET54",
+    "IMET5",
     "MK2LMS",
     "LMS6",
     "MEISEI",
@@ -97,7 +97,7 @@ class SondeDecoder(object):
         "M10",
         "M20",
         "IMET",
-        "IMET54",
+        "IMET5",
         "MK2LMS",
         "LMS6",
         "MEISEI",
@@ -454,7 +454,7 @@ class SondeDecoder(object):
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
 
-        elif self.sonde_type == "IMET54":
+        elif self.sonde_type == "IMET5":
             # iMet-4 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
@@ -1128,6 +1128,12 @@ class SondeDecoder(object):
                 )
                 _telemetry["id"] = self.imet_id
                 _telemetry["station_code"] = self.imet_location
+
+            # iMet-54 Specific Actions
+            if self.sonde_type == "IMET5":
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+
 
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:
