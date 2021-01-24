@@ -28,6 +28,7 @@ VALID_SONDE_TYPES = [
     "M10",
     "M20",
     "IMET",
+    "IMET5",
     "MK2LMS",
     "LMS6",
     "MEISEI",
@@ -96,6 +97,7 @@ class SondeDecoder(object):
         "M10",
         "M20",
         "IMET",
+        "IMET5",
         "MK2LMS",
         "LMS6",
         "MEISEI",
@@ -451,6 +453,27 @@ class SondeDecoder(object):
 
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
+
+        elif self.sonde_type == "IMET5":
+            # iMet-4 Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # iMet-54 Decoder
+            decode_cmd += (
+                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json 2>/dev/null"
+            )
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -1105,6 +1128,12 @@ class SondeDecoder(object):
                 )
                 _telemetry["id"] = self.imet_id
                 _telemetry["station_code"] = self.imet_location
+
+            # iMet-54 Specific Actions
+            if self.sonde_type == "IMET5":
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+
 
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:

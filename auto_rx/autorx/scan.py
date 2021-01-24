@@ -484,6 +484,12 @@ def detect_sonde(
             % (str(device_idx), _type, _score)
         )
         _sonde_type = "IMET1"
+    elif "IMET54" in _type:
+        logging.debug(
+            "Scanner #%s - Detected a iMet-54 Sonde! (Score: %.2f)"
+            % (str(device_idx), _type, _score)
+        )
+        _sonde_type = "IMET54"
     elif "LMS6" in _type:
         logging.debug(
             "Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)"
