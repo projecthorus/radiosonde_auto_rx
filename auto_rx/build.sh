@@ -28,6 +28,7 @@ gcc lms6Xmod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6Xmod -w
 gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o meisei100mod -w
 gcc m10mod.c demod_mod.o -lm -O3 -o m10mod -w
 gcc mXXmod.c demod_mod.o -lm -O3 -o mXXmod -w
+gcc imet54mod.c demod_mod.o -lm -O3 -o imet54mod -w
 
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 Demodulator."
@@ -69,5 +70,6 @@ cp ../demod/mod/mXXmod .
 cp ../demod/mod/rs92mod .
 cp ../demod/mod/lms6Xmod .
 cp ../demod/mod/meisei100mod .
+cp ../demod/mod/imet54mod .
 
 echo "Done!"

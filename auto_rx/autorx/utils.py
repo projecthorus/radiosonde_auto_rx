@@ -42,6 +42,7 @@ REQUIRED_RS_UTILS = [
     "mk2a_lms1680",
     "lms6Xmod",
     "meisei100mod",
+    "imet54mod",
 ]
 
 

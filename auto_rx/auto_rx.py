@@ -558,7 +558,7 @@ def telemetry_filter(telemetry):
     else:
         meisei_callsign_valid = False
 
-    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
+    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
@@ -642,7 +642,7 @@ def main():
         "--type",
         type=str,
         default=None,
-        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, LMS6, MK2LMS, MEISEI)",
+        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET54, LMS6, MK2LMS, MEISEI)",
     )
     parser.add_argument(
         "-t",
