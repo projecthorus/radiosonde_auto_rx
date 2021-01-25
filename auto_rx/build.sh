@@ -10,7 +10,7 @@ echo "Building dft_detect"
 cd ../scan/
 gcc dft_detect.c -lm -o dft_detect -DNOC34C50 -w -Ofast
 
-echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20 Demodulators"
+echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20/iMet54 Demodulators"
 #cd ../demod/
 #gcc -c demod.c
 #gcc -c demod_dft.c
@@ -40,7 +40,7 @@ gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680
 #cd ../m10/
 #g++ M10.cpp M10Decoder.cpp M10GeneralParser.cpp M10GtopParser.cpp M10TrimbleParser.cpp AudioFile.cpp -lm -o m10 -std=c++11
 
-echo "Building iMet Demodulator."
+echo "Building iMet-4 Demodulator."
 cd ../imet/
 gcc imet1rs_dft.c -lm -O3 -o imet1rs_dft
 
