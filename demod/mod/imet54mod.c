@@ -309,13 +309,27 @@ static int get_PTU(gpx_t *gpx) {
 
 /* ------------------------------------------------------------------------------------ */
 
-static int print_position(gpx_t *gpx, int ecc, int ecc_gps) {
+static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
 
-    get_SN(gpx);
-    get_GPS(gpx);
-    get_PTU(gpx);
+    int prnGPS = 0,
+        prnPTU = 0;
+    int frm_ok = 0;
 
-    if ( !gpx->option.slt )
+    frm_ok = (ecc_frm >= 0  &&  len > pos_PTU_Trh+4);
+
+    if (len > pos_GPSalt+4)
+    {
+        get_SN(gpx);
+        get_GPS(gpx);
+        prnGPS = 1;
+    }
+    if (len > pos_PTU_Trh+4)
+    {
+        get_PTU(gpx);
+        prnPTU = 1;
+    }
+
+    if ( prnGPS && !gpx->option.slt )
     {
         fprintf(stdout, " (%d) ", gpx->SNu32);
 
@@ -324,22 +338,23 @@ static int print_position(gpx_t *gpx, int ecc, int ecc_gps) {
         fprintf(stdout, " lon: %.5f ", gpx->lon);
         fprintf(stdout, " alt: %.1f ", gpx->alt);
 
-        if (gpx->option.ptu) {
+        if (gpx->option.ptu && prnPTU) {
             fprintf(stdout, " ");
             if (gpx->T > -273.0)   fprintf(stdout, " T=%.1fC ", gpx->T);
             if (gpx->RH > -0.5)    fprintf(stdout, " _RH=%.0f%% ", gpx->RH);
-            if (gpx->Trh > -273.0) fprintf(stdout, " Trh=%.1fC ", gpx->Trh);
+            if (gpx->Trh > -273.0) fprintf(stdout, " _Trh=%.1fC ", gpx->Trh);
         }
 
-        if (gpx->option.ecc && ecc != 0) {
-            fprintf(stdout, " # (%d)", ecc);
+        if (gpx->option.ecc && ecc_frm != 0) {
+            fprintf(stdout, " # (%d)", ecc_frm);
             fprintf(stdout, " [%d]", ecc_gps);
         }
 
         fprintf(stdout, "\n");
     }
 
-    if (gpx->option.jsn && ecc >= 0) { // ecc_gps >= 0 not reliable?
+    // prnGPS,prnTPU
+    if (gpx->option.jsn && frm_ok) {
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
@@ -366,7 +381,7 @@ static int print_position(gpx_t *gpx, int ecc, int ecc_gps) {
 
 static void print_frame(gpx_t *gpx, int len, int b2B) {
     int i, j;
-    int ecc = 0, ecc_gps = 0;
+    int ecc_frm = 0, ecc_gps = 0;
     ui8_t bits8n1[BITFRAME_LEN+10]; // (RAW)BITFRAME_LEN
     ui8_t bits[BITFRAME_LEN]; // 8/10 (RAW)BITFRAME_LEN
     ui8_t nib[FRAME_LEN];
@@ -394,18 +409,18 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
 
         for (j = 0; j < len/16; j++) gpx->frame[j] = (nib[2*j]<<4) | (nib[2*j+1] & 0xF);
 
-        ecc = 0;
+        ecc_frm = 0;
         ecc_gps = 0;
         for (j = 0; j < len/8; j++) { // alt. only GPS block
-            ecc += ec[j];
-            if (ec[j] > 0x10) ecc = -1;
-            if (j < pos_GPSalt+4+8) ecc_gps = ecc;
-            if (ecc < 0) break;
+            ecc_frm += ec[j];
+            if (ec[j] > 0x10) ecc_frm = -1;
+            if (j < pos_GPSalt+4+8) ecc_gps = ecc_frm;
+            if (ecc_frm < 0) break;
         }
     }
     else {
-        ecc = -2; // TODO: parse ecc-info from raw file
-        ecc_gps = ecc;
+        ecc_frm = -2; // TODO: parse ecc-info from raw file
+        ecc_gps = ecc_frm;
     }
 
     if (gpx->option.raw)
@@ -418,19 +433,19 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
                 if (gpx->option.raw == 4 && i % 4 == 3) fprintf(stdout, " ");
             }
         }
-        if (gpx->option.ecc && ecc != 0) {
-            fprintf(stdout, " # (%d)", ecc);
+        if (gpx->option.ecc && ecc_frm != 0) {
+            fprintf(stdout, " # (%d)", ecc_frm);
             fprintf(stdout, " [%d]", ecc_gps);
         }
         fprintf(stdout, "\n");
 
         if (gpx->option.slt /*&& gpx->option.jsn*/) {
-            print_position(gpx, ecc, ecc_gps);
+            print_position(gpx, len/16, ecc_frm, ecc_gps);
         }
     }
     else
     {
-        print_position(gpx, ecc, ecc_gps);
+        print_position(gpx, len/16, ecc_frm, ecc_gps);
     }
 }
 
