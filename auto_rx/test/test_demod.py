@@ -241,6 +241,18 @@ processing_type = {
         "post_process" : "| grep frame | wc -l",
         'files' : "./generated/lms6-400*",
     },
+
+    # iMet-54 Decoding
+    'imet54_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 -s --stats=5 2 96000 4800 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../imet54mod --ecc --json --softin -i 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep frame | wc -l",
+        'files' : "./generated/imet54*",
+    },
 }
 
 
@@ -578,7 +590,7 @@ processing_type['dft_detect_iq'] = {
     'decode': "../dft_detect -t 5 --iq --bw 32 --dc - 48000 16 2>/dev/null",
     # Grep out the line containing the detected sonde type.
     "post_process" : " | grep \:",
-    'files' : "./generated/rsngp*.bin"
+    'files' : "./generated/*.bin"
 }
 
 
