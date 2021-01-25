@@ -28,6 +28,7 @@ VALID_SONDE_TYPES = [
     "M10",
     "M20",
     "IMET",
+    "IMET5",
     "MK2LMS",
     "LMS6",
     "MEISEI",
@@ -96,6 +97,7 @@ class SondeDecoder(object):
         "M10",
         "M20",
         "IMET",
+        "IMET5",
         "MK2LMS",
         "LMS6",
         "MEISEI",
@@ -451,6 +453,27 @@ class SondeDecoder(object):
 
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
+
+        elif self.sonde_type == "IMET5":
+            # iMet-4 Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # iMet-54 Decoder
+            decode_cmd += (
+                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
+            )
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -838,6 +861,45 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
             self.rx_frequency = _freq
 
+        elif self.sonde_type == "IMET5":
+            # iMet-54 Decoder command.
+            _sdr_rate = 48000  # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
+            _output_rate = 48000
+            _baud_rate = 4800
+            _offset = 0.25  # Place the sonde frequency in the centre of the passband.
+            _lower = int(
+                0.025 * _sdr_rate
+            )  # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate * _offset)
+
+            demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                _sdr_rate,
+                _freq,
+            )
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sdr_rate,
+                _baud_rate,
+            )
+
+            decode_cmd = "./imet54mod --ecc --json --softin -i 2>/dev/null"
+
+            # iMet54 sondes transmit in bursts. Use a peak hold.
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
+            self.rx_frequency = _freq
+
         else:
             return None
 
@@ -1105,6 +1167,12 @@ class SondeDecoder(object):
                 )
                 _telemetry["id"] = self.imet_id
                 _telemetry["station_code"] = self.imet_location
+
+            # iMet-54 Specific Actions
+            if self.sonde_type == "IMET5":
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+
 
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:

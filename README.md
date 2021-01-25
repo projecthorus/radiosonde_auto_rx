@@ -26,6 +26,7 @@ Currently we support the following radiosonde types:
 * Graw DFM06/DFM09/DFM17/PS-15
 * Meteomodem M10 & M20
 * Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
+* Intermet iMet-54
 * Lockheed Martin LMS6 (400 MHz and 1680 MHz variants, including the new 'LMS-X' unreleased type)
 * Meisei iMS-100
 

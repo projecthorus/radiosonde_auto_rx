@@ -210,7 +210,9 @@ class EmailNotification(object):
                             _range < self.landing_range_threshold
                             and self.landing_notifications
                         ):
-                            self.log_info("Landing sonde %s triggered range threshold." % _id)
+                            self.log_info(
+                                "Landing sonde %s triggered range threshold." % _id
+                            )
 
                             msg = "Nearby sonde landing detected:\n\n"
 
@@ -225,7 +227,7 @@ class EmailNotification(object):
 
                             msg += "Range:     %.1f km (Threshold: %.1fkm)\n" % (
                                 _relative_position["straight_distance"] / 1000.0,
-                                self.landing_range_threshold
+                                self.landing_range_threshold,
                             )
                             msg += "Bearing:   %d degrees True\n" % int(
                                 _relative_position["bearing"]
@@ -358,11 +360,7 @@ if __name__ == "__main__":
         mail_from=config["email_from"],
         mail_to=config["email_to"],
         mail_subject=config["email_subject"],
-        station_position=(
-            -10.0,
-            10.0,
-            0.0,
-        ),
+        station_position=(-10.0, 10.0, 0.0,),
         landing_notifications=True,
         launch_notifications=True,
     )
