@@ -439,6 +439,8 @@ drift_tweak = False
 #
 # Alternate Decode Chains
 #
+# NOTE: This section will be deprecated soon, with the fsk_demod chains used permanently.
+#
 # These (not so) experimental demod chains use David Rowe's fsk_demod modem.
 # They have much better drift handling performance, and so may be better suited for
 # 1680 MHz sondes, but use considerably more CPU. Recommend use of a Pi 3 or better.
