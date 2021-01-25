@@ -88,6 +88,10 @@ static char imet1rs_header[] =
 // 1:1200Hz/0:2200Hz tones, bit-duration 1/1200 sec, phase ...
 // bits: 1111111111111111111 10 10000000 10 ..;
 
+//int  imet54_sps = 4800;
+static char imet54_header[] = "0000000001""0101010101""0001001001""0001001001"; // 0x00 0xAA 0x24 0x24
+
+
 // C34/C50: 2400 baud, 1:2900Hz/0:4800Hz
 static char c34_preheader[] =
 "01010101010101010101010101010101";   // 2900 Hz tone
@@ -124,26 +128,28 @@ static float set_lpIQ = 0.0;
 #define tn_MEISEI   9
 #define tn_C34C50  10
 #define tn_MK2LMS  21
-#define tn_IMET    15 // IMET4=+1, IMET1RS=+3, IMET1AB=+4
+#define tn_IMETa   15 // IMET4=+1, IMET1RS=+3, IMET1AB=+4
+#define tn_IMET5   14 // IMET5=14
 
-#define Nrs      12
-#define idxIMETs  8
-#define idxAB     9
-#define idxRS    10
-#define idxI4    11
+#define Nrs         13
+#define idxIMETafsk  9
+#define idxAB       10
+#define idxRS       11
+#define idxI4       12
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",    tn_DFM,    0, 0, 0.0}, // DFM6: -2 ?
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",    tn_RS41,   0, 0, 0.0},
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92",    tn_RS92,   0, 0, 0.0}, // RS92NGP: 1680/400=4.2
-    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",    tn_LMS6,   0, 0, 0.0}, // lmsX: 7?
-    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",  tn_MK2LMS, 1, 2, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
-    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",     tn_M10,    1, 1, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
-    { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",  tn_MEISEI, 0, 1, 0.0},
-    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",  tn_C34C50, 0, 1, 0.0}, // C34/C50 2900 Hz tone
-    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMET",    tn_IMET  , 1, 0, 0.0}, // IMET1AB=19, IMET1RS=18 (IQ)IMET4=16
-    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", tn_IMET+4, 1, 2, 0.0}, // (rs_hdr[idxAB])
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", tn_IMET+3, 0, 2, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",   tn_IMET+1, 1, 0, 0.0}, // (rs_hdr[idxI4])
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",     tn_DFM,     0, 0, 0.0, 0.0}, // DFM6: -2 ?
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",     tn_RS41,    0, 0, 0.0, 0.0},
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92",     tn_RS92,    0, 0, 0.0, 0.0}, // RS92NGP: 1680/400=4.2
+    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",     tn_LMS6,    0, 0, 0.0, 0.0}, // lmsX: 7?
+    { 4800, 0, 0, imet54_header,  0.5, 0.0, 0.80, 2, NULL, "IMET5",    tn_IMET5,   0, 0, 0.0, 0.0}, // (rs_hdr[idxI5])
+    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",   tn_MK2LMS,  1, 2, 0.0, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
+    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",      tn_M10,     1, 1, 0.0, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
+    { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",   tn_MEISEI,  0, 1, 0.0, 0.0},
+    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",   tn_C34C50,  0, 1, 0.0, 0.0}, // C34/C50 2900 Hz tone
+    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMETafsk", tn_IMETa  , 1, 0, 0.0, 0.0}, // IMET1AB=20, IMET1RS=19 (IQ)IMET4=17
+    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB",  tn_IMETa+4, 1, 2, 0.0, 0.0}, // (rs_hdr[idxAB])
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS",  tn_IMETa+3, 0, 2, 0.0, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",    tn_IMETa+1, 1, 0, 0.0, 0.0}, // (rs_hdr[idxI4])
 };
 
 
@@ -386,11 +392,13 @@ static int read_wav_header(FILE *fp, int wav_channel) {
     int byte, p=0;
 
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "RIFF", 4)) return -1;
+    if (strncmp(txt, "RIFF", 4) && strncmp(txt, "RF64", 4)) return -1;
+
     if (fread(txt, 1, 4, fp) < 4) return -1;
     // pos_WAVE = 8L
     if (fread(txt, 1, 4, fp) < 4) return -1;
-    if (strncmp(txt, "WAVE", 4)) return -1;
+    if (strncmp(txt, "WAVE", 4))  return -1;
+
     // pos_fmt = 12L
     for ( ; ; ) {
         if ( (byte=fgetc(fp)) == EOF ) return -1;
@@ -433,6 +441,8 @@ static int read_wav_header(FILE *fp, int wav_channel) {
     //fprintf(stderr, "channel-In : %d\n", wav_ch+1);
 
     if (bits_sample != 8 && bits_sample != 16 && bits_sample != 32) return -1;
+
+    if (sample_rate == 900001) sample_rate -= 1;
 
     return 0;
 }
@@ -1335,7 +1345,7 @@ int main(int argc, char **argv) {
         k += 1;
 
         if (k >= K-4) {
-            for (j = 0; j <= idxIMETs; j++) { // incl. IMET-preamble
+            for (j = 0; j <= idxIMETafsk; j++) { // incl. IMET-preamble
 #ifdef NOC34C50
                 if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) continue;
 #endif
@@ -1350,7 +1360,7 @@ int main(int argc, char **argv) {
         }
 
         header_found = 0;
-        for (j = 0; j <= idxIMETs; j++) // incl. IMET-preamble
+        for (j = 0; j <= idxIMETafsk; j++) // incl. IMET-preamble
         {
             if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
                 if (mv_pos[j] > mv0_pos[j]) {
@@ -1373,7 +1383,7 @@ int main(int argc, char **argv) {
                             }
                         }
 
-                        if ( strncmp(rs_hdr[j].type, "IMET", 4) == 0 ) // ? j == idxIMETs
+                        if ( strncmp(rs_hdr[j].type, "IMETafsk", 8) == 0 ) // ? j == idxIMETafsk
                         {
                             int n, m;
                             int D = N_DFT/2 - 3;
