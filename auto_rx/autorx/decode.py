@@ -472,7 +472,7 @@ class SondeDecoder(object):
 
             # iMet-54 Decoder
             decode_cmd += (
-                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json 2>/dev/null"
+                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
             )
 
         elif self.sonde_type == "MK2LMS":
