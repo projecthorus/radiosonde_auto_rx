@@ -14,7 +14,7 @@ import os
 def get_ephemeris(destination="ephemeris.dat"):
     """ Download the latest GPS ephemeris file from the ESA's FTP server """
     try:
-        logging.debug("GPS Grabber - Connecting to EDS FTP Server...")
+        logging.debug("GPS Grabber - Connecting to ESA's FTP Server...")
         ftp = ftplib.FTP("gssc.esa.int", timeout=10)
         ftp.login("anonymous", "anonymous")
         ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
