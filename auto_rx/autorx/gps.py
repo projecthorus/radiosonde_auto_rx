@@ -15,19 +15,26 @@ def get_ephemeris(destination="ephemeris.dat"):
     """ Download the latest GPS ephemeris file from the CDDIS's FTP server """
     try:
         logging.debug("GPS Grabber - Connecting to GSFC FTP Server...")
-        ftp = ftplib.FTP("cddis.gsfc.nasa.gov", timeout=10)
+        #ftp = ftplib.FTP("cddis.gsfc.nasa.gov", timeout=10)
+        ftp = ftplib.FTP("gssc.esa.int", timeout=10)
         ftp.login("anonymous", "anonymous")
         ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
         file_list = ftp.nlst()
 
         # We expect the latest files to be the last in the list.
         download_file = None
-        file_suffix = datetime.datetime.utcnow().strftime("%yn.Z")
+        file_suffix = datetime.datetime.utcnow().strftime("%yn.gz")
 
         if file_suffix in file_list[-1]:
             download_file = file_list[-1]
         elif file_suffix in file_list[-2]:
             download_file = file_list[-2]
+        elif file_suffix in file_list[-3]:
+            download_file = file_list[-3]
+        elif file_suffix in file_list[-4]:
+            download_file = file_list[-4]
+        elif file_suffix in file_list[-5]:
+            download_file = file_list[-5]
         else:
             logging.error("GPS Grabber - Could not find appropriate ephemeris file.")
             return None
@@ -37,13 +44,13 @@ def get_ephemeris(destination="ephemeris.dat"):
         )
 
         # Download file.
-        f_eph = open(destination + ".Z", "wb")
+        f_eph = open(destination + ".gz", "wb")
         ftp.retrbinary("RETR %s" % download_file, f_eph.write)
         f_eph.close()
         ftp.close()
 
         # Unzip file.
-        os.system("gunzip -q -f ./%s" % (destination + ".Z"))
+        os.system("gunzip -q -f ./%s" % (destination + ".gz"))
 
         logging.info(
             "GPS Grabber - Ephemeris downloaded to %s successfuly!" % destination
