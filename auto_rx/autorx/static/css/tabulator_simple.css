@@ -625,3 +625,6 @@
   margin-left: 10px;
   color: #666;
 }
+.tabulator-row-odd {
+  background: #eee;
+}
