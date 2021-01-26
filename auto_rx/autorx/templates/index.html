@@ -174,12 +174,12 @@
                 layout:"fitData", 
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
-                    {title:"SDR", field:"sdr_device_idx", headerSort:false},
+                    {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
-                    {title:"Type", field:"type", headerSort:false},
-                    {title:'Freq (MHz)', field:"freq", headerSort:false},
+                    {title:"Type", field:"type", headerSort:true},
+                    {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
-                    {title:"Time", field:"datetime", headerSort:false},
+                    {title:"Time", field:"datetime", headerSort:true},
                     {title:"Frame", field:"frame", headerSort:false},
                     {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
                     {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
@@ -190,7 +190,7 @@
                     {title:"RH (%)", field:"humidity", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:false},
+                    {title:"Range (km)", field:"range", headerSort:true},
                     {title:"SNR (dB)", field:"snr", headerSort:false, visible:false},
                     {title:"Other", field:"other", headerSort:false}
                 ]
