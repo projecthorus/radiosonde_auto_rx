@@ -60,7 +60,7 @@ typedef struct {
     int std; int min; float sek;
     double lat; double lon; double alt;
     double vH; double vD; double vV;
-    float T; float RH; float Trh;
+    float T; float _RH; float Trh; float RH;
     ui8_t frame[FRAME_LEN+4];
     ui8_t frame_bits[BITFRAME_LEN+8];
     int jsn_freq;   // freq/kHz (SDR)
@@ -284,9 +284,26 @@ static int get_GPS(gpx_t *gpx) {
     return 0;
 }
 
+// water vapor saturation pressure (Hyland and Wexler)
+static float vaporSatP(float Tc) {
+    double T = Tc + 273.15;
+
+    // H+W equation
+    double p = expf(-5800.2206 / T
+                    +1.3914993
+                    +6.5459673 * log(T)
+                    -4.8640239e-2 * T
+                    +4.1764768e-5 * T*T
+                    -1.4452093e-8 * T*T*T
+                   );
+
+    return (float)p; // [Pa]
+}
+
 static int get_PTU(gpx_t *gpx) {
     int val = 0;
     float *f = (float*)&val;
+    float rh = -1.0;
 
     val = i4be(gpx->frame + pos_PTU_T);
     if (*f > -120.0f && *f < 80.0f)  gpx->T = *f;
@@ -295,14 +312,20 @@ static int get_PTU(gpx_t *gpx) {
     // raw RH?
     // water vapor saturation pressure (Hyland and Wexler)?
     val = i4be(gpx->frame + pos_PTU_RH);
-    if      (*f <   0.0f)  gpx->RH =   0.0f;
-    else if (*f > 100.0f)  gpx->RH = 100.0f;
-    else gpx->RH = *f;
+    if      (*f <   0.0f)  gpx->_RH =   0.0f;
+    else if (*f > 100.0f)  gpx->_RH = 100.0f;
+    else gpx->_RH = *f;
 
     // temperatur of r.h. sensor?
     val = i4be(gpx->frame + pos_PTU_Trh);
     if (*f > -120.0f && *f < 80.0f)  gpx->Trh = *f;
     else gpx->Trh = -273.15f;
+
+    // (Hyland and Wexler)
+    rh = gpx->_RH * vaporSatP(gpx->Trh)/vaporSatP(gpx->T);
+    if (rh < 0.0f) rh = 0.0;
+    if (rh > 100.0f) rh = 100.0;
+    gpx->RH = rh;
 
     return 0;
 }
@@ -341,8 +364,10 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
         if (gpx->option.ptu && prnPTU) {
             fprintf(stdout, " ");
             if (gpx->T > -273.0)   fprintf(stdout, " T=%.1fC ", gpx->T);
-            if (gpx->RH > -0.5)    fprintf(stdout, " _RH=%.0f%% ", gpx->RH);
+            if (gpx->_RH > -0.5)   fprintf(stdout, " _RH=%.0f%% ", gpx->_RH);
             if (gpx->Trh > -273.0) fprintf(stdout, " _Trh=%.1fC ", gpx->Trh);
+
+            if (gpx->RH > -0.5)   fprintf(stdout, " RH=%.0f%% ", gpx->RH);
         }
 
         if (gpx->option.ecc && ecc_frm != 0) {
