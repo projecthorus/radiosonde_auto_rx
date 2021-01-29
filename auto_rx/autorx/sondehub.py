@@ -107,6 +107,7 @@ class SondehubUploader(object):
             "software_name": "radiosonde_auto_rx",
             "software_version": autorx.__version__,
             "uploader_callsign": self.user_callsign,
+            "time_received": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         }
 
         # Mandatory Fields
