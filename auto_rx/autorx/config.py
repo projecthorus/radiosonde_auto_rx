@@ -162,7 +162,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # This setting is not exposed to users as it's only used for unit/int testing
         "habitat_url": "https://habitat.sondehub.org/",
         # New Sondehub DB Settings
-        "sondehub_enabled": True
+        "sondehub_enabled": True,
     }
 
     try:
@@ -496,7 +496,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find kml_refresh_rate setting, using default (10 seconds)."
             )
             auto_rx_config["kml_refresh_rate"] = 11
-
 
         # New Sondehub db Settings
         try:

@@ -777,7 +777,7 @@ def main():
             launch_notifications=config["email_launch_notifications"],
             landing_notifications=config["email_landing_notifications"],
             landing_range_threshold=config["email_landing_range_threshold"],
-            landing_altitude_threshold=config["email_landing_altitude_threshold"]
+            landing_altitude_threshold=config["email_landing_altitude_threshold"],
         )
         email_exporter = _email_notification
 
@@ -890,7 +890,7 @@ def main():
     if config["sondehub_enabled"]:
         _sondehub = SondehubUploader(
             user_callsign=config["habitat_uploader_callsign"],
-            upload_rate=config["habitat_upload_rate"]
+            upload_rate=config["habitat_upload_rate"],
         )
 
         exporter_objects.append(_sondehub)

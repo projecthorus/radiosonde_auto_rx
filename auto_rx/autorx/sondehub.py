@@ -35,6 +35,7 @@ class SondehubUploader(object):
     them to the Sondehub Elasticsearch cluster.
 
     """
+
     SONDEHUB_URL = "https://api.v2.sondehub.org/sondes/telemetry"
 
     # We require the following fields to be present in the incoming telemetry dictionary data
@@ -52,13 +53,13 @@ class SondehubUploader(object):
         "datetime_dt",
     ]
 
-
-    def __init__(self, 
-        upload_rate = 30,
-        upload_timeout = 20,
-        upload_retries = 5,
-        user_callsign = "N0CALL"
-        ):
+    def __init__(
+        self,
+        upload_rate=30,
+        upload_timeout=20,
+        upload_retries=5,
+        user_callsign="N0CALL",
+    ):
         """ Initialise and start a Sondehub uploader
         
         Args:
@@ -90,7 +91,7 @@ class SondehubUploader(object):
 
         # Attempt to reformat the data.
         _telem = self.reformat_data(telemetry)
-        #self.log_debug("Telem: %s" % str(_telem))
+        # self.log_debug("Telem: %s" % str(_telem))
 
         # Add it to the queue if we are running.
         if self.input_processing_running and _telem:
@@ -98,130 +99,131 @@ class SondehubUploader(object):
         else:
             self.log_error("Processing not running, discarding.")
 
-
     def reformat_data(self, telemetry):
         """ Take an input dictionary and convert it to the universal format """
 
         # Init output dictionary
         _output = {
-            "software_name" : "radiosonde_auto_rx",
+            "software_name": "radiosonde_auto_rx",
             "software_version": autorx.__version__,
-            "uploader_callsign": self.user_callsign
+            "uploader_callsign": self.user_callsign,
         }
 
         # Mandatory Fields
         # Datetime
         try:
-            _output['datetime'] = telemetry['datetime_dt'].strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            _output["datetime"] = telemetry["datetime_dt"].strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
         except Exception as e:
-            self.log_error("Error converting telemetry datetime to string - %s" % str(e))
-            self.log_debug("Offending datetime_dt: %s" % str(telemetry['datetime_dt']))
+            self.log_error(
+                "Error converting telemetry datetime to string - %s" % str(e)
+            )
+            self.log_debug("Offending datetime_dt: %s" % str(telemetry["datetime_dt"]))
             return None
 
         # Type
-        if telemetry['type'].startswith("RS41"):
-            _output['manufacturer'] = 'Vaisala'
-            _output['type'] = 'RS41'
-            _output['serial'] = telemetry['id']
-            if 'subtype' in telemetry:
-                _output['subtype'] = telemetry['subtype']
+        if telemetry["type"].startswith("RS41"):
+            _output["manufacturer"] = "Vaisala"
+            _output["type"] = "RS41"
+            _output["serial"] = telemetry["id"]
+            if "subtype" in telemetry:
+                _output["subtype"] = telemetry["subtype"]
 
         elif telemetry["type"].startswith("DFM"):
-            _output['manufacturer'] = "Graw"
-            _output['type'] = "DFM"
-            _output['subtype'] = telemetry["type"]
-            _output['serial'] = telemetry["id"].split('-')[1]
-        
+            _output["manufacturer"] = "Graw"
+            _output["type"] = "DFM"
+            _output["subtype"] = telemetry["type"]
+            _output["serial"] = telemetry["id"].split("-")[1]
+
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
-            _output['manufacturer'] = "Meteomodem"
-            _output['type'] = telemetry["type"]
+            _output["manufacturer"] = "Meteomodem"
+            _output["type"] = telemetry["type"]
             # Strip off leading M10- or M20-
-            _output['serial'] = telemetry["id"][4:]
+            _output["serial"] = telemetry["id"][4:]
 
         elif telemetry["type"] == "LMS6":
-            _output['manufacturer'] = "Lockheed Martin"
-            _output['type'] = "LMS6-400"
-            _output['serial'] = telemetry["id"].split('-')[1]
+            _output["manufacturer"] = "Lockheed Martin"
+            _output["type"] = "LMS6-400"
+            _output["serial"] = telemetry["id"].split("-")[1]
 
         elif telemetry["type"] == "MK2LMS":
-            _output['manufacturer'] = "Lockheed Martin"
-            _output['type'] = "LMS6-1680"
-            _output['serial'] = telemetry["id"].split('-')[1]
+            _output["manufacturer"] = "Lockheed Martin"
+            _output["type"] = "LMS6-1680"
+            _output["serial"] = telemetry["id"].split("-")[1]
 
         elif telemetry["type"] == "IMET":
-            _output['manufacturer'] = "Intermet Systems"
-            _output['type'] = "iMet-4"
-            _output['serial'] = telemetry["id"].split('-')[1]
+            _output["manufacturer"] = "Intermet Systems"
+            _output["type"] = "iMet-4"
+            _output["serial"] = telemetry["id"].split("-")[1]
 
         elif telemetry["type"] == "IMET5":
-            _output['manufacturer'] = "Intermet Systems"
-            _output['type'] = "iMet-54"
-            _output['serial'] = telemetry["id"].split('-')[1]
+            _output["manufacturer"] = "Intermet Systems"
+            _output["type"] = "iMet-54"
+            _output["serial"] = telemetry["id"].split("-")[1]
 
         else:
-            self.log_error("Unknown Radiosonde Type %s" % telemetry['type'])
+            self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
             return None
 
         # Frame Number
-        _output['frame'] = telemetry["frame"]
+        _output["frame"] = telemetry["frame"]
 
         # Position
-        _output['lat'] = telemetry['lat']
-        _output['lon'] = telemetry['lon']
-        _output['alt'] = telemetry['alt']
+        _output["lat"] = telemetry["lat"]
+        _output["lon"] = telemetry["lon"]
+        _output["alt"] = telemetry["alt"]
 
         # Optional Fields
-        if 'temp' in telemetry:
-            if telemetry['temp'] > -273.0:
-                _output['temp'] = telemetry['temp']
-        
-        if 'humidity' in telemetry:
-            if telemetry['humidity'] >= 0.0:
-                _output['humidity'] = telemetry['humidity']
+        if "temp" in telemetry:
+            if telemetry["temp"] > -273.0:
+                _output["temp"] = telemetry["temp"]
 
-        if 'pressure' in telemetry:
-            if telemetry['pressure'] >= 0.0:
-                _output['pressure'] = telemetry['pressure']
+        if "humidity" in telemetry:
+            if telemetry["humidity"] >= 0.0:
+                _output["humidity"] = telemetry["humidity"]
 
-        if 'vel_v' in telemetry:
-            if telemetry['vel_v'] > -9999.0:
-                _output['vel_v'] = telemetry['vel_v']
+        if "pressure" in telemetry:
+            if telemetry["pressure"] >= 0.0:
+                _output["pressure"] = telemetry["pressure"]
 
-        if 'vel_h' in telemetry:
-            if telemetry['vel_h'] > -9999.0:
-                _output['vel_h'] = telemetry['vel_h']
-    
-        if 'heading' in telemetry:
-            if telemetry['heading'] > -9999.0:
-                _output['heading'] = telemetry['heading']
+        if "vel_v" in telemetry:
+            if telemetry["vel_v"] > -9999.0:
+                _output["vel_v"] = telemetry["vel_v"]
 
-        if 'sats' in telemetry:
-            _output['sats'] = telemetry['sats']
+        if "vel_h" in telemetry:
+            if telemetry["vel_h"] > -9999.0:
+                _output["vel_h"] = telemetry["vel_h"]
 
-        if 'batt' in telemetry:
-            if telemetry['batt'] >= 0.0:
-                _output['batt'] = telemetry['batt']
+        if "heading" in telemetry:
+            if telemetry["heading"] > -9999.0:
+                _output["heading"] = telemetry["heading"]
 
-        if 'aux' in telemetry:
-            _output['aux_data'] = telemetry['aux']
+        if "sats" in telemetry:
+            _output["sats"] = telemetry["sats"]
 
-        if 'freq_float' in telemetry:
-            _output['frequency'] = telemetry["freq_float"]
+        if "batt" in telemetry:
+            if telemetry["batt"] >= 0.0:
+                _output["batt"] = telemetry["batt"]
 
-        if 'bt' in telemetry:
-            _output['burst_timer'] = telemetry['bt']
+        if "aux" in telemetry:
+            _output["aux_data"] = telemetry["aux"]
 
+        if "freq_float" in telemetry:
+            _output["frequency"] = telemetry["freq_float"]
+
+        if "bt" in telemetry:
+            _output["burst_timer"] = telemetry["bt"]
 
         # Handle the additional SNR and frequency estimation if we have it
-        if 'snr' in telemetry:
-            _output['snr'] = telemetry['snr']
+        if "snr" in telemetry:
+            _output["snr"] = telemetry["snr"]
 
-        if 'f_centre' in telemetry:
+        if "f_centre" in telemetry:
             _freq = round(telemetry["f_centre"] / 1e3)
-            _output['frequency'] = _freq/1e3
+            _output["frequency"] = _freq / 1e3
 
         return _output
-
 
     def process_queue(self):
         """ Process data from the input queue, and write telemetry to log files.
@@ -251,34 +253,44 @@ class SondehubUploader(object):
 
         self.log_info("Stopped Sondehub Uploader Thread.")
 
-
-    def upload_telemetry(self,telem_list):
+    def upload_telemetry(self, telem_list):
         """ Upload an list of telemetry data to Sondehub """
 
         _data_len = len(telem_list)
 
         try:
-            _telem_json = json.dumps(telem_list).encode('utf-8')
+            _start_time = time.time()
+            _telem_json = json.dumps(telem_list).encode("utf-8")
+            _compressed_payload = gzip.compress(_telem_json)
         except Exception as e:
-            self.log_error("Error serialising telemetry list for upload - %s" % str(e))
+            self.log_error(
+                "Error serialising and compressing telemetry list for upload - %s"
+                % str(e)
+            )
             return
 
-        #_compressed_payload = gzip.compress(_telem_json)
-        _compressed_payload = _telem_json
-        #print(_telem_json)
-        #self.log_info("Pre-compression: %d bytes, post: %d bytes. %f compression ratio"% (len(_telem_json), len(_compressed_payload), len(_compressed_payload)/len(_telem_json)))
+        _compression_time = time.time() - _start_time
+        self.log_debug(
+            "Pre-compression: %d bytes, post: %d bytes. %.1f %% compression ratio, in %.1f s"
+            % (
+                len(_telem_json),
+                len(_compressed_payload),
+                (len(_compressed_payload) / len(_telem_json)) * 100,
+                _compression_time,
+            )
+        )
 
         _retries = 0
 
-        # TODO: Decide on when we want to try and retry.
+        # TODO: Decide on if/when we want to try and retry.
         _start_time = time.time()
         while _retries < self.upload_retries:
             # Run the request.
             try:
                 headers = {
-                    "User-Agent": "autorx-" + autorx.__version__, 
-                    #"Content-Encoding": "gzip"
-                    "Content-Type": "application/json"
+                    "User-Agent": "autorx-" + autorx.__version__,
+                    "Content-Encoding": "gzip",
+                    "Content-Type": "application/json",
                 }
                 _req = requests.put(
                     self.SONDEHUB_URL,
@@ -291,10 +303,11 @@ class SondehubUploader(object):
                 return
 
             if _req.status_code == 200:
-                # 201 = Success, 403 = Success, sentence has already seen by others.
+                # 200 is the only status code that we accept.
                 _upload_time = time.time() - _start_time
                 self.log_info(
-                    "Uploaded %d telemetry packets to Sondehub in %.1f seconds." % (_data_len, _upload_time)
+                    "Uploaded %d telemetry packets to Sondehub in %.1f seconds."
+                    % (_data_len, _upload_time)
                 )
                 _upload_success = True
                 break
@@ -304,7 +317,6 @@ class SondehubUploader(object):
                     % (_req.status_code, _req.text)
                 )
                 break
-
 
     def close(self):
         """ Close input processing thread. """

@@ -20,8 +20,13 @@ def get_ephemeris(destination="ephemeris.dat"):
         ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
         # file name should look like YYYY/brdc/brdcDDD0.YYn.Z
         # ESA posts new file at 2200 UTC
-        ephemeris_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=22)
-        download_file = "brdc%s0.%sn.gz" % (ephemeris_time.strftime("%j"), ephemeris_time.strftime("%y"))
+        ephemeris_time = datetime.datetime.now(
+            datetime.timezone.utc
+        ) - datetime.timedelta(hours=22)
+        download_file = "brdc%s0.%sn.gz" % (
+            ephemeris_time.strftime("%j"),
+            ephemeris_time.strftime("%y"),
+        )
         logging.debug(
             "GPS Grabber - Downloading ephemeris data file: %s" % download_file
         )

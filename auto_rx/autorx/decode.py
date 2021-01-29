@@ -1173,7 +1173,6 @@ class SondeDecoder(object):
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
 
-
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
