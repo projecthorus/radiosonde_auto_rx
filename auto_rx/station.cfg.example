@@ -132,6 +132,11 @@ uploader_antenna = 1/4 wave monopole
 # then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
+# SondeHub Experimental DB
+# Enabled uploading of *all* telemetry to our experimental Elasticsearch database.
+# Eventually we hope to build a new mapping application based on this data!
+sondehub_enabled = True
+
 
 ########################
 # APRS UPLOAD SETTINGS #

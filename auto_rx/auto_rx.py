@@ -25,6 +25,7 @@ from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
+from autorx.sondehub import SondehubUploader
 from autorx.rotator import Rotator
 from autorx.utils import (
     rtlsdr_test,
@@ -885,6 +886,15 @@ def main():
 
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
+
+    if config["sondehub_enabled"]:
+        _sondehub = SondehubUploader(
+            user_callsign=config["habitat_uploader_callsign"],
+            upload_rate=config["habitat_upload_rate"]
+        )
+
+        exporter_objects.append(_sondehub)
+        exporter_functions.append(_sondehub.add)
 
     _web_exporter = WebExporter(max_age=config["web_archive_age"])
     exporter_objects.append(_web_exporter)
