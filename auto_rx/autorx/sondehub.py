@@ -214,7 +214,7 @@ class SondehubUploader(object):
                 _output["batt"] = telemetry["batt"]
 
         if "aux" in telemetry:
-            _output["aux_data"] = telemetry["aux"]
+            _output["xdata"] = telemetry["aux"]
 
         if "freq_float" in telemetry:
             _output["frequency"] = telemetry["freq_float"]
