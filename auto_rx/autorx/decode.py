@@ -80,9 +80,9 @@ class SondeDecoder(object):
         "humidity": -1.0,
         "pressure": -1,
         "batt": -1,
-        "vel_h": 0.0,
-        "vel_v": 0.0,
-        "heading": 0.0,
+        "vel_h": -9999.0,
+        "vel_v": -9999.0,
+        "heading": -9999.0,
     }
     # Note: The decoders may also supply other fields, such as:
     # 'batt' - Battery voltage, in volts.
@@ -1172,7 +1172,6 @@ class SondeDecoder(object):
             if self.sonde_type == "IMET5":
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-
 
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:

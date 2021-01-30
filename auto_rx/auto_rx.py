@@ -25,6 +25,7 @@ from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
+from autorx.sondehub import SondehubUploader
 from autorx.rotator import Rotator
 from autorx.utils import (
     rtlsdr_test,
@@ -776,7 +777,7 @@ def main():
             launch_notifications=config["email_launch_notifications"],
             landing_notifications=config["email_landing_notifications"],
             landing_range_threshold=config["email_landing_range_threshold"],
-            landing_altitude_threshold=config["email_landing_altitude_threshold"]
+            landing_altitude_threshold=config["email_landing_altitude_threshold"],
         )
         email_exporter = _email_notification
 
@@ -885,6 +886,26 @@ def main():
 
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
+
+    if config["sondehub_enabled"]:
+        if config["habitat_upload_listener_position"] is False:
+            _sondehub_station_position = None
+        else:
+            _sondehub_station_position = (
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            )
+        
+        _sondehub = SondehubUploader(
+            user_callsign=config["habitat_uploader_callsign"],
+            user_position=_sondehub_station_position,
+            user_antenna=config["habitat_uploader_antenna"],
+            upload_rate=config["habitat_upload_rate"],
+        )
+
+        exporter_objects.append(_sondehub)
+        exporter_functions.append(_sondehub.add)
 
     _web_exporter = WebExporter(max_age=config["web_archive_age"])
     exporter_objects.append(_web_exporter)
