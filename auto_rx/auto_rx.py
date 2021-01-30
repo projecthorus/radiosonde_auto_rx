@@ -888,8 +888,19 @@ def main():
         exporter_functions.append(_rotator.add)
 
     if config["sondehub_enabled"]:
+        if config["habitat_upload_listener_position"] is False:
+            _sondehub_station_position = None
+        else:
+            _sondehub_station_position = (
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            )
+        
         _sondehub = SondehubUploader(
             user_callsign=config["habitat_uploader_callsign"],
+            user_position=_sondehub_station_position,
+            user_antenna=config["habitat_uploader_antenna"],
             upload_rate=config["habitat_upload_rate"],
         )
 

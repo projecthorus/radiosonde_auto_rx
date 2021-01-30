@@ -59,6 +59,8 @@ class SondehubUploader(object):
         upload_timeout=20,
         upload_retries=5,
         user_callsign="N0CALL",
+        user_position=None,
+        user_antenna=""
     ):
         """ Initialise and start a Sondehub uploader
         
@@ -72,6 +74,8 @@ class SondehubUploader(object):
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
         self.user_callsign = user_callsign
+        self.user_position = user_position
+        self.user_antenna = user_antenna
 
         # Input Queue.
         self.input_queue = Queue()
@@ -91,7 +95,7 @@ class SondehubUploader(object):
 
         # Attempt to reformat the data.
         _telem = self.reformat_data(telemetry)
-        # self.log_debug("Telem: %s" % str(_telem))
+        self.log_debug("Telem: %s" % str(_telem))
 
         # Add it to the queue if we are running.
         if self.input_processing_running and _telem:
@@ -107,6 +111,8 @@ class SondehubUploader(object):
             "software_name": "radiosonde_auto_rx",
             "software_version": autorx.__version__,
             "uploader_callsign": self.user_callsign,
+            "uploader_position": self.user_position,
+            "uploader_antenna": self.user_antenna,
             "time_received": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         }
 
@@ -285,7 +291,7 @@ class SondehubUploader(object):
         _upload_success = False
 
         _start_time = time.time()
-        
+
         while _retries < self.upload_retries:
             # Run the request.
             try:
