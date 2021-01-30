@@ -282,9 +282,10 @@ class SondehubUploader(object):
         )
 
         _retries = 0
+        _upload_success = False
 
-        # TODO: Decide on if/when we want to try and retry.
         _start_time = time.time()
+        
         while _retries < self.upload_retries:
             # Run the request.
             try:
@@ -312,12 +313,24 @@ class SondehubUploader(object):
                 )
                 _upload_success = True
                 break
+
+            elif _req.status_code == 500:
+                # Server Error, Retry.
+                _retries += 1
+                continue
+
             else:
                 self.log_error(
                     "Error uploading to Sondehub. Status Code: %d %s."
                     % (_req.status_code, _req.text)
                 )
                 break
+        
+        if not _upload_success:
+            self.log_error(
+                "Upload failed after %d retries"
+                % (_retries)
+            )
 
     def close(self):
         """ Close input processing thread. """
