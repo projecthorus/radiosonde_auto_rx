@@ -19,6 +19,7 @@ import os
 import requests
 import time
 from threading import Thread
+from email.utils import formatdate
 
 try:
     # Python 2
@@ -36,22 +37,8 @@ class SondehubUploader(object):
 
     """
 
+    # SondeHub API endpoint
     SONDEHUB_URL = "https://api.v2.sondehub.org/sondes/telemetry"
-
-    # We require the following fields to be present in the incoming telemetry dictionary data
-    REQUIRED_FIELDS = [
-        "frame",
-        "id",
-        "datetime",
-        "lat",
-        "lon",
-        "alt",
-        "temp",
-        "type",
-        "freq",
-        "freq_float",
-        "datetime_dt",
-    ]
 
     def __init__(
         self,
@@ -80,10 +67,19 @@ class SondehubUploader(object):
         # Input Queue.
         self.input_queue = Queue()
 
-        # Start queue processing thread.
-        self.input_processing_running = True
-        self.input_process_thread = Thread(target=self.process_queue)
-        self.input_process_thread.start()
+        try:
+            # Python 2 check. Python 2 doesnt have gzip.compress so this will throw an exception.
+            gzip.compress(b'\x00\x00')
+
+            # Start queue processing thread.
+            self.input_processing_running = True
+            self.input_process_thread = Thread(target=self.process_queue)
+            self.input_process_thread.start()
+
+        except:
+            logging.error("Detected Python 2.7, which does not support gzip.compress. Sondehub DB uploading will be disabled.")
+            self.input_processing_running = False
+
 
     def add(self, telemetry):
         """ Add a dictionary of telemetry to the input queue. 
@@ -95,13 +91,13 @@ class SondehubUploader(object):
 
         # Attempt to reformat the data.
         _telem = self.reformat_data(telemetry)
-        self.log_debug("Telem: %s" % str(_telem))
+        #self.log_debug("Telem: %s" % str(_telem))
 
         # Add it to the queue if we are running.
         if self.input_processing_running and _telem:
             self.input_queue.put(_telem)
         else:
-            self.log_error("Processing not running, discarding.")
+            self.log_debug("Processing not running, discarding.")
 
     def reformat_data(self, telemetry):
         """ Take an input dictionary and convert it to the universal format """
@@ -299,6 +295,7 @@ class SondehubUploader(object):
                     "User-Agent": "autorx-" + autorx.__version__,
                     "Content-Encoding": "gzip",
                     "Content-Type": "application/json",
+                    "Date": formatdate(timeval=None, localtime=False, usegmt=True)
                 }
                 _req = requests.put(
                     self.SONDEHUB_URL,
@@ -374,4 +371,9 @@ class SondehubUploader(object):
 
 if __name__ == "__main__":
     # Test Script
-    pass
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)s:%(message)s", level=logging.DEBUG
+    )
+    _test = SondehubUploader()
+    time.sleep(5)
+    _test.close()

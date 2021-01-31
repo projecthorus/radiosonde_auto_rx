@@ -52,15 +52,14 @@ typedef struct {
 typedef struct {
     int out;
     int frnr;
-    char id[9];
+    //char id[9];
     ui32_t SNu32;
     int week; int timems; int gpssec;
-    int jahr; int monat; int tag;
-    int wday;
     int std; int min; float sek;
     double lat; double lon; double alt;
     double vH; double vD; double vV;
     float T; float _RH; float Trh; float RH;
+    ui16_t status;
     ui8_t frame[FRAME_LEN+4];
     ui8_t frame_bits[BITFRAME_LEN+8];
     int jsn_freq;   // freq/kHz (SDR)
@@ -179,9 +178,17 @@ static int check(ui8_t code[8]) {
     return ret;
 }
 
+//static ui8_t R[4][8] =
+//                       {{ 0, 0, 1, 0, 0, 0, 0, 0},
+//                        { 0, 0, 0, 0, 1, 0, 0, 0},
+//                        { 0, 0, 0, 0, 0, 1, 0, 0},
+//                        { 0, 0, 0, 0, 0, 0, 1, 0}};
+// RG=E
+
 static ui8_t ham_lut[16] = { 0x00, 0x87, 0x99, 0x1E, 0xAA, 0x2D, 0x33, 0xB4,
                              0x4B, 0xCC, 0xD2, 0x55, 0xE1, 0x66, 0x78, 0xFF };
-
+// c=(c0,...,c7) <-> m=(m0,..,m3) ; c=Gm, m=Rc
+// m0=c2, m1=c4, m2=c5, m3=c6
 static ui8_t hamming(int opt_ecc, ui8_t *cwb, ui8_t *sym) {
     int j;
     int ecc = 0;
@@ -229,6 +236,10 @@ static i32_t i4be(ui8_t *bytes) {  // 32bit signed int
     for (i = 0; i < 4; i++) {
         val |= bytes[i] << (8*(3-i));
     }
+    return val;
+}
+static ui16_t u2be(ui8_t *bytes) {  // 16bit unsigned int
+    ui16_t val = (bytes[0]<<8) | bytes[1];
     return val;
 }
 
@@ -286,7 +297,7 @@ static int get_GPS(gpx_t *gpx) {
 
 // water vapor saturation pressure (Hyland and Wexler)
 static float vaporSatP(float Tc) {
-    double T = Tc + 273.15;
+    double T = Tc + 273.15f;
 
     // H+W equation
     double p = expf(-5800.2206 / T
@@ -303,14 +314,16 @@ static float vaporSatP(float Tc) {
 static int get_PTU(gpx_t *gpx) {
     int val = 0;
     float *f = (float*)&val;
-    float rh = -1.0;
+    float rh = -1.0f;
 
+    // air temperature
     val = i4be(gpx->frame + pos_PTU_T);
     if (*f > -120.0f && *f < 80.0f)  gpx->T = *f;
     else gpx->T = -273.15f;
 
     // raw RH?
     // water vapor saturation pressure (Hyland and Wexler)?
+    // (note: humidity sensor has significant time-lag at low temperatures)
     val = i4be(gpx->frame + pos_PTU_RH);
     if      (*f <   0.0f)  gpx->_RH =   0.0f;
     else if (*f > 100.0f)  gpx->_RH = 100.0f;
@@ -322,11 +335,34 @@ static int get_PTU(gpx_t *gpx) {
     else gpx->Trh = -273.15f;
 
     // (Hyland and Wexler)
-    rh = gpx->_RH * vaporSatP(gpx->Trh)/vaporSatP(gpx->T);
-    if (rh < 0.0f) rh = 0.0;
-    if (rh > 100.0f) rh = 100.0;
+    if (gpx->T > -273.0f && gpx->Trh > -273.0f) {
+        rh = gpx->_RH * vaporSatP(gpx->Trh)/vaporSatP(gpx->T);
+        if (rh < 0.0f) rh = 0.0;
+        if (rh > 100.0f) rh = 100.0;
+    }
+    else { // if Trh unusable, sensor damaged?
+        // rh = gpx->_RH;
+    }
     gpx->RH = rh;
 
+    return 0;
+}
+
+static int reset_gpx(gpx_t *gpx) {
+    // don't reset options
+    gpx->SNu32 = 0;
+    gpx->timems = 0;
+    gpx->std = 0;
+    gpx->min = 0;
+    gpx->sek = 0.0f;
+    gpx->lat = 0.0;
+    gpx->lon = 0.0;
+    gpx->alt = 0.0;
+    gpx->T = -273.15f;
+    gpx->Trh = -273.15f;
+    gpx->_RH = -1.0f;
+    gpx->RH = -1.0f;
+    gpx->status = 0;
     return 0;
 }
 
@@ -335,10 +371,13 @@ static int get_PTU(gpx_t *gpx) {
 static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
 
     int prnGPS = 0,
-        prnPTU = 0;
+        prnPTU = 0,
+        prnSTS = 0;
     int frm_ok = 0;
 
     frm_ok = (ecc_frm >= 0  &&  len > pos_PTU_Trh+4);
+
+    reset_gpx(gpx);
 
     if (len > pos_GPSalt+4)
     {
@@ -351,6 +390,11 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
         get_PTU(gpx);
         prnPTU = 1;
     }
+    if (len > 42+2) {
+        gpx->status = u2be(gpx->frame + 42);
+        prnSTS = 1;
+    }
+
 
     if ( prnGPS && !gpx->option.slt )
     {
@@ -363,33 +407,40 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
 
         if (gpx->option.ptu && prnPTU) {
             fprintf(stdout, " ");
-            if (gpx->T > -273.0)   fprintf(stdout, " T=%.1fC ", gpx->T);
-            if (gpx->_RH > -0.5)   fprintf(stdout, " _RH=%.0f%% ", gpx->_RH);
-            if (gpx->Trh > -273.0) fprintf(stdout, " _Trh=%.1fC ", gpx->Trh);
-
-            if (gpx->RH > -0.5)   fprintf(stdout, " RH=%.0f%% ", gpx->RH);
+            if (gpx->T > -273.0f)  fprintf(stdout, " T=%.1fC ", gpx->T);
+            if (gpx->option.vbs) {
+                if (gpx->_RH > -0.5f)   fprintf(stdout, " _RH=%.0f%% ", gpx->_RH);
+                if (gpx->Trh > -273.0f) fprintf(stdout, " _Trh=%.1fC ", gpx->Trh);
+            }
+            if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%% ", gpx->RH);
         }
 
+        // (GPS) status: 003E
+        if (gpx->option.vbs && prnSTS) {
+            fprintf(stdout, "  [%04X] ", gpx->status);
+        }
+
+        // error correction
         if (gpx->option.ecc && ecc_frm != 0) {
-            fprintf(stdout, " # (%d)", ecc_frm);
-            fprintf(stdout, " [%d]", ecc_gps);
+            fprintf(stdout, " #  (%d)", ecc_frm);
+            if (gpx->option.vbs) fprintf(stdout, " [%d]", ecc_gps);
         }
 
         fprintf(stdout, "\n");
     }
 
     // prnGPS,prnTPU
-    if (gpx->option.jsn && frm_ok) {
+    if (gpx->option.jsn && frm_ok && (gpx->status&0x30)==0x30) {
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
         fprintf(stdout, ", \"id\": \"IMET54-%u\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f",
                 gpx->SNu32, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt);
         if (gpx->option.ptu) {
-            if (gpx->T > -273.0) {
+            if (gpx->T > -273.0f) {
                 fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
             }
-            if (gpx->RH > -0.5) {
+            if (gpx->RH > -0.5f) {
                 fprintf(stdout, ", \"humidity\": %.1f",  gpx->RH );
             }
         }
