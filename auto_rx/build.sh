@@ -25,7 +25,7 @@ echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20/iMet54 Demodulators"
 cd ../demod/mod/
 gcc -c demod_mod.c -w -O3
 gcc -c bch_ecc_mod.c -w -O3
-gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w $VERS_FLAG
+gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o rs41mod -w $VERS_FLAG
 gcc dfm09mod.c demod_mod.o -lm -O3 -o dfm09mod -w $VERS_FLAG
 gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o rs92mod -w $VERS_FLAG
 gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6mod -w $VERS_FLAG
