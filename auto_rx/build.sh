@@ -2,8 +2,13 @@
 #
 # Auto Sonde Decoder build script.
 #
-
 # TODO: Convert this to a makefile! Any takers?
+
+# Auto_RX version number - needs to match the contents of autorx/__init__.py
+# This can probably be done automatically.
+AUTO_RX_VERSION="\"1.4.1-beta6\""
+
+VERS_FLAG="-DVER_JSN_STR=$AUTO_RX_VERSION"
 
 # Build rs_detect.
 echo "Building dft_detect"
@@ -20,20 +25,20 @@ echo "Building RS92/RS41/DFM/LMS6/iMS/M10/M20/iMet54 Demodulators"
 cd ../demod/mod/
 gcc -c demod_mod.c -w -O3
 gcc -c bch_ecc_mod.c -w -O3
-gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w
-gcc dfm09mod.c demod_mod.o -lm -O3 -o dfm09mod -w
-gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o rs92mod -w
-gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6mod -w
-gcc lms6Xmod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6Xmod -w
-gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o meisei100mod -w
-gcc m10mod.c demod_mod.o -lm -O3 -o m10mod -w
-gcc mXXmod.c demod_mod.o -lm -O3 -o mXXmod -w
-gcc imet54mod.c demod_mod.o -lm -O3 -o imet54mod -w
+gcc rs41mod.c demod_mod.o bch_ecc_mod.o -lm -o rs41mod -w $VERS_FLAG
+gcc dfm09mod.c demod_mod.o -lm -O3 -o dfm09mod -w $VERS_FLAG
+gcc rs92mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o rs92mod -w $VERS_FLAG
+gcc lms6mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6mod -w $VERS_FLAG
+gcc lms6Xmod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o lms6Xmod -w $VERS_FLAG
+gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o meisei100mod -w $VERS_FLAG
+gcc m10mod.c demod_mod.o -lm -O3 -o m10mod -w $VERS_FLAG
+gcc mXXmod.c demod_mod.o -lm -O3 -o mXXmod -w $VERS_FLAG
+gcc imet54mod.c demod_mod.o -lm -O3 -o imet54mod -w $VERS_FLAG
 
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 Demodulator."
 cd ../../mk2a/
-gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680
+gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680 $VERS_FLAG
 
 # Build M10 decoder
 #echo "Building M10 Demodulator."
@@ -42,7 +47,7 @@ gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680
 
 echo "Building iMet-4 Demodulator."
 cd ../imet/
-gcc imet1rs_dft.c -lm -O3 -o imet1rs_dft
+gcc imet1rs_dft.c -lm -O3 -o imet1rs_dft $VERS_FLAG
 
 
 echo "Building fsk-demod utils from codec2"

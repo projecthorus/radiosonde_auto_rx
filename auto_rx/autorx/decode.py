@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import logging
 import json
 import os
@@ -72,7 +73,7 @@ class SondeDecoder(object):
     """
 
     # IF we don't have any of the following fields provided, we discard the incoming packet.
-    DECODER_REQUIRED_FIELDS = ["frame", "id", "datetime", "lat", "lon", "alt"]
+    DECODER_REQUIRED_FIELDS = ["frame", "id", "datetime", "lat", "lon", "alt", "version"]
     # If we are missing any of the following fields, we add in default values to the telemetry
     # object which is passed on to the various other consumers.
     DECODER_OPTIONAL_FIELDS = {
@@ -1063,8 +1064,17 @@ class SondeDecoder(object):
             # Check that the required fields are in the telemetry blob
             for _field in self.DECODER_REQUIRED_FIELDS:
                 if _field not in _telemetry:
-                    self.log_error("JSON object missing required field %s" % _field)
+                    self.log_error("JSON object missing required field %s. Have you re-built the decoders? (./build.sh)" % _field)
                     return False
+
+            # Check the decoder version matches our current version.
+            # Note that we allow any version in UDP mode, as this is commonly used for experimentation work.
+            if (_telemetry["version"] != autorx.__version__) and (not self.udp_mode):
+                self.log_critical("Decoder version (%s) does not match auto_rx version (%s). Have you re-built the decoders? (./build.sh)"
+                % (_telemetry["version"], autorx.__version__))
+                self.exit_state = "Decoder Version Mismatch"
+                self.decoder_running = False
+                return False
 
             # Check for fields which we need for logging purposes, but may not always be provided
             # in the incoming JSON object.
@@ -1257,6 +1267,16 @@ class SondeDecoder(object):
             line (str): Message to be logged.
         """
         logging.error(
+            "Decoder #%s %s %.3f - %s"
+            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+        )
+
+    def log_critical(self, line):
+        """ Helper function to log an critical error message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.critical(
             "Decoder #%s %s %.3f - %s"
             % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )

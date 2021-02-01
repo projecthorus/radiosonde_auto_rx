@@ -35,6 +35,16 @@
   #include <io.h>
 #endif
 
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
+
 
 //typedef unsigned char  ui8_t;
 //typedef unsigned short ui16_t;
@@ -752,6 +762,7 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                 // Print JSON output required by auto_rx.
                 if (crc_err==0) { // CRC-OK
                     // UTC oder GPS?
+                    char *ver_jsn = NULL;
                     char sntyp[] = "LMS6-";
                     if (gpx->typ == 10) sntyp[3] = 'X';
                     printf("{ \"type\": \"%s\"", "LMS");
@@ -764,6 +775,10 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                     if (gpx->jsn_freq > 0) {
                         printf(", \"freq\": %d", gpx->jsn_freq);
                     }
+                    #ifdef VER_JSN_STR
+                        ver_jsn = VER_JSN_STR;
+                    #endif
+                    if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                     printf(" }\n");
                     printf("\n");
                 }

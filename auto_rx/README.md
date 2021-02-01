@@ -66,3 +66,11 @@ instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
 You can often find us in the #highaltitude IRC Channel on
 [Freenode](https://webchat.freenode.net/).
+
+### Licensing Information
+All software within this repository is licensed under the GNU General Public License v3. Refer this repositories LICENSE file for the full license text.
+
+Radiosonde telemetry data captured via this software and uploaded into the [Habitat](https://habitat.habhub.org/) and [Sondehub](https://sondehub.org/) Database systems is licensed under [Creative Commons BY-SA v2.0](https://creativecommons.org/licenses/by-sa/2.0/). 
+Telemetry data uploaded into the APRS-IS network is generally considered to be released into the public domain. 
+
+By uploading data into these systems (by enabling the relevant uploaders within the `station.cfg` file) you as the user agree for your data to be made available under these licenses. Note that uploading to Sondehub and Habitat is enabled by default.
