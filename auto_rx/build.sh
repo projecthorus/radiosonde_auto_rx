@@ -6,7 +6,7 @@
 
 # Auto_RX version number - needs to match the contents of autorx/__init__.py
 # This can probably be done automatically.
-AUTO_RX_VERSION="\"1.4.1-beta6\""
+AUTO_RX_VERSION="\"1.4.1-beta7\""
 
 VERS_FLAG="-DVER_JSN_STR=$AUTO_RX_VERSION"
 
@@ -47,7 +47,8 @@ gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680 $VERS_FLAG
 
 echo "Building iMet-4 Demodulator."
 cd ../imet/
-gcc imet1rs_dft.c -lm -O3 -o imet1rs_dft $VERS_FLAG
+# Note -O3 flag removed from this demodulator until Bus Error bug can be resolved.
+gcc imet1rs_dft.c -lm -o imet1rs_dft $VERS_FLAG
 
 
 echo "Building fsk-demod utils from codec2"
