@@ -285,8 +285,12 @@ int print_GPS(int pos) {
     crc_val = ((byteframe+pos)[pos_GPScrc] << 8) | (byteframe+pos)[pos_GPScrc+1];
     crc = crc16(byteframe+pos, pos_GPScrc); // len=pos
 
-    lat = *(float*)(byteframe+pos+pos_GPSlat);
-    lon = *(float*)(byteframe+pos+pos_GPSlon);
+    //lat = *(float*)(byteframe+pos+pos_GPSlat);
+    //lon = *(float*)(byteframe+pos+pos_GPSlon);
+    // //raspi: copy into (aligned) float
+    memcpy(&lat, byteframe+pos+pos_GPSlat, 4);
+    memcpy(&lon, byteframe+pos+pos_GPSlon, 4);
+
     alt = ((byteframe+pos)[pos_GPSalt+1]<<8)+(byteframe+pos)[pos_GPSalt] - 5000;
     sats = (byteframe+pos)[pos_GPSsats];
     std = (byteframe+pos)[pos_GPStim+0];
