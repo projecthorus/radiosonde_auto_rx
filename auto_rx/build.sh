@@ -8,7 +8,7 @@
 # This can probably be done automatically.
 #AUTO_RX_VERSION="\"1.4.1-beta8\""
 
-AUTO_RX_VERSION="\"$(python -m autorx.version)\""
+AUTO_RX_VERSION="\"$(python3 -m autorx.version 2>/dev/null || python -m autorx.version)\""
 
 echo "Building for radiosonde_auto_rx version: $AUTO_RX_VERSION"
 
