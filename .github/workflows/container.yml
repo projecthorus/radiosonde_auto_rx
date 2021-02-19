@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             buildx-cache-
 
-      - name: Build and Push
+      - name: Build Images
         uses: docker/build-push-action@v2
         with:
           platforms: linux/amd64, linux/386, linux/arm64, linux/arm/v6, linux/arm/v7
