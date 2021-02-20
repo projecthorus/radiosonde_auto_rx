@@ -133,6 +133,13 @@ class SondehubUploader(object):
             if "subtype" in telemetry:
                 _output["subtype"] = telemetry["subtype"]
 
+        elif telemetry["type"].startswith("RS92"):
+            _output["manufacturer"] = "Vaisala"
+            _output["type"] = "RS92"
+            _output["serial"] = telemetry["id"]
+            if "subtype" in telemetry:
+                _output["subtype"] = telemetry["subtype"]
+
         elif telemetry["type"].startswith("DFM"):
             _output["manufacturer"] = "Graw"
             _output["type"] = "DFM"
