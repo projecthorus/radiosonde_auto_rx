@@ -1,48 +1,39 @@
 # -------------------
 # The build container
 # -------------------
-FROM debian:buster-slim AS build
+FROM python:3.7-buster AS build
 
-# Update system packages and install build dependencies.
+# Upgrade base packages.
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y \
-  build-essential \
-  python3 \
-  python3-crcmod \
-  python3-dateutil \
-  python3-flask \
-  python3-numpy \
-  python3-pip  \
-  python3-requests && \
   rm -rf /var/lib/apt/lists/*
 
-# Copy in radiosonde_auto_rx
+# Copy in requirements.txt.
+COPY auto_rx/requirements.txt \
+  /root/radiosonde_auto_rx/auto_rx/requirements.txt
+
+# Install Python packages.
+RUN pip3 --no-cache-dir install --user --no-warn-script-location \
+  --extra-index-url https://www.piwheels.org/simple \
+  -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
+
+# Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
 
-# Install additional Python packages that aren't available through apt-get.
-RUN /usr/bin/pip3 --no-cache-dir install -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
-
 # Build the binaries.
-RUN cd /root/radiosonde_auto_rx/auto_rx && \
-  /bin/sh build.sh
+WORKDIR /root/radiosonde_auto_rx/auto_rx
+RUN /bin/sh build.sh
 
 # -------------------------
 # The application container
 # -------------------------
-FROM debian:buster-slim
+FROM python:3.7-slim-buster
 EXPOSE 5000/tcp
 
-# Update system packages and install application dependencies.
+# Upgrade base packages and install application dependencies.
 RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y \
-  python3 \
-  python3-crcmod \
-  python3-dateutil \
-  python3-flask \
-  python3-numpy \
-  python3-requests \
   rng-tools \
   rtl-sdr \
   sox \
@@ -51,16 +42,20 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy any additional Python packages from the build container.
-COPY --from=build /usr/local/lib/python3.7/dist-packages /usr/local/lib/python3.7/dist-packages
+COPY --from=build /root/.local /root/.local
 
 # Copy auto_rx from the build container to /opt.
-COPY --from=build /root/radiosonde_auto_rx/auto_rx /opt/auto_rx
+COPY --from=build /root/radiosonde_auto_rx/LICENSE /opt/auto_rx/
+COPY --from=build /root/radiosonde_auto_rx/auto_rx/ /opt/auto_rx/
 
 # Set the working directory.
 WORKDIR /opt/auto_rx
+
+# Ensure scripts from Python packages are in PATH.
+ENV PATH=/root/.local/bin:$PATH
 
 # Use tini as init.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run auto_rx.py.
-CMD ["/usr/bin/python3", "/opt/auto_rx/auto_rx.py"]
+CMD ["python3", "/opt/auto_rx/auto_rx.py"]
