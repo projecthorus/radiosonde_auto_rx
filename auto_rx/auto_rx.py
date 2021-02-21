@@ -901,7 +901,7 @@ def main():
             user_callsign=config["habitat_uploader_callsign"],
             user_position=_sondehub_station_position,
             user_antenna=config["habitat_uploader_antenna"],
-            upload_rate=config["habitat_upload_rate"],
+            upload_rate=config["sondehub_upload_rate"],
         )
 
         exporter_objects.append(_sondehub)
