@@ -163,6 +163,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "habitat_url": "https://habitat.sondehub.org/",
         # New Sondehub DB Settings
         "sondehub_enabled": True,
+        "sondehub_upload_rate": 30,
     }
 
     try:
@@ -500,13 +501,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub db Settings
         try:
             auto_rx_config["sondehub_enabled"] = config.getboolean(
-                "habitat", "sondehub_enabled"
+                "sondehub", "sondehub_enabled"
+            )
+            auto_rx_config["sondehub_upload_rate"] = config.getint(
+                "sondehub", "sondehub_upload_rate"
             )
         except:
             logging.warning(
-                "Config - Did not find sondehub_enabled setting, using default (enabled)."
+                "Config - Did not find sondehub_enabled setting, using default (enabled / 30 seconds)."
             )
             auto_rx_config["sondehub_enabled"] = True
+            auto_rx_config["sondehub_upload_rate"] = 15
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

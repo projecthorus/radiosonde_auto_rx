@@ -132,10 +132,22 @@ uploader_antenna = 1/4 wave monopole
 # then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
-# SondeHub Experimental DB
-# Enabled uploading of *all* telemetry to our experimental Elasticsearch database.
-# Eventually we hope to build a new mapping application based on this data!
+#################################
+# SONDEHUB v2 DATABASE SETTINGS #
+#################################
+# Settings for uploading to the new Sondehub v2 database.
+#
+# Please ensure you have set the uploader callsign and antenna detail settings in the
+# Habitat section above, as these are also used by Sondehub v2.
+[sondehub]
+
+# Enable uploading to Sondehub v2 - please leave this enabled!
 sondehub_enabled = True
+
+# How often to push data to the SondeHub Database. (seconds)
+# All received positions are cached and uploaded every X seconds. 
+# Uploads are gzip compressed, so don't require much data transfer.
+sondehub_upload_rate = 15
 
 
 ########################

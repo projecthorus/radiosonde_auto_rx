@@ -125,7 +125,10 @@ class SondehubUploader(object):
             self.log_debug("Offending datetime_dt: %s" % str(telemetry["datetime_dt"]))
             return None
 
-        # Type
+        # Handling of different radiosonde types.
+        # Unfortunately we've made things difficult for ourselves with how different sonde types are handled
+        # in terms of serial number, type, subtype, etc.
+        # Until all the decoders are aligned, we have to handle some sonde types differently.
         if telemetry["type"].startswith("RS41"):
             _output["manufacturer"] = "Vaisala"
             _output["type"] = "RS41"
@@ -170,6 +173,11 @@ class SondehubUploader(object):
         elif telemetry["type"] == "IMET5":
             _output["manufacturer"] = "Intermet Systems"
             _output["type"] = "iMet-54"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
+        elif telemetry["type"] == "MEISEI":
+            _output["manufacturer"] = "Meisei"
+            _output["type"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
         else:
@@ -307,6 +315,7 @@ class SondehubUploader(object):
                 _req = requests.put(
                     self.SONDEHUB_URL,
                     _compressed_payload,
+                    # TODO: Revisit this second timeout value.
                     timeout=(self.upload_timeout, 6.1),
                     headers=headers,
                 )
