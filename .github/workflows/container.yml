@@ -13,6 +13,9 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
       - name: Calculate Container Metadata
         id: meta
         uses: crazy-max/ghaction-docker-meta@v1
@@ -38,6 +41,7 @@ jobs:
       - name: Build Images
         uses: docker/build-push-action@v2
         with:
+          context: .
           platforms: linux/amd64, linux/386, linux/arm64, linux/arm/v6, linux/arm/v7
           cache-from: type=local,src=/tmp/buildx-cache
           cache-to: type=local,dest=/tmp/buildx-cache-new,mode=max
