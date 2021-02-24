@@ -39,7 +39,7 @@ class SondehubUploader(object):
 
     # SondeHub API endpoint
     SONDEHUB_URL = "https://api.v2.sondehub.org/sondes/telemetry"
-
+    
     def __init__(
         self,
         upload_rate=30,
