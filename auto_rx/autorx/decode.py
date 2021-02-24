@@ -361,10 +361,14 @@ class SondeDecoder(object):
             if self.sonde_freq < 1000e6:
                 # 400-406 MHz sondes - use a 12 kHz FM demod bandwidth.
                 _rx_bw = 12000
+                # We may be able to get PTU data from these!
+                _ptu_opts = "--ptu"
             else:
                 # 1680 MHz sondes - use a 28 kHz FM demod bandwidth.
                 # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
                 _rx_bw = 28000
+                # No PTU data availble for RS92-NGP sondes.
+                _ptu_opts = "--ngp"
 
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
@@ -387,8 +391,8 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             decode_cmd += (
-                "./rs92mod -vx -v --crc --ecc --vel --json %s 2>/dev/null"
-                % _rs92_gps_data
+                "./rs92mod -vx -v --crc --ecc --vel --json %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_opts)
             )
 
         elif self.sonde_type == "DFM":
@@ -659,9 +663,11 @@ class SondeDecoder(object):
             if self.sonde_freq > 1000e6:
                 # Use a higher IQ rate for 1680 MHz sondes, at the expense of some CPU usage.
                 _sdr_rate = 96000
+                _ptu_ops = "--ngp"
             else:
                 # On 400 MHz, use 48 khz - RS92s dont drift far enough to need any more than this.
                 _sdr_rate = 48000
+                _ptu_ops = "--ptu"
 
             _output_rate = 48000
             _baud_rate = 4800
@@ -695,8 +701,8 @@ class SondeDecoder(object):
             )
 
             decode_cmd = (
-                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s 2>/dev/null"
-                % _rs92_gps_data
+                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_ops)
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
