@@ -558,12 +558,18 @@ def telemetry_filter(telemetry):
         meisei_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         meisei_callsign_valid = False
+    
+    if "MRZ" in telemetry["type"]:
+        mrz_callsign_valid = "x" not in _serial.split("-")[1]
+    else:
+        mrz_callsign_valid = False
 
     # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
         or meisei_callsign_valid
+        or mrz_callsign_valid
         or ("M10" in telemetry["type"])
         or ("M20" in telemetry["type"])
         or ("LMS" in telemetry["type"])
@@ -575,6 +581,9 @@ def telemetry_filter(telemetry):
         # Add in a note about DFM sondes and their oddness...
         if "DFM" in telemetry["id"]:
             _id_msg += " Note: DFM sondes may take a while to get an ID."
+        
+        if "MRZ" in telemetry["id"]:
+            _id_msg += " Note: MRZ sondes may take a while to get an ID."
 
         logging.warning(_id_msg)
         return False
@@ -643,7 +652,7 @@ def main():
         "--type",
         type=str,
         default=None,
-        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI)",
+        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI, MRZ)",
     )
     parser.add_argument(
         "-t",

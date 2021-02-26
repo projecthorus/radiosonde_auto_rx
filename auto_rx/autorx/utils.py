@@ -43,6 +43,7 @@ REQUIRED_RS_UTILS = [
     "lms6Xmod",
     "meisei100mod",
     "imet54mod",
+    "mp3h1",
 ]
 
 

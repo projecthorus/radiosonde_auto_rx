@@ -390,6 +390,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
+            "MRZ": False,
             "UDP": False,
         }
         auto_rx_config["rs41_drift_tweak"] = config.getboolean(
