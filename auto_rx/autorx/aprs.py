@@ -83,7 +83,9 @@ def telemetry_to_aprs_position(
             _object_name = "IMS" + _id_suffix
 
         elif "MRZ" in sonde_data["type"]:
-            # Use the first portion of the serial number, as hex.
+            # Concatenate the two portions of the serial number, convert to an int,
+            # then take the 6 least-significant hex digits as our ID, prefixed with 'MRZ'.
+            # e.g. MRZ-5667-39155 -> 566739155 -> 21C7C0D3 -> MRZC7C0D3
             _mrz_id_parts = sonde_data["id"].split("-")
             _mrz_id = int(_mrz_id_parts[1] + _mrz_id_parts[2])
             _id_hex = "%06x" % _mrz_id
