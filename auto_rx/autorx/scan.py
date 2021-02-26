@@ -502,12 +502,12 @@ def detect_sonde(
             % (str(device_idx), _score)
         )
         _sonde_type = "C34C50"
-    elif "MP3" in _type:
+    elif "MRZ" in _type:
         logging.debug(
-            "Scanner #%s - Detected a Meteo-Radiy MP3 Sonde! (Score: %.2f)"
+            "Scanner #%s - Detected a Meteo-Radiy MRZ Sonde! (Score: %.2f)"
             % (str(device_idx), _score)
         )
-        _sonde_type = "MP3"
+        _sonde_type = "MRZ"
     elif "MK2LMS" in _type:
         logging.debug(
             "Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)"
