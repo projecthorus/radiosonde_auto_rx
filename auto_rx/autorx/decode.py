@@ -33,6 +33,7 @@ VALID_SONDE_TYPES = [
     "MK2LMS",
     "LMS6",
     "MEISEI",
+    "MRZ",
     "UDP",
 ]
 
@@ -73,7 +74,15 @@ class SondeDecoder(object):
     """
 
     # IF we don't have any of the following fields provided, we discard the incoming packet.
-    DECODER_REQUIRED_FIELDS = ["frame", "id", "datetime", "lat", "lon", "alt", "version"]
+    DECODER_REQUIRED_FIELDS = [
+        "frame",
+        "id",
+        "datetime",
+        "lat",
+        "lon",
+        "alt",
+        "version",
+    ]
     # If we are missing any of the following fields, we add in default values to the telemetry
     # object which is passed on to the various other consumers.
     DECODER_OPTIONAL_FIELDS = {
@@ -102,6 +111,7 @@ class SondeDecoder(object):
         "MK2LMS",
         "LMS6",
         "MEISEI",
+        "MRZ",
         "UDP",
     ]
 
@@ -460,7 +470,7 @@ class SondeDecoder(object):
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
 
         elif self.sonde_type == "IMET5":
-            # iMet-4 Sondes
+            # iMet-54 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
                 self.sdr_fm,
@@ -472,13 +482,34 @@ class SondeDecoder(object):
             )
 
             # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
             # iMet-54 Decoder
             decode_cmd += (
                 "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
             )
+
+        elif self.sonde_type == "MRZ":
+            # Meteo-Radiy MRZ Sondes
+            # TBD If/When this gets included
+
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # MRZ decoder
+            decode_cmd += "./mp3h1 --json 2>/dev/null"
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -1070,14 +1101,19 @@ class SondeDecoder(object):
             # Check that the required fields are in the telemetry blob
             for _field in self.DECODER_REQUIRED_FIELDS:
                 if _field not in _telemetry:
-                    self.log_error("JSON object missing required field %s. Have you re-built the decoders? (./build.sh)" % _field)
+                    self.log_error(
+                        "JSON object missing required field %s. Have you re-built the decoders? (./build.sh)"
+                        % _field
+                    )
                     return False
 
             # Check the decoder version matches our current version.
             # Note that we allow any version in UDP mode, as this is commonly used for experimentation work.
             if (_telemetry["version"] != autorx.__version__) and (not self.udp_mode):
-                self.log_critical("Decoder version (%s) does not match auto_rx version (%s). Have you re-built the decoders? (./build.sh)"
-                % (_telemetry["version"], autorx.__version__))
+                self.log_critical(
+                    "Decoder version (%s) does not match auto_rx version (%s). Have you re-built the decoders? (./build.sh)"
+                    % (_telemetry["version"], autorx.__version__)
+                )
                 self.exit_state = "Decoder Version Mismatch"
                 self.decoder_running = False
                 return False

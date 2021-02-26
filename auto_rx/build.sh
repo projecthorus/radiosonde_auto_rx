@@ -52,6 +52,10 @@ cd ../imet/
 # Note -O3 flag removed from this demodulator until Bus Error bug can be resolved.
 gcc imet1rs_dft.c -lm -Ofast -o imet1rs_dft $VERS_FLAG
 
+echo "Building MRZ Demod."
+cd ../mrz/
+gcc mp3h1.c -lm -Ofast -o mp3h1 $VERS_FLAG
+
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
 # This produces a static build of fsk_demod
@@ -68,6 +72,7 @@ cd ../auto_rx/
 cp ../scan/dft_detect .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
+cp ../mrz/mp3h1 .
 cp ../mk2a/mk2a_lms1680 .
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
