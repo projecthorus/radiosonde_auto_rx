@@ -1024,7 +1024,7 @@ class SondeDecoder(object):
                         _last_packet = time.time()
 
             # Check timeout counter.
-            if (time.time() > (_last_packet + self.timeout)) and not self.udp_mode:
+            if (self.timeout > 0) and (time.time() > (_last_packet + self.timeout)) and (not self.udp_mode):
                 # If we have not seen data for a while, break.
                 self.log_error("RX Timed out.")
                 self.exit_state = "Timeout"
