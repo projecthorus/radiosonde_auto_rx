@@ -751,6 +751,18 @@ def main():
     if not check_rs_utils():
         sys.exit(1)
 
+    # If a sonde type has been provided, insert an entry into the scan results,
+    # and immediately start a decoder. This also sets the decoder time to 0, which
+    # allows it to run indefinitely.
+    if args.type != None:
+        if args.type in VALID_SONDE_TYPES:
+            logging.warning("Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!")
+            config["rx_timeout"] = 0
+            autorx.scan_results.put([[args.frequency * 1e6, args.type]])
+        else:
+            logging.error("Unknown Radiosonde Type: %s. Exiting." % args.type)
+            sys.exit(1)
+
     # Start up the flask server.
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
     start_flask(host=config["web_host"], port=config["web_port"])
@@ -933,11 +945,9 @@ def main():
     # Note the start time.
     _start_time = time.time()
 
-    # If a sonde type has been provided, insert an entry into the scan results,
-    # and immediately start a decoder. If decoding fails, then we continue into
-    # the main scanning loop.
+    # If we have been asked to start decoding a specific radiosonde type, we need to start up
+    # the decoder immediately, before a scanner thread is started.
     if args.type != None:
-        autorx.scan_results.put([[args.frequency * 1e6, args.type]])
         handle_scan_results()
 
     # Loop.
