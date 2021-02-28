@@ -1,10 +1,22 @@
 
+/*
+ *  compile:
+ *      gcc dft_detect.c -lm -o dft_detect
+ *  speedup:
+ *      gcc -Ofast dft_detect.c -lm -o dft_detect
+ *
+ *  author: zilog80
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <complex.h>
 
+#ifndef M_PI
+    #define M_PI  (3.1415926535897932384626433832795)
+#endif
 
 typedef unsigned char  ui8_t;
 typedef unsigned short ui16_t;
@@ -46,11 +58,12 @@ static char mk2a_header[] = "0010100111""0010100111""0001001001""0010010101";
 
 //int  m10_sps = 9600;
 static char m10_header[] = "10011001100110010100110010011001";
-// frame byte[0..1]: byte[0]=framelen-1, byte[1]=type(8F=M2K2,9F=M10,AF=M10+)
-// M2K2   : 64 8F : 0110010010001111
-// M10    : 64 9F : 0110010010011111 (framelen 0x64+1)
-// M10-aux: 76 9F : 0111011010011111 (framelen 0x76+1)
-// M10+   : 64 AF : 0110010010101111 (w/ gtop-GPS)
+// frame byte[0..1]: byte[0]=framelen-1, byte[1]=type(8F=M2K2,9F=M10,AF=M10+,20=M20)
+// M2K2   : 64 8F : 01100100 10001111
+// M10    : 64 9F : 01100100 10011111  (framelen 0x64+1) (baud=9616)
+// M10-aux: 76 9F : 01110110 10011111  (framelen 0x76+1)
+// M10+   : 64 AF : 01100100 10101111  (w/ gtop-GPS)
+// M20    : 45 20 : 01000101 00100000  (framelen 0x45+1) (baud=9600)
 
 //int  meisei_sps = 2400;   // 0xFB6230 =
 static char meisei_header[] = "110011001101001101001101010100101010110010101010"; // 11111011 01100010 00110000
@@ -102,25 +115,35 @@ static float lpFM_bw[2] = {  4e3, 10e3 };  // FM-audio lowpass bandwidth
 static float lpIQ_bw[3] = { 12e3, 22e3, 200e3 };  // IF iq lowpass bandwidth
 static float set_lpIQ = 0.0;
 
+#define tn_DFM      2
+#define tn_RS41     3
+#define tn_RS92     4
+#define tn_M10      5
+#define tn_M20      6
+#define tn_LMS6     8
+#define tn_MEISEI   9
+#define tn_C34C50  10
+#define tn_MK2LMS  21
+#define tn_IMET    15 // IMET4=+1, IMET1RS=+3, IMET1AB=+4
+
 #define Nrs      12
 #define idxIMETs  8
 #define idxAB     9
 #define idxRS    10
 #define idxI4    11
-// Thresholds modified by VK5QI 2019-10-04
 static rsheader_t rs_hdr[Nrs] = {
-    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.62, 2, NULL, "DFM9",     2 , 0, 0, 0.0}, // DFM6: -2 ?
-    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.53, 2, NULL, "RS41",     3 , 0, 0, 0.0},
-    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.54, 3, NULL, "RS92",     4 , 0, 0, 0.0}, // RS92NGP: 1680/400=4.2
-    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.70, 2, NULL, "LMS6",     8 , 0, 0, 0.0}, // lmsX: 7?
-    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",  21 , 1, 2, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
-    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",      5 , 1, 1, 0.0},
-    { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",   9 , 0, 1, 0.0},
-    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",  10 , 0, 1, 0.0}, // C34/C50 2900 Hz tone
-    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMET",    15 , 1, 0, 0.0}, // IMET1AB=19, IMET1RS=18 (IQ)IMET4=16
-    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", 19 , 1, 2, 0.0}, // (rs_hdr[idxAB])
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", 18 , 0, 2, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",   16 , 1, 0, 0.0}  // (rs_hdr[idxI4])
+    { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",    tn_DFM,    0, 0, 0.0}, // DFM6: -2 ?
+    { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",    tn_RS41,   0, 0, 0.0},
+    { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92",    tn_RS92,   0, 0, 0.0}, // RS92NGP: 1680/400=4.2
+    { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",    tn_LMS6,   0, 0, 0.0}, // lmsX: 7?
+    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",  tn_MK2LMS, 1, 2, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
+    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",     tn_M10,    1, 1, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
+    { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",  tn_MEISEI, 0, 1, 0.0},
+    { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",  tn_C34C50, 0, 1, 0.0}, // C34/C50 2900 Hz tone
+    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMET",    tn_IMET  , 1, 0, 0.0}, // IMET1AB=19, IMET1RS=18 (IQ)IMET4=16
+    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB", tn_IMET+4, 1, 2, 0.0}, // (rs_hdr[idxAB])
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS", tn_IMET+3, 0, 2, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",   tn_IMET+1, 1, 0, 0.0}, // (rs_hdr[idxI4])
 };
 
 
@@ -268,7 +291,7 @@ static int getCorrDFT(int K, unsigned int pos, float *maxv, unsigned int *maxvpo
     double xnorm = 1.0;
     unsigned int mpos = 0;
 
-    double dc = 0.0;
+    float dc = 0.0;
     rshd->dc = 0.0;
 
     if (K + rshd->L > N_DFT) return -1;
@@ -575,7 +598,7 @@ static int lowpass_init(float f, int taps, float **pws) {
 
     h = (double*)calloc( taps+1, sizeof(double)); if (h == NULL) return -1;
     w = (double*)calloc( taps+1, sizeof(double)); if (w == NULL) return -1;
-    ws = (float*)calloc( taps+1, sizeof(float)); if (ws == NULL) return -1;
+    ws = (float*)calloc( 2*taps+1, sizeof(float)); if (ws == NULL) return -1;
 
     for (n = 0; n < taps; n++) {
         w[n] = 7938/18608.0 - 9240/18608.0*cos(2*M_PI*n/(taps-1)) + 1430/18608.0*cos(4*M_PI*n/(taps-1)); // Blackmann
@@ -586,6 +609,9 @@ static int lowpass_init(float f, int taps, float **pws) {
     for (n = 0; n < taps; n++) {
         ws[n] /= norm; // 1-norm
     }
+
+    for (n = 0; n < taps; n++) ws[taps+n] = ws[n]; // duplicate/unwrap
+
     *pws = ws;
 
     free(h); h = NULL;
@@ -595,13 +621,23 @@ static int lowpass_init(float f, int taps, float **pws) {
 }
 
 // struct { int taps; double *ws}
-static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+static float complex lowpass0(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     double complex w = 0;
     for (n = 0; n < taps; n++) {
         w += buffer[(sample+n+1)%taps]*ws[taps-1-n];
     }
     return (float complex)w;
+}
+static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+    ui32_t n;
+    ui32_t s = sample % taps;
+    double complex w = 0;
+    for (n = 0; n < taps; n++) {
+        w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
+    }
+    return (float complex)w;
+// symmetry: ws[n] == ws[taps-1-n]
 }
 
 
@@ -721,10 +757,9 @@ static int headcmp(int symlen, unsigned int mvp, int inv, rsheader_t *rshd) {
     int errs = 0;
     int pos;
     int step = 1;
-    char sign = 0;
     int len = 0;
-
-    double dc = 0.0;
+    char sign = 0;
+    float dc = 0.0;
 
     if (option_dc)
     {
@@ -753,6 +788,61 @@ static int headcmp(int symlen, unsigned int mvp, int inv, rsheader_t *rshd) {
     }
 
     return errs;
+}
+
+
+static ui8_t bits2byte(char *bitstr) {
+    int i, bit, d, byteval;
+    int bitpos;
+
+    bitpos = 0;
+    byteval = 0;
+    d = 1;
+    for (i = 0; i < 8; i++) {
+        //bit=*(bitstr+bitpos+i); /* little endian */
+        bit=*(bitstr+bitpos+7-i);  /* big endian */
+        if         (bit == '1')    byteval += d;
+        else /*if ((bit == '0')*/  byteval += 0;
+        d <<= 1;
+    }
+
+    return byteval & 0xFF;
+}
+
+static int hw(ui8_t byte) {
+    int i;
+    int d = 0;
+    for (i = 0; i < 8; i++) {
+        d += (byte & 1);
+        byte >>= 1;
+    }
+    return d;
+}
+
+static ui32_t frm_M10(unsigned int mvp, int inv, rsheader_t *rshd) {
+    float dc = 0.0;
+    int pos2;
+    char bit0 = '0';
+    char mb[2];
+    char frmbit[16+1];
+    ui8_t b[2];
+    ui32_t bytes;
+
+    if (option_dc) dc = rshd->dc;
+
+    bit0 = 0x30 + (inv > 0);
+    for (pos2 = 0; pos2 < 16; pos2 += 1) {
+        read_bufbit(2, mb, mvp, pos2==0, dc, rshd);
+        frmbit[pos2] = 0x31 ^ (bit0 ^ mb[0]);
+        bit0 = mb[0];
+    }
+    frmbit[pos2] = '\0';
+
+    b[0] = bits2byte(frmbit);
+    b[1] = bits2byte(frmbit+8);
+    bytes = (b[0]<<8) | b[1];
+
+    return bytes;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1198,7 +1288,7 @@ int main(int argc, char **argv) {
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
-                fprintf(stderr, "%s konnte nicht geoeffnet werden\n", *argv);
+                fprintf(stderr, "error: open %s\n", *argv);
                 return -50;
             }
             wavloaded = 1;
@@ -1229,7 +1319,7 @@ int main(int argc, char **argv) {
     };
 
     for (j = 0; j < Nrs; j++) {
-        mv[j] = 0;
+        mv[j] = 0.0;
         mv_pos[j] = 0;
         mp[j] = 0;
     }
@@ -1266,7 +1356,22 @@ int main(int argc, char **argv) {
                 if (mv_pos[j] > mv0_pos[j]) {
 
                     herrs = headcmp(1, mv_pos[j], mv[j]<0, rs_hdr+j);
-                    if (herrs < rs_hdr[j].herrs) {  // max bit-errors in header
+                    if (herrs < rs_hdr[j].herrs)    // max bit-errors in header
+                    {
+                        if ( strncmp(rs_hdr[j].type, "M10", 3) == 0 || strncmp(rs_hdr[j].type, "M20", 3) == 0)
+                        {
+                            ui32_t bytes = frm_M10(mv_pos[j], mv[j]<0, rs_hdr+j);
+                            int len = (bytes >> 8) & 0xFF;
+                            int h = hw(bytes & 0x0F);
+                            if (h < 2 || h == 2 && (bytes&0xF0) == 0x20) {
+                                rs_hdr[j].type = "M20";
+                                rs_hdr[j].tn = tn_M20;  // M20: 45 20
+                            }
+                            else {
+                                rs_hdr[j].type = "M10";
+                                rs_hdr[j].tn = tn_M10;  // M10: 64 9F , M10+: 64 AF , M10-dop: 64 49  (len > 0x60)
+                            }
+                        }
 
                         if ( strncmp(rs_hdr[j].type, "IMET", 4) == 0 ) // ? j == idxIMETs
                         {
@@ -1322,13 +1427,13 @@ int main(int argc, char **argv) {
                                     mv_pos[j] = mv_pos[_j0];
                                     rs_hdr[j].dc = rs_hdr[_j0].dc;
                                     rs_hdr[j].df = rs_hdr[_j0].df;
-                                    mv[_j0] = 0;
+                                    mv[_j0] = 0.0;
                                     header_found = 1;
                                 }
                                 else mv[j] = 0.0;
                             }
                             else { // IMET -> IMET1AB ?
-                                mv[j] = 0;
+                                mv[j] = 0.0;
                                 j = idxAB;
                                 mv_pos[j] = sample_out;
                                 n = 0;

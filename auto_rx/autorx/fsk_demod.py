@@ -20,15 +20,9 @@ class FSKDemodStats(object):
     The test script below will emulate relatime input based on a file.
     """
 
+    FSK_STATS_FIELDS = ["EbNodB", "ppm", "f1_est", "f2_est", "samp_fft"]
 
-    FSK_STATS_FIELDS = ['EbNodB', 'ppm', 'f1_est', 'f2_est', 'samp_fft']
-
-
-    def __init__(self,
-        averaging_time = 5.0,
-        peak_hold = False,
-        decoder_id = ""
-        ):
+    def __init__(self, averaging_time=5.0, peak_hold=False, decoder_id=""):
         """
 
         Required Fields:
@@ -47,14 +41,11 @@ class FSKDemodStats(object):
         self.in_snr = np.array([])
         self.in_ppm = np.array([])
 
-
         # Output State variables.
         self.snr = -999.0
-        self.fest = [0.0,0.0]
+        self.fest = [0.0, 0.0]
         self.fft = []
         self.ppm = 0.0
-
-
 
     def update(self, data):
         """
@@ -67,20 +58,19 @@ class FSKDemodStats(object):
 
         # Check input type
         if type(data) == bytes:
-            data = data.decode('ascii')
+            data = data.decode("ascii")
 
         if type(data) == dict:
             _data = data
-        
+
         else:
             # Attempt to parse string.
             try:
                 _data = json.loads(data)
             except Exception as e:
                 # Be quiet for now...
-                #self.log_error("FSK Demod Stats - %s" % str(e))
+                # self.log_error("FSK Demod Stats - %s" % str(e))
                 return
-        
 
         # Check for required fields in incoming dictionary.
         for _field in self.FSK_STATS_FIELDS:
@@ -90,18 +80,17 @@ class FSKDemodStats(object):
 
         # Now we can process the data.
         _time = time.time()
-        self.fft = _data['samp_fft']
-        self.fest[0] = _data['f1_est']
-        self.fest[1] = _data['f2_est']
+        self.fft = _data["samp_fft"]
+        self.fest[0] = _data["f1_est"]
+        self.fest[1] = _data["f2_est"]
 
         # Time-series data
         self.in_times = np.append(self.in_times, _time)
-        self.in_snr = np.append(self.in_snr, _data['EbNodB'])
-        self.in_ppm = np.append(self.in_ppm, _data['ppm'])
-
+        self.in_snr = np.append(self.in_snr, _data["EbNodB"])
+        self.in_ppm = np.append(self.in_ppm, _data["ppm"])
 
         # Calculate SNR / PPM
-        _time_range = self.in_times>(_time-self.averaging_time)
+        _time_range = self.in_times > (_time - self.averaging_time)
         # Clip arrays to just the values we want
         self.in_ppm = self.in_ppm[_time_range]
         self.in_snr = self.in_snr[_time_range]
@@ -115,7 +104,6 @@ class FSKDemodStats(object):
         else:
             self.snr = np.mean(self.in_snr)
 
-
     def log_debug(self, line):
         """ Helper function to log a debug message with a descriptive heading. 
         Args:
@@ -123,14 +111,12 @@ class FSKDemodStats(object):
         """
         logging.debug("FSK Demod Stats #%s - %s" % (str(self.decoder_id), line))
 
-
     def log_info(self, line):
         """ Helper function to log an informational message with a descriptive heading. 
         Args:
             line (str): Message to be logged.
         """
         logging.info("FSK Demod Stats #%s - %s" % (str(self.decoder_id), line))
-
 
     def log_error(self, line):
         """ Helper function to log an error message with a descriptive heading. 
@@ -140,12 +126,12 @@ class FSKDemodStats(object):
         logging.error("FSK Demod Stats #%s - %s" % (str(self.decoder_id), line))
 
 
-
 if __name__ == "__main__":
     import sys
+
     _filename = sys.argv[1]
 
-    _f = open(_filename,'r')
+    _f = open(_filename, "r")
 
     stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
 
@@ -158,15 +144,15 @@ if __name__ == "__main__":
             _line = json.loads(_line)
         except:
             continue
-            
+
         stats.update(_line)
 
-        time.sleep(1/rate)
+        time.sleep(1 / rate)
 
-        if count%updaterate == 0:
-            print("%d - SNR: %.1f dB, FEst: %s, ppm: %.1f" % (count, stats.snr, stats.fest, stats.ppm))
+        if count % updaterate == 0:
+            print(
+                "%d - SNR: %.1f dB, FEst: %s, ppm: %.1f"
+                % (count, stats.snr, stats.fest, stats.ppm)
+            )
 
         count += 1
-
-
-

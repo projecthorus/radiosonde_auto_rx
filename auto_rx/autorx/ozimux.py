@@ -11,6 +11,7 @@ import logging
 import socket
 import time
 from threading import Thread
+
 try:
     # Python 2
     from Queue import Queue
@@ -34,18 +35,30 @@ class OziUploader(object):
     """
 
     # We require the following fields to be present in the incoming telemetry dictionary data
-    REQUIRED_FIELDS = ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float', 'datetime_dt']
+    REQUIRED_FIELDS = [
+        "frame",
+        "id",
+        "datetime",
+        "lat",
+        "lon",
+        "alt",
+        "temp",
+        "type",
+        "freq",
+        "freq_float",
+        "datetime_dt",
+    ]
 
     # Extra fields we can pass on to other programs.
-    EXTRA_FIELDS = ['bt', 'humidity', 'sats', 'batt', 'snr', 'fest', 'f_centre', 'ppm']
+    EXTRA_FIELDS = ["bt", "humidity", "sats", "batt", "snr", "fest", "f_centre", "ppm"]
 
-
-    def __init__(self,
-        ozimux_port = None,
-        payload_summary_port = None,
-        update_rate = 5,
-        station = "auto_rx"
-        ):
+    def __init__(
+        self,
+        ozimux_port=None,
+        payload_summary_port=None,
+        update_rate=5,
+        station="auto_rx",
+    ):
         """ Initialise an OziUploader Object.
 
         Args:
@@ -59,7 +72,7 @@ class OziUploader(object):
         self.update_rate = update_rate
         self.station = station
 
-        # Input Queue. 
+        # Input Queue.
         self.input_queue = Queue()
 
         # Start the input queue processing thread.
@@ -69,7 +82,6 @@ class OziUploader(object):
 
         self.log_info("Started OziMux / Payload Summary Exporter")
 
-
     def send_ozimux_telemetry(self, telemetry):
         """ Send a packet of telemetry into the network in OziMux/OziPlotter-compatible format.
 
@@ -78,14 +90,19 @@ class OziUploader(object):
 
         """
 
-        _short_time = telemetry['datetime_dt'].strftime("%H:%M:%S")
-        _sentence = "TELEMETRY,%s,%.5f,%.5f,%d\n" % (_short_time, telemetry['lat'], telemetry['lon'], telemetry['alt'])
+        _short_time = telemetry["datetime_dt"].strftime("%H:%M:%S")
+        _sentence = "TELEMETRY,%s,%.5f,%.5f,%d\n" % (
+            _short_time,
+            telemetry["lat"],
+            telemetry["lon"],
+            telemetry["alt"],
+        )
 
         try:
-            _ozisock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+            _ozisock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             # Set up socket for broadcast, and allow re-use of the address
-            _ozisock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
+            _ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             _ozisock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # Under OSX we also need to set SO_REUSEPORT to 1
             try:
@@ -94,18 +111,23 @@ class OziUploader(object):
                 pass
 
             try:
-                _ozisock.sendto(_sentence.encode('ascii'),('<broadcast>',self.ozimux_port))
+                _ozisock.sendto(
+                    _sentence.encode("ascii"), ("<broadcast>", self.ozimux_port)
+                )
             # Catch any socket errors, that may occur when attempting to send to a broadcast address
             # when there is no network connected. In this case, re-try and send to localhost instead.
             except socket.error as e:
-                self.log_debug("Send to broadcast address failed, sending to localhost instead.")
-                _ozisock.sendto(_sentence.encode('ascii'),('127.0.0.1',self.ozimux_port))
+                self.log_debug(
+                    "Send to broadcast address failed, sending to localhost instead."
+                )
+                _ozisock.sendto(
+                    _sentence.encode("ascii"), ("127.0.0.1", self.ozimux_port)
+                )
 
             _ozisock.close()
 
         except Exception as e:
             self.log_error("Failed to send OziMux packet: %s" % str(e))
-
 
     def send_payload_summary(self, telemetry):
         """ Send a payload summary message into the network via UDP broadcast.
@@ -117,36 +139,35 @@ class OziUploader(object):
 
         try:
             # Prepare heading & speed fields, if they are provided in the incoming telemetry blob.
-            if 'heading' in telemetry.keys():
-                _heading = telemetry['heading']
+            if "heading" in telemetry.keys():
+                _heading = telemetry["heading"]
             else:
                 _heading = -1
 
-            if 'vel_h' in telemetry.keys():
-                _speed = telemetry['vel_h']*3.6
+            if "vel_h" in telemetry.keys():
+                _speed = telemetry["vel_h"] * 3.6
             else:
                 _speed = -1
 
             # Generate 'short' time field.
-            _short_time = telemetry['datetime_dt'].strftime("%H:%M:%S")
-
+            _short_time = telemetry["datetime_dt"].strftime("%H:%M:%S")
 
             packet = {
-                'type' : 'PAYLOAD_SUMMARY',
-                'station': self.station,
-                'callsign' : telemetry['id'],
-                'latitude' : telemetry['lat'],
-                'longitude' : telemetry['lon'],
-                'altitude' : telemetry['alt'],
-                'speed' : _speed,
-                'heading': _heading,
-                'time' : _short_time,
-                'comment' : 'Radiosonde',
+                "type": "PAYLOAD_SUMMARY",
+                "station": self.station,
+                "callsign": telemetry["id"],
+                "latitude": telemetry["lat"],
+                "longitude": telemetry["lon"],
+                "altitude": telemetry["alt"],
+                "speed": _speed,
+                "heading": _heading,
+                "time": _short_time,
+                "comment": "Radiosonde",
                 # Additional fields specifically for radiosondes
-                'model': telemetry['type'],
-                'freq': telemetry['freq'],
-                'temp': telemetry['temp'],
-                'frame': telemetry['frame']
+                "model": telemetry["type"],
+                "freq": telemetry["freq"],
+                "temp": telemetry["temp"],
+                "frame": telemetry["frame"],
             }
 
             # Add in any extra fields we may care about.
@@ -154,13 +175,11 @@ class OziUploader(object):
                 if _field in telemetry:
                     packet[_field] = telemetry[_field]
 
-
-
             # Set up our UDP socket
-            _s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+            _s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             _s.settimeout(1)
             # Set up socket for broadcast, and allow re-use of the address
-            _s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
+            _s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             _s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # Under OSX we also need to set SO_REUSEPORT to 1
             try:
@@ -169,18 +188,25 @@ class OziUploader(object):
                 pass
 
             try:
-                _s.sendto(json.dumps(packet).encode('ascii'), ('<broadcast>', self.payload_summary_port))
+                _s.sendto(
+                    json.dumps(packet).encode("ascii"),
+                    ("<broadcast>", self.payload_summary_port),
+                )
             # Catch any socket errors, that may occur when attempting to send to a broadcast address
             # when there is no network connected. In this case, re-try and send to localhost instead.
             except socket.error as e:
-                self.log_debug("Send to broadcast address failed, sending to localhost instead.")
-                _s.sendto(json.dumps(packet).encode('ascii'), ('127.0.0.1', self.payload_summary_port))
+                self.log_debug(
+                    "Send to broadcast address failed, sending to localhost instead."
+                )
+                _s.sendto(
+                    json.dumps(packet).encode("ascii"),
+                    ("127.0.0.1", self.payload_summary_port),
+                )
 
             _s.close()
 
         except Exception as e:
             self.log_error("Error sending Payload Summary: %s" % str(e))
-
 
     def process_queue(self):
         """ Process packets from the input queue.
@@ -206,9 +232,6 @@ class OziUploader(object):
 
             time.sleep(self.update_rate)
 
-
-
-
     def add(self, telemetry):
         """ Add a dictionary of telemetry to the input queue. 
 
@@ -229,7 +252,6 @@ class OziUploader(object):
         else:
             self.log_error("Processing not running, discarding.")
 
-
     def close(self):
         """ Shutdown processing thread. """
         self.log_debug("Waiting for processing thread to close...")
@@ -238,7 +260,6 @@ class OziUploader(object):
         if self.input_thread is not None:
             self.input_thread.join()
 
-
     def log_debug(self, line):
         """ Helper function to log a debug message with a descriptive heading. 
         Args:
@@ -246,14 +267,12 @@ class OziUploader(object):
         """
         logging.debug("OziMux - %s" % line)
 
-
     def log_info(self, line):
         """ Helper function to log an informational message with a descriptive heading. 
         Args:
             line (str): Message to be logged.
         """
         logging.info("OziMux - %s" % line)
-
 
     def log_error(self, line):
         """ Helper function to log an error message with a descriptive heading. 

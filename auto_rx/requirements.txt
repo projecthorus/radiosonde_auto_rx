@@ -1,0 +1,2 @@
+flask-socketio==4.3.2
+simplekml

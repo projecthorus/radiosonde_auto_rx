@@ -121,7 +121,7 @@ processing_type = {
     # # RS41 Decoding
     'rs41_fsk_demod': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.125 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b 1 -u 24000 --stats=100 2 48000 4800 - - 2>stats.txt |",
+        'demod' : "| csdr shift_addition_cc 0.125 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b 1 -u 24000 --stats=5 2 48000 4800 - - 2>stats.txt |",
 
         # Decode using rs41ecc
         'decode': "../rs41mod --ecc --ptu --crc --bin --json 2>/dev/null",
@@ -132,7 +132,7 @@ processing_type = {
     # # RS92 Decoding
     'rs92_fsk_demod': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=5 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
 
         # Decode using rs41ecc
         'decode': "../rs92mod -vx -v --crc --ecc --vel 2>/dev/null",
@@ -142,7 +142,7 @@ processing_type = {
     },
     'm10_fsk_demod': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 1.0016666 -c | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96160 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
+        'demod' : "| csdr shift_addition_cc 0.125 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.50083333333 -c | ../fsk_demod --cs16 -b 1 -u 45000 -p 5 --stats=5 2 48080 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null| ",
         'decode': "tee test.wav | ../m10mod --json -vvv 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : "| grep aprsid | wc -l",
@@ -154,7 +154,7 @@ processing_type = {
         #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
         #../dfm09ecc -vv --json --dist --auto
 
-        'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b 1250 -u 23750 --stats=100 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b 1250 -u 23750 --stats=5 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
         'decode': '../dfm09mod -vv --json --dist --auto --bin 2>/dev/null',
         "post_process" : " | grep frame |  wc -l", # ECC
         #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
@@ -164,7 +164,7 @@ processing_type = {
     # LMS6-400 Decoding
     'lms6-400_fsk_demod': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=100 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 --stats=5 2 96000 4800 - - 2>stats.txt | python ./bit_to_samples.py 48000 4800 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null|",
 
         # Decode using rs41ecc
         'decode': "../lms6Xmod --json 2>/dev/null",
@@ -179,7 +179,7 @@ processing_type = {
         # The recording bandwidth needs to be correspondingly huge, with ~480 kHz sample rate required to capture the signal.
         # We need to resample up to a multiple of 9616 Hz to be able to get fsk_demod to decode.
         # fsk_demod does not decode these types reliably at the moment.
-        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 1.00166666 | ../fsk_demod --cs16 -b 5000 -u 230000 --stats=100 2 480800 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null|",
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 1.00166666 | ../fsk_demod --cs16 -b 5000 -u 230000 --stats=5 2 480800 9616 - - 2>stats.txt | python ./bit_to_samples.py 57696 9616 | sox -t raw -r 57696 -e unsigned-integer -b 8 -c 1 - -r 57696 -b 8 -t wav - 2>/dev/null|",
 
         # Decode using rs41ecc
         'decode': "../mk2a_lms1680 -i --json 2>/dev/null",
@@ -187,6 +187,59 @@ processing_type = {
         "post_process" : " | grep frame | wc -l",
         # No low-SNR samples for this sonde available yet. 
         'files' : "./generated/lms6-1680*"
+    },
+    'rs41_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.125 2>/dev/null | csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b 1 -u 24000 -s --stats=5 2 48000 4800 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../rs41mod --ecc --ptu --crc --softin -i --json 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep frame | wc -l",
+        'files' : "./generated/rs41*"
+    },
+    # # RS92 Decoding
+    'rs92_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 -s --stats=5 2 96000 4800 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../rs92mod -vx -v --crc --ecc --vel --softin -i 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep M2513116 | wc -l",
+        'files' : "./generated/rs92*"
+    },
+    'm10_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.125 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.50083333333 -c | ../fsk_demod --cs16 -b 1 -p 5 -u 23000 -s --stats=5 2 48080 9616 - - 2>stats.txt |",
+        'decode': "../m10mod --json --softin -i -vvv 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep aprsid | wc -l",
+        'files' : "./generated/m10*"
+    },
+    'dfm_fsk_demod_soft': {
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        #../dfm09ecc -vv --json --dist --auto
+
+        'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b 1250 -u 23750 -s --stats=5 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../dfm09mod -vv --json --dist --auto --softin -i 2>/dev/null',
+        "post_process" : " | grep frame |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/dfm*.bin"
+    },
+
+    # LMS6-400 Decoding
+    'lms6-400_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 -s --stats=5 2 96000 4800 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../lms6Xmod --json --softin -i 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep frame | wc -l",
+        'files' : "./generated/lms6-400*",
     },
 }
 
@@ -616,7 +669,7 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
 
         _runtime = time.time() - _start
 
-        _result = "%s, %s" % (os.path.basename(_file), _output.strip())
+        _result = "%s, %s, %.1f" % (os.path.basename(_file), _output.strip(), _runtime)
 
         print(_result)
         if log_output is not None:
@@ -633,7 +686,7 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--mode", type=str, default="rs41_csdr", help="Operation mode.")
+    parser.add_argument("-m", "--mode", type=str, default="rs41_fsk_demod", help="Operation mode.")
     parser.add_argument("-f", "--files", type=str, default=None, help="Glob-path to files to run over.")
     parser.add_argument("-v", "--verbose", action='store_true', default=False, help="Show additional debug info.")
     parser.add_argument("-d", "--dry-run", action='store_true', default=False, help="Show additional debug info.")
@@ -650,7 +703,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
-    batch_modes = ['dfm_fsk_demod', 'rs41_fsk_demod', 'm10_fsk_demod', 'rs92_fsk_demod', 'lms6-400_fsk_demod', 'imet4_rtlfm']
+    batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'lms6-400_fsk_demod_soft']#, 'imet4_rtlfm']
 
     if args.batch:
         for _mode in batch_modes:

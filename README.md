@@ -6,24 +6,17 @@
 This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase
 provides a set of utilities ('auto_rx') to allow automatic reception
 and uploading of
-[Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to
+[Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) telemetry to
 multiple services, including:
 
-* The [Habitat High-Altitude Balloon Tracker](https://tracker.habhub.org)
-
-  * **Please note the HabHub Tracker now filters out radiosondes by
-      default.** To view the radiosondes again, clear the search field
-      at the top-left of the tracker of all text, and press
-      enter. Alternatively, use our front-end to HabHub at:
-      [https://sondehub.org/](https://sondehub.org/)
+* The [Habitat High-Altitude Balloon Tracker](https://tracker.sondehub.org)
   
-* APRS-IS (for display on sites such as [aprs.fi](https://aprs.fi)
+* APRS-IS (for display on sites such as [radiosondy.info](https://radiosondy.info) and [aprs.fi](https://aprs.fi)
 
-* [ChaseMapper](https://github.com/projecthorus/chasemapper) and
-  [OziPlotter](https://github.com/projecthorus/oziplotter), for mobile
+* [ChaseMapper](https://github.com/projecthorus/chasemapper) for mobile
   radiosonde chasing.
 
-There is also a web interface provided (defaults to port 5000),
+There is also a web interface available on http://localhost:5000 ,
 allowing display of station status and basic tracking of the sonde
 position.
 
@@ -31,9 +24,9 @@ Currently we support the following radiosonde types:
 * Vaisala RS92
 * Vaisala RS41
 * Graw DFM06/DFM09/DFM17/PS-15
-* Meteomodem M10 (Thanks Viproz!)
+* Meteomodem M10 & M20
 * Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
-* Lockheed Martin LMS6 and Mk2a
+* Lockheed Martin LMS6 (400 MHz and 1680 MHz variants, including the new 'LMS-X' unreleased type)
 * Meisei iMS-100
 
 Support for other radiosondes may be added as required (please send us
@@ -68,7 +61,7 @@ instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 
 ### Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
-* [Michael Wheeler](https://github.com/TheSkorm) - git@mwheeler.org
+* [Michaela Wheeler](https://github.com/TheSkorm) - radiosonde@michaela.lgbt
 
 You can often find us in the #highaltitude IRC Channel on
 [Freenode](https://webchat.freenode.net/).

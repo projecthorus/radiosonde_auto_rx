@@ -181,22 +181,23 @@ def read_log_file(filename, decimation=10, min_altitude=100):
             try:
                 _fields = line.split(',')
 
+                # Log fields:   0          1      2     3   4   5   6     7     8       9    10       11   12       13  14         15   16     17          18
+                #               "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
+
                 # Attempt to parse the line
                 _time = _fields[0]
                 _lat = float(_fields[3])
                 _lon = float(_fields[4])
                 _alt = float(_fields[5])
-                _temp = float(_fields[6])
-                _hum = float(_fields[7])
-
-                if 'SNR' in _fields[10]:
-                    _snr = float(_fields[10].split(' ')[1])
-                else:
-                    _snr = -1.0
-
-                if 'FERROR' in _fields[11]:
-                    _ferror = float(_fields[11].split(' ')[1])
-                else:
+                _temp = float(_fields[9])
+                _hum = float(_fields[10])
+                try:
+                    # Attempt to extract SNR and frequency error fields.
+                    # These may not be present on older log files.
+                    _snr = float(_fields[13])
+                    _ferror = float(_fields[14])
+                except:
+                    _snr = -99
                     _ferror = 0.0
 
                 # Append data to arrays.
@@ -405,7 +406,7 @@ def process_directory(log_dir, output_dir, status_file, time_limit = 60):
 
         # Read in the file!
         try:
-            (data, burst, startalt,  last_time) = read_log_file(_file, decimation=10)
+            (data, burst, startalt,  last_time, snr, ferror) = read_log_file(_file, decimation=10)
 
             # Don't process files with a starting altitude well above ground.
             # This indicates it's likely a sonde from a long way away.
