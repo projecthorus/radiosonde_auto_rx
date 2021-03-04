@@ -33,6 +33,8 @@
 //  (b) set local compiler option, e.g.
 //      gcc -DVER_JSN_STR=\"0.0.2\" ...
 
+#define TIMEOUT_JSN 60
+
 
 typedef unsigned char ui8_t;
 typedef unsigned int ui32_t;
@@ -51,7 +53,6 @@ typedef struct {
     ui8_t subcnt1;
     ui8_t subcnt2;
     //int frnr;
-    int week;
     int yr; int mth; int day;
     int hrs; int min; int sec;
     double lat; double lon; double alt;
@@ -65,8 +66,12 @@ typedef struct {
     ui32_t snC;
     ui32_t snD;
     ui8_t crcOK;
-    ui32_t gps_cnt_prev;
-    ui32_t gps_cnt;
+    //
+    int sec_day;
+    int sec_day_prev;
+    int gps_cnt;
+    int gps_cnt_prev;
+    int week;
     int jsn_freq;   // freq/kHz (SDR)
 } gpx_t;
 
@@ -646,6 +651,15 @@ static int get_GPSkoord(gpx_t *gpx) {
     return 0;
 }
 
+static int reset_time(gpx_t *gpx) {
+
+    gpx->gps_cnt = 0;
+    gpx->yr = 0;
+    gpx->week = 0;
+
+    return 0;
+}
+
 static int get_time(gpx_t *gpx) {
 
     gpx->hrs = gpx->frame[pos_TIME];
@@ -654,16 +668,22 @@ static int get_time(gpx_t *gpx) {
 
 
     if (gpx->crcOK)
-    {   // JSON frame counter: seconds since GPS (ignoring leap seconds)
+    {
         int week = 0;
         int tow = 0;
-        ui32_t sec_gps  = 0;
+        int sec_gps = 0;
 
         gpx->gps_cnt_prev = gpx->gps_cnt;
+        gpx->sec_day_prev = gpx->sec_day;
 
+        gpx->sec_day = gpx->hrs*60*60 + gpx->min*60 + gpx->sec;
+
+
+        // JSON frame counter: seconds since GPS (ignoring leap seconds)
+        //
         if (gpx->yr == 0) { // 1980-01-06
             week = 0;
-            tow  = gpx->hrs*60*60 + gpx->min*60 + gpx->sec;
+            tow  = gpx->sec_day; // yr=mth=day=0
         }
         else {
             datetime2GPSweek(gpx->yr, gpx->mth, gpx->day, gpx->hrs, gpx->min, (int)(gpx->sec+0.5), &week, &tow);
@@ -672,7 +692,7 @@ static int get_time(gpx_t *gpx) {
         gpx->week = week;
 
         if (sec_gps > gpx->gps_cnt_prev) { // skip day roll-over until date update
-            gpx->gps_cnt = sec_gps ;
+            gpx->gps_cnt = sec_gps;
         }
     }
 
@@ -700,11 +720,19 @@ static int get_cfg(gpx_t *gpx) {
                         memcpy(&gpx->calC, &cfg32, 4);
                     break;
             case 0xC: //sub2=0x0D: SN GLONASS/GPS ?
-                        // if cfg32 != gpx->snC > 0: reset?
+                        if (cfg32 != gpx->snC && gpx->snC > 0) {
+                            //reset_cfg
+                            gpx->snD = 0;
+                            reset_time(gpx);
+                        }
                         gpx->snC = cfg32; // 16 or 32 bit ?
                     break;
             case 0xD: //sub2=0x0E: SN sensor boom ?
-                        // if cfg32 != gpx->snD > 0: reset?
+                        if (cfg32 != gpx->snD && gpx->snD > 0) {
+                            //reset_cfg
+                            gpx->snC = 0;
+                            reset_time(gpx);
+                        }
                         gpx->snD = cfg32; // 16 or 32 bit ?
                     break;
             case 0xE: //sub2=0x0F: calib date ?
@@ -739,7 +767,7 @@ static void print_gpx(gpx_t *gpx, int crcOK) {
     get_time(gpx);
     get_GPSkoord(gpx);
 
-    if (gpx->gps_cnt != gpx->gps_cnt_prev || !option_uniq)
+    if (gpx->sec_day != gpx->sec_day_prev || !option_uniq)
     {
         printf(" [%2d] ", gpx->subcnt1);
 
@@ -794,19 +822,30 @@ static void print_gpx(gpx_t *gpx, int crcOK) {
         // sonde SN change remains undetected until next SN update
         if (gpx->week > 0 && gpx->gps_cnt > gpx->gps_cnt_prev && gpx->snC > 0 && gpx->snD > 0)
         {
-            char *ver_jsn = NULL;
-            printf("{ \"type\": \"%s\"", "MRZ");
-            fprintf(stdout, ", \"frame\": %lu, ", (unsigned long)gpx->gps_cnt); // sec_gps0+0.5
-            printf("\"id\": \"MRZ-%d-%d\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
-                    gpx->snC, gpx->snD, gpx->yr, gpx->mth, gpx->day, gpx->hrs, gpx->min, gpx->sec, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSats);
-            if (gpx->jsn_freq > 0) {
-                printf(", \"freq\": %d", gpx->jsn_freq);
+            if (gpx->gps_cnt - gpx->gps_cnt_prev > TIMEOUT_JSN && gpx->gps_cnt_prev > gpx->sec_day_prev) {
+                // reset SN after TIMEOUT_JSN sec gap;
+                // if new signal replaces old one within timeout limit,
+                // new positions might still be transmitted with old SN
+                //reset_cfg
+                gpx->snC = 0;
+                gpx->snD = 0;
+                reset_time(gpx);
             }
-            #ifdef VER_JSN_STR
-                ver_jsn = VER_JSN_STR;
-            #endif
-            if (ver_jsn && *ver_jsn != '\0') fprintf(stdout, ", \"version\": \"%s\"", ver_jsn);
-            printf(" }\n");
+            else {
+                char *ver_jsn = NULL;
+                printf("{ \"type\": \"%s\"", "MRZ");
+                printf(", \"frame\": %lu, ", (unsigned long)gpx->gps_cnt); // sec_gps0+0.5
+                printf("\"id\": \"MRZ-%d-%d\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
+                        gpx->snC, gpx->snD, gpx->yr, gpx->mth, gpx->day, gpx->hrs, gpx->min, gpx->sec, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSats);
+                if (gpx->jsn_freq > 0) {
+                    printf(", \"freq\": %d", gpx->jsn_freq);
+                }
+                #ifdef VER_JSN_STR
+                    ver_jsn = VER_JSN_STR;
+                #endif
+                if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
+                printf(" }\n");
+            }
         }
     }
 
