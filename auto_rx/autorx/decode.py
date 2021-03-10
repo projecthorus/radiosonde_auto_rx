@@ -378,7 +378,7 @@ class SondeDecoder(object):
                 # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
                 _rx_bw = 28000
                 # No PTU data availble for RS92-NGP sondes.
-                _ptu_opts = "--ngp"
+                _ptu_opts = "--ngp --ptu"
 
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
@@ -694,7 +694,7 @@ class SondeDecoder(object):
             if self.sonde_freq > 1000e6:
                 # Use a higher IQ rate for 1680 MHz sondes, at the expense of some CPU usage.
                 _sdr_rate = 96000
-                _ptu_ops = "--ngp"
+                _ptu_ops = "--ngp --ptu"
             else:
                 # On 400 MHz, use 48 khz - RS92s dont drift far enough to need any more than this.
                 _sdr_rate = 48000
