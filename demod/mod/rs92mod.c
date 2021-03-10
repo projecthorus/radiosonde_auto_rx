@@ -62,6 +62,7 @@ typedef struct {
     i8_t aux;  // aux/ozone
     i8_t jsn;  // JSON output (auto_rx)
     i8_t ngp;
+    i8_t dbg;
 } option_t;
 
 typedef struct {
@@ -140,6 +141,10 @@ typedef struct {
     float T;
     float _RH; float RH;
     float _P; float P;
+    //
+    ui8_t xcal16[16];
+    ui8_t xptu16[16];
+    int rs_type;
     //
     unsigned short aux[4];
     double diter;
@@ -230,6 +235,11 @@ static void Gps2Date(gpx_t *gpx) {
 
 /* ------------------------------------------------------------------------------------ */
 
+#define RS92SGP 0
+#define RS92AGP 1
+#define RS92NGP 2
+
+
 #define crc_FRAME    (1<<0)
 #define pos_FrameNb   0x08  // 2 byte
 #define pos_SondeID   0x0C  // 8 byte  // oder: 0x0A, 10 byte?
@@ -301,6 +311,113 @@ static int get_FrameNb(gpx_t *gpx) {
     return 0;
 }
 
+
+// calib rows 0x0F,0x10,0x11, 0x14,0x15,0x16,0x17, 0x18(10bytes) constant across rs92 ?
+// cal block 0x40..0x40+0x14A: (66*5=330=0x14A byte)
+// 0x0a, 0xcf, 0xcf, 0xb8, 0xc3, 0x0b, 0xd7, 0x9d, 0xf5, 0x41, 0x0c, 0x46, 0xe6, 0xa2, 0x43, 0x0d,
+// 0x3f, 0x07, 0xc6, 0xc2, 0x0e, 0x6c, 0x04, 0x90, 0x41, 0x0f, 0xf0, 0xde, 0xa5, 0xbf, 0x11, 0x8f,
+// 0xc2, 0x75, 0x3f, 0x14, 0x77, 0x16, 0xf9, 0xc4, 0x15, 0x54, 0x1f, 0x78, 0x45, 0x16, 0xf0, 0xfb,
+// 0x4f, 0xc5, 0x17, 0xcb, 0x75, 0xa9, 0x44, 0x1b, 0x8f, 0xc2, 0x75, 0x3f, 0x3c, 0x00, 0x5b, 0x9b,
+// 0x3d, 0x3d, 0x24, 0xaf, 0xd2, 0xbc, 0x3e, 0xae, 0x80, 0x84, 0xbc, 0x3f, 0x2e, 0xd1, 0x51, 0x3b,
+// 0x46, 0x12, 0x6a, 0x90, 0x39, 0x47, 0xbd, 0xdd, 0xab, 0xb9, 0x48, 0x20, 0x4b, 0x6d, 0xb8, 0x49,
+// 0x2f, 0x14, 0xc7, 0x36, 0x50, 0xa2, 0x59, 0x63, 0xb6, 0x51, 0xed, 0xa0, 0x3f, 0x36, 0x52, 0x26,
+// 0xd8, 0x4a, 0xb4, 0x1e, 0x08, 0xdc, 0x37, 0xc3, 0x1f, 0x2f, 0xd9, 0xbf, 0x42, 0x20, 0x03, 0x46,
+// 0x0d, 0xc2, 0x21, 0xa6, 0x72, 0x42, 0x41, 0x22, 0x36, 0xcc, 0xfc, 0xbf, 0x23, 0xf5, 0x80, 0xf9,
+// 0x3d, 0x25, 0xbb, 0x74, 0x57, 0x3f, 0x28, 0x10, 0x08, 0x16, 0xc5, 0x29, 0x0c, 0xe1, 0xb2, 0x45,
+// 0x2a, 0xd7, 0xed, 0x7b, 0xc5, 0x2b, 0x16, 0x3b, 0x5d, 0x44, 0x2f, 0x8f, 0xc2, 0x75, 0x3f, 0x6e,
+// 0xab, 0xcf, 0x05, 0x3f, 0x6f, 0x1e, 0xa7, 0xe8, 0xbc, 0x70, 0x45, 0xf2, 0x95, 0x39, 0x71, 0x5f,  // 0x0F0
+// 0xc9, 0x70, 0x35, 0x72, 0x4f, 0x2c, 0xad, 0xb0, 0x78, 0x9e, 0xb1, 0x89, 0x3f, 0x79, 0x60, 0xe5,  // 0x100
+// 0x50, 0xbe, 0x7a, 0x7c, 0x9a, 0x13, 0x3c, 0x7b, 0x26, 0x87, 0x74, 0xb8, 0x7c, 0x21, 0x96, 0x8b,  // 0x110
+// 0xb5, 0x32, 0xa6, 0xa3, 0x42, 0xc5, 0x33, 0xd9, 0xb6, 0xd7, 0x45, 0x34, 0xe1, 0x7d, 0x92, 0xc5,
+// 0x35, 0x4a, 0x0c, 0x7c, 0x44, 0x39, 0x8f, 0xc2, 0x75, 0x3f, 0x82, 0xab, 0xcf, 0x05, 0x3f, 0x83,
+// 0x1e, 0xa7, 0xe8, 0xbc, 0x84, 0x45, 0xf2, 0x95, 0x39, 0x85, 0x5f, 0xc9, 0x70, 0x35, 0x86, 0x4f,  // 0x140
+// 0x2c, 0xad, 0xb0, 0x8c, 0x9e, 0xb1, 0x89, 0x3f, 0x8d, 0x60, 0xe5, 0x50, 0xbe, 0x8e, 0x7c, 0x9a,  // 0x150
+// 0x13, 0x3c, 0x8f, 0x26, 0x87, 0x74, 0xb8, 0x90, 0x21, 0x96, 0x8b, 0xb5, 0x97, 0xac, 0x64, 0x9f,  // 0x160
+// 0x36, 0x98, 0x92, 0x25, 0x6b, 0xb3, 0x99, 0xe1, 0x57, 0x05, 0x30, 0x9a, 0xfe, 0x51, 0xf4, 0xab,  // 0x170
+// 0x9d, 0x33, 0x33, 0x33, 0x3f, 0xa7, 0x33, 0x33, 0x33, 0x3f
+
+static ui8_t rs92calx170[16] = {
+0x36, 0x98, 0x92, 0x25, 0x6b, 0xb3, 0x99, 0xe1, 0x57, 0x05, 0x30, 0x9a, 0xfe, 0x51, 0xf4, 0xab}; // 0x170
+
+static int chk_toggle_type(gpx_t *gpx) {
+    int toggle = 0;
+    int n;
+
+    // constant rs92-coeffs
+    //gpx->xcal16[ 0] == 0 && gpx->xcal16[ 1] == 0 &&
+    //gpx->xcal16[ 5] == 0 && gpx->xcal16[ 6] == 0 &&
+    //gpx->xcal16[10] == 0 && gpx->xcal16[11] == 0
+    if ( memcmp(gpx->calibytes+0x170, rs92calx170, 16) == 0 ) {
+        gpx->rs_type = RS92SGP;
+    }
+    else {
+        gpx->rs_type = RS92NGP;
+    }
+    // rs92sgp: conf/calib data after 0x40+0x14A ... zero ?
+    // check ptu-float32 plausibility
+
+    if (gpx->rs_type == RS92SGP && gpx->option.ngp)  toggle = 1;
+    if (gpx->rs_type == RS92NGP && !gpx->option.ngp) toggle = 2;
+
+    if (toggle) gpx->option.ngp ^= 1;
+
+    return toggle;
+}
+
+static int xor_ptu(gpx_t *gpx) {
+    int j, k;
+    ui32_t a, c, tmp;
+    ui8_t *pcal = gpx->calibytes+0x24;
+
+    for (j = 0; j < 8; j++) {
+
+        tmp = 0x1d89;
+
+        for (k = 0; k < 4; k++) {
+
+            a = pcal[j+k] & 0xFF;
+            c = tmp;
+
+            //add(A, C, A);
+            a = a + c;
+
+            c = a;
+
+            //shl_add(A, 10, C, A);
+            a = (a << 10) + c;
+
+            c = a;
+
+            //shr_xor(A, 6, C, A);
+            a = (a >> 6) ^ c;
+            tmp = a;
+        }
+
+        a = tmp;
+        c = a;
+
+        //shl_add(A, 3, C, A);
+        a = (a << 3) + c;
+
+        c = a;
+
+        //shr_xor(A, 11, C, A);
+        a = (a >> 11) ^ c;
+
+        c = a;
+
+        //shl_add(A, 15, C, A);
+        a = (a << 15) + c;
+
+        //y = a & 0xFFFF;
+
+        gpx->xptu16[2*j  ] =  a     & 0xFF;
+        gpx->xptu16[2*j+1] = (a>>8) & 0xFF;
+    }
+
+    return 0;
+}
+
 static int get_SondeID(gpx_t *gpx) {
     int i, ret=0;
     unsigned byte;
@@ -358,15 +475,69 @@ static int get_SondeID(gpx_t *gpx) {
             gpx->calfrms = 0;
             for (i = 0; i < 32; i++) gpx->calfrms += (gpx->calfrchk[i]>0);
         }
-        if (gpx->calfrms == 32 && !gpx->option.ngp) {
-            for (int j = 0; j < 66; j++) {
-                ui8_t idx = gpx->calibytes[0x40+5*j];
-                ui8_t *dat = gpx->calibytes+(0x40+5*j+1);
-                ui32_t le_dat32 = dat[0] | (dat[1]<<8) | (dat[2]<<16) | (dat[3]<<24);
-                float *pf32 = (float*)&le_dat32;
-                gpx->cal_f32[idx] = *pf32;
-            }
+        if (gpx->calfrms == 32)
+        {
+            ui8_t xcal[66*5];
+            ui8_t *xcal16 = gpx->xcal16;
+            ui8_t *p = gpx->calibytes+0x170;
+            ui8_t *q = rs92calx170;
+            int cal_chk = 0;
+
             gpx->calfrms += 1;
+
+            xor_ptu(gpx);
+            if (gpx->option.dbg) {
+                printf("XPTU:"); for (int j = 0; j < 16; j++) printf(" %02X", gpx->xptu16[j]); printf("\n");
+            }
+
+            //Xx17: __ 98 __ __ __ __ 99 __ __ __ __ 9a __ __ __ __
+            // p[0], p[1]=idx, p[2+1], p[3+1], p[4-2], p[5], p[6]=idx, ...
+            for (int k = 0; k < 3; k++) {
+                xcal16[5*k]     = p[5*k]^q[5*k];
+                xcal16[5*k+1]   = p[5*k+1]^q[5*k+1];
+                xcal16[5*k+2+1] = p[5*k+2+1]^q[5*k+2];
+                xcal16[5*k+3+1] = p[5*k+3+1]^q[5*k+3];
+                xcal16[5*k+4-2] = p[5*k+4-2]^q[5*k+4];
+            }
+            xcal16[5*3] = p[5*3]^q[5*3];
+
+            if (gpx->option.dbg) {
+                printf("XCAL:"); for (int j = 0; j < 16; j++) printf(" %02X", xcal16[j]); printf("\n");
+            }
+
+            int tgl = chk_toggle_type(gpx);
+
+            for (int j = 0; j < 66*5; j++) {
+                xcal[j] = gpx->calibytes[0x40+j];
+                if (gpx->option.ngp) {
+                    xcal[j] ^= gpx->xcal16[j%16];
+                }
+            }
+
+            for (int j = 0; j < 66; j++) {
+                ui8_t idx = xcal[5*j];
+                ui8_t *dat = xcal+(5*j+1);
+                ui32_t le_dat32 = dat[0] | (dat[1]<<8) | (dat[2]<<16) | (dat[3]<<24);
+                ui32_t xx_dat32 = dat[1] | (dat[2]<<8) | (dat[0]<<16) | (dat[3]<<24);
+                float *pf32 = (float*)&le_dat32;
+                if (gpx->option.ngp) {
+                    pf32 = (float*)&xx_dat32;
+                }
+                gpx->cal_f32[idx] = *pf32;
+
+                if (gpx->option.dbg)
+                {
+                    if (idx/10 == 3 || idx/10 == 4 || idx/10 == 5)
+                    {
+                        printf(" %3d :", idx);
+                        for (int i = 1; i < 5; i++) {
+                            printf(" %02x", xcal[5*j+i]);
+                        }
+                        printf(" : %f", *pf32);
+                        printf("\n");
+                    }
+                }
+            }
         }
     }
 
@@ -390,11 +561,24 @@ static float nu(float t, float t0, float y0) {
     float y = t / t0;
     return 1.0f / (y0 - y);
 }
+
 static int get_Meas(gpx_t *gpx) {
     ui32_t temp, pres, hum1, hum2, ref1, ref2, ref3, ref4;
     ui8_t *meas24 = gpx->frame+pos_PTU;
     float T, U1, U2, _P, _rh, x;
 
+    if ( gpx->option.ngp && (gpx->crc & crc_FRAME) ) return -2; // frame number
+
+    for (int j = 0; j < 24; j++) {
+        ui8_t byte = meas24[j];
+
+        if (gpx->option.ngp) {
+            byte ^= gpx->frame[pos_FrameNb+(j&1)];
+            byte ^= gpx->xptu16[j%16];
+        }
+
+        meas24[j] = byte;
+    }
 
     temp = meas24[ 0] | (meas24[ 1]<<8) | (meas24[ 2]<<16);  // ch1
     hum1 = meas24[ 3] | (meas24[ 4]<<8) | (meas24[ 5]<<16);  // ch2
@@ -456,7 +640,7 @@ static int get_PTU(gpx_t *gpx) {
     }
 
     if (ret == 0) {
-        if (gpx->calfrms > 0x20) get_Meas(gpx);
+        if (gpx->calfrms > 0x20) ret = get_Meas(gpx);
     }
 
     return ret;
@@ -1328,6 +1512,7 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
                 if ((gpx->crc & crc_AUX)==0 && (gpx->aux[0] != 0 || gpx->aux[1] != 0 || gpx->aux[2] != 0 || gpx->aux[3] != 0)) {
                     fprintf(stdout, ", \"aux\": \"%04x%04x%04x%04x\"", gpx->aux[0], gpx->aux[1], gpx->aux[2], gpx->aux[3]);
                 }
+                fprintf(stdout, ", \"subtype\": \"RS92-%s\"",  gpx->rs_type == RS92SGP ? "SGP" : "NGP" );
                 if (gpx->jsn_freq > 0) {  // rs92-frequency: gpx->freq
                     int fq_kHz = gpx->jsn_freq;
                     //if (gpx->freq > 0) fq_kHz = gpx->freq; // L-band: option.ngp ?
@@ -1602,6 +1787,7 @@ int main(int argc, char *argv[]) {
             option_min = 1;
         }
         else if   (strcmp(*argv, "--ngp") == 0) { gpx.option.ngp = 1; }  // RS92-NGP, RS92-D: 1680 MHz
+        else if   (strcmp(*argv, "--dbg" ) == 0) { gpx.option.dbg = 1; }
         else if (strcmp(*argv, "--rawhex") == 0) { rawhex = 2; }  // raw hex input
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
@@ -1662,7 +1848,8 @@ int main(int argc, char *argv[]) {
         rs_init_RS255(&gpx.RS);
     }
 
-    if (gpx.option.ngp) gpx.option.ptu = 0;
+    gpx.rs_type = RS92SGP;
+    if (gpx.option.ngp) gpx.rs_type = RS92NGP;
 
     // init gpx
     memcpy(gpx.frame, rs92_header_bytes, sizeof(rs92_header_bytes)); // 6 header bytes
@@ -1731,7 +1918,7 @@ int main(int argc, char *argv[]) {
             dsp.opt_IFmin = option_min;
             if (gpx.option.ngp) { // L-band rs92-ngp
                 dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
-                dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3
+                dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3 // 28e3..32e3
             }
             if (set_lpIQbw > 0.0f) dsp.lpIQ_bw = set_lpIQbw;
 
