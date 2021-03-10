@@ -57,7 +57,8 @@ static char lms6_header[] = "0101011000001000""0001110010010111"
 static char mk2a_header[] = "0010100111""0010100111""0001001001""0010010101";
 
 //int  m10_sps = 9600;
-static char m10_header[] = "10011001100110010100110010011001";
+static char m10_header[] = //"10011001100110010100110010011001";
+                                 "1001100110010100110010011001""1010"; // ofs=4/2 in frm_M10()
 // frame byte[0..1]: byte[0]=framelen-1, byte[1]=type(8F=M2K2,9F=M10,AF=M10+,20=M20)
 // M2K2   : 64 8F : 01100100 10001111
 // M10    : 64 9F : 01100100 10011111  (framelen 0x64+1) (baud=9616)
@@ -68,16 +69,23 @@ static char m10_header[] = "10011001100110010100110010011001";
 //int  meisei_sps = 2400;   // 0xFB6230 =
 static char meisei_header[] = "110011001101001101001101010100101010110010101010"; // 11111011 01100010 00110000
 
-// imet_9600 / 1200 Hz;
-static char imet_preamble[] = "11110000111100001111000011110000"
-                              "11110000111100001111000011110000"
-                              "11110000111100001111000011110000"
-                              "11110000111100001111000011110000"; // 1200 Hz preamble
+//int  mrz_sps = 2400;
+static char mrz_header[] = "1001100110011001""1001101010101010"; // 0xAA 0xBF
 
-//int  imet1ab_sps = 9600; // 1200 bits/sec
-static char imet1ab_header[] = "11110000111100001111000011110000"
-                  // "11110000""10101100110010101100101010101100"
-                     "11110000""10101100110010101100101010101100";
+//int  imet54_sps = 4800;
+static char imet54_header[] = "0000000001""0101010101""0001001001""0001001001"; // 0x00 0xAA 0x24 0x24
+
+
+// imet_9600 / 1200 Hz;
+static char imet_preamble[] = //"11110000111100001111000011110000"
+                              //"11110000111100001111000011110000"
+                              "11110000111100001111000011110000"
+                              "11110000111100001111000011110000"; // 1200 Hz 0xAA 0xAA preamble
+
+//int  imet1ab_sps = 9600; // 1200 bits/sec  // AFSK 1200/2400
+static char imet1ab_header[] = "0000""11110000111100001111000011110000""1111"   // idle
+                             //"0000""10101100110010101100101010101100""1111"
+                               "0000""10101100110010101100101010101100""1111";  // 0x96
 
 // 11110000:1 , 001100110:0 // 11/4=2.1818..
 static char imet1rs_header[] =
@@ -88,14 +96,12 @@ static char imet1rs_header[] =
 // 1:1200Hz/0:2200Hz tones, bit-duration 1/1200 sec, phase ...
 // bits: 1111111111111111111 10 10000000 10 ..;
 
-//int  imet54_sps = 4800;
-static char imet54_header[] = "0000000001""0101010101""0001001001""0001001001"; // 0x00 0xAA 0x24 0x24
-
 
 // C34/C50: 2400 baud, 1:2900Hz/0:4800Hz
 static char c34_preheader[] =
 "01010101010101010101010101010101";   // 2900 Hz tone
 // dft, dB-max(1000Hz..5000Hz) = 2900Hz ?
+
 
 typedef struct {
     int sps;  // header: symbol rate, baud
@@ -126,16 +132,19 @@ static float set_lpIQ = 0.0;
 #define tn_M20      6
 #define tn_LMS6     8
 #define tn_MEISEI   9
-#define tn_C34C50  10
-#define tn_MK2LMS  21
-#define tn_IMETa   15 // IMET4=+1, IMET1RS=+3, IMET1AB=+4
-#define tn_IMET5   14 // IMET5=14
+#define tn_MRZ     12
+#define tn_C34C50  15
+#define tn_MK2LMS  18
+#define tn_IMET5   24
+#define tn_IMETa   25
+#define tn_IMET4   26
+#define tn_IMET1rs 28
+#define tn_IMET1ab 29
 
-#define Nrs         13
-#define idxIMETafsk  9
-#define idxAB       10
-#define idxRS       11
-#define idxI4       12
+#define Nrs         14
+#define idxIMETafsk 11
+#define idxRS       12
+#define idxI4       13
 static rsheader_t rs_hdr[Nrs] = {
     { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",     tn_DFM,     0, 0, 0.0, 0.0}, // DFM6: -2 ?
     { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",     tn_RS41,    0, 0, 0.0, 0.0},
@@ -143,19 +152,20 @@ static rsheader_t rs_hdr[Nrs] = {
     { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",     tn_LMS6,    0, 0, 0.0, 0.0}, // lmsX: 7?
     { 4800, 0, 0, imet54_header,  0.5, 0.0, 0.80, 2, NULL, "IMET5",    tn_IMET5,   0, 0, 0.0, 0.0}, // (rs_hdr[idxI5])
     { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",   tn_MK2LMS,  1, 2, 0.0, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
-    { 9616, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",      tn_M10,     1, 1, 0.0, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
+    { 9608, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",      tn_M10,     1, 1, 0.0, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
     { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",   tn_MEISEI,  0, 1, 0.0, 0.0},
+    { 2400, 0, 0, mrz_header,     1.5, 0.0, 0.80, 2, NULL, "MRZ",      tn_MRZ,     0, 0, 0.0, 0.0},
     { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",   tn_C34C50,  0, 1, 0.0, 0.0}, // C34/C50 2900 Hz tone
-    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMETafsk", tn_IMETa  , 1, 0, 0.0, 0.0}, // IMET1AB=20, IMET1RS=19 (IQ)IMET4=17
-    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB",  tn_IMETa+4, 1, 2, 0.0, 0.0}, // (rs_hdr[idxAB])
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS",  tn_IMETa+3, 0, 2, 0.0, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
-    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",    tn_IMETa+1, 1, 0, 0.0, 0.0}, // (rs_hdr[idxI4])
+    { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB",  tn_IMET1ab, 1, 2, 0.0, 0.0}, // (rs_hdr[idxAB])
+    { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMETafsk", tn_IMETa  , 1, 0, 0.0, 0.0}, // IMET1AB, IMET1RS (IQ)IMET4
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS",  tn_IMET1rs, 0, 2, 0.0, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
+    { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET4",    tn_IMET4,   1, 0, 0.0, 0.0}, // (rs_hdr[idxI4])
 };
 
 
 /*
 // m10-false-positive:
-// m10-preamble similar to rs41-preamble, parts of rs92/imet1ab; diffs:
+// m10-preamble similar to rs41-preamble, parts of rs92/imet1ab, imet1ab; diffs:
 // - iq: - modulation-index rs41 < rs92 < m10,
 //       - power level / frame < 1s, noise
 // - fm: - frame duration <-> noise (variance/standard deviation)
@@ -838,11 +848,20 @@ static ui32_t frm_M10(unsigned int mvp, int inv, rsheader_t *rshd) {
     ui8_t b[2];
     ui32_t bytes;
 
+    int ofs = (strlen(rshd->header) - 28)/2;
+
+    if (ofs < 0 || ofs > 8) ofs = 0;
+
     if (option_dc) dc = rshd->dc;
 
     bit0 = 0x30 + (inv > 0);
     for (pos2 = 0; pos2 < 16; pos2 += 1) {
-        read_bufbit(2, mb, mvp, pos2==0, dc, rshd);
+        if (pos2 < ofs) {
+            mb[0] = rshd->header[28+2*pos2] ^ (inv>0);
+        }
+        else {
+            read_bufbit(2, mb, mvp, pos2==ofs, dc, rshd);
+        }
         frmbit[pos2] = 0x31 ^ (bit0 ^ mb[0]);
         bit0 = mb[0];
     }
@@ -1214,6 +1233,7 @@ int main(int argc, char **argv) {
     int j_max;
     float mv_max;
 
+
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
 #endif
@@ -1346,9 +1366,11 @@ int main(int argc, char **argv) {
 
         if (k >= K-4) {
             for (j = 0; j <= idxIMETafsk; j++) { // incl. IMET-preamble
-#ifdef NOC34C50
+
+                #ifdef NOC34C50
                 if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) continue;
-#endif
+                #endif
+
                 mv0_pos[j] = mv_pos[j];
                 mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
             }
@@ -1372,7 +1394,7 @@ int main(int argc, char **argv) {
                         {
                             ui32_t bytes = frm_M10(mv_pos[j], mv[j]<0, rs_hdr+j);
                             int len = (bytes >> 8) & 0xFF;
-                            int h = hw(bytes & 0x0F);
+                            int h = hw(bytes & 0x0F); // type byte xF or x0 ?
                             if (h < 2 || h == 2 && (bytes&0xF0) == 0x20) {
                                 rs_hdr[j].type = "M20";
                                 rs_hdr[j].tn = tn_M20;  // M20: 45 20
@@ -1443,35 +1465,10 @@ int main(int argc, char **argv) {
                                 else mv[j] = 0.0;
                             }
                             else { // IMET -> IMET1AB ?
+                                // IMET1AB post-processing might block MRZ detection
+                                // skip after number of tries or detect imet1ab directly
+                                //
                                 mv[j] = 0.0;
-                                j = idxAB;
-                                mv_pos[j] = sample_out;
-                                n = 0;
-
-                                // detect header/polarity
-                                k = 0;
-                                while ( n < 4*sample_rate && f32buf_sample(fp, option_inv) != EOF ) {
-
-                                    n += 1;
-                                    k += 1;
-
-                                    if (k >= K-4) {
-                                        mv0_pos[j] = mv_pos[j];
-                                        mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
-                                        k = 0;
-                                    }
-                                    else {
-                                        //mv[j] = 0.0;
-                                        continue;
-                                    }
-
-                                    if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
-                                        header_found = 1;
-                                        if (mv[j] < 0) header_found = -1;
-                                        break; // IMET -> IMET1AB
-                                    }
-                                    mv[j] = 0.0;
-                                }
                             }
                         }
                         else { // if not IMET
