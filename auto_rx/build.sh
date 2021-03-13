@@ -41,6 +41,8 @@ echo "Building M20 demod."
 gcc mXXmod.c demod_mod.o -lm -O3 -o mXXmod -w $VERS_FLAG
 echo "Building iMet-54 demod."
 gcc imet54mod.c demod_mod.o -lm -O3 -o imet54mod -w $VERS_FLAG
+echo "Building MRZ demod."
+gcc mp3h1mod.c demod_mod.o -lm -O3 -o mp3h1mod -w $VERS_FLAG
 
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 demod."
@@ -51,10 +53,6 @@ echo "Building iMet-4 demod."
 cd ../imet/
 # Note -O3 flag removed from this demodulator until Bus Error bug can be resolved.
 gcc imet1rs_dft.c -lm -Ofast -o imet1rs_dft $VERS_FLAG
-
-echo "Building MRZ Demod."
-cd ../mrz/
-gcc mp3h1.c -lm -Ofast -o mp3h1 $VERS_FLAG
 
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
@@ -72,7 +70,6 @@ cd ../auto_rx/
 cp ../scan/dft_detect .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
-cp ../mrz/mp3h1 .
 cp ../mk2a/mk2a_lms1680 .
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
@@ -82,5 +79,6 @@ cp ../demod/mod/rs92mod .
 cp ../demod/mod/lms6Xmod .
 cp ../demod/mod/meisei100mod .
 cp ../demod/mod/imet54mod .
+cp ../demod/mod/mp3h1mod .
 
 echo "Done!"

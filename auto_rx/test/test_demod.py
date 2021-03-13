@@ -160,6 +160,15 @@ processing_type = {
         #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
         'files' : "./generated/dfm*.bin"
     },
+    
+    # MRZ decoder, hard-bit version
+    'mrz_fsk_demod': {
+        'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.50| ../fsk_demod --cs16 -b 1250 -u 23750 --stats=5 2 48000 2400 - - 2>stats.txt | python ./bit_to_samples.py 48000 2400 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../mp3h1mod -vv --json --auto 2>/dev/null',
+        "post_process" : " | grep -F [OK] |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/mrz*.bin"
+    },
 
     # LMS6-400 Decoding
     'lms6-400_fsk_demod': {
@@ -252,6 +261,14 @@ processing_type = {
         # Count the number of telemetry lines.
         "post_process" : "| grep frame | wc -l",
         'files' : "./generated/imet54*",
+    },
+
+    # MRZ Sonde decoding - Soft Input
+    'mrz_fsk_demod_soft': {
+        'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.50| ../fsk_demod --cs16 -s -b 1250 -u 23750 --stats=5 2 48000 2400 - - 2>stats.txt |',
+        'decode': '../mp3h1mod -vv --softin --json --auto 2>/dev/null',
+        "post_process" : " | grep -F [OK] |  wc -l", # ECC
+        'files' : "./generated/mrz*.bin"
     },
 }
 
@@ -715,7 +732,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
-    batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'lms6-400_fsk_demod_soft']#, 'imet4_rtlfm']
+    batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'lms6-400_fsk_demod_soft', 'imet4_rtlfm']
 
     if args.batch:
         for _mode in batch_modes:

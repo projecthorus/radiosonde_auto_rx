@@ -492,7 +492,6 @@ class SondeDecoder(object):
 
         elif self.sonde_type == "MRZ":
             # Meteo-Radiy MRZ Sondes
-            # TBD If/When this gets included
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
                 self.sdr_fm,
@@ -509,7 +508,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # MRZ decoder
-            decode_cmd += "./mp3h1 --json 2>/dev/null"
+            decode_cmd += "./mp3h1mod --auto --json 2>/dev/null"
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -775,9 +774,7 @@ class SondeDecoder(object):
             )
 
             # DFM decoder
-            decode_cmd = (
-                "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
-            )
+            decode_cmd = "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
 
             # DFM sondes transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
@@ -936,6 +933,47 @@ class SondeDecoder(object):
 
             # iMet54 sondes transmit in bursts. Use a peak hold.
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
+            self.rx_frequency = _freq
+
+        elif self.sonde_type == "MRZ":
+            # MRZ Sondes.
+
+            _sdr_rate = 48000
+            _baud_rate = 2400
+            _offset = 0.25  # Place the sonde frequency in the centre of the passband.
+            _lower = int(
+                0.025 * _sdr_rate
+            )  # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate * _offset)
+
+            demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                _sdr_rate,
+                _freq,
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sdr_rate,
+                _baud_rate,
+            )
+            
+            # MRZ decoder
+            decode_cmd = "./mp3h1mod --auto --json --softin 2>/dev/null"
+
+            # MRZ sondes transmit continuously - average over the last frame, and use a mean
+            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
             self.rx_frequency = _freq
 
         else:
