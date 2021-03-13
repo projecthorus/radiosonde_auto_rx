@@ -743,7 +743,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
-    batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'lms6-400_fsk_demod_soft', 'imet4_rtlfm']
+    batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'rs92ngp_fsk_demod_soft', 'lms6-400_fsk_demod_soft', 'imet4_rtlfm', 'mrz_fsk_demod_soft', 'imet54_fsk_demod_soft']
 
     if args.batch:
         for _mode in batch_modes:
