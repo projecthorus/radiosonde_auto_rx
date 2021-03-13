@@ -160,7 +160,7 @@ processing_type = {
         #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
         'files' : "./generated/dfm*.bin"
     },
-    
+
     # MRZ decoder, hard-bit version
     'mrz_fsk_demod': {
         'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.50| ../fsk_demod --cs16 -b 1250 -u 23750 --stats=5 2 48000 2400 - - 2>stats.txt | python ./bit_to_samples.py 48000 2400 | sox -t raw -r 48k -e unsigned-integer -b 8 -c 1 - -r 48000 -b 8 -t wav - 2>/dev/null| ',
@@ -207,7 +207,7 @@ processing_type = {
         "post_process" : " | grep frame | wc -l",
         'files' : "./generated/rs41*"
     },
-    # # RS92 Decoding
+    # RS92 Decoding
     'rs92_fsk_demod_soft': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
         'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 -s --stats=5 2 96000 4800 - - 2>stats.txt |",
@@ -217,6 +217,17 @@ processing_type = {
         # Count the number of telemetry lines.
         "post_process" : " | grep M2513116 | wc -l",
         'files' : "./generated/rs92*"
+    },
+    # RS92-NGP Decoding
+    'rs92ngp_fsk_demod_soft': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr shift_addition_cc 0.25 2>/dev/null | csdr convert_f_s16 | ../fsk_demod --cs16 -b 1 -u 45000 -s --stats=5 2 96000 4800 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../rs92mod -vx -v --crc --ecc --vel --ngp --softin -i 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep P3213708 | wc -l",
+        'files' : "./generated/rsngp*"
     },
     'm10_fsk_demod_soft': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
