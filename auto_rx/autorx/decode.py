@@ -929,7 +929,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = "./imet54mod --ecc --json --softin -i 2>/dev/null"
+            decode_cmd = "./imet54mod --ecc --json --softin -i --ptu 2>/dev/null"
 
             # iMet54 sondes transmit in bursts. Use a peak hold.
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -968,7 +968,7 @@ class SondeDecoder(object):
                 _sdr_rate,
                 _baud_rate,
             )
-            
+
             # MRZ decoder
             decode_cmd = "./mp3h1mod --auto --json --softin 2>/dev/null"
 
