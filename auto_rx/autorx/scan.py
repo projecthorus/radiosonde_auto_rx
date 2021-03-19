@@ -527,7 +527,7 @@ def detect_sonde(
             _sonde_type = "-MK2LMS"
         else:
             _sonde_type = "MK2LMS"
-            
+
     elif "MEISEI" in _type:
         logging.debug(
             "Scanner #%s - Detected a Meisei Sonde! (Score: %.2f, Offset: %.1f Hz)"

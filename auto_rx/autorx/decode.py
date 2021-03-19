@@ -508,7 +508,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # MRZ decoder
-            decode_cmd += "./mp3h1mod --auto --json 2>/dev/null"
+            decode_cmd += "./mp3h1mod --auto --json --ptu 2>/dev/null"
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -774,7 +774,9 @@ class SondeDecoder(object):
             )
 
             # DFM decoder
-            decode_cmd = "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
+            decode_cmd = (
+                "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
+            )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
@@ -970,7 +972,7 @@ class SondeDecoder(object):
             )
 
             # MRZ decoder
-            decode_cmd = "./mp3h1mod --auto --json --softin 2>/dev/null"
+            decode_cmd = "./mp3h1mod --auto --json --softin --ptu 2>/dev/null"
 
             # MRZ sondes transmit continuously - average over the last frame, and use a mean
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
@@ -1062,7 +1064,11 @@ class SondeDecoder(object):
                         _last_packet = time.time()
 
             # Check timeout counter.
-            if (self.timeout > 0) and (time.time() > (_last_packet + self.timeout)) and (not self.udp_mode):
+            if (
+                (self.timeout > 0)
+                and (time.time() > (_last_packet + self.timeout))
+                and (not self.udp_mode)
+            ):
                 # If we have not seen data for a while, break.
                 self.log_error("RX Timed out.")
                 self.exit_state = "Timeout"
