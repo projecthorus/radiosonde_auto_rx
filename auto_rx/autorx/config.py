@@ -386,7 +386,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "M10": True,
             "M20": True,
             "IMET": False,
-            "IMET5": False,
+            "IMET5": True,
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
@@ -530,9 +530,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
         except:
             logging.warning(
-                "Config - Did not find iMet-54 decoder experimental decoder setting, using default (disabled)."
+                "Config - Did not find iMet-54 decoder experimental decoder setting, using default (enabled)."
             )
-            auto_rx_config["experimental_decoders"]["IMET5"] = False
+            auto_rx_config["experimental_decoders"]["IMET5"] = True
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

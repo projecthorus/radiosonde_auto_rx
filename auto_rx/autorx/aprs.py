@@ -609,9 +609,13 @@ class APRSUploader(object):
         """ Close APRS-IS connection """
         try:
             self.aprsis_socket.shutdown(0)
+        except Exception as e:
+            self.log_debug("Socket shutdown failed - %s" % str(e))
+
+        try:
             self.aprsis_socket.close()
         except Exception as e:
-            self.log_error("Disconnection from APRS-IS Failed - %s" % str(e))
+            self.log_debug("Socket close failed - %s" % str(e))
 
     def beacon_station_position(self):
         """ Send a station position beacon into APRS-IS """

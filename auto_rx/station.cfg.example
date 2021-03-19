@@ -467,11 +467,13 @@ rs41_experimental = True
 rs92_experimental = True
 dfm_experimental = True
 m10_experimental = True
+imet54_experimental = True
 # 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
 lms6-400_experimental = True
-# MRZ and imet54 sondes have not yet been tested with the fsk_demod flowgraph in the wild.
+# MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
+# If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
-imet54_experimental = False
+
 # Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 
