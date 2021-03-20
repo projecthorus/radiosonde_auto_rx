@@ -89,6 +89,7 @@ typedef struct {
     ui32_t snC;
     ui32_t snD;
     float T; float RH;
+    ui8_t cfg_ntc; ui8_t cfg_T; ui8_t cfg_H;
     ui8_t crcOK;
     //
     int sec_day;
@@ -442,9 +443,9 @@ static int get_ptu(gpx_t *gpx) {
     float adc_h = ADCH/100.0;
 
 
-    if (gpx->calA*gpx->calB*gpx->calC > 0)
+    if (gpx->cfg_ntc == 0x7)
     {
-        if (gpx->A_adcT*gpx->B_adcT*gpx->C_adcT > 0.0) {
+        if (gpx->cfg_T == 0x7) {
             float poly1 = adc_t*adc_t * gpx->A_adcT + adc_t * gpx->B_adcT + gpx->C_adcT;
             float Rt = 100000.0*poly1 / (ADC_MAX - poly1);
             if (Rt > 0.0) {
@@ -457,7 +458,7 @@ static int get_ptu(gpx_t *gpx) {
 
     if (gpx->T > -273.0f)
     {
-        if (gpx->A_adcH*gpx->B_adcH*gpx->C_adcH > 0.0) { // double?
+        if (gpx->cfg_H == 0x7) {
             float poly2 = adc_h*adc_h * gpx->A_adcH + adc_h * gpx->B_adcH + gpx->A_adcH;
             float K = poly2/ADC_MAX;
 
@@ -487,33 +488,43 @@ static int get_cfg(gpx_t *gpx) {
         switch (gpx->subcnt1) { // or use subcnt2 ?
             // T-ntc A, B, C
             case 0x0: //sub2=0x01:
+                        // TODO: reset if changed?
                         gpx->calA = f32(cfg32); //memcpy(&gpx->calA, &cfg32, 4);
+                        gpx->cfg_ntc |= 0x1;
                     break;
             case 0x1: //sub2=0x02:
                         gpx->calB = f32(cfg32); //memcpy(&gpx->calB, &cfg32, 4);
+                        gpx->cfg_ntc |= 0x2;
                     break;
             case 0x2: //sub2=0x03:
                         gpx->calC = f32(cfg32); //memcpy(&gpx->calC, &cfg32, 4);
+                        gpx->cfg_ntc |= 0x4;
                     break;
             // ADC1/ADC_T calib ?
             case 0x3: //sub2=0x04:
                         gpx->A_adcT = f32(cfg32);
+                        gpx->cfg_T |= 0x1;
                     break;
             case 0x4: //sub2=0x05:
                         gpx->B_adcT = f32(cfg32);
+                        gpx->cfg_T |= 0x2;
                     break;
             case 0x5: //sub2=0x06:
                         gpx->C_adcT = f32(cfg32);
+                        gpx->cfg_T |= 0x4;
                     break;
             // ADC2/ADC_H calib ?
             case 0x6: //sub2=0x07:
                         gpx->A_adcH = f32(cfg32);
+                        gpx->cfg_H |= 0x1;
                     break;
             case 0x7: //sub2=0x08:
                         gpx->B_adcH = f32(cfg32);
+                        gpx->cfg_H |= 0x2;
                     break;
             case 0x8: //sub2=0x09:
                         gpx->C_adcH = f32(cfg32);
+                        gpx->cfg_H |= 0x4;
                     break;
             // radiosonde/GNSS SN
             case 0xC: //sub2=0x0D: SN GLONASS/GPS ?
@@ -656,10 +667,10 @@ static void print_gpx(gpx_t *gpx, int crcOK) {
                 printf("\"id\": \"MRZ-%d-%d\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
                         gpx->snC, gpx->snD, gpx->yr, gpx->mth, gpx->day, gpx->hrs, gpx->min, gpx->sec, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV, gpx->numSats);
                 if (gpx->option.ptu) {
-                    if (gpx->T > -273.0) {
+                    if (gpx->T > -273.0f) {
                         fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
                     }
-                    if (gpx->RH > -0.5) {
+                    if (gpx->RH > -0.5f) {
                         fprintf(stdout, ", \"humidity\": %.1f",  gpx->RH );
                     }
                 }
