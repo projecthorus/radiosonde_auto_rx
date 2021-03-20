@@ -17,8 +17,10 @@ def get_ephemeris(destination="ephemeris.dat"):
         logging.debug("GPS Grabber - Connecting to ESA's FTP Server...")
         ftp = ftplib.FTP("gssc.esa.int", timeout=10)
         ftp.login("anonymous", "anonymous")
-        ftp.cwd("gnss/data/daily/%s/brdc/" % datetime.datetime.utcnow().strftime("%Y"))
-        # file name should look like YYYY/brdc/brdcDDD0.YYn.Z
+        ftp.cwd("gnss/data/daily/%s/" % datetime.datetime.utcnow().strftime("%Y"))
+        # Ideally we would grab this data from: YYYY/brdc/brdcDDD0.YYn.Z
+        # .. but the ESA brdc folder seems to be getting of date. The daily directories are OK though!
+        # So instead, we use: YYYY/DDD/brdcDDD0.YYn.Z
         # ESA posts new file at 2200 UTC
         ephemeris_time = datetime.datetime.now(
             datetime.timezone.utc
@@ -27,6 +29,12 @@ def get_ephemeris(destination="ephemeris.dat"):
             ephemeris_time.strftime("%j"),
             ephemeris_time.strftime("%y"),
         )
+
+        # CWD into the current day.
+        ftp.cwd(ephemeris_time.strftime("%j"))
+
+        logging.debug("GPS Grabber - Current Directory: " + ftp.pwd())
+
         logging.debug(
             "GPS Grabber - Downloading ephemeris data file: %s" % download_file
         )
