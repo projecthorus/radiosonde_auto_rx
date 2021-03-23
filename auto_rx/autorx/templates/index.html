@@ -247,7 +247,11 @@
                         // Add a link to HabHub if we have habitat enabled.
                         if ("habitat_enabled" in autorx_config){
                             if(autorx_config.habitat_enabled ==true){
-                                sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                                if (sonde_id_data.age != "old") {
+                                    sonde_id_data.id = sonde_id + " (<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>live</a> - <a href='http://sondehub.org/card/" + sonde_id + "' target='_blank'>historical</a>)";
+                                } else {
+                                    sonde_id_data.id = sonde_id + " (<a href='http://sondehub.org/card/" + sonde_id + "' target='_blank'>historical</a>)";
+                                }     
                             }
                         }
 
