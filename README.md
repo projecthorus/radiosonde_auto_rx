@@ -29,6 +29,7 @@ Currently we support the following radiosonde types:
 * Intermet iMet-54
 * Lockheed Martin LMS6 (400 MHz and 1680 MHz variants, including the new 'LMS-X' unreleased type)
 * Meisei iMS-100
+* Meteo-Radiy MRZ (400 MHz versions)
 
 Support for other radiosondes may be added as required (please send us
 sondes to test with!)

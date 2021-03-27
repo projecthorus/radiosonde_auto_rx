@@ -1,4 +1,4 @@
-name: Build Container Images
+name: Container Images
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
       - name: Calculate Container Metadata
@@ -38,13 +38,22 @@ jobs:
           restore-keys: |
             buildx-cache-
 
-      - name: Build Images
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Images
         uses: docker/build-push-action@v2
         with:
           context: .
           platforms: linux/amd64, linux/386, linux/arm64, linux/arm/v6, linux/arm/v7
           cache-from: type=local,src=/tmp/buildx-cache
           cache-to: type=local,dest=/tmp/buildx-cache-new,mode=max
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
