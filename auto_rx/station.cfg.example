@@ -447,12 +447,6 @@ sdr_power_path = rtl_power
 # DEMODULATOR / DECODER TWEAKS #
 ################################
 
-# RS41 / LMS6 Drift Tweak (Regular demod chain only)
-# This tweak adds a high-pass filter into the RS41 and LMS6 demod chains. This extends the frequency offset range
-# the demod chain can handle, with some performance penalty. This is only required when using RTLSDRs
-# with worse than 2-3 PPM drift, and doesn't need to be enabled for TCXO SDRs.
-drift_tweak = False
-
 #
 # Alternate Decode Chains
 #
@@ -467,15 +461,14 @@ rs41_experimental = True
 rs92_experimental = True
 dfm_experimental = True
 m10_experimental = True
-imet54_experimental = True
-# 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
 lms6-400_experimental = True
+imet54_experimental = True
+
 # MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
 
-# Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
-
+# Note: As iMet-4 and IMS100 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
 # This flag sets the use of IQ detection when scanning for 1680 MHz sondes, which allows RS92-NGP sondes
