@@ -42,6 +42,9 @@ function setup_scan_chart(){
 	scan_chart_obj = c3.generate({
 	    bindto: '#scan_chart',
 	    data: scan_chart_spectra,
+	    tooltip: {
+        	show: false
+    	    },
 	    axis:{
 	        x:{
 	            tick:{
