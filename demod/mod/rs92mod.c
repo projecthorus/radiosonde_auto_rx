@@ -25,6 +25,16 @@
   #include <io.h>
 #endif
 
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
+
 
 //typedef unsigned char  ui8_t;
 //typedef unsigned short ui16_t;
@@ -52,6 +62,7 @@ typedef struct {
     i8_t aux;  // aux/ozone
     i8_t jsn;  // JSON output (auto_rx)
     i8_t ngp;
+    i8_t dbg;
 } option_t;
 
 typedef struct {
@@ -121,6 +132,20 @@ typedef struct {
     int jsn_freq;   // freq/kHz (SDR)
     ui32_t crc;
     ui8_t frame[FRAME_LEN]; // { 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x10}
+    //
+    ui8_t cal_state[2];
+    ui8_t calfrms;
+    ui8_t calibytes[32*16];
+    ui8_t calfrchk[32];
+    float cal_f32[256];
+    float T;
+    float _RH; float RH;
+    float _P; float P;
+    //
+    ui8_t xcal16[16];
+    ui8_t xptu16[16];
+    int rs_type;
+    //
     unsigned short aux[4];
     double diter;
     option_t option;
@@ -210,6 +235,11 @@ static void Gps2Date(gpx_t *gpx) {
 
 /* ------------------------------------------------------------------------------------ */
 
+#define RS92SGP 0
+#define RS92AGP 1
+#define RS92NGP 2
+
+
 #define crc_FRAME    (1<<0)
 #define pos_FrameNb   0x08  // 2 byte
 #define pos_SondeID   0x0C  // 8 byte  // oder: 0x0A, 10 byte?
@@ -281,40 +311,320 @@ static int get_FrameNb(gpx_t *gpx) {
     return 0;
 }
 
+
+// calib rows 0x0F,0x10,0x11, 0x14,0x15,0x16,0x17, 0x18(10bytes) constant across rs92 ?
+// cal block 0x40..0x40+0x14A: (66*5=330=0x14A byte)
+// 0x0a, 0xcf, 0xcf, 0xb8, 0xc3, 0x0b, 0xd7, 0x9d, 0xf5, 0x41, 0x0c, 0x46, 0xe6, 0xa2, 0x43, 0x0d,
+// 0x3f, 0x07, 0xc6, 0xc2, 0x0e, 0x6c, 0x04, 0x90, 0x41, 0x0f, 0xf0, 0xde, 0xa5, 0xbf, 0x11, 0x8f,
+// 0xc2, 0x75, 0x3f, 0x14, 0x77, 0x16, 0xf9, 0xc4, 0x15, 0x54, 0x1f, 0x78, 0x45, 0x16, 0xf0, 0xfb,
+// 0x4f, 0xc5, 0x17, 0xcb, 0x75, 0xa9, 0x44, 0x1b, 0x8f, 0xc2, 0x75, 0x3f, 0x3c, 0x00, 0x5b, 0x9b,
+// 0x3d, 0x3d, 0x24, 0xaf, 0xd2, 0xbc, 0x3e, 0xae, 0x80, 0x84, 0xbc, 0x3f, 0x2e, 0xd1, 0x51, 0x3b,
+// 0x46, 0x12, 0x6a, 0x90, 0x39, 0x47, 0xbd, 0xdd, 0xab, 0xb9, 0x48, 0x20, 0x4b, 0x6d, 0xb8, 0x49,
+// 0x2f, 0x14, 0xc7, 0x36, 0x50, 0xa2, 0x59, 0x63, 0xb6, 0x51, 0xed, 0xa0, 0x3f, 0x36, 0x52, 0x26,
+// 0xd8, 0x4a, 0xb4, 0x1e, 0x08, 0xdc, 0x37, 0xc3, 0x1f, 0x2f, 0xd9, 0xbf, 0x42, 0x20, 0x03, 0x46,
+// 0x0d, 0xc2, 0x21, 0xa6, 0x72, 0x42, 0x41, 0x22, 0x36, 0xcc, 0xfc, 0xbf, 0x23, 0xf5, 0x80, 0xf9,
+// 0x3d, 0x25, 0xbb, 0x74, 0x57, 0x3f, 0x28, 0x10, 0x08, 0x16, 0xc5, 0x29, 0x0c, 0xe1, 0xb2, 0x45,
+// 0x2a, 0xd7, 0xed, 0x7b, 0xc5, 0x2b, 0x16, 0x3b, 0x5d, 0x44, 0x2f, 0x8f, 0xc2, 0x75, 0x3f, 0x6e,
+// 0xab, 0xcf, 0x05, 0x3f, 0x6f, 0x1e, 0xa7, 0xe8, 0xbc, 0x70, 0x45, 0xf2, 0x95, 0x39, 0x71, 0x5f,  // 0x0F0
+// 0xc9, 0x70, 0x35, 0x72, 0x4f, 0x2c, 0xad, 0xb0, 0x78, 0x9e, 0xb1, 0x89, 0x3f, 0x79, 0x60, 0xe5,  // 0x100
+// 0x50, 0xbe, 0x7a, 0x7c, 0x9a, 0x13, 0x3c, 0x7b, 0x26, 0x87, 0x74, 0xb8, 0x7c, 0x21, 0x96, 0x8b,  // 0x110
+// 0xb5, 0x32, 0xa6, 0xa3, 0x42, 0xc5, 0x33, 0xd9, 0xb6, 0xd7, 0x45, 0x34, 0xe1, 0x7d, 0x92, 0xc5,
+// 0x35, 0x4a, 0x0c, 0x7c, 0x44, 0x39, 0x8f, 0xc2, 0x75, 0x3f, 0x82, 0xab, 0xcf, 0x05, 0x3f, 0x83,
+// 0x1e, 0xa7, 0xe8, 0xbc, 0x84, 0x45, 0xf2, 0x95, 0x39, 0x85, 0x5f, 0xc9, 0x70, 0x35, 0x86, 0x4f,  // 0x140
+// 0x2c, 0xad, 0xb0, 0x8c, 0x9e, 0xb1, 0x89, 0x3f, 0x8d, 0x60, 0xe5, 0x50, 0xbe, 0x8e, 0x7c, 0x9a,  // 0x150
+// 0x13, 0x3c, 0x8f, 0x26, 0x87, 0x74, 0xb8, 0x90, 0x21, 0x96, 0x8b, 0xb5, 0x97, 0xac, 0x64, 0x9f,  // 0x160
+// 0x36, 0x98, 0x92, 0x25, 0x6b, 0xb3, 0x99, 0xe1, 0x57, 0x05, 0x30, 0x9a, 0xfe, 0x51, 0xf4, 0xab,  // 0x170
+// 0x9d, 0x33, 0x33, 0x33, 0x3f, 0xa7, 0x33, 0x33, 0x33, 0x3f
+
+static ui8_t rs92calx170[16] = {
+0x36, 0x98, 0x92, 0x25, 0x6b, 0xb3, 0x99, 0xe1, 0x57, 0x05, 0x30, 0x9a, 0xfe, 0x51, 0xf4, 0xab}; // 0x170
+
+static int chk_toggle_type(gpx_t *gpx) {
+    int toggle = 0;
+    int n;
+
+    // constant rs92-coeffs
+    //gpx->xcal16[ 0] == 0 && gpx->xcal16[ 1] == 0 &&
+    //gpx->xcal16[ 5] == 0 && gpx->xcal16[ 6] == 0 &&
+    //gpx->xcal16[10] == 0 && gpx->xcal16[11] == 0
+    if ( memcmp(gpx->calibytes+0x170, rs92calx170, 16) == 0 ) {
+        gpx->rs_type = RS92SGP;
+    }
+    else {
+        gpx->rs_type = RS92NGP;
+    }
+    // rs92sgp: conf/calib data after 0x40+0x14A ... zero ?
+    // check ptu-float32 plausibility
+
+    if (gpx->rs_type == RS92SGP && gpx->option.ngp)  toggle = 1;
+    if (gpx->rs_type == RS92NGP && !gpx->option.ngp) toggle = 2;
+
+    if (toggle) gpx->option.ngp ^= 1;
+
+    return toggle;
+}
+
+static int xor_ptu(gpx_t *gpx) {
+    int j, k;
+    ui32_t a, c, tmp;
+    ui8_t *pcal = gpx->calibytes+0x24;
+
+    for (j = 0; j < 8; j++) {
+
+        tmp = 0x1d89;
+
+        for (k = 0; k < 4; k++) {
+
+            a = pcal[j+k] & 0xFF;
+            c = tmp;
+
+            //add(A, C, A);
+            a = a + c;
+
+            c = a;
+
+            //shl_add(A, 10, C, A);
+            a = (a << 10) + c;
+
+            c = a;
+
+            //shr_xor(A, 6, C, A);
+            a = (a >> 6) ^ c;
+            tmp = a;
+        }
+
+        a = tmp;
+        c = a;
+
+        //shl_add(A, 3, C, A);
+        a = (a << 3) + c;
+
+        c = a;
+
+        //shr_xor(A, 11, C, A);
+        a = (a >> 11) ^ c;
+
+        c = a;
+
+        //shl_add(A, 15, C, A);
+        a = (a << 15) + c;
+
+        //y = a & 0xFFFF;
+
+        gpx->xptu16[2*j  ] =  a     & 0xFF;
+        gpx->xptu16[2*j+1] = (a>>8) & 0xFF;
+    }
+
+    return 0;
+}
+
 static int get_SondeID(gpx_t *gpx) {
     int i, ret=0;
     unsigned byte;
     ui8_t sondeid_bytes[10];
+    ui8_t calfr;
     int crc_frame, crc;
 
     // BLOCK_CFG == frame[pos_FrameNb-2 .. pos_FrameNb-1] ?
     crc_frame = gpx->frame[pos_FrameNb+LEN_CFG] | (gpx->frame[pos_FrameNb+LEN_CFG+1] << 8);
     crc = crc16(gpx, pos_FrameNb, LEN_CFG);
     if (crc_frame != crc) gpx->crc |= crc_FRAME;
-/*
-    if (gpx->option.crc) {
-      //fprintf(stdout, " (%04X:%02X%02X) ", BLOCK_CFG, frame[pos_FrameNb-2], frame[pos_FrameNb-1]);
-      fprintf(stdout, " [%04X:%04X] ", crc_frame, crc);
-    }
-*/
+
     ret = 0;
-    if ( /*0  &&*/  gpx->option.crc  &&  crc != crc_frame) {
+    if (gpx->option.crc  &&  crc != crc_frame) {
         ret = -2;  // erst wichtig, wenn Cal/Cfg-Data
     }
 
-    for (i = 0; i < 8; i++) {
-        byte = gpx->frame[pos_SondeID + i];
-        if ((byte < 0x20) || (byte > 0x7E)) return -1;
-        sondeid_bytes[i] = byte;
-    }
+    if (crc == crc_frame)
+    {
+        for (i = 0; i < 8; i++) {
+            byte = gpx->frame[pos_SondeID + i];
+            if ((byte < 0x20) || (byte > 0x7E)) return -1;
+            sondeid_bytes[i] = byte;
+        }
+        sondeid_bytes[8] = '\0';
 
-    for (i = 0; i < 8; i++) {
-        gpx->id[i] = sondeid_bytes[i];
+        if ( strncmp(gpx->id, sondeid_bytes, 8) != 0 ) {
+            memset(gpx->calibytes, 0, 32*16);
+            memset(gpx->calfrchk, 0, 32);
+            memset(gpx->cal_f32, 0, 256*4);
+            gpx->calfrms = 0;
+            gpx->T = -275.15f;
+            gpx->_RH = -1.0f;
+            gpx->_P  = -1.0f;
+            gpx->RH  = -1.0f;
+            gpx->P   = -1.0f;
+            // new ID:
+            memcpy(gpx->id, sondeid_bytes, 8);
+        }
+
+        memcpy(gpx->cal_state, gpx->frame+(pos_FrameNb + 12), 2);
+
+        calfr = gpx->frame[pos_CalData]; // 0..31
+        if (calfr < 32) {
+            if (gpx->calfrchk[calfr] == 0) // const?
+            {
+                for (i = 0; i < 16; i++) {
+                    gpx->calibytes[calfr*16 + i] = gpx->frame[pos_CalData+1+i];
+                }
+                gpx->calfrchk[calfr] = 1;
+            }
+        }
+
+        if (gpx->calfrms < 32) {
+            gpx->calfrms = 0;
+            for (i = 0; i < 32; i++) gpx->calfrms += (gpx->calfrchk[i]>0);
+        }
+        if (gpx->calfrms == 32)
+        {
+            ui8_t xcal[66*5];
+            ui8_t *xcal16 = gpx->xcal16;
+            ui8_t *p = gpx->calibytes+0x170;
+            ui8_t *q = rs92calx170;
+            int cal_chk = 0;
+
+            gpx->calfrms += 1;
+
+            xor_ptu(gpx);
+            if (gpx->option.dbg) {
+                printf("XPTU:"); for (int j = 0; j < 16; j++) printf(" %02X", gpx->xptu16[j]); printf("\n");
+            }
+
+            //Xx17: __ 98 __ __ __ __ 99 __ __ __ __ 9a __ __ __ __
+            // p[0], p[1]=idx, p[2+1], p[3+1], p[4-2], p[5], p[6]=idx, ...
+            for (int k = 0; k < 3; k++) {
+                xcal16[5*k]     = p[5*k]^q[5*k];
+                xcal16[5*k+1]   = p[5*k+1]^q[5*k+1];
+                xcal16[5*k+2+1] = p[5*k+2+1]^q[5*k+2];
+                xcal16[5*k+3+1] = p[5*k+3+1]^q[5*k+3];
+                xcal16[5*k+4-2] = p[5*k+4-2]^q[5*k+4];
+            }
+            xcal16[5*3] = p[5*3]^q[5*3];
+
+            if (gpx->option.dbg) {
+                printf("XCAL:"); for (int j = 0; j < 16; j++) printf(" %02X", xcal16[j]); printf("\n");
+            }
+
+            int tgl = chk_toggle_type(gpx);
+
+            for (int j = 0; j < 66*5; j++) {
+                xcal[j] = gpx->calibytes[0x40+j];
+                if (gpx->option.ngp) {
+                    xcal[j] ^= gpx->xcal16[j%16];
+                }
+            }
+
+            for (int j = 0; j < 66; j++) {
+                ui8_t idx = xcal[5*j];
+                ui8_t *dat = xcal+(5*j+1);
+                ui32_t le_dat32 = dat[0] | (dat[1]<<8) | (dat[2]<<16) | (dat[3]<<24);
+                ui32_t xx_dat32 = dat[1] | (dat[2]<<8) | (dat[0]<<16) | (dat[3]<<24);
+                float *pf32 = (float*)&le_dat32;
+                if (gpx->option.ngp) {
+                    pf32 = (float*)&xx_dat32;
+                }
+                gpx->cal_f32[idx] = *pf32;
+
+                if (gpx->option.dbg)
+                {
+                    if (idx/10 == 3 || idx/10 == 4 || idx/10 == 5)
+                    {
+                        printf(" %3d :", idx);
+                        for (int i = 1; i < 5; i++) {
+                            printf(" %02x", xcal[5*j+i]);
+                        }
+                        printf(" : %f", *pf32);
+                        printf("\n");
+                    }
+                }
+            }
+        }
     }
-    gpx->id[8] = '\0';
 
     return ret;
 }
+
+
+// ----------------------------------------------------------------------------------------------------
+
+// PTU
+// cf. Haeberli (2001),
+//     https://brmlab.cz/project/weathersonde/telemetry_decoding
+//
+static float poly5(float x, float *a) {
+    float p = 0.0;
+    p = ((((a[5]*x+a[4])*x+a[3])*x+a[2])*x+a[1])*x+a[0];
+    return p;
+}
+static float nu(float t, float t0, float y0) {
+    // t=1/f2-1/f , t0=1/f2-1/f1 , 1/freq=meas24
+    float y = t / t0;
+    return 1.0f / (y0 - y);
+}
+
+static int get_Meas(gpx_t *gpx) {
+    ui32_t temp, pres, hum1, hum2, ref1, ref2, ref3, ref4;
+    ui8_t *meas24 = gpx->frame+pos_PTU;
+    float T, U1, U2, _P, _rh, x;
+
+    if ( gpx->option.ngp && (gpx->crc & crc_FRAME) ) return -2; // frame number
+
+    for (int j = 0; j < 24; j++) {
+        ui8_t byte = meas24[j];
+
+        if (gpx->option.ngp) {
+            byte ^= gpx->frame[pos_FrameNb+(j&1)];
+            byte ^= gpx->xptu16[j%16];
+        }
+
+        meas24[j] = byte;
+    }
+
+    temp = meas24[ 0] | (meas24[ 1]<<8) | (meas24[ 2]<<16);  // ch1
+    hum1 = meas24[ 3] | (meas24[ 4]<<8) | (meas24[ 5]<<16);  // ch2
+    hum2 = meas24[ 6] | (meas24[ 7]<<8) | (meas24[ 8]<<16);  // ch3
+    ref1 = meas24[ 9] | (meas24[10]<<8) | (meas24[11]<<16);  // ch4
+    ref2 = meas24[12] | (meas24[13]<<8) | (meas24[14]<<16);  // ch5
+    pres = meas24[15] | (meas24[16]<<8) | (meas24[17]<<16);  // ch6
+    ref3 = meas24[18] | (meas24[19]<<8) | (meas24[20]<<16);  // ch7
+    ref4 = meas24[21] | (meas24[22]<<8) | (meas24[23]<<16);  // ch8
+
+    if (gpx->calfrms > 0x20)
+    {
+        // Temperature
+        x = nu( (float)(ref1 - temp), (float)(ref1 - ref4), gpx->cal_f32[37] );
+        T = poly5(x, gpx->cal_f32+30);
+        if (T > -120.0f && T < 80.0f)  gpx->T = T;
+        else gpx->T = -273.15f;
+
+        // rel. Humidity (ref3 or ref4 ?)
+        x = nu( (float)(ref1 - hum1), (float)(ref1 - ref3), gpx->cal_f32[47] );
+        U1 = poly5(x, gpx->cal_f32+40); // c[44]=c[45]=0
+        x = nu( (float)(ref1 - hum2), (float)(ref1 - ref3), gpx->cal_f32[57] );
+        U2 = poly5(x, gpx->cal_f32+50); // c[54]=c[55]=0
+        _rh = U1 > U2 ? U1 : U2; // max(U1,U2), vgl. cal_state[1].bit3
+        gpx->_RH = _rh;
+        if (gpx->_RH < 0.0f) gpx->_RH = 0.0f;
+        if (gpx->_RH > 100.0f) gpx->_RH = 100.0f;
+        // correction for higher RH-sensor temperature (at low temperatures)?
+        // (cf. amt-7-4463-2014)
+        // if (T<-60C || P<100hPa): cal_state[1].bit2=0
+        // (Hyland and Wexler)
+        // if (T>-60C && P>100hPa): rh = _rh*vaporSatP(Trh)/vaporSatP(T) ...
+        // estimate Trh ?
+
+        // (uncorrected) Pressure
+        x = nu( (float)(ref1 - pres), (float)(ref1 - ref4), gpx->cal_f32[17] );
+        _P = poly5(x, gpx->cal_f32+10);
+        if (_P < 0.0f && _P > 2000.0f) _P = -1.0f;
+        gpx->_P = _P;
+        // correction for x and coefficients?
+    }
+
+    return 0;
+}
+
+// ----------------------------------------------------------------------------------------------------
 
 static int get_PTU(gpx_t *gpx) {
     int ret=0;
@@ -327,6 +637,10 @@ static int get_PTU(gpx_t *gpx) {
     ret = 0;
     if (gpx->option.crc  &&  crc != crc_frame) {
         ret = -2;
+    }
+
+    if (ret == 0) {
+        if (gpx->calfrms > 0x20) ret = get_Meas(gpx);
     }
 
     return ret;
@@ -348,12 +662,7 @@ static int get_GPStime(gpx_t *gpx) {
     crc_frame = gpx->frame[posGPS_TOW+LEN_GPS] | (gpx->frame[posGPS_TOW+LEN_GPS+1] << 8);
     crc = crc16(gpx, posGPS_TOW, LEN_GPS);
     if (crc_frame != crc) gpx->crc |= crc_GPS;
-/*
-    if (gpx->option.crc) {
-      //fprintf(stdout, " (%04X:%02X%02X) ", BLOCK_GPS, frame[posGPS_TOW-2], frame[posGPS_TOW-1]);
-      fprintf(stdout, " [%04X:%04X] ", crc_frame, crc);
-    }
-*/
+
     ret = 0;
     if (gpx->option.crc  &&  crc != crc_frame) {
         ret = -2;
@@ -745,12 +1054,12 @@ static int get_pseudorange(gpx_t *gpx) {
         range[prns[j]].chips = chipbytes;
         range[prns[j]].deltachips = deltabytes;
 
-/*
+        /*
         if (range[prns[j]].deltachips == 0x555555) {
             range[prns[j]].deltachips = 0;
             continue;
         }
-*/
+        */
         if (  (prns[j] > 0)  &&  ((gpx->gps.sat_status[j] & 0x0F) == 0xF)
            && (dist(gpx->gps.sat[prns[j]].X, gpx->gps.sat[prns[j]].Y, gpx->gps.sat[prns[j]].Z, 0, 0, 0) > 6700000) )
         {
@@ -970,11 +1279,11 @@ static int get_GPSkoord(gpx_t *gpx, int N) {
                     }
                 }
             }
-/*
+            /*
             if (exN < 0  &&  gpx->gps.prn32next > 0) {
                 //prn32next used in pre-fix? prn32toggle ^= 0x1;
             }
-*/
+            */
         }
 
         if (gpx->gps.opt_vel == 1) {
@@ -1139,6 +1448,12 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
                 }
             }
         }
+        if (!err2 && gpx->option.ptu) {
+            fprintf(stdout, " ");
+            if (gpx->T > -273.0f) fprintf(stdout, " T=%.1fC ", gpx->T);
+            if (gpx->_RH > -0.5f) fprintf(stdout, " _RH=%.0f%% ", gpx->_RH);
+            if (gpx->_P  >  0.0f) fprintf(stdout, " _P=%.1fhPa ", gpx->_P);
+        }
 
         if (gpx->option.aux) {
             if (gpx->option.vbs != 4 && (gpx->crc & crc_AUX)==0 || !gpx->option.crc) {
@@ -1158,7 +1473,7 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
         }
 
         get_Cal(gpx);
-/*
+        /*
         if (!err3) {
             if (gpx->gps.opt_vergps == 8)
             {
@@ -1172,24 +1487,41 @@ static int print_position(gpx_t *gpx, int ec) {  // GPS-Hoehe ueber Ellipsoid
                 fprintf(stdout, "\n");
             }
         }
-*/
+        */
 
         if (gpx->option.jsn) {
             // Print out telemetry data as JSON  //even if we don't have a valid GPS lock
             if ((gpx->crc & (crc_FRAME | crc_GPS))==0 && (gpx->gps.almanac || gpx->gps.ephem)) //(!err1 && !err3)
             {   // eigentlich GPS, d.h. UTC = GPS - UTC_OFS (UTC_OFS=18sec ab 1.1.2017)
+                char *ver_jsn = NULL;
                 fprintf(stdout, "\n");
                 fprintf(stdout, "{ \"type\": \"%s\"", "RS92");
                 fprintf(stdout, ", \"frame\": %d, \"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                gpx->frnr, gpx->id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vU);
+                if (gpx->option.ptu && !err2) {
+                    if (gpx->T > -273.0f) {
+                        fprintf(stdout, ", \"temp\": %.1f",  gpx->T );
+                    }
+                    if (gpx->_RH > -0.5f) {
+                        fprintf(stdout, ", \"humidity\": %.1f",  gpx->_RH );
+                    }
+                    if (gpx->_P > 0.0f) {
+                        fprintf(stdout, ", \"pressure\": %.2f",  gpx->_P );
+                    }
+                }
                 if ((gpx->crc & crc_AUX)==0 && (gpx->aux[0] != 0 || gpx->aux[1] != 0 || gpx->aux[2] != 0 || gpx->aux[3] != 0)) {
                     fprintf(stdout, ", \"aux\": \"%04x%04x%04x%04x\"", gpx->aux[0], gpx->aux[1], gpx->aux[2], gpx->aux[3]);
                 }
+                fprintf(stdout, ", \"subtype\": \"RS92-%s\"",  gpx->rs_type == RS92SGP ? "SGP" : "NGP" );
                 if (gpx->jsn_freq > 0) {  // rs92-frequency: gpx->freq
                     int fq_kHz = gpx->jsn_freq;
                     //if (gpx->freq > 0) fq_kHz = gpx->freq; // L-band: option.ngp ?
                     fprintf(stdout, ", \"freq\": %d", fq_kHz);
                 }
+                #ifdef VER_JSN_STR
+                    ver_jsn = VER_JSN_STR;
+                #endif
+                if (ver_jsn && *ver_jsn != '\0') fprintf(stdout, ", \"version\": \"%s\"", ver_jsn);
                 fprintf(stdout, " }\n");
             }
         }
@@ -1251,6 +1583,7 @@ int main(int argc, char *argv[]) {
     int sel_wavch = 0;     // audio channel: left
     int spike = 0;
     int fileloaded = 0;
+    int rawhex = 0;
     int cfreq = -1;
 
     char bitbuf[BITS];
@@ -1268,6 +1601,8 @@ int main(int argc, char *argv[]) {
 
     float thres = 0.7;
     float _mv = 0.0;
+
+    float set_lpIQbw = -1.0f;
 
     int symlen = 2;
     int bitofs = 2; // +0 .. +3
@@ -1336,6 +1671,7 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--crc") == 0) { gpx.option.crc = 1; }
         else if   (strcmp(*argv, "--ecc")  == 0) { gpx.option.ecc = 1; }
         else if   (strcmp(*argv, "--ecc2") == 0) { gpx.option.ecc = 2; }
+        else if   (strcmp(*argv, "--ptu" ) == 0) { gpx.option.ptu = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
             gpx.option.raw = 1;
         }
@@ -1438,11 +1774,21 @@ int main(int argc, char *argv[]) {
             option_iq = 5;
         }
         else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            float bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6f && bw < 48.0f) set_lpIQbw = bw*1e3f;
+            option_lp = 1;
+        }
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
         }
         else if   (strcmp(*argv, "--ngp") == 0) { gpx.option.ngp = 1; }  // RS92-NGP, RS92-D: 1680 MHz
+        else if   (strcmp(*argv, "--dbg" ) == 0) { gpx.option.dbg = 1; }
+        else if (strcmp(*argv, "--rawhex") == 0) { rawhex = 2; }  // raw hex input
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
             ++argv;
@@ -1495,9 +1841,15 @@ int main(int argc, char *argv[]) {
     }
 
 
+    gpx.option.crc = 1;
+    if (gpx.option.ecc < 2) gpx.option.ecc = 1;  // turn off for ber-measurement
+
     if (gpx.option.ecc) {
         rs_init_RS255(&gpx.RS);
     }
+
+    gpx.rs_type = RS92SGP;
+    if (gpx.option.ngp) gpx.rs_type = RS92NGP;
 
     // init gpx
     memcpy(gpx.frame, rs92_header_bytes, sizeof(rs92_header_bytes)); // 6 header bytes
@@ -1512,171 +1864,202 @@ int main(int argc, char *argv[]) {
     }
     #endif
 
-    if (!option_softin) {
+    if (!rawhex) {
 
-        if (option_iq == 0 && option_pcmraw) {
-            fclose(fp);
-            fprintf(stderr, "error: raw data not IQ\n");
-            return -1;
-        }
-        if (option_iq) sel_wavch = 0;
+        if (!option_softin) {
 
-        pcm.sel_ch = sel_wavch;
-        if (option_pcmraw == 0) {
-            k = read_wav_header(&pcm, fp);
-            if ( k < 0 ) {
+            if (option_iq == 0 && option_pcmraw) {
                 fclose(fp);
-                fprintf(stderr, "error: wav header\n");
+                fprintf(stderr, "error: raw data not IQ\n");
+                return -1;
+            }
+            if (option_iq) sel_wavch = 0;
+
+            pcm.sel_ch = sel_wavch;
+            if (option_pcmraw == 0) {
+                k = read_wav_header(&pcm, fp);
+                if ( k < 0 ) {
+                    fclose(fp);
+                    fprintf(stderr, "error: wav header\n");
+                    return -1;
+                }
+            }
+
+            if (cfreq > 0) {
+                int fq_kHz = (cfreq - dsp.xlt_fq*pcm.sr + 500)/1e3;
+                gpx.jsn_freq = fq_kHz;
+            }
+
+            // rs92-sgp: BT=0.5, h=1.0 ?
+            symlen = 2;
+
+            // init dsp
+            //
+            dsp.fp = fp;
+            dsp.sr = pcm.sr;
+            dsp.bps = pcm.bps;
+            dsp.nch = pcm.nch;
+            dsp.ch = pcm.sel_ch;
+            dsp.br = (float)BAUD_RATE;
+            dsp.sps = (float)dsp.sr/dsp.br;
+            dsp.symlen = symlen;
+            dsp.symhd  = symlen;
+            dsp._spb = dsp.sps*symlen;
+            dsp.hdr = rs92_rawheader;
+            dsp.hdrlen = strlen(rs92_rawheader);
+            dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
+            dsp.h = 0.8; // 1.0 modulation index abzgl. BT
+            dsp.opt_iq = option_iq;
+            dsp.opt_iqdc = option_iqdc;
+            dsp.opt_lp = option_lp;
+            dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
+            dsp.lpFM_bw = 6e3; // FM audio lowpass
+            dsp.opt_dc = option_dc;
+            dsp.opt_IFmin = option_min;
+            if (gpx.option.ngp) { // L-band rs92-ngp
+                dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
+                dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3 // 28e3..32e3
+            }
+            if (set_lpIQbw > 0.0f) dsp.lpIQ_bw = set_lpIQbw;
+
+            if ( dsp.sps < 8 ) {
+                fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+            }
+
+
+            k = init_buffers(&dsp); // BT=0.5  (IQ-Int: BT > 0.5 ?)
+            if ( k < 0 ) {
+                fprintf(stderr, "error: init buffers\n");
+                return -1;
+            };
+
+            bitofs += shift;
+        }
+        else {
+            // init circular header bit buffer
+            hdb.hdr = rs92_rawheader;
+            hdb.len = strlen(rs92_rawheader);
+            //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
+            hdb.bufpos = -1;
+            hdb.buf = NULL;
+            /*
+            calloc(hdb.len, sizeof(char));
+            if (hdb.buf == NULL) {
+                fprintf(stderr, "error: malloc\n");
+                return -1;
+            }
+            */
+            // caution ths=0.7: -3 byte offset, false positive
+            // 2A 2A 2A 2A 2A 10|65 10 ..
+            // header sync could be extended into the frame
+            hdb.ths = 0.8;
+            hdb.sbuf = calloc(hdb.len, sizeof(float));
+            if (hdb.sbuf == NULL) {
+                fprintf(stderr, "error: malloc\n");
                 return -1;
             }
         }
 
-        if (cfreq > 0) {
-            int fq_kHz = (cfreq - dsp.xlt_fq*pcm.sr + 500)/1e3;
-            gpx.jsn_freq = fq_kHz;
-        }
 
-        // rs92-sgp: BT=0.5, h=1.0 ?
-        symlen = 2;
+        while ( 1 )
+        {
+            if (option_softin) {
+                for (k = 0; k < hdb.len; k++) hdb.sbuf[k] = 0.0;
+                header_found = find_softbinhead(fp, &hdb, &_mv);
+            }
+            else {
+                header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc);
+                _mv = dsp.mv;
+            }
 
-        // init dsp
-        //
-        dsp.fp = fp;
-        dsp.sr = pcm.sr;
-        dsp.bps = pcm.bps;
-        dsp.nch = pcm.nch;
-        dsp.ch = pcm.sel_ch;
-        dsp.br = (float)BAUD_RATE;
-        dsp.sps = (float)dsp.sr/dsp.br;
-        dsp.symlen = symlen;
-        dsp.symhd  = symlen;
-        dsp._spb = dsp.sps*symlen;
-        dsp.hdr = rs92_rawheader;
-        dsp.hdrlen = strlen(rs92_rawheader);
-        dsp.BT = 0.5; // bw/time (ISI) // 0.3..0.5
-        dsp.h = 0.8; // 1.0 modulation index abzgl. BT
-        dsp.opt_iq = option_iq;
-        dsp.opt_iqdc = option_iqdc;
-        dsp.opt_lp = option_lp;
-        dsp.lpIQ_bw = 8e3; // IF lowpass bandwidth
-        dsp.lpFM_bw = 6e3; // FM audio lowpass
-        dsp.opt_dc = option_dc;
-        dsp.opt_IFmin = option_min;
-        if (gpx.option.ngp) { // L-band rs92-ngp
-            dsp.h = 3.8;        // RS92-NGP: 1680/400=4.2, 4.2*0.9=3.8=4.75*0.8
-            dsp.lpIQ_bw = 32e3; // IF lowpass bandwidth // 32e3=4.2*7.6e3
-        }
+            if (header_found == EOF) break;
 
-        if ( dsp.sps < 8 ) {
-            fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
-        }
+            // mv == correlation score
+            if (_mv *(0.5-gpx.option.inv) < 0) {
+                if (gpx.option.aut == 0) header_found = 0;
+                else gpx.option.inv ^= 0x1;
+            }
 
+            if (header_found) {
 
-        k = init_buffers(&dsp); // BT=0.5  (IQ-Int: BT > 0.5 ?)
-        if ( k < 0 ) {
-            fprintf(stderr, "error: init buffers\n");
-            return -1;
-        };
+                byte_count = FRAMESTART;
+                bitpos = 0;
+                b8pos = 0;
 
-        bitofs += shift;
-    }
-    else {
-        // init circular header bit buffer
-        hdb.hdr = rs92_rawheader;
-        hdb.len = strlen(rs92_rawheader);
-        //hdb.thb = 1.0 - 3.1/(float)hdb.len; // 1.0-max_bit_errors/hdrlen
-        hdb.bufpos = -1;
-        hdb.buf = NULL;
-        /*
-        calloc(hdb.len, sizeof(char));
-        if (hdb.buf == NULL) {
-            fprintf(stderr, "error: malloc\n");
-            return -1;
-        }
-        */
-        // caution ths=0.7: -3 byte offset, false positive
-        // 2A 2A 2A 2A 2A 10|65 10 ..
-        // header sync could be extended into the frame
-        hdb.ths = 0.8;
-        hdb.sbuf = calloc(hdb.len, sizeof(float));
-        if (hdb.sbuf == NULL) {
-            fprintf(stderr, "error: malloc\n");
-            return -1;
-        }
-    }
+                while ( byte_count < FRAME_LEN ) {
 
-
-    while ( 1 )
-    {
-        if (option_softin) {
-            for (k = 0; k < hdb.len; k++) hdb.sbuf[k] = 0.0;
-            header_found = find_softbinhead(fp, &hdb, &_mv);
-        }
-        else {
-            header_found = find_header(&dsp, thres, 3, bitofs, dsp.opt_dc);
-            _mv = dsp.mv;
-        }
-
-        if (header_found == EOF) break;
-
-        // mv == correlation score
-        if (_mv *(0.5-gpx.option.inv) < 0) {
-            if (gpx.option.aut == 0) header_found = 0;
-            else gpx.option.inv ^= 0x1;
-        }
-
-        if (header_found) {
-
-            byte_count = FRAMESTART;
-            bitpos = 0;
-            b8pos = 0;
-
-            while ( byte_count < FRAME_LEN ) {
-
-                if (option_softin) {
-                    float s1 = 0.0;
-                    float s2 = 0.0;
-                    float s = 0.0;
-                    bitQ = f32soft_read(fp, &s1);
-                    if (bitQ != EOF) {
-                        bitQ = f32soft_read(fp, &s2);
+                    if (option_softin) {
+                        float s1 = 0.0;
+                        float s2 = 0.0;
+                        float s = 0.0;
+                        bitQ = f32soft_read(fp, &s1);
                         if (bitQ != EOF) {
-                            s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
-                            bit = (s>=0.0); // no soft decoding
+                            bitQ = f32soft_read(fp, &s2);
+                            if (bitQ != EOF) {
+                                s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
+                                bit = (s>=0.0); // no soft decoding
+                            }
                         }
                     }
-                }
-                else {
-                    float bl = -1;
-                    if (option_iq > 2) bl = 4.0;
-                    bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
-                }
-                if ( bitQ == EOF) break;
+                    else {
+                        float bl = -1;
+                        if (option_iq > 2) bl = 4.0;
+                        bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, bl, spike); // symlen=2
+                    }
+                    if ( bitQ == EOF) break;
 
-                if (gpx.option.inv) bit ^= 1;
+                    if (gpx.option.inv) bit ^= 1;
 
-                bitpos += 1;
-                bitbuf[b8pos] = bit;
-                b8pos++;
-                if (b8pos >= BITS) {
-                    b8pos = 0;
-                    byte = bits2byte(bitbuf);
-                    gpx.frame[byte_count] = byte;
-                    byte_count++;
+                    bitpos += 1;
+                    bitbuf[b8pos] = bit;
+                    b8pos++;
+                    if (b8pos >= BITS) {
+                        b8pos = 0;
+                        byte = bits2byte(bitbuf);
+                        gpx.frame[byte_count] = byte;
+                        byte_count++;
+                    }
                 }
+                header_found = 0;
+                print_frame(&gpx, byte_count);
+                byte_count = FRAMESTART;
+
             }
-            header_found = 0;
-            print_frame(&gpx, byte_count);
-            byte_count = FRAMESTART;
 
         }
 
+
+        if (!option_softin) free_buffers(&dsp);
+        else {
+            if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+        }
     }
+    else //if (rawhex)
+    {
+        char buffer_rawhex[2*FRAME_LEN+12];
+        char *pbuf = NULL, *buf_sp = NULL;
+        ui8_t frmbyte;
+        int frameofs = 0, len, i;
 
+        while (1 > 0) {
 
-    if (!option_softin) free_buffers(&dsp);
-    else {
-        if (hdb.buf) { free(hdb.buf); hdb.buf = NULL; }
+            pbuf = fgets(buffer_rawhex, 2*FRAME_LEN+12, fp);
+            if (pbuf == NULL) break;
+            buffer_rawhex[2*FRAME_LEN] = '\0';
+            buf_sp = strchr(buffer_rawhex, ' ');
+            if (buf_sp != NULL && buf_sp-buffer_rawhex < 2*FRAME_LEN) {
+                buffer_rawhex[buf_sp-buffer_rawhex] = '\0';
+            }
+            len = strlen(buffer_rawhex) / 2;
+            if (len > posGPS_TOW+4) {
+                for (i = 0; i < len; i++) { //%2x  SCNx8=%hhx(inttypes.h)
+                    sscanf(buffer_rawhex+2*i, "%2hhx", &frmbyte);
+                    // wenn ohne %hhx: sscanf(buffer_rawhex+rawhex*i, "%2x", &byte); frame[frameofs+i] = (ui8_t)byte;
+                    gpx.frame[frameofs+i] = frmbyte;
+                }
+                print_frame(&gpx, frameofs+len);
+            }
+        }
     }
 
     if (gpx.gps.ephs) free(gpx.gps.ephs);

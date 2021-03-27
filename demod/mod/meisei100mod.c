@@ -96,17 +96,27 @@ e.g. -b --br 2398
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
 #ifdef CYGWIN
   #include <fcntl.h>  // cygwin: _setmode()
   #include <io.h>
 #endif
 
-/*
-typedef unsigned char  ui8_t;
-typedef unsigned short ui16_t;
-typedef unsigned int   ui32_t;
-typedef short i16_t;
-*/
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
+
+
+//typedef unsigned char  ui8_t;
+//typedef unsigned short ui16_t;
+//typedef unsigned int   ui32_t;
+//typedef short i16_t;
 
 #include "demod_mod.h"
 
@@ -138,6 +148,36 @@ typedef struct {
     RS_t RS;
 } gpx_t;
 
+/* -------------------------------------------------------------------------- */
+
+static float f32e2(ui32_t num) {
+    ui32_t val;
+    float f;
+/*
+    int i;
+    double e, s, m;
+
+    val = 0;
+    for (i=31;i>=24;i--) { val |= ((num>>i)&1)<<(i-24); }
+    e = (double)val-127-2;  // exponent
+
+    val = 0;
+    for (i=22;i>= 0;i--) { val |= ((num>>i)&1)<<i; }
+    m = (double)val/(1<<23);  // mantissa
+
+    s = (num>>23)&1 ? -1.0 : +1.0 ;  // sign
+
+    f = s*(1+m)*pow(2,e);
+*/
+    val  = (num     &   0x800000)<<8;  // sign
+    val |= (num>>1) & 0x7F800000;      // exponent
+    val |=  num     &   0x7FFFFF;      // mantissa
+
+    memcpy(&f, &val, 4);
+    f /= 4.0;  // e -= 127+2;
+
+    return f;
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -602,14 +642,16 @@ int main(int argc, char **argv) {
             jmpRS11:
                         if (reset_gpx) {
                             memset(&gpx, sizeof(gpx), 0);
-                            sn = 0;
+                            sn = -1;
+                            freq = -1;
                             reset_gpx = 0;
                         }
                         if (header_found % 2 == 1)
                         {
                             ui16_t w16[2];
                             ui32_t w32;
-                            float *fcfg = (float *)&w32;
+                            //float *fcfg = (float *)&w32;
+                            float fw32;
 
                             val = bits2val(subframe_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
@@ -626,11 +668,17 @@ int main(int argc, char **argv) {
 
                             w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
                             w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
-                            w32 = (w16[1]<<16) | w16[0];
+                            //w32 = (w16[1]<<16) | w16[0];
+                            w32 =  ( (w16[1]&0xFF00)>>8 | (w16[1]&0xFF)<<8 ) << 16
+                                 | ( (w16[0]&0xFF00)>>8 | (w16[0]&0xFF)<<8 );
+                            fw32 = f32e2(w32);
 
                             if (err_blks == 0) // err_frm zu schwach
                             {
-                                 if (counter % 0x10 == 0) { sn = w32; gpx.sn = sn; gpx._sn = w32; }
+                                // SN
+                                if (counter % 0x10 == 0) { sn = f32e2(w32); gpx.sn = f32e2(w32); gpx._sn = w32; }
+                                // freq
+                                if (counter % 64 == 15) { freq = 403700+fw32*100.0; gpx.fq = freq; }
                             }
 
                             if (counter % 2 == 1) {
@@ -651,10 +699,11 @@ int main(int argc, char **argv) {
                                     gpx.min = min;
                                     gpx.sek = (double)ms/1000.0;
 
-                                    if (0 && option_jsn && err_blks==0 && gpx.frnr1-gpx.frnr==1) {
+                                    if (option_jsn && err_blks==0 && gpx.frnr1-gpx.frnr==1) {
                                         char id_str[] = "xxxxxx\0\0\0\0\0\0";
-                                        if (gpx._sn > 0) {
-                                            sprintf(id_str, "__%05d", gpx._sn & 0xFFFF); // last 5 digits?
+                                        //if (gpx._sn > 0) { sprintf(id_str, "%08x", gpx._sn); }
+                                        if (gpx.sn > 0 && gpx.sn < 1e9) {
+                                            sprintf(id_str, "%.0f", gpx.sn);
                                         }
                                         printf("{ \"type\": \"%s\"", "MEISEI");
                                         printf(", \"frame\": %d, \"id\": \"RS11G-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
@@ -719,9 +768,22 @@ int main(int argc, char **argv) {
                                     gpx.vD = velD;
                                     gpx.vV = velU;
                                 }
-                                if (err_blks == 0 && counter%0x10==0 && gpx._sn > 0) { // gpx._sn>>16 = 0x5697 , 0x7297
-                                    //fprintf(stdout, " : sn 0x%08x = %05d %d", gpx._sn, gpx._sn & 0xFFFF, (gpx._sn>>16) & 0xFFFF);
-                                    fprintf(stdout, " : _sn %05d", gpx._sn & 0xFFFF);
+                                /*
+                                if (err_blks == 0 && counter%0x10==0 && gpx._sn > 0) {
+                                    if (option_verbose) {
+                                        fprintf(stdout, " : sn %.0f (0x%08x)", gpx.sn, gpx._sn);
+                                    }
+                                }
+                                */
+                                if (option_verbose && err_blks == 0) {
+                                    if (sn > 0) {
+                                        printf(" : sn %.0f (0x%08x)", sn, gpx._sn);
+                                        sn = -1;
+                                    }
+                                    if (freq > 0) {
+                                        printf(" : fq %.0f", freq); // kHz
+                                        freq = -1;
+                                    }
                                 }
                                 printf("\n");
                             }
@@ -732,7 +794,8 @@ int main(int argc, char **argv) {
             jmpIMS:
                         if (reset_gpx) {
                             memset(&gpx, sizeof(gpx), 0);
-                            sn = 0;
+                            sn = -1;
+                            freq = -1;
                             reset_gpx = 0;
                         }
                         if (header_found % 2 == 1) { // 049DCE
@@ -859,6 +922,7 @@ int main(int argc, char **argv) {
                                 printf("\n");
 
                                 if (option_jsn && err_frm==0 && gps_err==0) {
+                                    char *ver_jsn = NULL;
                                     char id_str[] = "xxxxxx\0\0\0\0\0\0";
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
                                         sprintf(id_str, "%.0f", gpx.sn);
@@ -870,6 +934,10 @@ int main(int argc, char **argv) {
                                     if (gpx.jsn_freq > 0) { // not gpx.fq, because gpx.sn not in every frame
                                         printf(", \"freq\": %d", gpx.jsn_freq);
                                     }
+                                    #ifdef VER_JSN_STR
+                                        ver_jsn = VER_JSN_STR;
+                                    #endif
+                                    if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                                     printf(" }\n");
                                     printf("\n");
                                 }

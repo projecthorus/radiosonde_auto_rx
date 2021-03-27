@@ -146,7 +146,7 @@ def flask_get_kml_feed():
     kml.document.open = 1
     # Station Placemark
     pnt = kml.newpoint(
-        name='Ground Station',
+        name="Ground Station",
         altitudemode=AltitudeMode.absolute,
         description="AutoRX Ground Station",
     )
@@ -154,9 +154,9 @@ def flask_get_kml_feed():
     pnt.iconstyle.icon.href = flask.request.host_url + "static/img/antenna-green.png"
     pnt.coords = [
         (
-            autorx.config.global_config['station_lon'],
-            autorx.config.global_config['station_lat'],
-            autorx.config.global_config['station_alt']
+            autorx.config.global_config["station_lon"],
+            autorx.config.global_config["station_lat"],
+            autorx.config.global_config["station_alt"],
         )
     ]
     for rs_id in flask_telemetry_store:
@@ -185,7 +185,8 @@ def flask_get_kml_feed():
             # Add folder
             fol = kml.newfolder(name=rs_id)
             # HAB Placemark
-            pnt = fol.newpoint(name=rs_id,
+            pnt = fol.newpoint(
+                name=rs_id,
                 altitudemode=AltitudeMode.absolute,
                 description=rs_data.format(
                     **flask_telemetry_store[rs_id]["latest_telem"]
@@ -199,7 +200,7 @@ def flask_get_kml_feed():
                     flask_telemetry_store[rs_id]["latest_telem"]["alt"],
                 )
             ]
-            linestring = fol.newlinestring(name='Track')
+            linestring = fol.newlinestring(name="Track")
             linestring.coords = coordinates
             linestring.altitudemode = AltitudeMode.absolute
             linestring.extrude = 1
@@ -208,24 +209,30 @@ def flask_get_kml_feed():
             linestring.stylemap.normalstyle.polystyle.color = "AA03bafc"
             linestring.stylemap.highlightstyle.polystyle.color = "CC03bafc"
             # Add LOS line
-            linestring = fol.newlinestring(name='LOS')
+            linestring = fol.newlinestring(name="LOS")
             linestring.altitudemode = AltitudeMode.absolute
             linestring.coords = [
                 (
-                    autorx.config.global_config['station_lon'],
-                    autorx.config.global_config['station_lat'],
-                    autorx.config.global_config['station_alt']
+                    autorx.config.global_config["station_lon"],
+                    autorx.config.global_config["station_lat"],
+                    autorx.config.global_config["station_alt"],
                 ),
                 (
-                    flask_telemetry_store[rs_id]['latest_telem']['lon'],
-                    flask_telemetry_store[rs_id]['latest_telem']['lat'],
-                    flask_telemetry_store[rs_id]['latest_telem']['alt']
-                )
+                    flask_telemetry_store[rs_id]["latest_telem"]["lon"],
+                    flask_telemetry_store[rs_id]["latest_telem"]["lat"],
+                    flask_telemetry_store[rs_id]["latest_telem"]["alt"],
+                ),
             ]
         except Exception as e:
-            logging.error("KML - Could not parse data from RS %s - %s" % (rs_id, str(e)))
+            logging.error(
+                "KML - Could not parse data from RS %s - %s" % (rs_id, str(e))
+            )
 
-    return re.sub('<Document.*>','<Document>',kml.kml()), 200, {"content-type": "application/vnd.google-earth.kml+xml"}
+    return (
+        re.sub("<Document.*>", "<Document>", kml.kml()),
+        200,
+        {"content-type": "application/vnd.google-earth.kml+xml"},
+    )
 
 
 @app.route("/get_config")

@@ -484,6 +484,18 @@ def detect_sonde(
             % (str(device_idx), _type, _score)
         )
         _sonde_type = "IMET1"
+    elif "IMETafsk" in _type:
+        logging.debug(
+            "Scanner #%s - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)"
+            % (str(device_idx), _type, _score)
+        )
+        _sonde_type = "IMET1"
+    elif "IMET5" in _type:
+        logging.debug(
+            "Scanner #%s - Detected a iMet-54 Sonde! (Score: %.2f)"
+            % (str(device_idx), _score)
+        )
+        _sonde_type = "IMET5"
     elif "LMS6" in _type:
         logging.debug(
             "Scanner #%s - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)"
@@ -496,6 +508,16 @@ def detect_sonde(
             % (str(device_idx), _score)
         )
         _sonde_type = "C34C50"
+    elif "MRZ" in _type:
+        logging.debug(
+            "Scanner #%s - Detected a Meteo-Radiy MRZ Sonde! (Score: %.2f)"
+            % (str(device_idx), _score)
+        )
+        if _score < 0:
+            _sonde_type = "-MRZ"
+        else:
+            _sonde_type = "MRZ"
+
     elif "MK2LMS" in _type:
         logging.debug(
             "Scanner #%s - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)"
@@ -505,6 +527,7 @@ def detect_sonde(
             _sonde_type = "-MK2LMS"
         else:
             _sonde_type = "MK2LMS"
+
     elif "MEISEI" in _type:
         logging.debug(
             "Scanner #%s - Detected a Meisei Sonde! (Score: %.2f, Offset: %.1f Hz)"

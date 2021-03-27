@@ -161,6 +161,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # For now, sondehub.org just acts as a proxy to habhub.org.
         # This setting is not exposed to users as it's only used for unit/int testing
         "habitat_url": "https://habitat.sondehub.org/",
+        # New Sondehub DB Settings
+        "sondehub_enabled": True,
+        "sondehub_upload_rate": 30,
     }
 
     try:
@@ -375,7 +378,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         )
 
         # New demod tweaks - Added 2019-04-23
-        # Default to all experimental decoders on.
+        # Default to experimental decoders on for FSK/GFSK sondes...
         auto_rx_config["experimental_decoders"] = {
             "RS41": True,
             "RS92": True,
@@ -383,14 +386,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "M10": True,
             "M20": True,
             "IMET": False,
+            "IMET5": True,
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
+            "MRZ": False, # .... except for the MRZ, until we know it works.
             "UDP": False,
         }
-        auto_rx_config["rs41_drift_tweak"] = config.getboolean(
-            "advanced", "drift_tweak"
-        )
+
         auto_rx_config["decoder_spacing_limit"] = config.getint(
             "advanced", "decoder_spacing_limit"
         )
@@ -451,9 +454,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["aprs_use_custom_object_id"] = False
 
         try:
-            auto_rx_config["aprs_port"] = config.getint(
-                "aprs", "aprs_port"
-            )
+            auto_rx_config["aprs_port"] = config.getint("aprs", "aprs_port")
         except:
             logging.warning(
                 "Config - Did not find aprs_port setting - using default of 14590. APRS packets might not be forwarded out to the wider APRS-IS network!"
@@ -495,6 +496,41 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find kml_refresh_rate setting, using default (10 seconds)."
             )
             auto_rx_config["kml_refresh_rate"] = 11
+
+        # New Sondehub db Settings
+        try:
+            auto_rx_config["sondehub_enabled"] = config.getboolean(
+                "sondehub", "sondehub_enabled"
+            )
+            auto_rx_config["sondehub_upload_rate"] = config.getint(
+                "sondehub", "sondehub_upload_rate"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find sondehub_enabled setting, using default (enabled / 15 seconds)."
+            )
+            auto_rx_config["sondehub_enabled"] = True
+            auto_rx_config["sondehub_upload_rate"] = 15
+
+        try:
+            auto_rx_config["experimental_decoders"]["MRZ"] = config.getboolean(
+                "advanced", "mrz_experimental"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find MRZ decoder experimental decoder setting, using default (disabled)."
+            )
+            auto_rx_config["experimental_decoders"]["MRZ"] = False
+
+        try:
+            auto_rx_config["experimental_decoders"]["IMET5"] = config.getboolean(
+                "advanced", "imet54_experimental"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find iMet-54 decoder experimental decoder setting, using default (enabled)."
+            )
+            auto_rx_config["experimental_decoders"]["IMET5"] = True
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

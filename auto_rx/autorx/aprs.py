@@ -82,6 +82,17 @@ def telemetry_to_aprs_position(
                 _id_suffix = _id_suffix[-6:]
             _object_name = "IMS" + _id_suffix
 
+        elif "MRZ" in sonde_data["type"]:
+            # Concatenate the two portions of the serial number, convert to an int,
+            # then take the 6 least-significant hex digits as our ID, prefixed with 'MRZ'.
+            # e.g. MRZ-5667-39155 -> 566739155 -> 21C7C0D3 -> MRZC7C0D3
+            _mrz_id_parts = sonde_data["id"].split("-")
+            _mrz_id = int(_mrz_id_parts[1] + _mrz_id_parts[2])
+            _id_hex = "%06x" % _mrz_id
+            if len(_id_hex) > 6:
+                _id_hex = _id_hex[-6:]
+            _object_name = "MRZ" + _id_hex.upper()
+
         # New Sonde types will be added in here.
         else:
             # Unknown sonde type, don't know how to handle this yet.
@@ -598,9 +609,13 @@ class APRSUploader(object):
         """ Close APRS-IS connection """
         try:
             self.aprsis_socket.shutdown(0)
+        except Exception as e:
+            self.log_debug("Socket shutdown failed - %s" % str(e))
+
+        try:
             self.aprsis_socket.close()
         except Exception as e:
-            self.log_error("Disconnection from APRS-IS Failed - %s" % str(e))
+            self.log_debug("Socket close failed - %s" % str(e))
 
     def beacon_station_position(self):
         """ Send a station position beacon into APRS-IS """

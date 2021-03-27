@@ -20,6 +20,16 @@
   #include <io.h>
 #endif
 
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
+
 
 #include "demod_mod.h"
 
@@ -28,7 +38,7 @@ typedef struct {
     i8_t vbs;  // verbose output
     i8_t raw;  // raw frames
     i8_t crc;  // CRC check output
-    i8_t ecc;  // Reed-Solomon ECC
+    i8_t ecc;  // Hamming ECC
     i8_t sat;  // GPS sat data
     i8_t ptu;  // PTU: temperature
     i8_t inv;
@@ -781,6 +791,7 @@ static void print_gpx(gpx_t *gpx) {
 
         if (gpx->option.jsn && jsonout && gpx->sek < 60.0)
         {
+            char *ver_jsn = NULL;
             unsigned long sec_gps = 0;
             int week = 0;
             int tow = 0;
@@ -814,6 +825,10 @@ static void print_gpx(gpx_t *gpx) {
             if (gpx->jsn_freq > 0) {
                 printf(", \"freq\": %d", gpx->jsn_freq);
             }
+            #ifdef VER_JSN_STR
+                ver_jsn = VER_JSN_STR;
+            #endif
+            if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
             printf(" }\n");
             printf("\n");
         }

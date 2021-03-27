@@ -25,6 +25,7 @@ from autorx.email_notification import EmailNotification
 from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
+from autorx.sondehub import SondehubUploader
 from autorx.rotator import Rotator
 from autorx.utils import (
     rtlsdr_test,
@@ -557,12 +558,18 @@ def telemetry_filter(telemetry):
         meisei_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         meisei_callsign_valid = False
+    
+    if "MRZ" in telemetry["type"]:
+        mrz_callsign_valid = "x" not in _serial.split("-")[1]
+    else:
+        mrz_callsign_valid = False
 
-    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through.
+    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
         or meisei_callsign_valid
+        or mrz_callsign_valid
         or ("M10" in telemetry["type"])
         or ("M20" in telemetry["type"])
         or ("LMS" in telemetry["type"])
@@ -574,6 +581,9 @@ def telemetry_filter(telemetry):
         # Add in a note about DFM sondes and their oddness...
         if "DFM" in telemetry["id"]:
             _id_msg += " Note: DFM sondes may take a while to get an ID."
+        
+        if "MRZ" in telemetry["id"]:
+            _id_msg += " Note: MRZ sondes may take a while to get an ID."
 
         logging.warning(_id_msg)
         return False
@@ -642,7 +652,7 @@ def main():
         "--type",
         type=str,
         default=None,
-        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, LMS6, MK2LMS, MEISEI)",
+        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI, MRZ)",
     )
     parser.add_argument(
         "-t",
@@ -741,6 +751,18 @@ def main():
     if not check_rs_utils():
         sys.exit(1)
 
+    # If a sonde type has been provided, insert an entry into the scan results,
+    # and immediately start a decoder. This also sets the decoder time to 0, which
+    # allows it to run indefinitely.
+    if args.type != None:
+        if args.type in VALID_SONDE_TYPES:
+            logging.warning("Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!")
+            config["rx_timeout"] = 0
+            autorx.scan_results.put([[args.frequency * 1e6, args.type]])
+        else:
+            logging.error("Unknown Radiosonde Type: %s. Exiting." % args.type)
+            sys.exit(1)
+
     # Start up the flask server.
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
     start_flask(host=config["web_host"], port=config["web_port"])
@@ -776,7 +798,7 @@ def main():
             launch_notifications=config["email_launch_notifications"],
             landing_notifications=config["email_landing_notifications"],
             landing_range_threshold=config["email_landing_range_threshold"],
-            landing_altitude_threshold=config["email_landing_altitude_threshold"]
+            landing_altitude_threshold=config["email_landing_altitude_threshold"],
         )
         email_exporter = _email_notification
 
@@ -886,6 +908,26 @@ def main():
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
 
+    if config["sondehub_enabled"]:
+        if config["habitat_upload_listener_position"] is False:
+            _sondehub_station_position = None
+        else:
+            _sondehub_station_position = (
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            )
+        
+        _sondehub = SondehubUploader(
+            user_callsign=config["habitat_uploader_callsign"],
+            user_position=_sondehub_station_position,
+            user_antenna=config["habitat_uploader_antenna"],
+            upload_rate=config["sondehub_upload_rate"],
+        )
+
+        exporter_objects.append(_sondehub)
+        exporter_functions.append(_sondehub.add)
+
     _web_exporter = WebExporter(max_age=config["web_archive_age"])
     exporter_objects.append(_web_exporter)
     exporter_functions.append(_web_exporter.add)
@@ -903,11 +945,9 @@ def main():
     # Note the start time.
     _start_time = time.time()
 
-    # If a sonde type has been provided, insert an entry into the scan results,
-    # and immediately start a decoder. If decoding fails, then we continue into
-    # the main scanning loop.
+    # If we have been asked to start decoding a specific radiosonde type, we need to start up
+    # the decoder immediately, before a scanner thread is started.
     if args.type != None:
-        autorx.scan_results.put([[args.frequency * 1e6, args.type]])
         handle_scan_results()
 
     # Loop.

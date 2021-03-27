@@ -32,9 +32,12 @@ CSV_DIR = "./results/"
 sonde_types = {
 	'RS41': {'csv':'rs41_fsk_demod_soft.txt', 'packets': 118, 'color': 'C0'},
 	'RS92': {'csv':'rs92_fsk_demod_soft.txt', 'packets': 120, 'color': 'C1'},
-	'DFM09': {'csv':'dfm_fsk_demod_soft.txt', 'packets': 96, 'color': 'C2'},
-	'M10': {'csv':'m10_fsk_demod_soft.txt', 'packets': 120, 'color': 'C3'},
-	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft.txt', 'packets': 120, 'color': 'C4'},
+	'RS92-NGP': {'csv':'rs92ngp_fsk_demod_soft.txt', 'packets': 120, 'color': 'C2'},
+	'DFM09': {'csv':'dfm_fsk_demod_soft.txt', 'packets': 96, 'color': 'C3'},
+	'M10': {'csv':'m10_fsk_demod_soft.txt', 'packets': 120, 'color': 'C4'},
+	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft.txt', 'packets': 120, 'color': 'C5'},
+	'MRZ': {'csv':'mrz_fsk_demod_soft.txt', 'packets': 105, 'color': 'C6'},
+	'iMet-54': {'csv':'imet54_fsk_demod_soft.txt', 'packets': 240, 'color': 'C7'},
 }
 
 

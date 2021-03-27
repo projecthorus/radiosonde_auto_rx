@@ -1,4 +1,4 @@
-![auto_rx logo](autorx.png)
+![auto_rx logo](../autorx.png)
 # Automatic Radiosonde Receiver Utilities
 
 **Please refer to the [auto_rx wiki](https://github.com/projecthorus/radiosonde_auto_rx/wiki) for the latest information.**
@@ -26,8 +26,10 @@ Currently we support the following radiosonde types:
 * Graw DFM06/DFM09/DFM17/PS-15
 * Meteomodem M10 & M20
 * Intermet iMet-4 (and 'narrowband' iMet-1 sondes)
+* Intermet iMet-54
 * Lockheed Martin LMS6 (400 MHz and 1680 MHz variants, including the new 'LMS-X' unreleased type)
 * Meisei iMS-100
+* Meteo-Radiy MRZ (400 MHz versions)
 
 Support for other radiosondes may be added as required (please send us
 sondes to test with!)
@@ -58,6 +60,14 @@ instructions](https://github.com/projecthorus/radiosonde_auto_rx/wiki).
 **This software is under regular development. Please [update
   regularly](https://github.com/projecthorus/radiosonde_auto_rx/wiki/Performing-Updates)
   to get bug-fixes and improvements!**
+
+### Licensing Information
+All software within this repository is licensed under the GNU General Public License v3. Refer this repositories LICENSE file for the full license text.
+
+Radiosonde telemetry data captured via this software and uploaded into the [Habitat](https://habitat.habhub.org/) and [Sondehub](https://sondehub.org/) Database systems is licensed under [Creative Commons BY-SA v2.0](https://creativecommons.org/licenses/by-sa/2.0/). 
+Telemetry data uploaded into the APRS-IS network is generally considered to be released into the public domain. 
+
+By uploading data into these systems (by enabling the relevant uploaders within the `station.cfg` file) you as the user agree for your data to be made available under these licenses. Note that uploading to Sondehub and Habitat is enabled by default.
 
 ### Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net

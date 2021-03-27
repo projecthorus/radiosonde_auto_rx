@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import logging
 import json
 import os
@@ -28,9 +29,11 @@ VALID_SONDE_TYPES = [
     "M10",
     "M20",
     "IMET",
+    "IMET5",
     "MK2LMS",
     "LMS6",
     "MEISEI",
+    "MRZ",
     "UDP",
 ]
 
@@ -71,7 +74,15 @@ class SondeDecoder(object):
     """
 
     # IF we don't have any of the following fields provided, we discard the incoming packet.
-    DECODER_REQUIRED_FIELDS = ["frame", "id", "datetime", "lat", "lon", "alt"]
+    DECODER_REQUIRED_FIELDS = [
+        "frame",
+        "id",
+        "datetime",
+        "lat",
+        "lon",
+        "alt",
+        "version",
+    ]
     # If we are missing any of the following fields, we add in default values to the telemetry
     # object which is passed on to the various other consumers.
     DECODER_OPTIONAL_FIELDS = {
@@ -79,9 +90,9 @@ class SondeDecoder(object):
         "humidity": -1.0,
         "pressure": -1,
         "batt": -1,
-        "vel_h": 0.0,
-        "vel_v": 0.0,
-        "heading": 0.0,
+        "vel_h": -9999.0,
+        "vel_v": -9999.0,
+        "heading": -9999.0,
     }
     # Note: The decoders may also supply other fields, such as:
     # 'batt' - Battery voltage, in volts.
@@ -96,9 +107,11 @@ class SondeDecoder(object):
         "M10",
         "M20",
         "IMET",
+        "IMET5",
         "MK2LMS",
         "LMS6",
         "MEISEI",
+        "MRZ",
         "UDP",
     ]
 
@@ -358,10 +371,14 @@ class SondeDecoder(object):
             if self.sonde_freq < 1000e6:
                 # 400-406 MHz sondes - use a 12 kHz FM demod bandwidth.
                 _rx_bw = 12000
+                # We may be able to get PTU data from these!
+                _ptu_opts = "--ptu"
             else:
                 # 1680 MHz sondes - use a 28 kHz FM demod bandwidth.
                 # NOTE: This is a first-pass of this bandwidth, and may need to be optimized.
                 _rx_bw = 28000
+                # No PTU data availble for RS92-NGP sondes.
+                _ptu_opts = "--ngp --ptu"
 
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
@@ -384,8 +401,8 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             decode_cmd += (
-                "./rs92mod -vx -v --crc --ecc --vel --json %s 2>/dev/null"
-                % _rs92_gps_data
+                "./rs92mod -vx -v --crc --ecc --vel --json %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_opts)
             )
 
         elif self.sonde_type == "DFM":
@@ -451,6 +468,47 @@ class SondeDecoder(object):
 
             # iMet-4 (IMET1RS) decoder
             decode_cmd += "./imet1rs_dft --json 2>/dev/null"
+
+        elif self.sonde_type == "IMET5":
+            # iMet-54 Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            # iMet-54 Decoder
+            decode_cmd += (
+                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
+            )
+
+        elif self.sonde_type == "MRZ":
+            # Meteo-Radiy MRZ Sondes
+
+            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+            decode_cmd += "sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_audio:
+                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+
+            # MRZ decoder
+            decode_cmd += "./mp3h1mod --auto --json --ptu 2>/dev/null"
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
@@ -635,9 +693,11 @@ class SondeDecoder(object):
             if self.sonde_freq > 1000e6:
                 # Use a higher IQ rate for 1680 MHz sondes, at the expense of some CPU usage.
                 _sdr_rate = 96000
+                _ptu_ops = "--ngp --ptu"
             else:
                 # On 400 MHz, use 48 khz - RS92s dont drift far enough to need any more than this.
                 _sdr_rate = 48000
+                _ptu_ops = "--ptu"
 
             _output_rate = 48000
             _baud_rate = 4800
@@ -671,8 +731,8 @@ class SondeDecoder(object):
             )
 
             decode_cmd = (
-                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s 2>/dev/null"
-                % _rs92_gps_data
+                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_ops)
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
@@ -838,6 +898,86 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
             self.rx_frequency = _freq
 
+        elif self.sonde_type == "IMET5":
+            # iMet-54 Decoder command.
+            _sdr_rate = 48000  # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
+            _output_rate = 48000
+            _baud_rate = 4800
+            _offset = 0.25  # Place the sonde frequency in the centre of the passband.
+            _lower = int(
+                0.025 * _sdr_rate
+            )  # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate * _offset)
+
+            demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                _sdr_rate,
+                _freq,
+            )
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sdr_rate,
+                _baud_rate,
+            )
+
+            decode_cmd = "./imet54mod --ecc --json --softin -i --ptu 2>/dev/null"
+
+            # iMet54 sondes transmit in bursts. Use a peak hold.
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
+            self.rx_frequency = _freq
+
+        elif self.sonde_type == "MRZ":
+            # MRZ Sondes.
+
+            _sdr_rate = 48000
+            _baud_rate = 2400
+            _offset = 0.25  # Place the sonde frequency in the centre of the passband.
+            _lower = int(
+                0.025 * _sdr_rate
+            )  # Limit the frequency estimation window to not include the passband edges.
+            _upper = int(0.475 * _sdr_rate)
+            _freq = int(self.sonde_freq - _sdr_rate * _offset)
+
+            demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                _sdr_rate,
+                _freq,
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sdr_rate,
+                _baud_rate,
+            )
+
+            # MRZ decoder
+            decode_cmd = "./mp3h1mod --auto --json --softin --ptu 2>/dev/null"
+
+            # MRZ sondes transmit continuously - average over the last frame, and use a mean
+            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
+            self.rx_frequency = _freq
+
         else:
             return None
 
@@ -924,7 +1064,11 @@ class SondeDecoder(object):
                         _last_packet = time.time()
 
             # Check timeout counter.
-            if (time.time() > (_last_packet + self.timeout)) and not self.udp_mode:
+            if (
+                (self.timeout > 0)
+                and (time.time() > (_last_packet + self.timeout))
+                and (not self.udp_mode)
+            ):
                 # If we have not seen data for a while, break.
                 self.log_error("RX Timed out.")
                 self.exit_state = "Timeout"
@@ -1001,8 +1145,22 @@ class SondeDecoder(object):
             # Check that the required fields are in the telemetry blob
             for _field in self.DECODER_REQUIRED_FIELDS:
                 if _field not in _telemetry:
-                    self.log_error("JSON object missing required field %s" % _field)
+                    self.log_error(
+                        "JSON object missing required field %s. Have you re-built the decoders? (./build.sh)"
+                        % _field
+                    )
                     return False
+
+            # Check the decoder version matches our current version.
+            # Note that we allow any version in UDP mode, as this is commonly used for experimentation work.
+            if (_telemetry["version"] != autorx.__version__) and (not self.udp_mode):
+                self.log_critical(
+                    "Decoder version (%s) does not match auto_rx version (%s). Have you re-built the decoders? (./build.sh)"
+                    % (_telemetry["version"], autorx.__version__)
+                )
+                self.exit_state = "Decoder Version Mismatch"
+                self.decoder_running = False
+                return False
 
             # Check for fields which we need for logging purposes, but may not always be provided
             # in the incoming JSON object.
@@ -1106,6 +1264,11 @@ class SondeDecoder(object):
                 _telemetry["id"] = self.imet_id
                 _telemetry["station_code"] = self.imet_location
 
+            # iMet-54 Specific Actions
+            if self.sonde_type == "IMET5":
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
@@ -1190,6 +1353,16 @@ class SondeDecoder(object):
             line (str): Message to be logged.
         """
         logging.error(
+            "Decoder #%s %s %.3f - %s"
+            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+        )
+
+    def log_critical(self, line):
+        """ Helper function to log an critical error message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.critical(
             "Decoder #%s %s %.3f - %s"
             % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )

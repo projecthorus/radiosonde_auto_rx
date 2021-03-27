@@ -174,12 +174,12 @@
                 layout:"fitData", 
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
-                    {title:"SDR", field:"sdr_device_idx", headerSort:false},
+                    {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
-                    {title:"Type", field:"type", headerSort:false},
-                    {title:'Freq (MHz)', field:"freq", headerSort:false},
+                    {title:"Type", field:"type", headerSort:true},
+                    {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", formatter:'html', headerSort:false},
-                    {title:"Time", field:"datetime", headerSort:false},
+                    {title:"Time", field:"datetime", headerSort:true},
                     {title:"Frame", field:"frame", headerSort:false},
                     {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
                     {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
@@ -190,7 +190,7 @@
                     {title:"RH (%)", field:"humidity", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:false},
+                    {title:"Range (km)", field:"range", headerSort:true},
                     {title:"SNR (dB)", field:"snr", headerSort:false, visible:false},
                     {title:"Other", field:"other", headerSort:false}
                 ]
@@ -244,11 +244,18 @@
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
-                        // Add a link to HabHub if we have habitat enabled.
-                        if ("habitat_enabled" in autorx_config){
-                            if(autorx_config.habitat_enabled ==true){
-                                sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
-                            }
+                        
+                        // Add a link to sondehub.org or radiosondy.info if enabled.
+                        if (autorx_config.habitat_enabled == true) {
+                            if (sonde_id_data.age != "old") {
+                                sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id  + "</a>";
+                            } else {
+                                sonde_id_data.id = "<a href='http://sondehub.org/card/" + sonde_id + "' target='_blank'>" + sonde_id  + "</a>";
+                            }     
+                        } else if (autorx_config.aprs_enabled == true && autorx_config.aprs_server == "radiosondy.info") {
+                            sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                        } else if (autorx_config.aprs_enabled == true) {
+                            sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
                         }
 
                         // Add SNR data, if it exists.

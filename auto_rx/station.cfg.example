@@ -132,6 +132,23 @@ uploader_antenna = 1/4 wave monopole
 # then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
+#################################
+# SONDEHUB v2 DATABASE SETTINGS #
+#################################
+# Settings for uploading to the new Sondehub v2 database.
+#
+# Please ensure you have set the uploader callsign and antenna detail settings in the
+# Habitat section above, as these are also used by Sondehub v2.
+[sondehub]
+
+# Enable uploading to Sondehub v2 - please leave this enabled!
+sondehub_enabled = True
+
+# How often to push data to the SondeHub Database. (seconds)
+# All received positions are cached and uploaded every X seconds. 
+# Uploads are gzip compressed, so don't require much data transfer.
+sondehub_upload_rate = 15
+
 
 ########################
 # APRS UPLOAD SETTINGS #
@@ -430,14 +447,10 @@ sdr_power_path = rtl_power
 # DEMODULATOR / DECODER TWEAKS #
 ################################
 
-# RS41 / LMS6 Drift Tweak (Regular demod chain only)
-# This tweak adds a high-pass filter into the RS41 and LMS6 demod chains. This extends the frequency offset range
-# the demod chain can handle, with some performance penalty. This is only required when using RTLSDRs
-# with worse than 2-3 PPM drift, and doesn't need to be enabled for TCXO SDRs.
-drift_tweak = False
-
 #
 # Alternate Decode Chains
+#
+# NOTE: This section will be deprecated soon, with the fsk_demod chains used permanently.
 #
 # These (not so) experimental demod chains use David Rowe's fsk_demod modem.
 # They have much better drift handling performance, and so may be better suited for
@@ -448,10 +461,14 @@ rs41_experimental = True
 rs92_experimental = True
 dfm_experimental = True
 m10_experimental = True
-# 400 MHz LMS6 sondes decode best with the fsk_demod decode chain, so we use this by default.
 lms6-400_experimental = True
-# Note: As iMet sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
+imet54_experimental = True
 
+# MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
+# If someone can confirm that this works, I'll set it to True by default!
+mrz_experimental = False
+
+# Note: As iMet-4 and IMS100 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
 # This flag sets the use of IQ detection when scanning for 1680 MHz sondes, which allows RS92-NGP sondes

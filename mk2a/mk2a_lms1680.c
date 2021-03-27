@@ -5,8 +5,19 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
 
 
 typedef unsigned char  ui8_t;
@@ -338,6 +349,7 @@ typedef struct {
     double vH; double vD; double vV;
     double vE; double vN; double vU;
     //int freq;
+    int jsn_freq;   // freq/kHz (SDR)
 } gpx_t;
 
 gpx_t gpx;
@@ -637,13 +649,20 @@ void print_frame(int len) {
                 if (crc_err==0 && (gpx.id & 0xFFFF0000)) { // CRC-OK and FullID
                     if (gpx.prev_frnr != gpx.frnr) { //|| gpx.id != _id0
                         // UTC oder GPS?
+                        char *ver_jsn = NULL;
                         printf("{ \"type\": \"%s\"", "LMS");
                         printf(", \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                gpx.frnr, gpx.id, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
                         printf(", \"subtype\": \"%s\"", "MK2A");
+                        if (gpx.jsn_freq > 0) {
+                            printf(", \"freq\": %d", gpx.jsn_freq);
+                        }
+                        #ifdef VER_JSN_STR
+                            ver_jsn = VER_JSN_STR;
+                        #endif
+                        if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                         printf(" }\n");
                         printf("\n");
-                        fflush(stdout);
                         gpx.prev_frnr = gpx.frnr;
                     }
                 }
@@ -663,6 +682,7 @@ int main(int argc, char **argv) {
     int i, bit, len;
     int pos;
     int header_found = 0;
+    int cfreq = -1;
 
 
     fpname = argv[0];
@@ -693,6 +713,13 @@ int main(int argc, char **argv) {
             option_crc = 1;
             option_verbose = 1;
         }
+        else if   (strcmp(*argv, "--jsn_cfq") == 0) {
+            int frq = -1;  // center frequency / Hz
+            ++argv;
+            if (*argv) frq = atoi(*argv); else return -1;
+            if (frq < 300000000) frq = -1;
+            cfreq = frq;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -704,6 +731,9 @@ int main(int argc, char **argv) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+    gpx.jsn_freq = 0;
+    if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
 
     i = read_wav_header(fp);
     if (i) {

@@ -10,6 +10,17 @@
 #include <complex.h>
 #include <math.h>
 
+// optional JSON "version"
+//  (a) set global
+//      gcc -DVERSION_JSN [-I<inc_dir>] ...
+#ifdef VERSION_JSN
+  #include "version_jsn.h"
+#endif
+// or
+//  (b) set local compiler option, e.g.
+//      gcc -DVER_JSN_STR=\"0.0.2\" ...
+
+
 typedef  unsigned char  ui8_t;
 
 int option_verbose = 0,  // ausfuehrliche Anzeige
@@ -41,6 +52,8 @@ typedef struct {
     //
     int gps_valid;
     int ptu_valid;
+    //
+    int jsn_freq;   // freq/kHz (SDR)
 } gpx_t;
 
 gpx_t gpx;
@@ -272,8 +285,12 @@ int print_GPS(int pos) {
     crc_val = ((byteframe+pos)[pos_GPScrc] << 8) | (byteframe+pos)[pos_GPScrc+1];
     crc = crc16(byteframe+pos, pos_GPScrc); // len=pos
 
-    lat = *(float*)(byteframe+pos+pos_GPSlat);
-    lon = *(float*)(byteframe+pos+pos_GPSlon);
+    //lat = *(float*)(byteframe+pos+pos_GPSlat);
+    //lon = *(float*)(byteframe+pos+pos_GPSlon);
+    // //raspi: copy into (aligned) float
+    memcpy(&lat, byteframe+pos+pos_GPSlat, 4);
+    memcpy(&lon, byteframe+pos+pos_GPSlon, 4);
+
     alt = ((byteframe+pos)[pos_GPSalt+1]<<8)+(byteframe+pos)[pos_GPSalt] - 5000;
     sats = (byteframe+pos)[pos_GPSsats];
     std = (byteframe+pos)[pos_GPStim+0];
@@ -427,9 +444,18 @@ int print_frame(int len) {
             if (option_json) {
                 if (gpx.gps_valid && gpx.ptu_valid) // frameNb part of PTU-pck
                 {
+                    char *ver_jsn = NULL;
                     fprintf(stdout, "{ \"type\": \"%s\"", "IMET");
-                    fprintf(stdout, ", \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\": %.2f, \"humidity\": %.2f, \"pressure\": %.2f, \"batt\": %.1f }\n",
+                    fprintf(stdout, ", \"frame\": %d, \"id\": \"iMet\", \"datetime\": \"%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %d, \"sats\": %d, \"temp\": %.2f, \"humidity\": %.2f, \"pressure\": %.2f, \"batt\": %.1f",
                             gpx.frame, gpx.hour, gpx.min, gpx.sec, gpx.lat, gpx.lon, gpx.alt, gpx.sats, gpx.temp, gpx.humidity, gpx.pressure, gpx.batt);
+                    if (gpx.jsn_freq > 0) {
+                        fprintf(stdout, ", \"freq\": %d", gpx.jsn_freq);
+                    }
+                    #ifdef VER_JSN_STR
+                        ver_jsn = VER_JSN_STR;
+                    #endif
+                    if (ver_jsn && *ver_jsn != '\0') fprintf(stdout, ", \"version\": \"%s\"", ver_jsn);
+                    fprintf(stdout, " }\n");
                 }
             }
 
@@ -474,6 +500,8 @@ int main(int argc, char *argv[]) {
 
     int bitbuf[3];
 
+    int cfreq = -1;
+
     fpname = argv[0];
     ++argv;
     while ((*argv) && (!wavloaded)) {
@@ -499,6 +527,13 @@ int main(int argc, char *argv[]) {
         else if ( (strcmp(*argv, "--json") == 0) ) {
             option_json = 1;
         }
+        else if ( (strcmp(*argv, "--jsn_cfq") == 0) ) {
+            int frq = -1;  // center frequency / Hz
+            ++argv;
+            if (*argv) frq = atoi(*argv); else return -1;
+            if (frq < 300000000) frq = -1;
+            cfreq = frq;
+        }
         else {
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
@@ -511,6 +546,8 @@ int main(int argc, char *argv[]) {
     }
     if (!wavloaded) fp = stdin;
 
+    gpx.jsn_freq = 0;
+    if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
 
     i = read_wav_header(fp);
     if (i) {

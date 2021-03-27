@@ -78,6 +78,9 @@ Depending on the mode, the result could be a packet count, or it could be a succ
 * m10_96k_float.bin - Meteomodem M10, 120 packets
 * imet4_96k_float.bin - iMet-4, Serial Number 15236, 119 packets
 * lms6-400_96k_float.bin - Lockheed Martin LMS6 (400 MHz variant), Serial number 8097164, 120 packets.
+* imet54_96k_float.bin - iMet-54, Serial number 55064062, 240 packets.
+* rsngp_96k_float.bin - Vaisala RS92-NGP (1680 MHz), Serial number P3213708, 120 packets
+* mrz_96k_float.bin - Meteo-Radiy MRZ, ID MRZ-5667-39155, ~105 packets.
 
 There are also a set of noise samples available [here](http://rfhead.net/sondes/noise_samples.tar.gz), which are useful for checking the detector scripts for false positives.
 
