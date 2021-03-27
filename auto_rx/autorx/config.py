@@ -378,7 +378,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         )
 
         # New demod tweaks - Added 2019-04-23
-        # Default to all experimental decoders on.
+        # Default to experimental decoders on for FSK/GFSK sondes...
         auto_rx_config["experimental_decoders"] = {
             "RS41": True,
             "RS92": True,
@@ -390,12 +390,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
-            "MRZ": False,
+            "MRZ": False, # .... except for the MRZ, until we know it works.
             "UDP": False,
         }
-        auto_rx_config["rs41_drift_tweak"] = config.getboolean(
-            "advanced", "drift_tweak"
-        )
+
         auto_rx_config["decoder_spacing_limit"] = config.getint(
             "advanced", "decoder_spacing_limit"
         )
@@ -509,7 +507,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
         except:
             logging.warning(
-                "Config - Did not find sondehub_enabled setting, using default (enabled / 30 seconds)."
+                "Config - Did not find sondehub_enabled setting, using default (enabled / 15 seconds)."
             )
             auto_rx_config["sondehub_enabled"] = True
             auto_rx_config["sondehub_upload_rate"] = 15
