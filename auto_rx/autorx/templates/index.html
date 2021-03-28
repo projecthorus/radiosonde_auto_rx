@@ -189,7 +189,7 @@
             // Create map object.
             mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
             mymap.addControl(new L.Control.Fullscreen());
-            if (getCookie('theme') != 'DarkMatter') {
+            if (mapTheme != 'DarkMatter') {
                 home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
                         {title: 'Receiver Location', icon: homeIcon}
                         ).addTo(mymap);
