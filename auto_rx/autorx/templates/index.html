@@ -69,20 +69,20 @@
                 // New log entry received.
                 var log_time = new Date(msg.timestamp);
                 // Check if time is UTC mode.
-                if (getCookie('UTC') == 'true') {
+                if (getCookie('UTC') == 'false') {
                     // Check if entry is important.
-                    if (msg.level == "INFO") {
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
-                    } else {
-                        // If entry is important colour text red.
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
-                    }
-                } else {
                     if (msg.level == "INFO") {
                         var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
                     } else {
                         // If entry is important colour text red.
                         var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                    }
+                } else {
+                    if (msg.level == "INFO") {
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                    } else {
+                        // If entry is important colour text red.
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
                     }
                 }
                 // Append entry to log table.
@@ -238,10 +238,10 @@
             }
             
             // Check if user has UTC time selection.
-            if (getCookie('UTC') == 'true') {
-                document.getElementById("showUTCbutton").checked = true;
-            } else {
+            if (getCookie('UTC') == 'false') {
                 document.getElementById("showUTCbutton").checked = false;
+            } else {
+                document.getElementById("showUTCbutton").checked = true;
             }
             
             // Check if user has preffered scan chart visiblity.
@@ -327,7 +327,6 @@
             
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
-                columnMinWidth:80,
                 // Split into pages for over 5 entries.
                 pagination:"local",
                 paginationSize:5,
@@ -340,15 +339,15 @@
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", formatter:'html', headerSort:true},
                     {title:"Time", field:"datetime", headerSort:true, formatter:function(cell, formatterParams, onRendered){
-                        if (getCookie('UTC') == 'true') {
-                            return cell.getValue();
-                        } else {
+                        if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
                                 return;
                             } else {
                                 return temp_time.toLocaleString("en-AU");
-                            }
+                            }                            
+                        } else {
+                            return cell.getValue();
                         }
                     }
                     },
