@@ -73,7 +73,6 @@ body {
   display: none;
 }
 
-
 .sidenav img {
   height: 10vh;
   display: block;
@@ -82,7 +81,7 @@ body {
 }
 
 .sidenav h2 {
-  font-size: 20px;
+  font-size: 1.2em;
   color: white;
   text-align: center;
 }
