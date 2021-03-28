@@ -922,6 +922,7 @@ def main():
             user_callsign=config["habitat_uploader_callsign"],
             user_position=_sondehub_station_position,
             user_antenna=config["habitat_uploader_antenna"],
+            contact_email=config["sondehub_contact_email"],
             upload_rate=config["sondehub_upload_rate"],
         )
 

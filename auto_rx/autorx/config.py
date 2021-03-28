@@ -164,6 +164,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
+        #"sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
     }
 
     try:
@@ -531,6 +532,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find iMet-54 decoder experimental decoder setting, using default (enabled)."
             )
             auto_rx_config["experimental_decoders"]["IMET5"] = True
+
+        # Sondehub Contact email (1.5.1)
+        try:
+            auto_rx_config["sondehub_contact_email"] = config.get(
+                "sondehub", "sondehub_contact_email"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find Sondehub contact e-mail setting, using default (none)."
+            )
+            auto_rx_config["sondehub_contact_email"] = "none@none.com"
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

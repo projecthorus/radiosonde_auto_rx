@@ -89,6 +89,7 @@ greylist = []
 # STATION LOCATION #
 ####################
 # Used by the Habitat Uploader, APRS Uploader, and by Rotator Control
+# Lat/Lon in decimal degrees, altitude in metres.
 [location]
 station_lat = 0.0
 station_lon = 0.0
@@ -132,6 +133,7 @@ uploader_antenna = 1/4 wave monopole
 # then we may have to implement server-side rate-limiting to avoid affecting performance.
 upload_rate = 30
 
+
 #################################
 # SONDEHUB v2 DATABASE SETTINGS #
 #################################
@@ -148,6 +150,14 @@ sondehub_enabled = True
 # All received positions are cached and uploaded every X seconds. 
 # Uploads are gzip compressed, so don't require much data transfer.
 sondehub_upload_rate = 15
+
+# An optional contact e-mail address.
+# This e-mail address will *only* be available to the Sondehub admins, and will *only*
+# be used to contact you if there is an obvious issue with your station.
+# We recommend that you join the radiosonde_auto_rx mailing list to receive updates:
+# https://groups.google.com/forum/#!forum/radiosonde_auto_rx
+sondehub_contact_email = none@none.com
+
 
 
 ########################
