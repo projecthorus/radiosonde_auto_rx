@@ -90,6 +90,10 @@ class SondehubUploader(object):
             )
             self.input_processing_running = False
 
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.user_position = (lat, lon, alt)
+
     def add(self, telemetry):
         """ Add a dictionary of telemetry to the input queue. 
 

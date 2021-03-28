@@ -88,8 +88,10 @@ greylist = []
 ####################
 # STATION LOCATION #
 ####################
-# Used by the Habitat Uploader, APRS Uploader, and by Rotator Control
+# Used by the Habitat/Sondehub Uploaders, APRS Uploader, and by Rotator Control
 # Lat/Lon in decimal degrees, altitude in metres.
+# Note: You do not need to specify your home station accurately if you don't want to!
+# Feel free to use a position somewhere near your general area, that doesn't identify your home location.
 [location]
 station_lat = 0.0
 station_lon = 0.0
@@ -100,7 +102,8 @@ station_alt = 0.0
 # NOTE: This feature is intended to make life slightly easier when using an auto_rx station in a portable
 # capacity, in particular when using a rotator. For the web interface to start up correctly, a lat/lon still
 # needs to be entered above.
-# For balloon chasing, chasemapper is much better suited: https://github.com/projecthorus/chasemapper
+# If you are doing mobile balloon chasing, please use chasemapper ( https://github.com/projecthorus/chasemapper )
+# which is far beter suited than auto_rx by itself...
 gpsd_enabled = False
 gpsd_host = localhost
 gpsd_port = 2947
@@ -120,6 +123,7 @@ habitat_enabled = True
 uploader_callsign = CHANGEME_AUTO_RX
 
 # Upload listener position to Habitat? (So you show up on the map)
+# Note that if GPSD is used, this is overriden.
 upload_listener_position = True
 
 # Uploader Antenna Description.
