@@ -179,12 +179,26 @@
             iconAnchor: [13, 34]
             });  
             
+            // Home Icon for dark mode.
+            homeIconDark = L.icon({
+            iconUrl: '{{ url_for('static', filename='img/antenna-green-dark.png') }}',
+            iconSize: [26, 34],
+            iconAnchor: [13, 34]
+            });  
+            
             // Create map object.
             mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
-            mymap.addControl(new L.Control.Fullscreen());;
-            home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+            mymap.addControl(new L.Control.Fullscreen());
+            if (getCookie('theme') != 'DarkMatter') {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
                         {title: 'Receiver Location', icon: homeIcon}
                         ).addTo(mymap);
+            } else {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+                        {title: 'Receiver Location', icon: homeIconDark}
+                        ).addTo(mymap);
+            }
+            
                         
             L.control.layers(baseMaps).addTo(mymap);
             
@@ -193,8 +207,13 @@
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
                 setCookie("theme", e['name'], 365);
+                if(e['name'] == "DarkMatter"){
+                    home_marker.setIcon(homeIconDark);
+                 }else{
+                    home_marker.setIcon(homeIcon);
+                 }
             });
-            
+                      
             // Check if user has preffered map visiblity.
             if (getCookie('map') == 'false') {
                 document.getElementById("showmapbutton").checked = false;
