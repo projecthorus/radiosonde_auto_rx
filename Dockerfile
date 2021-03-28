@@ -28,17 +28,23 @@ RUN /bin/sh build.sh
 # The application container
 # -------------------------
 FROM python:3.7-slim-buster
+
 EXPOSE 5000/tcp
 
 # Upgrade base packages and install application dependencies.
-RUN apt-get update && \
+RUN case $(uname -m) in \
+    "armv6l") extra_packages="libatlas3-base libgfortran5" ;; \
+    "armv7l") extra_packages="libatlas3-base libgfortran5" ;; \
+  esac && \
+  apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y \
   rng-tools \
   rtl-sdr \
   sox \
   tini \
-  usbutils && \
+  usbutils \
+  ${extra_packages} && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy any additional Python packages from the build container.
