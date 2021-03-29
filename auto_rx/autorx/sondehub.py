@@ -283,11 +283,12 @@ class SondehubUploader(object):
             if len(_to_upload) > 0:
                 self.upload_telemetry(_to_upload)
 
+            # DISABLED UNTIL API AVAILABLE!
             # If we haven't uploaded our station position recently, re-upload it.
-            if (
-                time.time() - self.last_user_position_upload
-            ) > self.user_position_update_rate * 3600:
-                self.station_position_upload()
+            # if (
+            #     time.time() - self.last_user_position_upload
+            # ) > self.user_position_update_rate * 3600:
+            #     self.station_position_upload()
 
             # Sleep while waiting for some new data.
             for i in range(self.upload_rate):
