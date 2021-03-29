@@ -69,6 +69,11 @@ class SondehubUploader(object):
         self.contact_email = contact_email
         self.user_position_update_rate = user_position_update_rate
 
+        if self.user_position is None:
+            self.inhibit_upload = True
+        else:
+            self.inhibit_upload = False
+
         # Input Queue.
         self.input_queue = Queue()
 
@@ -92,7 +97,11 @@ class SondehubUploader(object):
 
     def update_station_position(self, lat, lon, alt):
         """ Update the internal station position record. Used when determining the station position by GPSD """
-        self.user_position = (lat, lon, alt)
+        if self.inhibit_upload:
+            # Don't update the internal position array if we aren't uploading our position.
+            return
+        else:
+            self.user_position = (lat, lon, alt)
 
     def add(self, telemetry):
         """ Add a dictionary of telemetry to the input queue. 
@@ -379,14 +388,20 @@ class SondehubUploader(object):
     def station_position_upload(self):
         """ Upload a station position to SondeHub """
 
+        if self.inhibit_upload:
+            # Position upload inhibited. Ensure user position is set to None, and continue upload of other info.
+            self.log_debug("Sondehub station position upload inhibited, uploading other data.")
+            self.user_position = None
+
         # Refer: https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)#-put--listeners
         _position = {
             "software_name": "radiosonde_auto_rx",
             "software_version": autorx.__version__,
             "uploader_callsign": self.user_callsign,
-            "uploader_position": self.user_position, # Note: This may be None.
+            "uploader_position": self.user_position,
             "uploader_antenna": self.user_antenna,
             "uploader_contact_email": self.contact_email,
+            "mobile": False,
             "time_received": datetime.datetime.utcnow().strftime(
                 "%Y-%m-%dT%H:%M:%S.%fZ"
             )
