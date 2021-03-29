@@ -39,6 +39,7 @@ class SondehubUploader(object):
 
     # SondeHub API endpoint
     SONDEHUB_URL = "https://api.v2.sondehub.org/sondes/telemetry"
+    SONDEHUB_STATION_POSITION_URL = "https://api.v2.sondehub.org/listeners"
 
     def __init__(
         self,
@@ -48,6 +49,8 @@ class SondehubUploader(object):
         user_callsign="N0CALL",
         user_position=None,
         user_antenna="",
+        contact_email="",
+        user_position_update_rate=6
     ):
         """ Initialise and start a Sondehub uploader
         
@@ -63,9 +66,14 @@ class SondehubUploader(object):
         self.user_callsign = user_callsign
         self.user_position = user_position
         self.user_antenna = user_antenna
+        self.contact_email = contact_email
+        self.user_position_update_rate = user_position_update_rate
 
         # Input Queue.
         self.input_queue = Queue()
+
+        # Record of when we last uploaded a user station position to Sondehub.
+        self.last_user_position_upload = 0
 
         try:
             # Python 2 check. Python 2 doesnt have gzip.compress so this will throw an exception.
@@ -81,6 +89,10 @@ class SondehubUploader(object):
                 "Detected Python 2.7, which does not support gzip.compress. Sondehub DB uploading will be disabled."
             )
             self.input_processing_running = False
+
+    def update_station_position(self, lat, lon, alt):
+        """ Update the internal station position record. Used when determining the station position by GPSD """
+        self.user_position = (lat, lon, alt)
 
     def add(self, telemetry):
         """ Add a dictionary of telemetry to the input queue. 
@@ -271,6 +283,13 @@ class SondehubUploader(object):
             if len(_to_upload) > 0:
                 self.upload_telemetry(_to_upload)
 
+            # DISABLED UNTIL API AVAILABLE!
+            # If we haven't uploaded our station position recently, re-upload it.
+            # if (
+            #     time.time() - self.last_user_position_upload
+            # ) > self.user_position_update_rate * 3600:
+            #     self.station_position_upload()
+
             # Sleep while waiting for some new data.
             for i in range(self.upload_rate):
                 time.sleep(1)
@@ -355,6 +374,80 @@ class SondehubUploader(object):
 
         if not _upload_success:
             self.log_error("Upload failed after %d retries" % (_retries))
+
+
+    def station_position_upload(self):
+        """ Upload a station position to SondeHub """
+
+        # Refer: https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)#-put--listeners
+        _position = {
+            "software_name": "radiosonde_auto_rx",
+            "software_version": autorx.__version__,
+            "uploader_callsign": self.user_callsign,
+            "uploader_position": self.user_position, # Note: This may be None.
+            "uploader_antenna": self.user_antenna,
+            "uploader_contact_email": self.contact_email,
+            "time_received": datetime.datetime.utcnow().strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+        }
+
+        _retries = 0
+        _upload_success = False
+
+        _start_time = time.time()
+
+        while _retries < self.upload_retries:
+            # Run the request.
+            try:
+                headers = {
+                    "User-Agent": "autorx-" + autorx.__version__,
+                    "Content-Type": "application/json",
+                    "Date": formatdate(timeval=None, localtime=False, usegmt=True),
+                }
+                _req = requests.put(
+                    self.SONDEHUB_STATION_POSITION_URL,
+                    _position,
+                    # TODO: Revisit this second timeout value.
+                    timeout=(self.upload_timeout, 6.1),
+                    headers=headers,
+                )
+            except Exception as e:
+                self.log_error("Upload Failed: %s" % str(e))
+                return
+
+            if _req.status_code == 200:
+                # 200 is the only status code that we accept.
+                _upload_time = time.time() - _start_time
+                self.log_info(
+                    "Uploaded station information to Sondehub."
+                )
+                _upload_success = True
+                break
+
+            elif _req.status_code == 500:
+                # Server Error, Retry.
+                _retries += 1
+                continue
+            
+            elif _req.status_code == 404:
+                # Endpoint not implemented yet!
+                # Silently exit..
+                _upload_success = True
+                break
+
+            else:
+                self.log_error(
+                    "Error uploading station information to Sondehub. Status Code: %d %s."
+                    % (_req.status_code, _req.text)
+                )
+                break
+
+        if not _upload_success:
+            self.log_error("Station information upload failed after %d retries" % (_retries))
+
+        self.last_user_position_upload = time.time()
+
 
     def close(self):
         """ Close input processing thread. """

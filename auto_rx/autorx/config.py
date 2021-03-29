@@ -91,6 +91,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "max_radius_km": 1000,
         "min_radius_km": 0,
         "radius_temporary_block": False,
+        #"sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
         # Habitat Settings
         "habitat_enabled": False,
         "habitat_upload_rate": 30,
@@ -164,6 +165,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
+        #"sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
     }
 
     try:
@@ -531,6 +533,32 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find iMet-54 decoder experimental decoder setting, using default (enabled)."
             )
             auto_rx_config["experimental_decoders"]["IMET5"] = True
+
+        # Sondehub Contact email (1.5.1)
+        try:
+            auto_rx_config["sondehub_contact_email"] = config.get(
+                "sondehub", "sondehub_contact_email"
+            )
+            auto_rx_config["sonde_time_threshold"] = config.getint(
+                "advanced", "sonde_time_threshold"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find Sondehub contact e-mail setting, using default (none)."
+            )
+            auto_rx_config["sondehub_contact_email"] = "none@none.com"
+            auto_rx_config["sonde_time_threshold"] = 3
+
+        # Sonde time threshold (1.5.1)
+        try:
+            auto_rx_config["sonde_time_threshold"] = config.getfloat(
+                "filtering", "sonde_time_threshold"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find Sonde Time Threshold, using default (3 hrs)."
+            )
+            auto_rx_config["sonde_time_threshold"] = 3
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
