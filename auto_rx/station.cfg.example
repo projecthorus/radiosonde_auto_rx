@@ -482,7 +482,7 @@ imet54_experimental = True
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
 
-# Note: As iMet-4 and IMS100 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
+# Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
 # This flag sets the use of IQ detection when scanning for 1680 MHz sondes, which allows RS92-NGP sondes
@@ -512,3 +512,9 @@ min_radius_km = 0
 # WARNING: This may cause sondes which sometimes report glitchy positions (RS92, DFM) to be blocked.
 # (True or False)
 radius_temporary_block = False
+
+# Reported Time Threshold
+# Discard positions if the sonde's reported time is more than X hours from the system time.
+# This helps catch glitches around 00Z UTC from iMet & LMS6 sondes, and bad CRC checks from
+# DFM sondes.
+sonde_time_threshold = 3

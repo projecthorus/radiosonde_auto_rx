@@ -16,6 +16,7 @@ import sys
 import time
 import traceback
 import os
+from dateutil.parser import parse
 
 import autorx
 from autorx.scan import SondeScanner
@@ -464,6 +465,7 @@ def telemetry_filter(telemetry):
         - Invalid Altitude
         - Abnormal range from receiver.
         - Invalid serial number.
+        - Abnormal date (more than 6 hours from utcnow)
 
     This function is defined within this script to avoid passing around large amounts of configuration data.
 
@@ -537,6 +539,17 @@ def telemetry_filter(telemetry):
                 )
             )
             return "TempBlock"
+
+    # DateTime Check
+    _delta_time = (datetime.datetime.now(datetime.timezone.utc) - parse(telemetry['datetime'])).total_seconds()
+    logging.debug("Delta time: %d" % _delta_time)
+
+    if abs(_delta_time) > (3600*config["sonde_time_threshold"]):
+        logging.warning(
+            "Sonde reported time too far from current UTC time. Either sonde time or system time is invalid. (Threshold: %d hours)" % config["sonde_time_threshold"]
+        )
+        return False
+
 
     # Payload Serial Number Checks
     _serial = telemetry["id"]
