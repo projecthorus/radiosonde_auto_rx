@@ -539,15 +539,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["sondehub_contact_email"] = config.get(
                 "sondehub", "sondehub_contact_email"
             )
-            auto_rx_config["sonde_time_threshold"] = config.getint(
-                "advanced", "sonde_time_threshold"
-            )
         except:
             logging.warning(
                 "Config - Did not find Sondehub contact e-mail setting, using default (none)."
             )
             auto_rx_config["sondehub_contact_email"] = "none@none.com"
-            auto_rx_config["sonde_time_threshold"] = 3
 
         # Sonde time threshold (1.5.1)
         try:
