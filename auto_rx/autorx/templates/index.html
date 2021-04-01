@@ -920,7 +920,7 @@
         });
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
-        function changeNav() {
+        function changeNav() {            
             var x = document.getElementById("closebtn");
             var y = document.getElementById('mapid');
             if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
@@ -935,6 +935,7 @@
                     document.getElementById("main").style.marginLeft = "350px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
                 } else { // Fullsize on mobile.
                     x.style.display = "block";
                     y.style.display = "none";
@@ -950,6 +951,7 @@
                 document.getElementById("mySidenav").style.width = 0;
                 document.getElementById("main").style.marginLeft = 0;
                 mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
             }
         }
 
@@ -965,6 +967,7 @@
                     document.getElementById("main").style.marginRight = "350px";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
                 } else { // Fullsize on mobile.
                     y.style.display = "none";
                     document.getElementById("mySettings").style.width = "100%";
@@ -978,6 +981,7 @@
                 document.getElementById("mySettings").style.width = 0;
                 document.getElementById("main").style.marginRight = 0;
                 mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
             }
         }
 
@@ -1003,6 +1007,7 @@
              document.getElementById("scanid").style.display = "block";
              setCookie("scan", 'true', 365);
              mymap.invalidateSize();
+             setTimeout(scan_chart_obj.resize,500);
            }
         }
 
