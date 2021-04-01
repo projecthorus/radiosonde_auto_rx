@@ -371,7 +371,46 @@
                     {title:"Range (km)", field:"range", headerSort:true},
                     {title:"SNR (dB)", field:"snr", headerSort:true},
                     {title:"Other", field:"other", headerSort:false}
-                ]
+                ],
+                rowClick:function(e, row){  
+                    //Highlight Sonde on map when row selected  
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        console.log(Object.keys(sonde_positions)[i]);
+                        if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
+                            sonde_positions[Object.keys(sonde_positions)[i]]['path'].setStyle({
+                              color: sonde_positions[Object.keys(sonde_positions)[i]]['colour']
+                            });
+                            if (sonde_positions[Object.keys(sonde_positions)[i]]['latest_data']['vel_v'] < 0){
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeDescentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }else{
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }
+                        }
+                    }                    
+                                      
+                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
+                        selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: 'white'
+                        });
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
+                        }
+                    } else {
+                        selected_sonde = "";
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
+                        });
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }
+                    }
+                    
+                }
             });
             
             // Update Tabulator table.
@@ -469,6 +508,7 @@
             mymap.invalidateSize();
 
             var initial_load_complete = false;
+            selected_sonde = "";
             $.ajax({ // Get archived data.
                   url: "/get_telemetry_archive",
                   dataType: 'json',
@@ -572,9 +612,17 @@
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
                     if (msg.vel_v < 0){
-                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);                            
+                        }
                     }else{
-                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        }
                     }
 
                     if(autorx_config.station_lat != 0.0){
