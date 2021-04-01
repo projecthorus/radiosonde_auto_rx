@@ -422,7 +422,7 @@ class SondehubUploader(object):
                 }
                 _req = requests.put(
                     self.SONDEHUB_STATION_POSITION_URL,
-                    _position,
+                    json=_position,
                     # TODO: Revisit this second timeout value.
                     timeout=(self.upload_timeout, 6.1),
                     headers=headers,
