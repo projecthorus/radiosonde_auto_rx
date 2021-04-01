@@ -119,7 +119,15 @@
                         }           
 
                     // Show the latest scan time.
-                    $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp);
+                    if (getCookie('UTC') == 'false') {
+                        temp_date = data.timestamp;
+                        temp_date = temp_date.slice(0, -3);
+                        temp_date += "Z";
+                        var date = new Date(temp_date);    
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + date.toLocaleString("en-AU"));
+                    } else {
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp.slice(0, -3) + 'Z');
+                    }
 
                 }
                 );
