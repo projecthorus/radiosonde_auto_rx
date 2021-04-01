@@ -141,7 +141,6 @@
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
             var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
-            var Watercolor = L.tileLayer.provider("Stamen.Watercolor", {edgeBufferTiles: 2});
             var Terrain = L.tileLayer.provider("Stamen.Terrain", {edgeBufferTiles: 2});
             var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
             var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
@@ -154,8 +153,7 @@
                 "WorldImagery": WorldImagery,
                 "Terrain": Terrain,
                 "Voyager": Voyager,
-                "OpenTopoMap": OpenTopoMap,
-                "Watercolour": Watercolor                             
+                "OpenTopoMap": OpenTopoMap                          
             };
 
             // Check if user has preffered map theme.
