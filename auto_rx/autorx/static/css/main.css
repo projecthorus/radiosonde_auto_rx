@@ -276,6 +276,11 @@ input:checked + .slider:before {
     stroke: #ff7f0e;
 }
 
+#scan_chart .c3-tooltip-container {
+    width: 200px;
+    color: black;
+}
+
 #telem_table a:link, #telem_table a:visited {
     font-weight: bold;
     text-decoration: none;
@@ -286,7 +291,7 @@ input:checked + .slider:before {
     body {
         background-color: #121212;
     }
-    #main span, #main p, #myBtn, #scanid {
+    #main span, #main p, #myBtn {
         color: white;
     }
     .c3-axis-y, .c3-axis-x, .c3-legend-item text {
