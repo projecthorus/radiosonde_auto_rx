@@ -291,7 +291,7 @@ input:checked + .slider:before {
     body {
         background-color: #121212;
     }
-    #main span, #main p, #myBtn {
+    #main span, #main p, #myBtn, #scanid {
         color: white;
     }
     .c3-axis-y, .c3-axis-x, .c3-legend-item text {
