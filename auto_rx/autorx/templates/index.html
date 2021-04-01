@@ -619,10 +619,10 @@
               }
             });    
 
-            // Update telemetry table every 5 seconds (this is mainly to update the age field)
+            // Update telemetry table every second (this is mainly to update the age field)
             window.setInterval(function(){
                 updateTelemetryTable();
-            }, 5000);
+            }, 1000);
                         
             // Tell program we are connected and ready for data.
             socket.on('connect', function() {
