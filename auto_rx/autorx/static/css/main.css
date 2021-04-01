@@ -279,6 +279,7 @@ input:checked + .slider:before {
 #telem_table a:link, #telem_table a:visited {
     font-weight: bold;
     text-decoration: none;
+    color:inherit;
 }
 
 @media (prefers-color-scheme: dark) {
