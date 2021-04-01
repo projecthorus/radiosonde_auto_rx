@@ -27,6 +27,17 @@ for (_col in colour_values){
     });
 }
 
+sondeAscentIcons['white'] =  L.icon({
+    iconUrl: "/static/img/balloon-white.png",
+    iconSize: [46, 85],
+    iconAnchor: [23, 76]
+});
+sondeDescentIcons['white'] = L.icon({
+    iconUrl: "/static/img/parachute-white.png",
+    iconSize: [46, 84],
+    iconAnchor: [23, 76]
+});
+
 
 // calculates look angles between two points
 // format of a and b should be {lon: 0, lat: 0, alt: 0}
