@@ -187,7 +187,7 @@
             // Create map object.
             mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
             mymap.addControl(new L.Control.Fullscreen());
-            if (mapTheme != 'DarkMatter') {
+            if (mapTheme != 'DarkMatter' && mapTheme != 'WorldImagery') {
                 home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
                         {title: 'Receiver Location', icon: homeIcon}
                         ).addTo(mymap);
@@ -205,7 +205,7 @@
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
                 setCookie("theme", e['name'], 365);
-                if(e['name'] == "DarkMatter"){
+                if(e['name'] == "DarkMatter" || e['name'] == "WorldImagery"){
                     home_marker.setIcon(homeIconDark);
                  }else{
                     home_marker.setIcon(homeIcon);
