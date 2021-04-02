@@ -35,7 +35,7 @@ body {
 }
 
 .settings {
-  height: 100vh;
+  height: 100%;
   width: 0;
   position: fixed;
   z-index: 1;
@@ -46,6 +46,9 @@ body {
   transition: 0.5s;
   padding-top: 20px;
   text-align: centre;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings form {
@@ -64,7 +67,9 @@ body {
 }
 
 .scrollsettings {
-  height: 80vh;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
   overflow-y: scroll;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -117,7 +122,6 @@ body {
   background-color: #2196F3;
   color: white;
 }
-
 
 .footer {
   font-size: 15px;
