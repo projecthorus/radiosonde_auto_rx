@@ -331,13 +331,34 @@
                 }
             });
             
+            // Check if UTC button has been ticked.
+            $('#paginationSelector').change(function() {
+                setCookie("pagination", this.value, 365);
+                table.setPageSize(this.value);                              
+            });      
+
+            
+            // Check if cookie exists for entries to display per page in table
+            if (getCookie('pagination') != null) {
+                pagination_size = parseInt(getCookie('pagination'));
+                $('#paginationSelector option[value="'+ getCookie('pagination') +'"]').attr("selected",true);  
+            } else {
+                if (($( window ).width()/$( window ).height()) > 1) {
+                    pagination_size = 6;
+                    $('#paginationSelector option[value="6"]').attr("selected",true);  
+                } else {
+                    pagination_size = 3;
+                    $('#paginationSelector option[value="3"]').attr("selected",true);  
+                }
+            }
+            
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
                 placeholder:"No Sonde Data Available",
-                // Split into pages for over 5 entries.
+                // Split into pages for over 6 entries.
                 pagination:"local",
-                paginationSize:5,
+                paginationSize:pagination_size,
                 layout:"fitDataFill", 
                 resizableColumns:"header",
                 layoutColumnsOnNewData:true,
@@ -1244,6 +1265,24 @@
                     <input type="checkbox" id="showUTCbutton">
                     <span class="slider round"></span>
                   </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Set Pagination Size</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <select id="paginationSelector">
+                    <option value="1">One</option>
+                    <option value="2">Two</option>
+                    <option value="3">Three</option>
+                    <option value="4">Four</option>
+                    <option value="5">Five</option>
+                    <option value="6">Six</option>
+                    <option value="7">Seven</option>
+                    <option value="8">Eight</option>
+                    <option value="9">Nine</option>
+                    <option value="10">Ten</option>
+                </select>
                   </div>
                   <br>
                   <br>
