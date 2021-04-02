@@ -324,10 +324,17 @@
             $('#showUTCbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("UTC", 'true', 365);
-                    updateTelemetryTable();              
+                    updateTelemetryTable();
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }          
                 } else {
                     setCookie("UTC", 'false', 365);
-                    updateTelemetryTable();             
+                    updateTelemetryTable(); 
+                    table.getRow("S2431598").reformat();
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }
                 }
             });
             
