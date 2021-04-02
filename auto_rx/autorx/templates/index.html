@@ -119,7 +119,15 @@
                         }           
 
                     // Show the latest scan time.
-                    $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp);
+                    if (getCookie('UTC') == 'false') {
+                        temp_date = data.timestamp;
+                        temp_date = temp_date.slice(0, -3);
+                        temp_date += "Z";
+                        var date = new Date(temp_date);    
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + date.toLocaleString("en-AU"));
+                    } else {
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp.slice(0, -3) + 'Z');
+                    }
 
                 }
                 );
@@ -141,7 +149,6 @@
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
             var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
-            var Watercolor = L.tileLayer.provider("Stamen.Watercolor", {edgeBufferTiles: 2});
             var Terrain = L.tileLayer.provider("Stamen.Terrain", {edgeBufferTiles: 2});
             var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
             var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
@@ -154,8 +161,7 @@
                 "WorldImagery": WorldImagery,
                 "Terrain": Terrain,
                 "Voyager": Voyager,
-                "OpenTopoMap": OpenTopoMap,
-                "Watercolour": Watercolor                             
+                "OpenTopoMap": OpenTopoMap                          
             };
 
             // Check if user has preffered map theme.
@@ -189,7 +195,7 @@
             // Create map object.
             mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
             mymap.addControl(new L.Control.Fullscreen());
-            if (mapTheme != 'DarkMatter') {
+            if (mapTheme != 'DarkMatter' && mapTheme != 'WorldImagery') {
                 home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
                         {title: 'Receiver Location', icon: homeIcon}
                         ).addTo(mymap);
@@ -207,7 +213,7 @@
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
                 setCookie("theme", e['name'], 365);
-                if(e['name'] == "DarkMatter"){
+                if(e['name'] == "DarkMatter" || e['name'] == "WorldImagery"){
                     home_marker.setIcon(homeIconDark);
                  }else{
                     home_marker.setIcon(homeIcon);
@@ -318,27 +324,58 @@
             $('#showUTCbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("UTC", 'true', 365);
-                    updateTelemetryTable();              
+                    updateTelemetryTable();
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }          
                 } else {
                     setCookie("UTC", 'false', 365);
-                    updateTelemetryTable();             
+                    updateTelemetryTable(); 
+                    table.getRow("S2431598").reformat();
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }
                 }
             });
             
+            // Check if UTC button has been ticked.
+            $('#paginationSelector').change(function() {
+                setCookie("pagination", this.value, 365);
+                table.setPageSize(this.value);                              
+            });      
+
+            
+            // Check if cookie exists for entries to display per page in table
+            if (getCookie('pagination') != null) {
+                pagination_size = parseInt(getCookie('pagination'));
+                $('#paginationSelector option[value="'+ getCookie('pagination') +'"]').attr("selected",true);  
+            } else {
+                if (($( window ).width()/$( window ).height()) > 1) {
+                    pagination_size = 6;
+                    $('#paginationSelector option[value="6"]').attr("selected",true);  
+                } else {
+                    pagination_size = 3;
+                    $('#paginationSelector option[value="3"]').attr("selected",true);  
+                }
+            }
+            
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
-                // Split into pages for over 5 entries.
+                index:"realid",
+                placeholder:"No Sonde Data Available",
+                // Split into pages for over 6 entries.
                 pagination:"local",
-                paginationSize:5,
+                paginationSize:pagination_size,
                 layout:"fitDataFill", 
+                resizableColumns:"header",
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:true},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
-                    {title:"ID", field:"id", formatter:'html', headerSort:true},
-                    {title:"Time", field:"datetime", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                    {title:"ID", field:"id", formatter:'html', width:80, headerSort:true},
+                    {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
@@ -352,8 +389,8 @@
                     }
                     },
                     {title:"Frame", field:"frame", headerSort:true},
-                    {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
-                    {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
+                    {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
+                    {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
                     {title:"Alt (m)", field:"alt", headerSort:true},
                     {title:"Vel (kph)", field:"vel_h", headerSort:false},
                     {title:"Asc (m/s)", field:"vel_v", headerSort:false},
@@ -363,8 +400,49 @@
                     {title:"El (°)", field:"elevation", headerSort:false},
                     {title:"Range (km)", field:"range", headerSort:true},
                     {title:"SNR (dB)", field:"snr", headerSort:true},
-                    {title:"Other", field:"other", headerSort:false}
-                ]
+                    {title:"Other", field:"other", width:140, headerSort:false},
+                    {title:"Real ID", field:"realid", visible:false}
+                ],
+                rowContext:function(e, row){  
+                    e.preventDefault();
+                    //Highlight Sonde on map when row selected  
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        console.log(Object.keys(sonde_positions)[i]);
+                        if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
+                            sonde_positions[Object.keys(sonde_positions)[i]]['path'].setStyle({
+                              color: sonde_positions[Object.keys(sonde_positions)[i]]['colour']
+                            });
+                            if (sonde_positions[Object.keys(sonde_positions)[i]]['latest_data']['vel_v'] < 0){
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeDescentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }else{
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }
+                        }
+                    }                    
+                                      
+                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
+                        selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: 'white'
+                        });
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
+                        }
+                    } else {
+                        selected_sonde = "";
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
+                        });
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }
+                    }
+                    
+                }
             });
             
             // Update Tabulator table.
@@ -372,7 +450,7 @@
                 var telem_data = [];
 
                 if (jQuery.isEmptyObject(sonde_positions)){
-                    telem_data = [{sdr_device_idx:'None'}];
+                    telem_data = [];
                 }else{
                     var sonde_id_list = Object.getOwnPropertyNames(sonde_positions).reverse();
 
@@ -429,6 +507,8 @@
                         } else if (autorx_config.aprs_enabled == true) {
                             sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
                         }
+                        
+                        sonde_id_data.realid = sonde_id;
 
                         // Add SNR data, if it exists.
                         if (sonde_id_data.hasOwnProperty('snr')){
@@ -450,7 +530,7 @@
                         telem_data.push(sonde_id_data);
                     });
                 }       
-                table.setData(telem_data);
+                table.updateOrAddData(telem_data);
                 // Hide table page navigation if only one page.
                 if(table.getPageMax() == 1){
                     $(".tabulator-footer").hide();
@@ -462,6 +542,7 @@
             mymap.invalidateSize();
 
             var initial_load_complete = false;
+            selected_sonde = "";
             $.ajax({ // Get archived data.
                   url: "/get_telemetry_archive",
                   dataType: 'json',
@@ -565,9 +646,17 @@
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
                     if (msg.vel_v < 0){
-                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);                            
+                        }
                     }else{
-                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        }
                     }
 
                     if(autorx_config.station_lat != 0.0){
@@ -619,10 +708,10 @@
               }
             });    
 
-            // Update telemetry table every 5 seconds (this is mainly to update the age field)
+            // Update telemetry table every second (this is mainly to update the age field)
             window.setInterval(function(){
                 updateTelemetryTable();
-            }, 5000);
+            }, 1000);
                         
             // Tell program we are connected and ready for data.
             socket.on('connect', function() {
@@ -914,7 +1003,7 @@
         });
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
-        function changeNav() {
+        function changeNav() {            
             var x = document.getElementById("closebtn");
             var y = document.getElementById('mapid');
             if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
@@ -929,6 +1018,7 @@
                     document.getElementById("main").style.marginLeft = "350px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
                 } else { // Fullsize on mobile.
                     x.style.display = "block";
                     y.style.display = "none";
@@ -944,6 +1034,7 @@
                 document.getElementById("mySidenav").style.width = 0;
                 document.getElementById("main").style.marginLeft = 0;
                 mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
             }
         }
 
@@ -959,6 +1050,7 @@
                     document.getElementById("main").style.marginRight = "350px";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
                 } else { // Fullsize on mobile.
                     y.style.display = "none";
                     document.getElementById("mySettings").style.width = "100%";
@@ -972,6 +1064,7 @@
                 document.getElementById("mySettings").style.width = 0;
                 document.getElementById("main").style.marginRight = 0;
                 mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
             }
         }
 
@@ -997,6 +1090,7 @@
              document.getElementById("scanid").style.display = "block";
              setCookie("scan", 'true', 365);
              mymap.invalidateSize();
+             setTimeout(scan_chart_obj.resize,500);
            }
         }
 
@@ -1181,6 +1275,24 @@
                   </div>
                   <br>
                   <br>
+                  <h2 style="display:inline;vertical-align:middle;">Set Pagination Size</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <select id="paginationSelector">
+                    <option value="1">One</option>
+                    <option value="2">Two</option>
+                    <option value="3">Three</option>
+                    <option value="4">Four</option>
+                    <option value="5">Five</option>
+                    <option value="6">Six</option>
+                    <option value="7">Seven</option>
+                    <option value="8">Eight</option>
+                    <option value="9">Nine</option>
+                    <option value="10">Ten</option>
+                </select>
+                  </div>
+                  <br>
+                  <br>
                   <h2 style="display:inline;vertical-align:middle;">Follow Sonde</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
@@ -1203,6 +1315,9 @@
                   <div style="display:inline;vertical-align:middle;">
                     <button onclick="deleteAllCookies()">RESET</button>
                   </div>
+                  <br>
+                  <br>
+                  <br>
             </div>
         </div>
     </div>

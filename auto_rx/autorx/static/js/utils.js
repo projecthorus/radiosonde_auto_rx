@@ -3,7 +3,7 @@
 
 
 // Color cycling for balloon traces and icons - Hopefully 4 colors should be enough for now!
-var colour_values = ['blue','red','green','purple'];
+var colour_values = ['red','green','blue','yellow', 'cyan', 'magenta'];
 var colour_idx = 0;
 
 var los_color = '#00FF00';
@@ -26,6 +26,17 @@ for (_col in colour_values){
 	    iconAnchor: [23, 76]
     });
 }
+
+sondeAscentIcons['white'] =  L.icon({
+    iconUrl: "/static/img/balloon-white.png",
+    iconSize: [46, 85],
+    iconAnchor: [23, 76]
+});
+sondeDescentIcons['white'] = L.icon({
+    iconUrl: "/static/img/parachute-white.png",
+    iconSize: [46, 84],
+    iconAnchor: [23, 76]
+});
 
 
 // calculates look angles between two points
