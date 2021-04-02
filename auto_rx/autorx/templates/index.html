@@ -333,19 +333,21 @@
             
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
+                index:"realid",
                 placeholder:"No Sonde Data Available",
                 // Split into pages for over 5 entries.
                 pagination:"local",
                 paginationSize:5,
                 layout:"fitDataFill", 
+                resizableColumns:"header",
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:true},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
-                    {title:"ID", field:"id", formatter:'html', headerSort:true},
-                    {title:"Time", field:"datetime", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                    {title:"ID", field:"id", formatter:'html', width:80, headerSort:true},
+                    {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
@@ -359,8 +361,8 @@
                     }
                     },
                     {title:"Frame", field:"frame", headerSort:true},
-                    {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
-                    {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
+                    {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
+                    {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
                     {title:"Alt (m)", field:"alt", headerSort:true},
                     {title:"Vel (kph)", field:"vel_h", headerSort:false},
                     {title:"Asc (m/s)", field:"vel_v", headerSort:false},
@@ -370,9 +372,11 @@
                     {title:"El (°)", field:"elevation", headerSort:false},
                     {title:"Range (km)", field:"range", headerSort:true},
                     {title:"SNR (dB)", field:"snr", headerSort:true},
-                    {title:"Other", field:"other", headerSort:false}
+                    {title:"Other", field:"other", width:140, headerSort:false},
+                    {title:"Real ID", field:"realid", visible:false}
                 ],
-                rowClick:function(e, row){  
+                rowContext:function(e, row){  
+                    e.preventDefault();
                     //Highlight Sonde on map when row selected  
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         console.log(Object.keys(sonde_positions)[i]);
@@ -418,7 +422,7 @@
                 var telem_data = [];
 
                 if (jQuery.isEmptyObject(sonde_positions)){
-                    telem_data = [{sdr_device_idx:'None'}];
+                    telem_data = [];
                 }else{
                     var sonde_id_list = Object.getOwnPropertyNames(sonde_positions).reverse();
 
@@ -475,6 +479,8 @@
                         } else if (autorx_config.aprs_enabled == true) {
                             sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
                         }
+                        
+                        sonde_id_data.realid = sonde_id;
 
                         // Add SNR data, if it exists.
                         if (sonde_id_data.hasOwnProperty('snr')){
@@ -496,7 +502,7 @@
                         telem_data.push(sonde_id_data);
                     });
                 }       
-                table.setData(telem_data);
+                table.updateOrAddData(telem_data);
                 // Hide table page navigation if only one page.
                 if(table.getPageMax() == 1){
                     $(".tabulator-footer").hide();
