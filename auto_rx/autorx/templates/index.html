@@ -431,21 +431,25 @@
                         sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
                           color: 'white'
                         });
+                        /*
                         if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
                         }else{
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
                         }
+                        */
                     } else {
                         selected_sonde = "";
                         sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
                           color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
                         });
+                        /*
                         if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
                         }else{
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
                         }
+                        */
                     }
                     
                 }
