@@ -368,7 +368,7 @@
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
-                placeholder:"No Sonde Data Available",
+                //placeholder:"No Sonde Data Available", Does not work when some columns are hidden
                 // Split into pages for over 6 entries.
                 pagination:"local",
                 paginationSize:pagination_size,
@@ -431,21 +431,25 @@
                         sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
                           color: 'white'
                         });
+                        /*
                         if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
                         }else{
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
                         }
+                        */
                     } else {
                         selected_sonde = "";
                         sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
                           color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
                         });
+                        /*
                         if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
                         }else{
                             sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
                         }
+                        */
                     }
                     
                 }
@@ -725,7 +729,7 @@
             });   
             
             // Function to change table columns visible.
-            $(document).on('change', 'form input', function() {
+            $(document).on('change', 'form input', function() {            
                 var checked = $(this).is(":checked");
                 
                 if (checked == false) {
@@ -734,10 +738,10 @@
                   var cookiesend = 'true';
                 }
                 
-                // Set cookie for columns to show in future.
-                setCookie("col" + index, cookiesend, 365);
-
                 var index = $(this).attr("class");
+                
+                // Set cookie for columns to show in future.
+                setCookie("col" + index, cookiesend, 365);  
 
                 // Update Tabulator table with selected columns visible.
                 if(checked) {  
@@ -1332,9 +1336,8 @@
     <div id="main" onload="loadMap();">
         <div>
             <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX</span>
-            <span style="font-size:2vh;">&nbsp;&nbsp;&nbsp;&nbsp;Station: </span>
-            <span style="font-size:2vh;" id="station_callsign">???</span>
         </div>
+        <p style="font-size:2vh;">Station: <span id="station_callsign">???</span></p>
         <p style="font-size:2vh;">Current Task: <span id="task_status">???</span></p>
         <div id="tableid">
             <div id="telem_table"></div>
