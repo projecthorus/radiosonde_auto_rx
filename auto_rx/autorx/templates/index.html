@@ -725,7 +725,7 @@
             });   
             
             // Function to change table columns visible.
-            $(document).on('change', 'form input', function() {
+            $(document).on('change', 'form input', function() {            
                 var checked = $(this).is(":checked");
                 
                 if (checked == false) {
@@ -734,10 +734,10 @@
                   var cookiesend = 'true';
                 }
                 
-                // Set cookie for columns to show in future.
-                setCookie("col" + index, cookiesend, 365);
-
                 var index = $(this).attr("class");
+                
+                // Set cookie for columns to show in future.
+                setCookie("col" + index, cookiesend, 365);  
 
                 // Update Tabulator table with selected columns visible.
                 if(checked) {  
