@@ -5,6 +5,10 @@ body {
   overflow: hidden;
 }
 
+p {
+  margin: 0.3vh;   
+}
+
 body {
   font-family: "Roboto", sans-serif;
   display: flex;
