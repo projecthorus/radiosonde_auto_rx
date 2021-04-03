@@ -368,7 +368,7 @@
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
-                placeholder:"No Sonde Data Available",
+                //placeholder:"No Sonde Data Available", Does not work when some columns are hidden
                 // Split into pages for over 6 entries.
                 pagination:"local",
                 paginationSize:pagination_size,
