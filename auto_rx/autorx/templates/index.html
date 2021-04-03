@@ -52,6 +52,12 @@
                   async: false,
                   success: function(data) {
                     autorx_config = data;
+                    // Update station callsign area
+                    _station_call = autorx_config['habitat_uploader_callsign'];
+                    if (autorx_config['aprs_user'] !== "N0CALL"){
+                        _station_call += " / " + autorx_config['aprs_user'];
+                    }
+                    $('#station_callsign').text(_station_call);
                   }
             });
             
@@ -1324,7 +1330,11 @@
 
     <!-- Wrapper for main screen -->   
     <div id="main" onload="loadMap();">
-        <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX</span>
+        <div>
+            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX</span>
+            <span style="font-size:2vh;">&nbsp;&nbsp;&nbsp;&nbsp;Station: </span>
+            <span style="font-size:2vh;" id="station_callsign">???</span>
+        </div>
         <p style="font-size:2vh;">Current Task: <span id="task_status">???</span></p>
         <div id="tableid">
             <div id="telem_table"></div>
