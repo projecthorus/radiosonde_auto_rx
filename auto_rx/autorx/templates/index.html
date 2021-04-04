@@ -256,6 +256,13 @@
                 document.getElementById("showUTCbutton").checked = true;
             }
             
+            // Check if user has UTC time selection.
+            if (getCookie('imperial') == 'true') {
+                document.getElementById("showimperialbutton").checked = true;
+            } else {
+                document.getElementById("showimperialbutton").checked = false;
+            }
+            
             // Check if user has preffered scan chart visiblity.
             if (getCookie('scan') == 'true') {
                 document.getElementById("showscanbutton").checked = true;
@@ -278,7 +285,7 @@
             } else {
                 document.getElementById("showdarkbutton").checked = false;
                 changeTheme(false);
-            }
+            }              
                
             // Function to change CSS options when changing dark mode.
             function changeTheme(dark) {
@@ -319,10 +326,21 @@
             $('#showdarkbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("dark", 'true', 365);
-                    changeTheme(true);               
+                    changeTheme(true);                                             
                 } else {
                     setCookie("dark", 'false', 365);
                     changeTheme(false);            
+                }
+            });
+            
+            // Check if imperial units button has been ticked.
+            $('#showimperialbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("imperial", 'true', 365);
+                    location.reload(); 
+                } else {
+                    setCookie("imperial", 'false', 365);     
+                    location.reload();  
                 }
             });
             
@@ -330,21 +348,27 @@
             $('#showUTCbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("UTC", 'true', 365);
-                    updateTelemetryTable();
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
                     }          
                 } else {
                     setCookie("UTC", 'false', 365);
-                    updateTelemetryTable(); 
-                    table.getRow("S2431598").reformat();
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
                     }
                 }
             });
             
-            // Check if UTC button has been ticked.
+            // Check if settings div has been scrolled.
+            $('#scrollsettingsid').scroll(function() {
+                if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                    document.getElementById("downdiv").style.display = "none";
+                } else {
+                    document.getElementById("downdiv").style.display = "block";
+                }
+            });
+                       
+            // Check if pagination selector has been ticked.
             $('#paginationSelector').change(function() {
                 setCookie("pagination", this.value, 365);
                 table.setPageSize(this.value);                              
@@ -397,14 +421,79 @@
                     {title:"Frame", field:"frame", headerSort:true},
                     {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
                     {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
-                    {title:"Alt (m)", field:"alt", headerSort:true},
-                    {title:"Vel (kph)", field:"vel_h", headerSort:false},
-                    {title:"Asc (m/s)", field:"vel_v", headerSort:false},
-                    {title:"Temp (°C)", field:"temp", headerSort:false},
+                    {title:"Alt", field:"alt", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft)";              
+                        } else {
+                            return cell.getValue() + " (m)";
+                        }
+                    }
+                    },
+                    {title:"Vel", field:"vel_h", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.62137) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mph)";              
+                        } else {
+                            return cell.getValue() + " (kph)";
+                        }
+                    }
+                    },
+                    {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);           
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft/s)";              
+                        } else {
+                            return cell.getValue() + " (m/s)";
+                        }
+                    }
+                    },
+                    {title:"Temp", field:"temp", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round(((cell.getValue()*9/5) + 32) * 10) / 10);               
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (°F)";              
+                        } else {
+                            return cell.getValue() + " (°C)";
+                        }
+                    }
+                    },
                     {title:"RH (%)", field:"humidity", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:true},
+                    {title:"Range", field:"range", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.621371) * 10) / 10);             
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mi)";              
+                        } else {
+                            return cell.getValue() + " (km)";
+                        }
+                    }
+                    },
                     {title:"SNR (dB)", field:"snr", headerSort:true},
                     {title:"Other", field:"other", width:140, headerSort:false},
                     {title:"Real ID", field:"realid", visible:false}
@@ -936,7 +1025,7 @@
                 } else if (show == 'true') {
                     document.getElementById("checkbox" + i).checked = true;
                 } else {
-                    if (($( window ).width()/$( window ).height()) > 1) {
+                    if ($( window ).width() > 1600) {
                         document.getElementById("checkbox" + i).checked = true;
                     } else { // If no cookies are set on mobile device show limited number for better experience.
                         if ([1,4,9,16].includes(i)) {
@@ -1049,7 +1138,7 @@
         }
 
         // Function to open/close right settings menu along with adjusting other elements so they render correctly.
-        function changeSettings() {
+        function changeSettings() {            
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
@@ -1061,6 +1150,7 @@
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
                     setTimeout(scan_chart_obj.resize,500);
+                    setTimeout(showDown,500);
                 } else { // Fullsize on mobile.
                     y.style.display = "none";
                     document.getElementById("mySettings").style.width = "100%";
@@ -1075,6 +1165,15 @@
                 document.getElementById("main").style.marginRight = 0;
                 mymap.invalidateSize();
                 setTimeout(scan_chart_obj.resize,500);
+                setTimeout(showDown,500);
+            }
+        }
+        
+        function showDown () {
+            if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                document.getElementById("downdiv").style.display = "none";
+            } else {
+                document.getElementById("downdiv").style.display = "block";
             }
         }
 
@@ -1088,7 +1187,7 @@
              setCookie("map", 'true', 365);
              mymap.invalidateSize();
            }
-        }
+        }       
 
         // Show/hide scan chart on button press and update cookies.
         function showScan(element) {
@@ -1192,7 +1291,7 @@
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
         <br><h2>Settings</h2>
-        <div class="scrollsettings">
+        <div class="scrollsettings" id="scrollsettingsid">
             <h2>Table Options</h2>
               <form>
                   <input type="checkbox" class="0" id="checkbox0" checked>
@@ -1312,7 +1411,17 @@
                   </label>
                   </div>
                   <br>
-                  <br>              
+                  <br>   
+                  <h2 style="display:inline;vertical-align:middle;">Show Imperial Units</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showimperialbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>                   
                   <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
@@ -1324,11 +1433,14 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button onclick="deleteAllCookies()">RESET</button>
-                  </div>
+                  </div>                 
                   <br>
                   <br>
                   <br>
-            </div>
+            </div>       
+        </div>    
+        <div id="downdiv">
+            <i class="fa fa-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
 

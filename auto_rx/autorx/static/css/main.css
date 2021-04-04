@@ -38,6 +38,21 @@ body {
   flex-direction: column;
 }
 
+#downdiv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  width: 100%;
+  position: absolute;
+  z-index: 10;
+  text-align: center;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .settings {
   height: 100%;
   width: 0;
