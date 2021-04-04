@@ -285,7 +285,7 @@
             } else {
                 document.getElementById("showdarkbutton").checked = false;
                 changeTheme(false);
-            }
+            }              
                
             // Function to change CSS options when changing dark mode.
             function changeTheme(dark) {
@@ -326,7 +326,7 @@
             $('#showdarkbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("dark", 'true', 365);
-                    changeTheme(true);               
+                    changeTheme(true);                                             
                 } else {
                     setCookie("dark", 'false', 365);
                     changeTheme(false);            
@@ -359,6 +359,15 @@
                 }
             });
             
+            // Check if settings div has been scrolled.
+            $('#scrollsettingsid').scroll(function() {
+                if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                    document.getElementById("downdiv").style.display = "none";
+                } else {
+                    document.getElementById("downdiv").style.display = "block";
+                }
+            });
+                       
             // Check if pagination selector has been ticked.
             $('#paginationSelector').change(function() {
                 setCookie("pagination", this.value, 365);
@@ -1129,7 +1138,7 @@
         }
 
         // Function to open/close right settings menu along with adjusting other elements so they render correctly.
-        function changeSettings() {
+        function changeSettings() {            
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
@@ -1141,6 +1150,7 @@
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
                     setTimeout(scan_chart_obj.resize,500);
+                    setTimeout(showDown,500);
                 } else { // Fullsize on mobile.
                     y.style.display = "none";
                     document.getElementById("mySettings").style.width = "100%";
@@ -1155,6 +1165,15 @@
                 document.getElementById("main").style.marginRight = 0;
                 mymap.invalidateSize();
                 setTimeout(scan_chart_obj.resize,500);
+                setTimeout(showDown,500);
+            }
+        }
+        
+        function showDown () {
+            if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                document.getElementById("downdiv").style.display = "none";
+            } else {
+                document.getElementById("downdiv").style.display = "block";
             }
         }
 
@@ -1168,7 +1187,7 @@
              setCookie("map", 'true', 365);
              mymap.invalidateSize();
            }
-        }
+        }       
 
         // Show/hide scan chart on button press and update cookies.
         function showScan(element) {
@@ -1272,7 +1291,7 @@
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
         <br><h2>Settings</h2>
-        <div class="scrollsettings">
+        <div class="scrollsettings" id="scrollsettingsid">
             <h2>Table Options</h2>
               <form>
                   <input type="checkbox" class="0" id="checkbox0" checked>
@@ -1414,11 +1433,14 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button onclick="deleteAllCookies()">RESET</button>
-                  </div>
+                  </div>                 
                   <br>
                   <br>
                   <br>
-            </div>
+            </div>       
+        </div>    
+        <div id="downdiv">
+            <i class="fa fa-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
 
