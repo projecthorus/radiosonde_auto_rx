@@ -256,6 +256,13 @@
                 document.getElementById("showUTCbutton").checked = true;
             }
             
+            // Check if user has UTC time selection.
+            if (getCookie('imperial') == 'true') {
+                document.getElementById("showimperialbutton").checked = true;
+            } else {
+                document.getElementById("showimperialbutton").checked = false;
+            }
+            
             // Check if user has preffered scan chart visiblity.
             if (getCookie('scan') == 'true') {
                 document.getElementById("showscanbutton").checked = true;
@@ -326,25 +333,33 @@
                 }
             });
             
+            // Check if imperial units button has been ticked.
+            $('#showimperialbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("imperial", 'true', 365);
+                    location.reload(); 
+                } else {
+                    setCookie("imperial", 'false', 365);     
+                    location.reload();  
+                }
+            });
+            
             // Check if UTC button has been ticked.
             $('#showUTCbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("UTC", 'true', 365);
-                    updateTelemetryTable();
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
                     }          
                 } else {
                     setCookie("UTC", 'false', 365);
-                    updateTelemetryTable(); 
-                    table.getRow("S2431598").reformat();
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
                     }
                 }
             });
             
-            // Check if UTC button has been ticked.
+            // Check if pagination selector has been ticked.
             $('#paginationSelector').change(function() {
                 setCookie("pagination", this.value, 365);
                 table.setPageSize(this.value);                              
@@ -397,14 +412,79 @@
                     {title:"Frame", field:"frame", headerSort:true},
                     {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
                     {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
-                    {title:"Alt (m)", field:"alt", headerSort:true},
-                    {title:"Vel (kph)", field:"vel_h", headerSort:false},
-                    {title:"Asc (m/s)", field:"vel_v", headerSort:false},
-                    {title:"Temp (°C)", field:"temp", headerSort:false},
+                    {title:"Alt", field:"alt", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft)";              
+                        } else {
+                            return cell.getValue() + " (m)";
+                        }
+                    }
+                    },
+                    {title:"Vel", field:"vel_h", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.62137) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mph)";              
+                        } else {
+                            return cell.getValue() + " (kph)";
+                        }
+                    }
+                    },
+                    {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);           
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft/s)";              
+                        } else {
+                            return cell.getValue() + " (m/s)";
+                        }
+                    }
+                    },
+                    {title:"Temp", field:"temp", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round(((cell.getValue()*9/5) + 32) * 10) / 10);               
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (°F)";              
+                        } else {
+                            return cell.getValue() + " (°C)";
+                        }
+                    }
+                    },
                     {title:"RH (%)", field:"humidity", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:true},
+                    {title:"Range", field:"range", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.621371) * 10) / 10);             
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mi)";              
+                        } else {
+                            return cell.getValue() + " (km)";
+                        }
+                    }
+                    },
                     {title:"SNR (dB)", field:"snr", headerSort:true},
                     {title:"Other", field:"other", width:140, headerSort:false},
                     {title:"Real ID", field:"realid", visible:false}
@@ -1312,7 +1392,17 @@
                   </label>
                   </div>
                   <br>
-                  <br>              
+                  <br>   
+                  <h2 style="display:inline;vertical-align:middle;">Show Imperial Units</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showimperialbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>                   
                   <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
