@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+
+#!/bin/python3
 #
 #   Radiosonde Auto RX Service - V2.0
 #
@@ -8,6 +9,8 @@
 #   Refer github page for instructions on setup and usage.
 #   https://github.com/projecthorus/radiosonde_auto_rx/
 #
+
+# Global imports
 import argparse
 import datetime
 import logging
@@ -15,8 +18,9 @@ import re
 import sys
 import time
 import traceback
-import os
+from pathlib import Path
 
+# Specific import
 import autorx
 from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
@@ -42,13 +46,12 @@ from autorx.web import (
     WebExporter,
 )
 from autorx.gpsd import GPSDAdaptor
+from queue import Queue
 
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
+from libs.constants import ReturnValues
+
+
+FILE_NAME = Path(__file__).name
 
 
 # Logging level
@@ -88,18 +91,20 @@ gpsd_adaptor = None
 temporary_block_list = {}
 
 
-def allocate_sdr(check_only=False, task_description=""):
+def allocate_sdr(check_only: bool = False,
+                 task_description: str = "") -> str or None:
     """ Allocate an un-used SDR for a task.
 
     Args:
         check_only (bool) : If True, don't set the free SDR as in-use. Used to check if there are any free SDRs.
+        task_description: The description of the task
 
     Returns:
         (str): The device index/serial number of the free/allocated SDR, if one is free, else None.
     """
 
     for _idx in sorted(autorx.sdr_list.keys()):
-        if autorx.sdr_list[_idx]["in_use"] == False:
+        if not autorx.sdr_list[_idx]["in_use"]:
             # Found a free SDR!
             if check_only:
                 # If we are just checking to see if there are any SDRs free, we don't allocate it.
@@ -107,10 +112,7 @@ def allocate_sdr(check_only=False, task_description=""):
             else:
                 # Otherwise, set the SDR as in-use.
                 autorx.sdr_list[_idx]["in_use"] = True
-                logging.info(
-                    "Task Manager - SDR #%s has been allocated to %s."
-                    % (str(_idx), task_description)
-                )
+                logging.info("Task Manager - SDR #{} has been allocated to {}.".format(_idx, task_description))
 
             return _idx
 
@@ -193,7 +195,8 @@ def stop_scanner():
         autorx.task_list.pop("SCAN")
 
 
-def start_decoder(freq, sonde_type):
+def start_decoder(freq: float,
+                  sonde_type: str) -> None:
     """ Attempt to start a decoder thread for a given sonde.
 
     Args:
@@ -205,7 +208,7 @@ def start_decoder(freq, sonde_type):
 
     # Allocate a SDR.
     _device_idx = allocate_sdr(
-        task_description="Decoder (%s, %.3f MHz)" % (sonde_type, freq / 1e6)
+        task_description="Decoder ({0}, {0.3f} MHz)".format(sonde_type, freq / 1e6)
     )
 
     if _device_idx is None:
@@ -288,9 +291,7 @@ def handle_scan_results():
                             if abs(_key - _freq) < config["decoder_spacing_limit"]:
                                 # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
                                 # Without actually starting another decoder and matching IDs, we can't be 100% sure, but it's a good chance.
-                                logging.error(
-                                    "Task Manager - Detected %s sonde on %.3f MHz, but this is within %d kHz of an already running decoder. (This limit can be set using the 'decoder_spacing_limit' advanced config option.)"
-                                    % (
+                                logging.error("Task Manager - Detected {0} sonde on {0.3f} MHz, but this is within {0.3f} kHz of an already running decoder. (This limit can be set using the 'decoder_spacing_limit' advanced config option.)".format(
                                         _type,
                                         _freq / 1e6,
                                         config["decoder_spacing_limit"] / 1e3,
@@ -309,17 +310,11 @@ def handle_scan_results():
                     if temporary_block_list[_freq] > (
                         time.time() - config["temporary_block_time"] * 60
                     ):
-                        logging.error(
-                            "Task Manager - Attempted to start a decoder on a temporarily blocked frequency (%.3f MHz)"
-                            % (_freq / 1e6)
-                        )
+                        logging.error("Task Manager - Attempted to start a decoder on a temporarily blocked frequency ({0.3f} MHz)".format(_freq / 1e6))
                         continue
                     else:
                         # This frequency should not be blocked any more, remove it from the block list.
-                        logging.info(
-                            "Task Manager - Removed %.3f MHz from temporary block list."
-                            % (_freq / 1e6)
-                        )
+                        logging.info("Task Manager - Removed {0.3f} MHz from temporary block list.".format(_freq / 1e6))
                         temporary_block_list.pop(_freq)
 
                 # Handle an inverted sonde detection.
@@ -331,16 +326,11 @@ def handle_scan_results():
                     _inverted = ""
 
                 # Note: We don't indicate if it's been detected as inverted here.
-                logging.info(
-                    "Task Manager - Detected new %s sonde on %.3f MHz!"
-                    % (_check_type, _freq / 1e6)
-                )
+                logging.info("Task Manager - Detected new {0} sonde on {0.3f} MHz!".format(_check_type, _freq / 1e6))
 
                 # Break if we don't support this sonde type.
                 if _check_type not in VALID_SONDE_TYPES:
-                    logging.error(
-                        "Task Manager - Unsupported sonde type: %s" % _check_type
-                    )
+                    logging.error("Task Manager - Unsupported sonde type: {0}".format(_check_type))
                     # TODO - Potentially add the frequency of the unsupported sonde to the temporary block list?
                     continue
 
@@ -371,21 +361,16 @@ def clean_task_list():
             _running = autorx.task_list[_key]["task"].running()
             _task_sdr = autorx.task_list[_key]["device_idx"]
             _exit_state = autorx.task_list[_key]["task"].exit_state
-        except Exception as e:
-            logging.error(
-                "Task Manager - Error getting task %s state - %s" % (str(_key), str(e))
-            )
+        except Exception as err:
+            logging.error("Task Manager - Error getting task {} state - {}".format(_key, err))
             continue
 
-        if _running == False:
+        if not _running:
             # This task has stopped.
             # Check the exit state of the task for any abnormalities:
             if (_exit_state == "Encrypted") or (_exit_state == "TempBlock"):
                 # This task was a decoder, and it has encountered an encrypted sonde, or one too far away.
-                logging.info(
-                    "Task Manager - Adding temporary block for frequency %.3f MHz"
-                    % (_key / 1e6)
-                )
+                logging.info("Task Manager - Adding temporary block for frequency {0.3f} MHz".format(_key / 1e6))
                 # Add the sonde's frequency to the global temporary block-list
                 temporary_block_list[_key] = time.time()
                 # If there is a scanner currently running, add it to the scanners internal block list.
@@ -396,10 +381,7 @@ def clean_task_list():
                 # The SDR was not able to be recovered after many attempts.
                 # Remove it from the SDR list and flag an error.
                 autorx.sdr_list.pop(_task_sdr)
-                _error_msg = (
-                    "Task Manager - Removed SDR %s from SDR list due to repeated failures."
-                    % (str(_task_sdr))
-                )
+                _error_msg = ("Task Manager - Removed SDR {} from SDR list due to repeated failures.".format(_task_sdr))
                 logging.error(_error_msg)
 
                 # Send email if configured.
@@ -421,10 +403,7 @@ def clean_task_list():
             time.time() - config["temporary_block_time"] * 60
         ):
             temporary_block_list.pop(_freq)
-            logging.info(
-                "Task Manager - Removed %.3f MHz from temporary block list."
-                % (_freq / 1e6)
-            )
+            logging.info("Task Manager - Removed {0.3f} MHz from temporary block list.".format(_freq / 1e6))
 
     # Check if there is a scanner thread still running.
     # If not, and if there is a SDR free, start one up again.
@@ -445,16 +424,16 @@ def stop_all():
     for _task in autorx.task_list.keys():
         try:
             autorx.task_list[_task]["task"].stop()
-        except Exception as e:
-            logging.error("Error stopping task - %s" % str(e))
+        except Exception as err:
+            logging.error("Error stopping task - {}".format(err))
 
     for _exporter in exporter_objects:
         try:
             _exporter.close()
-        except Exception as e:
-            logging.error("Error stopping exporter - %s" % str(e))
+        except Exception as err:
+            logging.error("Error stopping exporter - {}".format(err))
 
-    if gpsd_adaptor != None:
+    if gpsd_adaptor is not None:
         gpsd_adaptor.close()
 
 
@@ -471,28 +450,21 @@ def telemetry_filter(telemetry):
     global config
 
     # First Check: zero lat/lon
+    # Note : Be careful this position not occurring very often but it is possible
     if (telemetry["lat"] == 0.0) and (telemetry["lon"] == 0.0):
-        logging.warning(
-            "Zero Lat/Lon. Sonde %s does not have GPS lock." % telemetry["id"]
-        )
+        logging.warning("Zero Lat/Lon. Sonde {} does not have GPS lock.".format(telemetry["id"]))
         return False
 
     # Second check: Altitude cap.
     if telemetry["alt"] > config["max_altitude"]:
         _altitude_breach = telemetry["alt"] - config["max_altitude"]
-        logging.warning(
-            "Sonde %s position breached altitude cap by %d m."
-            % (telemetry["id"], _altitude_breach)
-        )
+        logging.warning("Sonde {} position breached altitude cap by {} m.".format(telemetry["id"], _altitude_breach))
         return False
 
     # Third check: Number of satellites visible.
     if "sats" in telemetry:
         if telemetry["sats"] < 4:
-            logging.warning(
-                "Sonde %s can only see %d SVs - discarding position as bad."
-                % (telemetry["id"], telemetry["sats"])
-            )
+            logging.warning("Sonde {} can only see {} satellites - discarding position as bad.".format(telemetry["id"], telemetry["sats"]))
             return False
 
     # Fourth check - is the payload more than x km from our listening station.
@@ -512,15 +484,10 @@ def telemetry_filter(telemetry):
             _radius_breach = (
                 _info["straight_distance"] / 1000.0 - config["max_radius_km"]
             )
-            logging.warning(
-                "Sonde %s position breached radius cap by %.1f km."
-                % (telemetry["id"], _radius_breach)
-            )
+            logging.warning("Sonde {0} position breached radius cap by {0.1f} km.".format(telemetry["id"], _radius_breach))
 
             if config["radius_temporary_block"]:
-                logging.warning(
-                    "Blocking for %d minutes." % config["temporary_block_time"]
-                )
+                logging.warning("Blocking for {} minutes.".format(config["temporary_block_time"]))
                 return "TempBlock"
             else:
                 return False
@@ -528,14 +495,7 @@ def telemetry_filter(telemetry):
         if (_info["straight_distance"] < config["min_radius_km"] * 1000) and config[
             "radius_temporary_block"
         ]:
-            logging.warning(
-                "Sonde %s within minimum radius limit (%.1f km). Blocking for %d minutes."
-                % (
-                    telemetry["id"],
-                    config["min_radius_km"],
-                    config["temporary_block_time"],
-                )
-            )
+            logging.warning("Sonde {0} within minimum radius limit ({0.1f} km). Blocking for {2} minutes.".format(telemetry["id"], config["min_radius_km"], config["temporary_block_time"]))
             return "TempBlock"
 
     # Payload Serial Number Checks
@@ -577,7 +537,7 @@ def telemetry_filter(telemetry):
     ):
         return "OK"
     else:
-        _id_msg = "Payload ID %s is invalid." % telemetry["id"]
+        _id_msg = "Payload ID {} is invalid.".format(telemetry["id"])
         # Add in a note about DFM sondes and their oddness...
         if "DFM" in telemetry["id"]:
             _id_msg += " Note: DFM sondes may take a while to get an ID."
@@ -604,20 +564,23 @@ def station_position_update(position):
         except AttributeError:
             # This exporter does not require station position data.
             pass
-        except Exception as e:
+        except Exception as err:
             traceback.print_exc()
-            logging.error("Error updating exporter station position.")
+            logging.error("Error updating exporter station position : {}".format(err))
 
 
-def email_error(message="foo"):
-    """ Helper function to email an error message, if the email exporter is available """
+def email_error(message: str = "foo"):
+    """ Helper function to email an error message, if the email exporter is available
+
+    :param message: The body of the email
+    """
     global email_exporter
 
     if email_exporter and config["email_error_notifications"]:
         try:
             email_exporter.send_notification_email(message=message)
         except Exception as e:
-            logging.error("Error attempting to send notification email: %s" % str(e))
+            logging.error("Error attempting to send notification email: {}".format(e))
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
 
@@ -626,57 +589,55 @@ def main():
     """ Main Loop """
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
 
-    # Command line arguments.
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-c",
-        "--config",
-        default="station.cfg",
-        help="Receive Station Configuration File. Default: station.cfg",
-    )
-    parser.add_argument(
-        "-l",
-        "--log",
-        default="./log/",
-        help="Receive Station Log Path. Default: ./log/",
-    )
-    parser.add_argument(
-        "-f",
-        "--frequency",
-        type=float,
-        default=0.0,
-        help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.",
-    )
-    parser.add_argument(
-        "-m",
-        "--type",
-        type=str,
-        default=None,
-        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI, MRZ)",
-    )
-    parser.add_argument(
-        "-t",
-        "--timeout",
-        type=int,
-        default=0,
-        help="Close auto_rx system after N minutes. Use 0 to run continuously.",
-    )
-    parser.add_argument(
-        "-v", "--verbose", help="Enable debug output.", action="store_true"
-    )
-    parser.add_argument(
-        "-e",
-        "--ephemeris",
-        type=str,
-        default="None",
-        help="Use a manually obtained ephemeris file when decoding RS92 Sondes.",
-    )
-    parser.add_argument(
-        "--systemlog",
-        action="store_true",
-        default=False,
-        help="Write a auto_rx system log-file to ./log/ (default=False)",
-    )
+    # Specify command arguments
+    epilog_msg = '''\
+               See above examples
+                   - [?]$ ./{0} -t 0
+               '''.format(FILE_NAME)
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="The main script to scan frequency range and decode sonde",
+                                     epilog=epilog_msg)
+
+    parser.add_argument("-c","--config",
+                        default="./config/station.cfg",
+                        help="Receive station configuration file")
+
+    parser.add_argument("-l", "--log",
+                        default="./log/",
+                        help="Receive station log path")
+
+    parser.add_argument("-f", "--frequency",
+                        type=float,
+                        default=0.0,
+                        help="Sonde frequency override (Unit : MHz). This overrides the scan whitelist with the supplied frequency")
+
+    parser.add_argument("-m", "--model",
+                        action='store',
+                        type=str,
+                        choices=VALID_SONDE_TYPES,
+                        default=None,
+                        help="Immediately start a decoder for a provided and valid sonde type")
+
+    parser.add_argument("-t", "--timeout",
+                        type=int,
+                        default=0,
+                        help="Close auto_rx system after N minutes. Use 0 to run continuously.")
+
+    parser.add_argument("-v", "--verbose",
+                        action="store_true",
+                        help="Enable debug output.")
+
+    parser.add_argument("-e", "--ephemeris",
+                        type=str,
+                        default="None",
+                        help="Use a manually obtained ephemeris file when decoding RS92 Sondes.")
+
+    parser.add_argument("--systemlog",
+                        action="store_true",
+                        default=False,
+                        help="Write a auto_rx system log-file to ./log/ (Default=False)")
+
     args = parser.parse_args()
 
     # Copy out timeout value, and convert to seconds,
@@ -690,19 +651,18 @@ def main():
     if args.verbose:
         logging_level = logging.DEBUG
 
-    # Define the default logging path
-    logging_path = "./log/"
-
     # Validate the user supplied log path
-    if os.path.isdir(args.log):
-        logging_path = os.path.abspath(args.log)
+    if Path(args.log).is_dir():
+        logging_path = Path(args.log).absolute()
     else:
+        # Define the default logging path
+        logging_path = Path("./log/").absolute()
         # Using print because logging may not be established yet
         print("Invalid logging path, using default. Does the folder exist?")
 
     # Configure logging
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
-    _log_path = os.path.join(logging_path, _log_suffix)
+    _log_path   = logging_path / _log_suffix
 
     if args.systemlog:
         # Only write out a logs to a system log file if we have been asked to.
@@ -712,7 +672,7 @@ def main():
             filename=_log_path,
             level=logging_level,
         )
-        logging.info("Opened new system log file: %s" % _log_path)
+        logging.info("Opened new system log file: {}".format(_log_path))
         # Also add a separate stdout logger.
         stdout_format = logging.Formatter("%(asctime)s %(levelname)s:%(message)s")
         stdout_handler = logging.StreamHandler(sys.stdout)
@@ -742,26 +702,22 @@ def main():
     _temp_cfg = read_auto_rx_config(args.config)
     if _temp_cfg is None:
         logging.critical("Error in configuration file! Exiting...")
-        sys.exit(1)
+        sys.exit(ReturnValues.EXIT_FAILURE)
     else:
         config = _temp_cfg
         autorx.sdr_list = config["sdr_settings"]
 
     # Check all the RS utilities exist.
     if not check_rs_utils():
-        sys.exit(1)
+        sys.exit(ReturnValues.EXIT_FAILURE)
 
     # If a sonde type has been provided, insert an entry into the scan results,
     # and immediately start a decoder. This also sets the decoder time to 0, which
     # allows it to run indefinitely.
-    if args.type != None:
-        if args.type in VALID_SONDE_TYPES:
-            logging.warning("Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!")
-            config["rx_timeout"] = 0
-            autorx.scan_results.put([[args.frequency * 1e6, args.type]])
-        else:
-            logging.error("Unknown Radiosonde Type: %s. Exiting." % args.type)
-            sys.exit(1)
+    if args.model is not None:
+        logging.warning("Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!")
+        config["rx_timeout"] = 0
+        autorx.scan_results.put([[args.frequency * 1e6, args.type]])
 
     # Start up the flask server.
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
@@ -947,7 +903,7 @@ def main():
 
     # If we have been asked to start decoding a specific radiosonde type, we need to start up
     # the decoder immediately, before a scanner thread is started.
-    if args.type != None:
+    if args.model is not None:
         handle_scan_results()
 
     # Loop.
@@ -982,9 +938,9 @@ if __name__ == "__main__":
         # Upon CTRL+C, shutdown all threads and exit.
         stop_flask(host=config["web_host"], port=config["web_port"])
         stop_all()
-    except Exception as e:
+    except Exception as err:
         # Upon exceptions, attempt to shutdown threads and exit.
         traceback.print_exc()
-        print("Main Loop Error - %s" % str(e))
+        print("Main Loop Error - {}".format(err))
         stop_flask(host=config["web_host"], port=config["web_port"])
         stop_all()

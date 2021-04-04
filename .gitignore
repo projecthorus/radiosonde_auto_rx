@@ -25,8 +25,13 @@ venv
 
 # Custom config file
 auto_rx/config/station.cfg
+auto_rx/log/
 
 auto_rx/log_power.csv
+auto_rx/log_power_0.csv
+
+*.o
+
 auto_rx/reset_usb
 auto_rx/rs41ecc
 auto_rx/rs41mod
@@ -40,8 +45,10 @@ auto_rx/imet1rs_dft
 auto_rx/lms6Xmod
 auto_rx/lms6mod
 auto_rx/m10mod
-auto_rx/log_power_0.csv
 auto_rx/rs_detect
+auto_rx/imet54mod
+auto_rx/mXXmod
+auto_rx/mp3h1mod
 
 m10
 meisei100mod
@@ -54,6 +61,9 @@ demod/mod/meisei100mod
 demod/mod/rs41mod
 demod/mod/rs92mod
 demod/mod/m10mod
+demod/mod/imet54mod
+demod/mod/mXXmod
+demod/mod/mp3h1mod
 imet/imet1rs_dft
 m10/m10
 mk2a/mk2a_lms1680
