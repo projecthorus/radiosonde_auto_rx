@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+
+#!/bin/python3
 #
 # Demodulator Performance Testing
 # Really simple testing of how the demodulators cope with added white noise.
@@ -15,7 +16,7 @@
 # At the very least, this should be useful to compare performance of different demod revisions.
 #
 
-import sys
+# Global imports
 import os
 import numpy as np
 import argparse
@@ -32,32 +33,53 @@ NOISE_LEVELS = np.arange(-30.0, -15, 1.0)
 TEMP_FILENAME = 'temp.bin'
 
 def read_file(filename):
-	''' Read in file and convert to floating point '''
-	data = np.fromfile(filename,dtype='u1')
+	""" Read in file and convert to floating point """
+	data   = np.fromfile(filename,dtype='u1')
 	header = data[:44] # This is a bit of a hack. The RS demods want a wave header, so we store this for later writeout.
-	data = (data[44:].astype('float') - 128.0) / 128.0
+	data   = (data[44:].astype('float') - 128.0) / 128.0
 
-	return (data,header)
+	return (data, header)
 
 
-def write_file(filename, data, header):
-	'''  Convert an array of floats to uint8 and write to a file '''
+def write_file(filename,
+			   data,
+			   header):
+	"""  Convert an array of floats to uint8 and write to a file
+
+	:param filename: TODO DOC
+	:param data: TODO DOC
+	:param header: TODO DOC
+	"""
 
 	data = (data*128.0)+128.0
 	data = data.astype('u1')
-	f = open(filename,'wb')
+	f    = open(filename,'wb')
 	f.write(header.tobytes())
 	f.write(data.tobytes())
 	f.close()
 
-def add_noise(data, noise_level):
-	''' Add white noise to a file '''
+def add_noise(data,
+			  noise_level):
+	""" Add white noise to a file
+
+	:param data: TODO DOC
+	:param noise_level: TODO DOC
+	"""
+
 	noise_level_linear = 10**(noise_level/20.0)
 	noise = np.random.normal(scale=noise_level_linear, size=data.shape)
 
 	return data + noise
 
-def run_demod(filename, demod='RS92'):
+def run_demod(filename,
+			  demod='RS92'):
+	""" TODO DOC
+
+	:param filename: TODO DOC
+	:param demod: TODO DOC
+	:return: TODO DOC
+	"""
+
 	if demod == 'RS92':
 		demod_bin = RS92_DEMOD
 	else:
@@ -84,25 +106,20 @@ def run_demod(filename, demod='RS92'):
 
 
 if __name__ == '__main__':
-	# Command line arguments. 
+	# Command line arguments.
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-f", "--filename", type=str, help="Input file. Assumed to be unsigned 8-bit, 48 kHz file.")
 	parser.add_argument("-d", "--demod", type=str, help="Demodulator to test, either RS92 or RS41.")
 	args = parser.parse_args()
 
-	print("Reading: %s" % args.filename)
+	print("Reading: {}".format(args.filename))
 	# Read in input file.
 	(data,header) = read_file(args.filename)
-	print("Samples: %d" % len(data))
+	print("Samples: {}".format(len(data)))
 
 	for noise_lvl in NOISE_LEVELS:
 		temp_data = add_noise(data, noise_lvl)
 		write_file(TEMP_FILENAME, temp_data, header)
 
 		frame_count = run_demod(TEMP_FILENAME, args.demod)
-		print("%f dB: Frames Recovered: %d" % (noise_lvl,frame_count))
-
-
-
-
-
+		print("%f dB: Frames Recovered: {}".format((noise_lvl,frame_count)))

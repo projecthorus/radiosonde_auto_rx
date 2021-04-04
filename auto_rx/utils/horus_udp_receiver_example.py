@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+
+#!/bin/python3
 #
 #   radiosonde_auto_rx - 'Horus UDP' Receiver Example
 #
@@ -16,9 +17,9 @@
 #
 #   In this example I use a UDPListener object (ripped from the horus_utils repository) to listen for UDP packets in a thread,
 #   and pass packets that have a 'PAYLOAD_SUMMARY' type field to a callback, where they are printed.
-#   
+#
 
-import datetime
+# Global imports
 import json
 import pprint
 import socket
@@ -28,9 +29,9 @@ from threading import Thread
 
 
 class UDPListener(object):
-    ''' UDP Broadcast Packet Listener 
+    """ UDP Broadcast Packet Listener
     Listens for Horus UDP broadcast packets, and passes them onto a callback function
-    '''
+    """
 
     def __init__(self,
         callback=None,
@@ -46,8 +47,13 @@ class UDPListener(object):
         self.udp_listener_running = False
 
 
-    def handle_udp_packet(self, packet):
-        ''' Process a received UDP packet '''
+    def handle_udp_packet(self,
+                          packet):
+        """ Process a received UDP packet
+
+        :param packet: TODO DOC
+        """
+
         try:
             # The packet should contain a JSON blob. Attempt to parse it in.
             packet_dict = json.loads(packet)
@@ -60,12 +66,12 @@ class UDPListener(object):
                     self.callback(packet_dict)
 
         except Exception as e:
-            print("Could not parse packet: %s" % str(e))
+            print("Could not parse packet: {}".format(e))
             traceback.print_exc()
 
 
     def udp_rx_thread(self):
-        ''' Listen for Broadcast UDP packets '''
+        """ Listen for Broadcast UDP packets """
 
         self.s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         self.s.settimeout(1)
@@ -75,7 +81,7 @@ class UDPListener(object):
         except:
             pass
         self.s.bind(('',self.udp_port))
-        print("Started UDP Listener Thread on port %d." % self.udp_port)
+        print("Started UDP Listener Thread on port {}.".format(self.udp_port))
         self.udp_listener_running = True
 
         # Loop and continue to receive UDP packets.
@@ -89,11 +95,11 @@ class UDPListener(object):
             except:
                 # If we don't timeout then something has broken with the socket.
                 traceback.print_exc()
-            
+
             # If we hae packet data, handle it.
             if m != None:
                 self.handle_udp_packet(m[0])
-        
+
         print("Closing UDP Listener")
         self.s.close()
 
@@ -109,19 +115,17 @@ class UDPListener(object):
         self.listener_thread.join()
 
 
-
-
 def handle_payload_summary(packet):
-    ''' Handle a 'Payload Summary' UDP broadcast message, supplied as a dict. '''
+    """ Handle a 'Payload Summary' UDP broadcast message, supplied as a dict. """
 
     # Pretty-print the contents of the supplied dictionary.
     pprint.pprint(packet)
 
     # Extract the fields that should always be provided.
     _callsign = packet['callsign']
-    _lat = packet['latitude']
-    _lon = packet['longitude']
-    _alt = packet['altitude']
+    _lat      = packet['latitude']
+    _lon      = packet['longitude']
+    _alt      = packet['altitude']
     _time = packet['time']
 
     # The comment field isn't always provided.
@@ -134,7 +138,7 @@ def handle_payload_summary(packet):
 
 
 if __name__ == '__main__':
-    
+
     # Instantiate the UDP listener.
     udp_rx = UDPListener(
         port=55673,
