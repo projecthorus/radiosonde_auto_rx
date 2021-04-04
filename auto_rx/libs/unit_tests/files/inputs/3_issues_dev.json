@@ -1,0 +1,550 @@
+[
+    {
+        "project": "AOC_JDB",
+        "assignee": "jgomez",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/LnH_Monitor/src/LnH_Monitor_Details.cpp",
+        "debt": "10min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra",
+            "cert",
+            "cwe",
+            "suspicious"
+        ],
+        "textRange": {
+            "startOffset": 16,
+            "endOffset": 23,
+            "endLine": 318,
+            "startLine": 318
+        },
+        "message": "unannotated fall-through between switch labels",
+        "updateDate": "2021-01-04T15:20:06+0000",
+        "hash": "de735fadc4b1b96d6039f920cc08b891",
+        "line": 318,
+        "key": "AXbN1-Svi6E6aZkpdRWt",
+        "creationDate": "2021-01-04T14:38:07+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonEmptyCaseWithoutBreak",
+        "effort": "10min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "component": "AOC_JDB:src/Exporter/inc/Request.hpp",
+        "debt": "30min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "multi-threading"
+        ],
+        "textRange": {
+            "startOffset": 27,
+            "endOffset": 36,
+            "endLine": 501,
+            "startLine": 501
+        },
+        "message": "Replace this call to the non reentrant function \"localtime\" by a call to \"localtime_r\".",
+        "resolution": "FIXED",
+        "hash": "b0a7e6f3acc368ac6ab72ee86a9e1352",
+        "closeDate": "2021-01-04T14:38:07+0000",
+        "key": "AXZqtX9C3jy9QFR8ozK5",
+        "creationDate": "2020-12-16T08:37:57+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonReentrantFunction",
+        "effort": "30min",
+        "type": "CODE_SMELL",
+        "status": "CLOSED"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp",
+        "debt": "10min",
+        "flows": [
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 20,
+                            "endOffset": 103,
+                            "endLine": 85,
+                            "startLine": 85
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 20,
+                            "endOffset": 98,
+                            "endLine": 87,
+                            "startLine": 87
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 20,
+                            "endOffset": 61,
+                            "endLine": 89,
+                            "startLine": 89
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 20,
+                            "endOffset": 107,
+                            "endLine": 91,
+                            "startLine": 91
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            }
+        ],
+        "severity": "BLOCKER",
+        "tags": [
+            "bad-practice",
+            "pitfall",
+            "unpredictable"
+        ],
+        "textRange": {
+            "startOffset": 10,
+            "endOffset": 16,
+            "endLine": 92,
+            "startLine": 83
+        },
+        "message": "Expression statements should have at most one resource allocation. Consider using factory functions.",
+        "resolution": "FIXED",
+        "hash": "6a4da5af2e7bb4409daa6165799d3ef6",
+        "closeDate": "2021-01-04T14:38:07+0000",
+        "key": "AXZqtYaB3jy9QFR8ozxD",
+        "creationDate": "2020-12-16T08:37:57+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S5502",
+        "effort": "10min",
+        "type": "CODE_SMELL",
+        "status": "CLOSED"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "updateDate": "2020-12-16T08:37:57+0000",
+        "component": "AOC_JDB:src/LnH_Monitor/src/LnH_Monitor_Details.cpp",
+        "debt": "10min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra",
+            "cert",
+            "cwe",
+            "suspicious"
+        ],
+        "textRange": {
+            "startOffset": 16,
+            "endOffset": 23,
+            "endLine": 313,
+            "startLine": 313
+        },
+        "message": "unannotated fall-through between switch labels",
+        "resolution": "FIXED",
+        "hash": "de735fadc4b1b96d6039f920cc08b891",
+        "closeDate": "2020-12-16T08:37:57+0000",
+        "key": "AXYFbV6d3jy9QFR8ovRk",
+        "creationDate": "2020-11-26T16:37:53+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonEmptyCaseWithoutBreak",
+        "effort": "10min",
+        "type": "CODE_SMELL",
+        "status": "CLOSED"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Exporter/src/Request.cpp",
+        "debt": "30min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "multi-threading"
+        ],
+        "textRange": {
+            "startOffset": 23,
+            "endOffset": 32,
+            "endLine": 59,
+            "startLine": 59
+        },
+        "message": "Replace this call to the non reentrant function \"localtime\" by a call to \"localtime_r\".",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "b0a7e6f3acc368ac6ab72ee86a9e1352",
+        "line": 59,
+        "key": "AXWzCGLE3jy9QFR8ohGJ",
+        "creationDate": "2020-11-10T16:38:29+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonReentrantFunction",
+        "effort": "30min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp",
+        "debt": "30min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "multi-threading"
+        ],
+        "textRange": {
+            "startOffset": 19,
+            "endOffset": 28,
+            "endLine": 499,
+            "startLine": 499
+        },
+        "message": "Replace this call to the non reentrant function \"localtime\" by a call to \"localtime_r\".",
+        "updateDate": "2020-09-30T13:43:30+0000",
+        "hash": "b0a7e6f3acc368ac6ab72ee86a9e1352",
+        "line": 499,
+        "key": "AXTfQ6Uo9qNwiA1mHWT7",
+        "creationDate": "2020-09-30T13:43:30+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonReentrantFunction",
+        "effort": "30min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp",
+        "debt": "10min",
+        "flows": [
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 22,
+                            "endOffset": 107,
+                            "endLine": 99,
+                            "startLine": 99
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 22,
+                            "endOffset": 102,
+                            "endLine": 101,
+                            "startLine": 101
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 22,
+                            "endOffset": 67,
+                            "endLine": 103,
+                            "startLine": 103
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            },
+            {
+                "locations": [
+                    {
+                        "textRange": {
+                            "startOffset": 22,
+                            "endOffset": 111,
+                            "endLine": 105,
+                            "startLine": 105
+                        },
+                        "msg": "Resource allocation here.",
+                        "component": "AOC_JDB:src/Storage/src/Storage_Node.cpp"
+                    }
+                ]
+            }
+        ],
+        "severity": "BLOCKER",
+        "tags": [
+            "bad-practice",
+            "pitfall",
+            "unpredictable"
+        ],
+        "textRange": {
+            "startOffset": 10,
+            "endOffset": 18,
+            "endLine": 106,
+            "startLine": 97
+        },
+        "message": "Expression statements should have at most one resource allocation. Consider using factory functions.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "58e9b334a4ce9131a76679f56ca8513f",
+        "line": 97,
+        "key": "AXTGI5up9qNwiA1mHLt2",
+        "creationDate": "2020-09-25T16:37:58+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S5502",
+        "effort": "10min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Logbook/src/jdb_details.cpp",
+        "debt": "30min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "multi-threading"
+        ],
+        "textRange": {
+            "startOffset": 19,
+            "endOffset": 25,
+            "endLine": 266,
+            "startLine": 266
+        },
+        "message": "Replace this call to the non reentrant function \"gmtime\" by a call to \"gmtime_r\".",
+        "updateDate": "2020-08-17T08:38:01+0000",
+        "hash": "ce9ef4a7b3d24efd5b9062661cec4e6b",
+        "line": 266,
+        "key": "AXMLCGynlLgBiYH-EPCZ",
+        "creationDate": "2020-07-01T15:35:05+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonReentrantFunction",
+        "effort": "30min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Logbook/src/jdb_details.cpp",
+        "debt": "30min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "multi-threading"
+        ],
+        "textRange": {
+            "startOffset": 19,
+            "endOffset": 28,
+            "endLine": 880,
+            "startLine": 880
+        },
+        "message": "Replace this call to the non reentrant function \"localtime\" by a call to \"localtime_r\".",
+        "updateDate": "2020-08-17T08:38:01+0000",
+        "hash": "b0a7e6f3acc368ac6ab72ee86a9e1352",
+        "line": 880,
+        "key": "AXDkcODplLgBiYH-D6h9",
+        "creationDate": "2020-03-16T17:38:03+0000",
+        "fromHotspot": false,
+        "rule": "cpp:NonReentrantFunction",
+        "effort": "30min",
+        "type": "CODE_SMELL",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 196,
+            "startLine": 196
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "8de94667f98fc3874b045c7ad8a44284",
+        "line": 196,
+        "key": "AXMP-vI-lLgBiYH-Eotb",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 202,
+            "startLine": 202
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "c6dacf5eec3f402e5ced7a263529572a",
+        "line": 202,
+        "key": "AXMP-vI-lLgBiYH-Eotj",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 209,
+            "startLine": 209
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "9ad7f3e5cf68df7eb73c1dd5533198f3",
+        "line": 209,
+        "key": "AXMP-vI-lLgBiYH-Eotq",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 215,
+            "startLine": 215
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "9320720ac6cb1b63a59aa49bf05406a4",
+        "line": 215,
+        "key": "AXMP-vI-lLgBiYH-Eoty",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 221,
+            "startLine": 221
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "5f486bec4739f1ef4c6abcbfbfe1bb8c",
+        "line": 221,
+        "key": "AXMP-vI-lLgBiYH-Eot5",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    },
+    {
+        "project": "AOC_JDB",
+        "organization": "default-organization",
+        "component": "AOC_JDB:src/Storage/inc/Bind_And_Get.hpp",
+        "debt": "20min",
+        "flows": [],
+        "severity": "BLOCKER",
+        "tags": [
+            "based-on-misra"
+        ],
+        "textRange": {
+            "startOffset": 11,
+            "endOffset": 25,
+            "endLine": 226,
+            "startLine": 226
+        },
+        "message": "Use overloading instead of specializing this function template.",
+        "updateDate": "2021-01-04T14:38:07+0000",
+        "hash": "57f3682dd64a1bb68916086b85b2c85d",
+        "line": 226,
+        "key": "AXMP-vI-lLgBiYH-EouA",
+        "creationDate": "2020-02-10T10:56:51+0000",
+        "fromHotspot": false,
+        "rule": "cpp:S1032",
+        "effort": "20min",
+        "type": "BUG",
+        "status": "OPEN"
+    }
+]
