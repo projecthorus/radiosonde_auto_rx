@@ -1016,7 +1016,7 @@
                 } else if (show == 'true') {
                     document.getElementById("checkbox" + i).checked = true;
                 } else {
-                    if (($( window ).width()/$( window ).height()) > 1) {
+                    if ($( window ).width() > 1600) {
                         document.getElementById("checkbox" + i).checked = true;
                     } else { // If no cookies are set on mobile device show limited number for better experience.
                         if ([1,4,9,16].includes(i)) {
