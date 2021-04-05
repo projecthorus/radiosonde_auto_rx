@@ -292,7 +292,6 @@ class SondehubUploader(object):
             if len(_to_upload) > 0:
                 self.upload_telemetry(_to_upload)
 
-            # DISABLED UNTIL API AVAILABLE!
             # If we haven't uploaded our station position recently, re-upload it.
             if (
                 time.time() - self.last_user_position_upload
@@ -386,14 +385,19 @@ class SondehubUploader(object):
 
 
     def station_position_upload(self):
-        """ Upload a station position to SondeHub """
+        """ 
+        Upload a station position packet to SondeHub.
+
+        This uses the PUT /listeners API described here:
+        https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)
+        
+        """
 
         if self.inhibit_upload:
             # Position upload inhibited. Ensure user position is set to None, and continue upload of other info.
-            self.log_debug("Sondehub station position upload inhibited, uploading other data.")
+            self.log_debug("Sondehub station position upload inhibited.")
             self.user_position = None
 
-        # Refer: https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)#-put--listeners
         _position = {
             "software_name": "radiosonde_auto_rx",
             "software_version": autorx.__version__,
@@ -401,10 +405,7 @@ class SondehubUploader(object):
             "uploader_position": self.user_position,
             "uploader_antenna": self.user_antenna,
             "uploader_contact_email": self.contact_email,
-            "mobile": False,
-            "time_received": datetime.datetime.utcnow().strftime(
-                "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
+            "mobile": False # Hardcoded mobile=false setting - Mobile stations should be using Chasemapper.
         }
 
         _retries = 0
@@ -444,12 +445,6 @@ class SondehubUploader(object):
                 # Server Error, Retry.
                 _retries += 1
                 continue
-            
-            elif _req.status_code == 404:
-                # Endpoint not implemented yet!
-                # Silently exit..
-                _upload_success = True
-                break
 
             else:
                 self.log_error(
@@ -460,6 +455,7 @@ class SondehubUploader(object):
 
         if not _upload_success:
             self.log_error("Station information upload failed after %d retries" % (_retries))
+            self.log_debug(f"Attempted to upload {json.dumps(_position)}")
 
         self.last_user_position_upload = time.time()
 
