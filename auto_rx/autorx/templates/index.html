@@ -1,88 +1,102 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html>
 <head>
     <title>Radiosonde Auto-RX Status</title>
 
-    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Configure to work on mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Import style sheets (font and icons are remote, should fix) -->
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/tabulator_simple.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet">
-
-    <!-- I should probably feel bad for using so many libraries, but apparently this is the way thing are done :-/ -->
-    <script src="{{ url_for('static', filename='js/jquery-3.3.1.min.js')}}"></script>
-    <script src="{{ url_for('static', filename='js/jquery-ui.min.js')}}"></script>
-    <script src="{{ url_for('static', filename='js/socket.io-1.4.5.js') }}"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
+    <link id='tabulatorsheet' href='{{ url_for('static', filename='css/tabulator_midnight.min.css') }}' rel='stylesheet'>
+    
+    <!-- Import local libraries -->
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/leaflet-providers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/d3.v5.min.js') }}" charset="utf-8"></script>
-    <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/d3.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
-
-    <script type="text/javascript" charset="utf-8">
-        // Dummy auto_rx.config, which will be replaced with real data on page load.
+    <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
+    
+    <script>
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
         };
-
-        // Object which will contain sonde markers and traces.
-        // properties for each key in this object (key = sonde ID)
-        //  latest_data - latest sonde telemetry object from SondeDecoded
-        //  marker: Leaflet marker object.
-        //  path: Leaflet polyline object.
+            
         var sonde_positions = {};
-
-        // The sonde we are currently following on the map
+            
         var sonde_currently_following = "none";
+            
+        $( document ).ready(function() {
 
-        $(document).ready(function() {
-            // Use the 'update_status' namespace for all of our traffic
             namespace = '/update_status';
 
-            // Connect to the Socket.IO server.
-            // The connection URL has the following format:
-            //     http[s]://<domain>:<port>[/<namespace>]
             var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
-
-            // Grab the System config on startup.
-            // Refer to config.py for the contents of the configuration blob.
+            
             $.ajax({
+                  // Get station.cfg file.
                   url: "/get_config",
                   dataType: 'json',
                   async: false,
                   success: function(data) {
                     autorx_config = data;
+                    // Update station callsign area
+                    _station_call = autorx_config['habitat_uploader_callsign'];
+                    if (autorx_config['aprs_user'] !== "N0CALL"){
+                        _station_call += " / " + autorx_config['aprs_user'];
+                    }
+                    $('#station_callsign').text(_station_call);
                   }
             });
-
-            // Grab the version information 
+            
             $.ajax({
+                  // Get local version number.
                   url: "/get_version",
                   dataType: 'text',
                   async: true,
                   success: function(data) {
-                    $('#autorx_header').html('<h1>Radiosonde Auto-RX Status <small> Version: ' + data + '</small></h1>');
+                    $('#currentversion').text(data);
                   }
             });
-
-
-            // Event handler for Log data.
+            
             socket.on('log_event', function(msg) {
-                // On receipt, add to the log table.
-                var log_entry = "<tr><td class='col-2'>"+msg.timestamp+"</td><td class='col-1'>"+msg.level+"</td><td class='col-9'>"+msg.msg+"</td></tr>";
+                // New log entry received.
+                var log_time = new Date(msg.timestamp);
+                // Check if time is UTC mode.
+                if (getCookie('UTC') == 'false') {
+                    // Check if entry is important.
+                    if (msg.level == "INFO") {
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                    } else {
+                        // If entry is important colour text red.
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                    }
+                } else {
+                    if (msg.level == "INFO") {
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                    } else {
+                        // If entry is important colour text red.
+                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                    }
+                }
+                // Append entry to log table.
                 $('#log_data > tbody').prepend(log_entry);
-                // Scroll to the bottom of the log table
-                //$("#log_data > tbody").scrollTop($("#log_data > tbody")[0].scrollHeight);
-            });
-
-            // Instantiate the scan result chart (scan_chart.js)
+            });    
+            
             setup_scan_chart();
-
-            // Scan Event handler
+            
             socket.on('scan_event', function(msg) {
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
@@ -97,14 +111,34 @@
                     scan_chart_obj.load(scan_chart_spectra);
                     scan_chart_obj.load(scan_chart_peaks);
                     scan_chart_obj.load(scan_chart_threshold);
+                    
+                    // Run dark mode check again to solve render issues.
+                    var z = getCookie('dark');
+                        if (z == 'true') {
+                            changeTheme(true);
+                        } else if (z == 'false') {
+                            changeTheme(false);
+                        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                            changeTheme(true);
+                        } else {
+                            changeTheme(false);
+                        }           
 
                     // Show the latest scan time.
-                    $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp);
+                    if (getCookie('UTC') == 'false') {
+                        temp_date = data.timestamp;
+                        temp_date = temp_date.slice(0, -3);
+                        temp_date += "Z";
+                        var date = new Date(temp_date);    
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + date.toLocaleString("en-AU"));
+                    } else {
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp.slice(0, -3) + 'Z');
+                    }
 
                 }
                 );
-            });
-            // Task Update event handler.
+            }); 
+            
             socket.on('task_event', function(msg){
                 // Grab the latest task list.
                 $.getJSON("/get_task_list", function(data){
@@ -112,95 +146,410 @@
                     for (_task in data){
                         task_info += "SDR #" + _task + ": " + data[_task] + "    ";
                     }
-
-                    $('#task_status').html("<h2>Current Task: <small>"+task_info+"</small></h2>");
+                    
+                    // Update page with latest task.
+                    $('#task_status').text(task_info);
                 });
             });
+            
+            // List of available map layers.
+            var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
+            var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
+            var Terrain = L.tileLayer.provider("Stamen.Terrain", {edgeBufferTiles: 2});
+            var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
+            var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
+            var OpenTopoMap = L.tileLayer.provider("OpenTopoMap", {edgeBufferTiles: 2});
+            
+            // Add maps to baseMaps.
+            var baseMaps = {
+                "Mapnik": Mapnik,
+                "DarkMatter": DarkMatter,
+                "WorldImagery": WorldImagery,
+                "Terrain": Terrain,
+                "Voyager": Voyager,
+                "OpenTopoMap": OpenTopoMap                          
+            };
 
-            // Sonde position Map
-            // Setup a basic Leaflet map, with an OSM tileset.
-            var sondemap = L.map('sonde_map').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
-
-            // Add map layers
-            var osm_map = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(sondemap);
-
-            var esrimapLink = 
-            '<a href="http://www.esri.com/">Esri</a>';
-            var esriwholink = 
-            'i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
-            var esri_sat_map = L.tileLayer(
-            'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
-            {
-                attribution: '&copy; '+esrimapLink+', '+esriwholink,
-                maxZoom: 18,
-            });
-            sondemap.addControl(new L.Control.Layers({'OSM':osm_map, 'ESRI Satellite':esri_sat_map}));
-            sondemap.addControl(new L.Control.Fullscreen());
-
-            // Home Icon.
-            var homeIcon = L.icon({
-                iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
-                iconSize: [26, 34],
-                iconAnchor: [13, 34]
-            });
-
-            // Add our station location marker.
-            var home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
-                {title: 'Receiver Location', icon: homeIcon}
-                ).addTo(sondemap);
-
-            // Stop the map from zooming when a user scrolls the page.
-            // The user must now either click on or drag the map before the scroll wheel will be enabled,
-            // and can disable the scroll-wheel zoom by clicking anywhere else on the page.
-            // Solution is from: https://gis.stackexchange.com/questions/111887/leaflet-mouse-wheel-zoom-only-after-click-on-map
-            sondemap.scrollWheelZoom.disable();
-            sondemap.on('focus', () => { sondemap.scrollWheelZoom.enable(); });
-            sondemap.on('blur', () => { sondemap.scrollWheelZoom.disable(); });
-
-
-            function mapMovedEvent(e){
-                // The user has panned the map, stop following things.
-                $("#sondeAutoFollow").prop('checked', false);
+            // Check if user has preffered map theme.
+            var x = getCookie('theme');
+            if (x) {
+                mapTheme = x;
+            } else {
+                if (getCookie('dark') == "false") {
+                    mapTheme = "Mapnik"
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    mapTheme = "DarkMatter"
+                } else {
+                    mapTheme = "Mapnik"
+                }
             }
-            sondemap.on('dragend',mapMovedEvent);
+            
+            // Home Icon.
+            homeIcon = L.icon({
+            iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+            iconSize: [26, 34],
+            iconAnchor: [13, 34]
+            });  
+            
+            // Home Icon for dark mode.
+            homeIconDark = L.icon({
+            iconUrl: '{{ url_for('static', filename='img/antenna-green-dark.png') }}',
+            iconSize: [26, 34],
+            iconAnchor: [13, 34]
+            });  
+            
+            // Create map object.
+            mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
+            mymap.addControl(new L.Control.Fullscreen());
+            if (mapTheme != 'DarkMatter' && mapTheme != 'WorldImagery') {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+                        {title: 'Receiver Location', icon: homeIcon}
+                        ).addTo(mymap);
+            } else {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+                        {title: 'Receiver Location', icon: homeIconDark}
+                        ).addTo(mymap);
+            }
+            
+                        
+            L.control.layers(baseMaps).addTo(mymap);
+            
+            baseMaps[mapTheme].addTo(mymap);
+            
+            // Update preffered them cookie on layer change.
+            mymap.on('baselayerchange', function(e) {
+                setCookie("theme", e['name'], 365);
+                if(e['name'] == "DarkMatter" || e['name'] == "WorldImagery"){
+                    home_marker.setIcon(homeIconDark);
+                 }else{
+                    home_marker.setIcon(homeIcon);
+                 }
+            });
+                      
+            // Check if user has preffered map visiblity.
+            if (getCookie('map') == 'false') {
+                document.getElementById("showmapbutton").checked = false;
+                document.getElementById("mapid").style.display = "none";
+            } else {
+                document.getElementById("showmapbutton").checked = true;
+            }
+            
+            // Check if user has preffered table visiblity.
+            if (getCookie('table') == 'false') {
+                document.getElementById("showtablebutton").checked = false;
+                document.getElementById("tableid").style.display = "none";
+            } else {
+                document.getElementById("showtablebutton").checked = true;
+            }
+            
+            // Check if user has preffered follow latest sonde selection.
+            if (getCookie('follow') == 'false') {
+                document.getElementById("sondeAutoFollow").checked = false;
+            } else {
+                document.getElementById("sondeAutoFollow").checked = true;
+            }
+            
+            // Check if user has UTC time selection.
+            if (getCookie('UTC') == 'false') {
+                document.getElementById("showUTCbutton").checked = false;
+            } else {
+                document.getElementById("showUTCbutton").checked = true;
+            }
+            
+            // Check if user has UTC time selection.
+            if (getCookie('imperial') == 'true') {
+                document.getElementById("showimperialbutton").checked = true;
+            } else {
+                document.getElementById("showimperialbutton").checked = false;
+            }
+            
+            // Check if user has preffered scan chart visiblity.
+            if (getCookie('scan') == 'true') {
+                document.getElementById("showscanbutton").checked = true;
+                document.getElementById("scanid").style.display = "block";
+            } else {
+                document.getElementById("showscanbutton").checked = false;
+                document.getElementById("scanid").style.display = "none";
+            }
+            
+            // Check if user has dark mode set.
+            if (getCookie('dark') == 'true') {
+                document.getElementById("showdarkbutton").checked = true;
+                changeTheme(true);
+            } else if (getCookie('dark') == 'false') {
+                document.getElementById("showdarkbutton").checked = false;
+                changeTheme(false);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.getElementById("showdarkbutton").checked = true;
+                changeTheme(true);
+            } else {
+                document.getElementById("showdarkbutton").checked = false;
+                changeTheme(false);
+            }              
+               
+            // Function to change CSS options when changing dark mode.
+            function changeTheme(dark) {
+                if (dark == false) {
+                    document.body.style.background = 'white';
+                    $('#main span').css('color', 'black')
+                    $('#main p').css('color', 'black')
+                    $('#myBtn').css('color', 'black')
+                    $('#scanid').css('color', 'black')
+                    $('.c3-axis-y').css('fill', 'black')
+                    $('.c3-axis-x').css('fill', 'black')
+                    $('.c3-legend-item text').css('fill', 'black')
+                    $('.domain').css('stroke', 'black')
+                    $('.tick line').css('stroke', 'black')  
+                    $('#mapid span').css('color', 'black') 
+                    $('.sidenav').css('background-color', '#111')
+                    $('.settings').css('background-color', '#111')  
+                    $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_simple.min.css") }}');
+                } else {
+                    document.body.style.background = '#121212';
+                    $('#main span').css('color', 'white')
+                    $('#main p').css('color', 'white')
+                    $('#myBtn').css('color', 'white')
+                    $('#scanid').css('color', 'white')
+                    $('.c3-axis-y').css('fill', 'white')
+                    $('.c3-axis-x').css('fill', 'white')
+                    $('.c3-legend-item text').css('fill', 'white')
+                    $('.domain').css('stroke', 'white')
+                    $('.tick line').css('stroke', 'white')
+                    $('#mapid span').css('color', 'black')
+                    $('.sidenav').css('background-color', '#414141')
+                    $('.settings').css('background-color', '#414141')
+                    $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_midnight.min.css") }}');
+                }
+            }
+            
+            // Check if dark mode button has been ticked.
+            $('#showdarkbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("dark", 'true', 365);
+                    changeTheme(true);                                             
+                } else {
+                    setCookie("dark", 'false', 365);
+                    changeTheme(false);            
+                }
+            });
+            
+            // Check if imperial units button has been ticked.
+            $('#showimperialbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("imperial", 'true', 365);
+                    location.reload(); 
+                } else {
+                    setCookie("imperial", 'false', 365);     
+                    location.reload();  
+                }
+            });
+            
+            // Check if UTC button has been ticked.
+            $('#showUTCbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("UTC", 'true', 365);
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }          
+                } else {
+                    setCookie("UTC", 'false', 365);
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                    }
+                }
+            });
+            
+            // Check if settings div has been scrolled.
+            $('#scrollsettingsid').scroll(function() {
+                if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                    document.getElementById("downdiv").style.display = "none";
+                } else {
+                    document.getElementById("downdiv").style.display = "block";
+                }
+            });
+                       
+            // Check if pagination selector has been ticked.
+            $('#paginationSelector').change(function() {
+                setCookie("pagination", this.value, 365);
+                table.setPageSize(this.value);                              
+            });      
 
             
-            // Telemetry Data Table
-            // Using tabulator makes this *really* easy.
-            $("#telem_table").tabulator({
-                height:180,
-                layout:"fitData", 
+            // Check if cookie exists for entries to display per page in table
+            if (getCookie('pagination') != null) {
+                pagination_size = parseInt(getCookie('pagination'));
+                $('#paginationSelector option[value="'+ getCookie('pagination') +'"]').attr("selected",true);  
+            } else {
+                if (($( window ).width()/$( window ).height()) > 1) {
+                    pagination_size = 6;
+                    $('#paginationSelector option[value="6"]').attr("selected",true);  
+                } else {
+                    pagination_size = 3;
+                    $('#paginationSelector option[value="3"]').attr("selected",true);  
+                }
+            }
+            
+            // Create Tabulator table.
+            table = new Tabulator("#telem_table", {
+                index:"realid",
+                //placeholder:"No Sonde Data Available", Does not work when some columns are hidden
+                // Split into pages for over 6 entries.
+                pagination:"local",
+                paginationSize:pagination_size,
+                layout:"fitDataFill", 
+                resizableColumns:"header",
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:true},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
-                    {title:"ID", field:"id", formatter:'html', headerSort:false},
-                    {title:"Time", field:"datetime", headerSort:true},
-                    {title:"Frame", field:"frame", headerSort:false},
-                    {title:"Latitude", field:"lat", formatter:'html', headerSort:false},
-                    {title:"Longitude", field:"lon", formatter:'html', headerSort:false},
-                    {title:"Alt (m)", field:"alt", headerSort:false},
-                    {title:"Vel (kph)", field:"vel_h", headerSort:false},
-                    {title:"Asc (m/s)", field:"vel_v", headerSort:false},
-                    {title:"Temp (°C)", field:"temp", headerSort:false},
+                    {title:"ID", field:"id", formatter:'html', width:80, headerSort:true},
+                    {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('UTC') == 'false') {
+                            var temp_time = new Date(cell.getValue());
+                            if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
+                                return;
+                            } else {
+                                return temp_time.toLocaleString("en-AU");
+                            }                            
+                        } else {
+                            return cell.getValue();
+                        }
+                    }
+                    },
+                    {title:"Frame", field:"frame", headerSort:true},
+                    {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
+                    {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
+                    {title:"Alt", field:"alt", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft)";              
+                        } else {
+                            return cell.getValue() + " (m)";
+                        }
+                    }
+                    },
+                    {title:"Vel", field:"vel_h", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.62137) * 10) / 10);
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mph)";              
+                        } else {
+                            return cell.getValue() + " (kph)";
+                        }
+                    }
+                    },
+                    {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);           
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (ft/s)";              
+                        } else {
+                            return cell.getValue() + " (m/s)";
+                        }
+                    }
+                    },
+                    {title:"Temp", field:"temp", headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round(((cell.getValue()*9/5) + 32) * 10) / 10);               
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (°F)";              
+                        } else {
+                            return cell.getValue() + " (°C)";
+                        }
+                    }
+                    },
                     {title:"RH (%)", field:"humidity", headerSort:false},
                     {title:"Az (°)", field:"azimuth", headerSort:false},
                     {title:"El (°)", field:"elevation", headerSort:false},
-                    {title:"Range (km)", field:"range", headerSort:true},
-                    {title:"SNR (dB)", field:"snr", headerSort:false, visible:false},
-                    {title:"Other", field:"other", headerSort:false}
-                ]
+                    {title:"Range", field:"range", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return (Math.round((cell.getValue()*0.621371) * 10) / 10);             
+                        } else {
+                            return cell.getValue();
+                        }
+                    }, titleFormatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('imperial') == 'true') {
+                            return cell.getValue() + " (mi)";              
+                        } else {
+                            return cell.getValue() + " (km)";
+                        }
+                    }
+                    },
+                    {title:"SNR (dB)", field:"snr", headerSort:true},
+                    {title:"Other", field:"other", width:140, headerSort:false},
+                    {title:"Real ID", field:"realid", visible:false}
+                ],
+                rowContext:function(e, row){  
+                    e.preventDefault();
+                    //Highlight Sonde on map when row selected  
+                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                        console.log(Object.keys(sonde_positions)[i]);
+                        if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
+                            sonde_positions[Object.keys(sonde_positions)[i]]['path'].setStyle({
+                              color: sonde_positions[Object.keys(sonde_positions)[i]]['colour']
+                            });
+                            if (sonde_positions[Object.keys(sonde_positions)[i]]['latest_data']['vel_v'] < 0){
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeDescentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }else{
+                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                            }
+                        }
+                    }                    
+                                      
+                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
+                        selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: 'white'
+                        });
+                        /*
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
+                        }
+                        */
+                    } else {
+                        selected_sonde = "";
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                          color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
+                        });
+                        /*
+                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }else{
+                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                        }
+                        */
+                    }
+                    
+                }
             });
-
+            
+            // Update Tabulator table.
             function updateTelemetryTable(){
                 var telem_data = [];
 
                 if (jQuery.isEmptyObject(sonde_positions)){
-                    telem_data = [{sdr_device_idx:'None'}];
+                    telem_data = [];
                 }else{
                     var sonde_id_list = Object.getOwnPropertyNames(sonde_positions).reverse();
 
@@ -244,9 +593,9 @@
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
-                        
-                        // Add a link to sondehub.org or radiosondy.info if enabled.
+                        // Add a link to HabHub if we have habitat enabled.
                         if (autorx_config.habitat_enabled == true) {
+                            // Add a link to HabHub card if sonde is old.
                             if (sonde_id_data.age != "old") {
                                 sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id + "' target='_blank'>" + sonde_id  + "</a>";
                             } else {
@@ -257,10 +606,11 @@
                         } else if (autorx_config.aprs_enabled == true) {
                             sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
                         }
+                        
+                        sonde_id_data.realid = sonde_id;
 
                         // Add SNR data, if it exists.
                         if (sonde_id_data.hasOwnProperty('snr')){
-                            $("#telem_table").tabulator("showColumn", "snr");
                             sonde_id_data.snr = sonde_id_data.snr.toFixed(1);
                         }
 
@@ -278,41 +628,25 @@
 
                         telem_data.push(sonde_id_data);
                     });
+                }       
+                table.updateOrAddData(telem_data);
+                // Hide table page navigation if only one page.
+                if(table.getPageMax() == 1){
+                    $(".tabulator-footer").hide();
+                }else{
+                    $(".tabulator-footer").show();
                 }
-
-                $("#telem_table").tabulator("setData", telem_data);
             }
+            // Invalidate map size to fix problems with elements resizing.
+            mymap.invalidateSize();
 
-            // Deprecated. Left here for now in ase we need it later...
-            // function updateTelemetryText(){
-            //     // Produce the text to go in the telemetry div.
-            //     // Clear out the telemetry div ready for new data
-            //     $('#telemetry').empty();
-            //     // Generate the lines of telemetry information
-            //     var telem_text = "";
-            //     if (jQuery.isEmptyObject(sonde_positions)){
-            //         telem_text = "No Sondes Tracked.";
-            //     }else{
-            //         for (sonde_id in sonde_positions){
-            //             var msg = sonde_positions[sonde_id].latest_data;
-            //             telem_text += '<b>Type: </b>' + msg.type + '<b> ID: </b>' + msg.id + ' <b>Timestamp: </b>' + msg.datetime + ' <b> Frame: </b> ' + msg.frame + '<b> Position: </b>' + msg.lat.toFixed(5) + ',' + msg.lon.toFixed(5) + '<b> Alt (m): </b>' + msg.alt.toFixed(1) + ' <b> Asc Rate (m/s): </b>' + msg.vel_v.toFixed(1) + ' <br>';
-            //         }
-            //     }
-            //     // Update the div with the telemetry info.
-            //     $('#telemetry').html(telem_text);
-            // }
-
-
-            
-            // Grab the recent archive of telemetry data
-            // This should only ever be run once - on page load.
             var initial_load_complete = false;
-            $.ajax({
+            selected_sonde = "";
+            $.ajax({ // Get archived data.
                   url: "/get_telemetry_archive",
                   dataType: 'json',
                   async: true,
                   success: function(data) {
-                    // Populate sonde_positions with data from the telemetry archive.
                     for (sonde_id in data){
                         var telem = data[sonde_id].latest_telem;
                         sonde_positions[sonde_id] = {
@@ -321,11 +655,9 @@
                             colour: colour_values[colour_idx]
                         };
                         // Create markers
-                        sonde_positions[sonde_id].path = L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:sonde_positions[sonde_id].colour}).addTo(sondemap);
+                        sonde_positions[sonde_id].path = L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:sonde_positions[sonde_id].colour}).addTo(mymap);
 
-                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]})
-                            .bindTooltip(sonde_id,{permanent:false,direction:'right'})
-                            .addTo(sondemap);
+                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]}).bindTooltip(sonde_id,{permanent:false,direction:'right'}).addTo(mymap);
 
                         if(autorx_config.station_lat != 0.0){
                             sonde_positions[sonde_id].los_path = L.polyline([],
@@ -333,22 +665,19 @@
                                     color:los_color,
                                     opacity:los_opacity
                                 }
-                            ).addTo(sondemap);
+                            ).addTo(mymap);
                         }
 
                         if (telem.vel_v < 0){
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
                         }
-
+                        
                         colour_idx = (colour_idx+1)%colour_values.length;
                     }
-                    // Update telemetry table
-                    //updateTelemetryText();
                     updateTelemetryTable();
                     initial_load_complete = true;
                   }
-            });
-
+            });   
 
             socket.on('station_update', function(msg) {
                 // Station update messages indicate a move of the station location, as updated
@@ -367,19 +696,8 @@
                 autorx_config.station_lon = msg.lon;
                 autorx_config.station_alt = msg.alt;
 
-                // May need to re-evaluate if this is the appropriate behaviour.
-                // If a user pans around the map while a sonde is *not* being tracked, this code will
-                // re-pan the map back to the station location.
-                // Once a sonde is being tracked this should not occur however.
-                if (sonde_currently_following == "none" && document.getElementById("sondeAutoFollow").checked == false){
-                    sondemap.panTo([msg.lat, msg.lon]);
-                }
-
             });
-
-
-            // Telemetry event handler.
-            // We will get one of these with every line of telemetry decoded
+            
             socket.on('telemetry_event', function(msg) {
                 // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
@@ -398,11 +716,11 @@
                         colour : colour_values[colour_idx]
                     };
                                             // Create markers
-                    sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(sondemap);
+                    sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(mymap);
 
                     sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})                            
                         .bindTooltip(msg.id,{permanent:false,direction:'right'})
-                        .addTo(sondemap);
+                        .addTo(mymap);
 
                     // If there is a station location defined, show the path from the station to the sonde.
                     if(autorx_config.station_lat != 0.0){
@@ -411,7 +729,7 @@
                                 color:los_color,
                                 opacity:los_opacity
                             }
-                        ).addTo(sondemap);
+                        ).addTo(mymap);
                     }
 
                     colour_idx = (colour_idx+1)%colour_values.length;
@@ -427,9 +745,17 @@
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
 
                     if (msg.vel_v < 0){
-                        sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);                            
+                        }
                     }else{
-                        sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        if (selected_sonde == msg.id) {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons['white']);
+                        } else {
+                            sonde_positions[msg.id].marker.setIcon(sondeAscentIcons[sonde_positions[msg.id].colour]);
+                        }
                     }
 
                     if(autorx_config.station_lat != 0.0){
@@ -451,7 +777,7 @@
                 if (document.getElementById("sondeAutoFollow").checked == true){
                     // If we are currently following this sonde, snap the map to it.
                     if (msg.id == sonde_currently_following){
-                            sondemap.panTo([msg.lat,msg.lon]);
+                            mymap.panTo([msg.lat,msg.lon]);
                     }
                 }
             });
@@ -469,84 +795,674 @@
                 if ( (now_time-sonde_positions[sonde_currently_following].age) > sonde_follow_timeout){
                     sonde_currently_following = "none";
                 }
-            }, sonde_follow_timeout);            
+            }, sonde_follow_timeout);           
 
+            // Automatically gets the latest version number and GitHub URL
+            $.ajax({
+              url:"https://api.github.com/repos/projecthorus/radiosonde_auto_rx/releases",
+              dataType: "jsonp",
+              success : function( returndata )
+              {
+                $("#footertext").html("<a href='" + returndata['data'][0].html_url + "' target='_blank' style='text-decoration:none;color:white;'>" + returndata['data'][0].tag_name.substring(1) + "</a>");
+              }
+            });    
 
-            // Update telemetry table every 5 seconds (this is mainly to update the age field)
+            // Update telemetry table every second (this is mainly to update the age field)
             window.setInterval(function(){
                 updateTelemetryTable();
-            }, 5000);
-
-
-            // Tell the server we are connected and ready for data.
+            }, 1000);
+                        
+            // Tell program we are connected and ready for data.
             socket.on('connect', function() {
                 socket.emit('client_connected', {data: 'I\'m connected!'});
-                // This will cause the server to emit a few messages telling us to fetch data.
-            });
-
-            // Callback function for Hide Scan Plot checkbox.
-            $( "#hideScanPlot" ).click(function() {
-                if (document.getElementById("hideScanPlot").checked == true){
-                    $("#scan_chart").hide("fast");
+            });   
+            
+            // Function to change table columns visible.
+            $(document).on('change', 'form input', function() {            
+                var checked = $(this).is(":checked");
+                
+                if (checked == false) {
+                  var cookiesend = 'false';
                 } else {
-                    $("#scan_chart").show("fast");
+                  var cookiesend = 'true';
                 }
-            });
+                
+                var index = $(this).attr("class");
+                
+                // Set cookie for columns to show in future.
+                setCookie("col" + index, cookiesend, 365);  
 
-            // Callback function for Hide Map checkbox.
-            $( "#hideMap" ).click(function() {
-                if (document.getElementById("hideMap").checked == true){
-                    $("#sonde_map").hide("fast");
+                // Update Tabulator table with selected columns visible.
+                if(checked) {  
+                    switch(index) {
+                        case "0":
+                            table.showColumn("sdr_device_idx");
+                            break;
+                        case "1":
+                            table.showColumn("age");
+                            break;
+                        case "2":
+                            table.showColumn("type");
+                            break;
+                        case "3":
+                            table.showColumn("freq");
+                            break;
+                        case "4":
+                            table.showColumn("id");
+                            break;
+                        case "5":
+                            table.showColumn("datetime");
+                            break;
+                        case "6":
+                            table.showColumn("frame");
+                            break;
+                        case "7":
+                            table.showColumn("lat");
+                            break;
+                        case "8":
+                            table.showColumn("lon");
+                            break;
+                        case "9":
+                            table.showColumn("alt");
+                            break;
+                        case "10":
+                            table.showColumn("vel_h");
+                            break;
+                        case "11":
+                            table.showColumn("vel_v");
+                            break;
+                        case "12":
+                            table.showColumn("temp");
+                            break;
+                        case "13":
+                            table.showColumn("humidity");
+                            break;    
+                        case "14":
+                            table.showColumn("azimuth");
+                            break;
+                        case "15":
+                            table.showColumn("elevation");
+                            break;
+                        case "16":
+                            table.showColumn("range");
+                            break;
+                        case "17":
+                            table.showColumn("snr");
+                            break;
+                        case "18":
+                            table.showColumn("other");
+                            break;                  
+                    }
+                    table.redraw();
                 } else {
-                    $("#sonde_map").show("fast");
+                    switch(index) {
+                        case "0":
+                            table.hideColumn("sdr_device_idx");
+                            break;
+                        case "1":
+                            table.hideColumn("age");
+                            break;
+                        case "2":
+                            table.hideColumn("type");
+                            break;
+                        case "3":
+                            table.hideColumn("freq");
+                            break;
+                        case "4":
+                            table.hideColumn("id");
+                            break;
+                        case "5":
+                            table.hideColumn("datetime");
+                            break;
+                        case "6":
+                            table.hideColumn("frame");
+                            break;
+                        case "7":
+                            table.hideColumn("lat");
+                            break;
+                        case "8":
+                            table.hideColumn("lon");
+                            break;
+                        case "9":
+                            table.hideColumn("alt");
+                            break;
+                        case "10":
+                            table.hideColumn("vel_h");
+                            break;
+                        case "11":
+                            table.hideColumn("vel_v");
+                            break;
+                        case "12":
+                            table.hideColumn("temp");
+                            break;
+                        case "13":
+                            table.hideColumn("humidity");
+                            break;    
+                        case "14":
+                            table.hideColumn("azimuth");
+                            break;
+                        case "15":
+                            table.hideColumn("elevation");
+                            break;
+                        case "16":
+                            table.hideColumn("range");
+                            break;
+                        case "17":
+                            table.hideColumn("snr");
+                            break;
+                        case "18":
+                            table.hideColumn("other");
+                            break;                
                 }
+                table.redraw();
+              }
             });
-
+            
+            // Runs once at page load to set which Tabulator columns to show/hide per set cookies
+            for (i = 0; i < 19; i++) {
+                var show = getCookie("col"+i);
+                if (show == 'false') { 
+                    document.getElementById("checkbox" + i).checked = false;
+                    switch(i) {
+                        case 0:
+                            table.hideColumn("sdr_device_idx");
+                            break;
+                        case 1:
+                            table.hideColumn("age");
+                            break;
+                        case 2:
+                            table.hideColumn("type");
+                            break;
+                        case 3:
+                            table.hideColumn("freq");
+                            break;
+                        case 4:
+                            table.hideColumn("id");
+                            break;
+                        case 5:
+                            table.hideColumn("datetime");
+                            break;
+                        case 6:
+                            table.hideColumn("frame");
+                            break;
+                        case 7:
+                            table.hideColumn("lat");
+                            break;
+                        case 8:
+                            table.hideColumn("lon");
+                            break;
+                        case 9:
+                            table.hideColumn("alt");
+                            break;
+                        case 10:
+                            table.hideColumn("vel_h");
+                            break;
+                        case 11:
+                            table.hideColumn("vel_v");
+                            break;
+                        case 12:
+                            table.hideColumn("temp");
+                            break;
+                        case 13:
+                            table.hideColumn("humidity");
+                            break;    
+                        case 14:
+                            table.hideColumn("azimuth");
+                            break;
+                        case 15:
+                            table.hideColumn("elevation");
+                            break;
+                        case 16:
+                            table.hideColumn("range");
+                            break;
+                        case 17:
+                            table.hideColumn("snr");
+                            break;
+                        case 18:
+                            table.hideColumn("other");
+                            break;                
+                    }
+                } else if (show == 'true') {
+                    document.getElementById("checkbox" + i).checked = true;
+                } else {
+                    if ($( window ).width() > 1600) {
+                        document.getElementById("checkbox" + i).checked = true;
+                    } else { // If no cookies are set on mobile device show limited number for better experience.
+                        if ([1,4,9,16].includes(i)) {
+                            setCookie("col" + i, 'true', 365);
+                            document.getElementById("checkbox" + i).checked = true;
+                        }
+                        if ([0,2,3,5,6,7,8,10,11,12,13,14,15,17,18].includes(i)) {
+                            setCookie("col" + i, 'false', 365);
+                            document.getElementById("checkbox" + i).checked = false;
+                            switch(i) {
+                                case 0:
+                                    table.hideColumn("sdr_device_idx");
+                                    break;
+                                case 1:
+                                    table.hideColumn("age");
+                                    break;
+                                case 2:
+                                    table.hideColumn("type");
+                                    break;
+                                case 3:
+                                    table.hideColumn("freq");
+                                    break;
+                                case 4:
+                                    table.hideColumn("id");
+                                    break;
+                                case 5:
+                                    table.hideColumn("datetime");
+                                    break;
+                                case 6:
+                                    table.hideColumn("frame");
+                                    break;
+                                case 7:
+                                    table.hideColumn("lat");
+                                    break;
+                                case 8:
+                                    table.hideColumn("lon");
+                                    break;
+                                case 9:
+                                    table.hideColumn("alt");
+                                    break;
+                                case 10:
+                                    table.hideColumn("vel_h");
+                                    break;
+                                case 11:
+                                    table.hideColumn("vel_v");
+                                    break;
+                                case 12:
+                                    table.hideColumn("temp");
+                                    break;
+                                case 13:
+                                    table.hideColumn("humidity");
+                                    break;    
+                                case 14:
+                                    table.hideColumn("azimuth");
+                                    break;
+                                case 15:
+                                    table.hideColumn("elevation");
+                                    break;
+                                case 16:
+                                    table.hideColumn("range");
+                                    break;
+                                case 17:
+                                    table.hideColumn("snr");
+                                    break;
+                                case 18:
+                                    table.hideColumn("other");
+                                    break;                
+                            }
+                        }                
+                    }
+                }
+            }
+            table.redraw();
         });
+
+        // Function to open/close left log menu along with adjusting other elements so they render correctly.
+        function changeNav() {            
+            var x = document.getElementById("closebtn");
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
+                var myDiv = document.getElementById('sidenavtable');
+                myDiv.scrollTop = 0;
+                if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
+                    x.style.display = "none";
+                    if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                        y.style.display = "block";
+                    }
+                    document.getElementById("mySidenav").style.width = "350px";
+                    document.getElementById("main").style.marginLeft = "350px";
+                    document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                    mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
+                } else { // Fullsize on mobile.
+                    x.style.display = "block";
+                    y.style.display = "none";
+                    document.getElementById("mySidenav").style.width = "100%";
+                    document.getElementById("main").style.marginLeft = "0";
+                    document.getElementById("mySidenav").style.borderRadius = "0px";
+                }
+            } else {
+                x.style.display = "none";
+                if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                    y.style.display = "block";
+                }
+                document.getElementById("mySidenav").style.width = 0;
+                document.getElementById("main").style.marginLeft = 0;
+                mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
+            }
+        }
+
+        // Function to open/close right settings menu along with adjusting other elements so they render correctly.
+        function changeSettings() {            
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
+                    if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                        y.style.display = "block";
+                    }
+                    document.getElementById("mySettings").style.width = "350px";
+                    document.getElementById("main").style.marginRight = "350px";
+                    document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
+                    mymap.invalidateSize();
+                    setTimeout(scan_chart_obj.resize,500);
+                    setTimeout(showDown,500);
+                } else { // Fullsize on mobile.
+                    y.style.display = "none";
+                    document.getElementById("mySettings").style.width = "100%";
+                    document.getElementById("main").style.marginRight = "0";
+                    document.getElementById("mySettings").style.borderRadius = "0px";
+                }
+            } else {
+                if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                    y.style.display = "block";
+                }
+                document.getElementById("mySettings").style.width = 0;
+                document.getElementById("main").style.marginRight = 0;
+                mymap.invalidateSize();
+                setTimeout(scan_chart_obj.resize,500);
+                setTimeout(showDown,500);
+            }
+        }
+        
+        function showDown () {
+            if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
+                document.getElementById("downdiv").style.display = "none";
+            } else {
+                document.getElementById("downdiv").style.display = "block";
+            }
+        }
+
+        // Show/hide map on button press and update cookies.
+        function showMap(element) {
+           if (element.checked == false) {
+             document.getElementById("mapid").style.display = "none";
+             setCookie("map", 'false', 365);
+           } else {
+             document.getElementById("mapid").style.display = "block";
+             setCookie("map", 'true', 365);
+             mymap.invalidateSize();
+           }
+        }       
+
+        // Show/hide scan chart on button press and update cookies.
+        function showScan(element) {
+           if (element.checked == false) {
+             document.getElementById("scanid").style.display = "none";
+             setCookie("scan", 'false', 365);
+             mymap.invalidateSize();
+           } else {
+             document.getElementById("scanid").style.display = "block";
+             setCookie("scan", 'true', 365);
+             mymap.invalidateSize();
+             setTimeout(scan_chart_obj.resize,500);
+           }
+        }
+
+        // Enable/disable auto follow on button press and update cookies.
+        function autoFollow(element) {
+           if (element.checked == false) {
+             setCookie("follow", 'false', 365);
+           } else {
+             setCookie("follow", 'true', 365);
+           }
+        }
+
+        // Show/hide table on button press and update cookies.
+        function showTable(element) {
+           if (element.checked == false) {
+             document.getElementById("tableid").style.display = "none";
+             setCookie("table", 'false', 365);
+           } else {
+             document.getElementById("tableid").style.display = "block";
+             setCookie("table", 'true', 365);
+           }
+        }
+
+        // Set given cookie name and value.
+        function setCookie(name,value,days) {
+            var expires = "";
+            if (days) {
+                var date = new Date();
+                date.setTime(date.getTime() + (days*24*60*60*1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+        }
+
+        // Return cookie value given name.
+        function getCookie(name) {
+            var nameEQ = name + "=";
+            var ca = document.cookie.split(';');
+            for(var i=0;i < ca.length;i++) {
+                var c = ca[i];
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+            }
+            return null;
+        }
+
+        // Reset specific cookie.
+        function eraseCookie(name) {   
+            document.cookie = name +'=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        }
+
+        // Reset all cookies.
+        function deleteAllCookies() {
+            var cookies = document.cookie.split(";");
+
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i];
+                var eqPos = cookie.indexOf("=");
+                var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            }
+            location.reload();
+        }
     </script>
 </head>
 <body>
-    <div id="autorx_header"><h1>Radiosonde Auto-RX Status</h1></div>
-    <div class="container-fluid">
-        <div class="row">
-            <div class='col-12'>
-                <div id="task_status"><h2>Current Task:</h2></div>
+    <!-- Wrapper for entire body to ensure flex works -->    
+    <div class="wrapper">
+        <!-- Wrapper for log sidebar -->   
+        <div id="mySidenav" class="sidenav">
+            <div class="headerdiv">
+            <a href="javascript:void(0)" class="closebtn" id="closebtn" onclick="changeNav()">&#10006;</a>
+            <img src="{{ url_for('static', filename='img/autorx_logo.png') }}" alt="Radiosonde Auto-RX Button">
+            <h2>Log</h2>
             </div>
-        </div>
-        <div class="row">
-            <div class='col-12' id="telem_table"></div>
-        </div>
-        <div class="row">
-            <div class='col-12'>
-                Auto-Follow Latest Sonde: <input type="checkbox" id="sondeAutoFollow" checked> &nbsp; &nbsp; Hide Map: <input type="checkbox" id="hideMap">&nbsp; &nbsp; <a href="./rs.kml">Live KML</a>
-                <div id="sonde_map" style="height:400px;width:100%"></div>
-                <br>
-            </div>
-        </div>
-        <div class="row" id='scan_column'>
-            <div class='col-12'>
-                <h2>Scan Results:</h2>
-                <div id='scan_results'>No scan data yet...</div>
-                Hide Scan Plot: <input type="checkbox" id="hideScanPlot">
-                <div id="scan_chart" style="width:100%;"></div>
-            </div>
-        </div>
-        <div class="row">
-            <div class='col-12'>
-                <h2>Log:</h2>
-                <table id="log_data" class="table table-fixed">
-                    <thead>
-                        <tr>
-                            <th class="col-2">Time</th>
-                            <th class="col-1">Level</th>
-                            <th class="col-9">Message</th>
-                        </tr>
-                    </thead>
+            <div class="sidenavtable" id="sidenavtable">
+                <table style="width:100%" id="log_data">
                     <tbody>
                     </tbody>
                 </table>
             </div>
+            <div class="footerdiv">
+                <p class="footer">Version: <span id="currentversion">???</span> (latest: <span id="footertext">???</span>)</p>
+                <br>
+            </div>
+        </div>
+
+    <!-- Wrapper for settings sidebar -->   
+    <div id="mySettings" class="settings">
+        <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
+        <br><h2>Settings</h2>
+        <div class="scrollsettings" id="scrollsettingsid">
+            <h2>Table Options</h2>
+              <form>
+                  <input type="checkbox" class="0" id="checkbox0" checked>
+                  <label> SDR</label><br>
+                  <input type="checkbox" class="1" id="checkbox1" checked>
+                  <label> Age</label><br>
+                  <input type="checkbox" class="2" id="checkbox2" checked>
+                  <label> Type</label><br>
+                  <input type="checkbox" class="3" id="checkbox3" checked>
+                  <label> Frequency</label><br>
+                  <input type="checkbox" class="4" id="checkbox4" checked>
+                  <label> ID</label><br>
+                  <input type="checkbox" class="5" id="checkbox5" checked>
+                  <label> Time</label><br>
+                  <input type="checkbox" class="6" id="checkbox6" checked>
+                  <label> Frame</label><br>
+                  <input type="checkbox" class="7" id="checkbox7" checked>
+                  <label> Latitude</label><br>
+                  <input type="checkbox" class="8" id="checkbox8" checked>
+                  <label> Longitude</label><br>
+                  <input type="checkbox" class="9" id="checkbox9" checked>
+                  <label> Altitude</label><br>
+                  <input type="checkbox" class="10" id="checkbox10" checked>
+                  <label> Velocity</label><br>
+                  <input type="checkbox" class="11" id="checkbox11" checked>
+                  <label> Ascension</label><br>
+                  <input type="checkbox" class="12" id="checkbox12" checked>
+                  <label> Temperature</label><br>
+                  <input type="checkbox" class="13" id="checkbox13" checked>
+                  <label> Humidity</label><br>
+                  <input type="checkbox" class="14" id="checkbox14" checked>
+                  <label> Azimuth</label><br>
+                  <input type="checkbox" class="15" id="checkbox15" checked>
+                  <label> EI</label><br>
+                  <input type="checkbox" class="16" id="checkbox16" checked>
+                  <label> Range</label><br>
+                  <input type="checkbox" class="17" id="checkbox17" checked>
+                  <label> SNR</label><br>
+                  <input type="checkbox" class="18" id="checkbox18" checked>
+                  <label> Other</label><br><br>
+              </form>
+              <div style="margin-left:60px;">
+                  <h2 style="display:inline;vertical-align:middle;">Show Table</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" onchange="showTable(this)" id="showtablebutton">
+                    <span class="slider round"></span>
+                  </label>   
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Show Scan Plot</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" onchange="showScan(this)" id="showscanbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Show Map</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" onchange="showMap(this)" id="showmapbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Dark Mode</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showdarkbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Show UTC Time</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showUTCbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Set Pagination Size</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <select id="paginationSelector">
+                    <option value="1">One</option>
+                    <option value="2">Two</option>
+                    <option value="3">Three</option>
+                    <option value="4">Four</option>
+                    <option value="5">Five</option>
+                    <option value="6">Six</option>
+                    <option value="7">Seven</option>
+                    <option value="8">Eight</option>
+                    <option value="9">Nine</option>
+                    <option value="10">Ten</option>
+                </select>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Follow Sonde</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" onchange="autoFollow(this)" id="sondeAutoFollow">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>   
+                  <h2 style="display:inline;vertical-align:middle;">Show Imperial Units</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showimperialbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>                   
+                  <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                      <button onclick="window.location.href='/rs.kml'">SHOW</button>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Reset Page</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                    <button onclick="deleteAllCookies()">RESET</button>
+                  </div>                 
+                  <br>
+                  <br>
+                  <br>
+            </div>       
+        </div>    
+        <div id="downdiv">
+            <i class="fa fa-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
+
+    <!-- Wrapper for main screen -->   
+    <div id="main" onload="loadMap();">
+        <div>
+            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX</span>
+        </div>
+        <p style="font-size:2vh;">Station: <span id="station_callsign">???</span></p>
+        <p style="font-size:2vh;">Current Task: <span id="task_status">???</span></p>
+        <div id="tableid">
+            <div id="telem_table"></div>
+        </div>
+        <div id="scanid">
+            <h2>Scan Results:</h2>
+            <div id='scan_results'>No scan data yet...</div>
+            <div id="scan_chart" style="width:100%;"></div>
+        </div>
+        <br>
+        <div id="mapid"></div>
+        <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;"></i>
+    </div>
+</div>
 </body>
 </html>

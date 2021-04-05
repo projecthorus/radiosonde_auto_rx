@@ -1268,6 +1268,10 @@ class SondeDecoder(object):
             if self.sonde_type == "IMET5":
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+                # Re-generate the datetime string.
+                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
 
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:

@@ -1,0 +1,335 @@
+html,
+body {
+  margin: 0px;
+  height: 100%;
+  overflow: hidden;
+}
+
+p {
+  margin: 0.3vh;   
+}
+
+body {
+  font-family: "Roboto", sans-serif;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.wrapper {
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidenav {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: #111;
+  overflow: hidden;
+  transition: 0.5s;
+  padding-top: 20px;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#downdiv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  width: 100%;
+  position: absolute;
+  z-index: 10;
+  text-align: center;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.settings {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  background-color: #111;
+  overflow: hidden;
+  transition: 0.5s;
+  padding-top: 20px;
+  text-align: centre;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings form {
+  margin-left: 60px;
+  color: white;
+}
+
+.sidenavtable {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollsettings {
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+::-webkit-scrollbar {
+  display: none;
+}
+
+.sidenav img {
+  height: 10vh;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sidenav h2 {
+  font-size: 1.2em;
+  color: white;
+  text-align: center;
+}
+
+.settings h2 {
+  font-size: 1.2em;
+  color: white;
+  text-align: center;
+}
+
+.settings p {
+  color: white;
+  text-align: center;
+}
+
+.settings button {
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  transition-duration: 0.4s;
+  cursor: pointer;
+  background-color: white; 
+  color: black; 
+  border: 2px solid #2196F3;
+}
+
+.settings button:hover {
+  background-color: #2196F3;
+  color: white;
+}
+
+.footer {
+  font-size: 15px;
+  color: white;
+  text-align: center;
+
+}
+
+.sidenav table {
+  font-size: 20px;
+  color: white;
+  text-align: center;
+  table-layout: fixed;
+}
+
+.sidenav td {
+  padding-bottom: 1em;
+}
+
+#main {
+  transition: margin-left .5s;
+  padding: 16px;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#mapid { 
+  flex: auto;
+  z-index: 0;
+  border-radius: 25px;
+}
+
+.footerdiv {
+  flex: 0 1 auto;
+}
+
+.headerdiv {
+  flex: 0 1 auto;
+}
+
+.maintable table, .maintable td, .maintable th {
+  border: 1px solid black;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 20px;
+}
+
+.maintable {
+  border-collapse:separate; 
+  border-spacing: 0 1em
+}
+
+.sidenav .closebtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 36px;
+  display: none;
+  text-decoration: none;
+  color: white;
+}
+
+.settings .closebtn2 {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  font-size: 36px;
+  text-decoration: none;
+  color: white;
+}
+
+#myBtn {
+  cursor: pointer;
+  position: absolute;
+  right: 16px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+#scan_chart .c3-circles-Spectra {
+    display: none;
+}
+
+#scan_chart .c3-circles-Threshold{
+    display: none;
+}
+
+#scan_chart .c3-line-Threshold {
+    stroke-dasharray: 5,5;
+}
+
+#scan_chart .c3-target-Peaks {
+    fill: #ff7f0e;
+    stroke: #ff7f0e;
+}
+
+#scan_chart .c3-tooltip-container {
+    width: 200px;
+    color: black;
+}
+
+#telem_table a:link, #telem_table a:visited {
+    font-weight: bold;
+    text-decoration: none;
+    color:inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #121212;
+    }
+    #main span, #main p, #myBtn, #scanid {
+        color: white;
+    }
+    .c3-axis-y, .c3-axis-x, .c3-legend-item text {
+        fill: white;
+    }
+    .domain, .tick line {
+        stroke: white;
+    }
+    #mapid span {
+        color: black;
+    }
+    .sidenav {
+        background-color: #414141;
+    }
+    .settings {
+        background-color: #414141;
+    }
+}

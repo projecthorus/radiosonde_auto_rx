@@ -2,8 +2,8 @@
 // Mark Jessop 2018-06-30
 
 
-// Color cycling for balloon traces and icons - Hopefully 4 colors should be enough for now!
-var colour_values = ['blue','red','green','purple'];
+// Color cycling for balloon traces and icons
+var colour_values = ['red','green','blue','purple','yellow','cyan'];
 var colour_idx = 0;
 
 var los_color = '#00FF00';
@@ -26,6 +26,7 @@ for (_col in colour_values){
 	    iconAnchor: [23, 76]
     });
 }
+
 
 
 // calculates look angles between two points

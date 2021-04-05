@@ -42,9 +42,18 @@ function setup_scan_chart(){
 	scan_chart_obj = c3.generate({
 	    bindto: '#scan_chart',
 	    data: scan_chart_spectra,
+        tooltip: {
+            format: {
+                title: function (d) { return (Math.round(d * 1000) / 1000) + " MHz"; },
+                value: function (value) { return value + " dB"; }
+            }
+        },
 	    axis:{
 	        x:{
 	            tick:{
+                    culling: {
+                        max: window.innerWidth > 1100 ? 10 : 4
+                    },
 	                format: function (x) { return x.toFixed(3); }
 	            },
 	            label:"Frequency (MHz)"
