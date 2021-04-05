@@ -3,6 +3,11 @@
 #
 # Copy this file to station.cfg and modify as required. 
 #
+# If you only change a few settings, the important ones to change are:
+# - [habitat] -> uploader_callsign - Your station callsign!
+# - [location] -> station_lat, station_lon, station_alt - Your station location!
+# - [search_params] -> min_freq, max_freq - Set these suitable for your location!
+#
 
 ###################
 # RTLSDR SETTINGS #
@@ -115,6 +120,12 @@ gpsd_port = 2947
 # Settings for uploading to the Habitat HAB tracking database ( https://tracker.habhub.org/ )
 #   Note that the habitat upload will use a fixed string format of:
 #  `$$RS_<sonde_serial>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
+#
+# NOTE: These settings will eventually be merged with the SondeHub settings below.
+# For now, the uploader callsign and upload_listener_position and uploader_antenna fields are
+# shared between Habitat and Sondehub uploaders.
+#
+
 
 [habitat]
 habitat_enabled = True
