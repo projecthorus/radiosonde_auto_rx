@@ -180,7 +180,7 @@ class EmailNotification(object):
                 self.sondes[_id]["descent_notified"] == False
             ):
                 # If the sonde is below our threshold altitude, *and* is descending at a reasonable rate, increment.
-                if (telemetry["alt"] < self.landing_altitude_threshold) and (
+                if (telemetry["alt"] < self.landing_altitude_threshold) and (telemetry["vel_v"] != -9999.0) and (
                     telemetry["vel_v"] < -2.0
                 ):
                     self.sondes[_id]["descending_trip"] += 1

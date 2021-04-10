@@ -468,7 +468,7 @@ def detect_sonde(
         _sonde_type = "M10"
     elif "M20" in _type:
         logging.debug(
-            "Scanner #%s - Detected a M20 Sonde! (Not yet supported...) (Score: %.2f, Offset: %.1f Hz)"
+            "Scanner #%s - Detected a M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
             % (str(device_idx), _score, _offset_est)
         )
         _sonde_type = "M20"

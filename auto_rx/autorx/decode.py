@@ -736,7 +736,7 @@ class SondeDecoder(object):
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
-            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = _freq
 
         elif self.sonde_type == "DFM":
@@ -778,8 +778,8 @@ class SondeDecoder(object):
                 "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
             )
 
-            # DFM sondes transmit continuously - average over the last 2 frames, and use a mean
-            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
+            # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = _freq
 
         elif self.sonde_type == "M10":
@@ -894,8 +894,8 @@ class SondeDecoder(object):
 
             decode_cmd = "./lms6Xmod --json --softin --vit2 -i 2>/dev/null"
 
-            # LMS sondes transmit continuously - average over the last 2 frames, and use a mean
-            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=False)
+            # LMS sondes transmit continuously - average over the last 2 frames, and use a peak hold
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = _freq
 
         elif self.sonde_type == "IMET5":
@@ -974,8 +974,8 @@ class SondeDecoder(object):
             # MRZ decoder
             decode_cmd = "./mp3h1mod --auto --json --softin --ptu 2>/dev/null"
 
-            # MRZ sondes transmit continuously - average over the last frame, and use a mean
-            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=False)
+            # MRZ sondes transmit continuously - average over the last frame, and use a peak hold
+            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
             self.rx_frequency = _freq
 
         else:
