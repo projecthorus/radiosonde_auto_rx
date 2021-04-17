@@ -90,8 +90,7 @@ def flask_index():
 def flask_get_version():
     """ Return current and latest auto_rx version to client """
     _newer = check_autorx_versions()
-    return json.dumps({'current':autorx.__version__, 'latest': _newer})
-
+    return json.dumps({"current": autorx.__version__, "latest": _newer})
 
 
 @app.route("/get_task_list")

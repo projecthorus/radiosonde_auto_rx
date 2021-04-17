@@ -91,7 +91,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "max_radius_km": 1000,
         "min_radius_km": 0,
         "radius_temporary_block": False,
-        #"sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
+        # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
         # Habitat Settings
         "habitat_enabled": False,
         "habitat_upload_rate": 30,
@@ -165,7 +165,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
-        #"sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
+        # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
     }
 
     try:
@@ -392,7 +392,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
-            "MRZ": False, # .... except for the MRZ, until we know it works.
+            "MRZ": False,  # .... except for the MRZ, until we know it works.
             "UDP": False,
         }
 

@@ -50,7 +50,7 @@ class SondehubUploader(object):
         user_position=None,
         user_antenna="",
         contact_email="",
-        user_position_update_rate=6
+        user_position_update_rate=6,
     ):
         """ Initialise and start a Sondehub uploader
         
@@ -383,7 +383,6 @@ class SondehubUploader(object):
         if not _upload_success:
             self.log_error("Upload failed after %d retries" % (_retries))
 
-
     def station_position_upload(self):
         """ 
         Upload a station position packet to SondeHub.
@@ -405,7 +404,7 @@ class SondehubUploader(object):
             "uploader_position": self.user_position,
             "uploader_antenna": self.user_antenna,
             "uploader_contact_email": self.contact_email,
-            "mobile": False # Hardcoded mobile=false setting - Mobile stations should be using Chasemapper.
+            "mobile": False,  # Hardcoded mobile=false setting - Mobile stations should be using Chasemapper.
         }
 
         _retries = 0
@@ -435,9 +434,7 @@ class SondehubUploader(object):
             if _req.status_code == 200:
                 # 200 is the only status code that we accept.
                 _upload_time = time.time() - _start_time
-                self.log_info(
-                    "Uploaded station information to Sondehub."
-                )
+                self.log_info("Uploaded station information to Sondehub.")
                 _upload_success = True
                 break
 
@@ -454,11 +451,12 @@ class SondehubUploader(object):
                 break
 
         if not _upload_success:
-            self.log_error("Station information upload failed after %d retries" % (_retries))
+            self.log_error(
+                "Station information upload failed after %d retries" % (_retries)
+            )
             self.log_debug(f"Attempted to upload {json.dumps(_position)}")
 
         self.last_user_position_upload = time.time()
-
 
     def close(self):
         """ Close input processing thread. """
