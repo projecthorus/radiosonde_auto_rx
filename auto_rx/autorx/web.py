@@ -18,6 +18,7 @@ import autorx
 import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
+from autorx.utils import check_autorx_versions
 from threading import Thread
 import flask
 from flask import request, abort
@@ -87,8 +88,10 @@ def flask_index():
 
 @app.route("/get_version")
 def flask_get_version():
-    """ Return auto_rx version to client """
-    return autorx.__version__
+    """ Return current and latest auto_rx version to client """
+    _newer = check_autorx_versions()
+    return json.dumps({'current':autorx.__version__, 'latest': _newer})
+
 
 
 @app.route("/get_task_list")

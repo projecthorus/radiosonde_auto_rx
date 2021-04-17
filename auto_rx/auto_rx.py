@@ -36,7 +36,7 @@ from autorx.utils import (
     rtlsdr_test,
     position_info,
     check_rs_utils,
-    check_autorx_version,
+    version_startup_check,
 )
 from autorx.config import read_auto_rx_config
 from autorx.web import (
@@ -958,7 +958,7 @@ def main():
             callback=station_position_update,
         )
 
-    check_autorx_version()
+    version_startup_check()
 
     # Note the start time.
     _start_time = time.time()
