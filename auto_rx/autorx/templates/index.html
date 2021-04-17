@@ -64,10 +64,20 @@
             $.ajax({
                   // Get local version number.
                   url: "/get_version",
-                  dataType: 'text',
+                  dataType: 'json',
                   async: true,
                   success: function(data) {
-                    $('#currentversion').text(data);
+                    // Update the current version field.
+                    $('#currentversion').text(data.current);
+                    
+                    // Update the latest version area.
+                    if(data.latest == 'Latest'){
+                        $("#footertext").text("(Latest)");
+                    } else if (data.latest == "Unknown"){
+                        $("#footertext").text("(Unknown - Offline?)");
+                    } else {
+                        $("#footertext").html("(Latest: <a href='https://github.com/projecthorus/radiosonde_auto_rx/releases' target='_blank'>" + data.latest + "</a>)");
+                    }
                   }
             });
             
@@ -797,15 +807,6 @@
                 }
             }, sonde_follow_timeout);           
 
-            // Automatically gets the latest version number and GitHub URL
-            $.ajax({
-              url:"https://api.github.com/repos/projecthorus/radiosonde_auto_rx/releases",
-              dataType: "jsonp",
-              success : function( returndata )
-              {
-                $("#footertext").html("<a href='" + returndata['data'][0].html_url + "' target='_blank' style='text-decoration:none;color:white;'>" + returndata['data'][0].tag_name.substring(1) + "</a>");
-              }
-            });    
 
             // Update telemetry table every second (this is mainly to update the age field)
             window.setInterval(function(){
@@ -1282,7 +1283,7 @@
                 </table>
             </div>
             <div class="footerdiv">
-                <p class="footer">Version: <span id="currentversion">???</span> (latest: <span id="footertext">???</span>)</p>
+                <p class="footer">Version: <span id="currentversion">???</span> <span id="footertext"></span></p>
                 <br>
             </div>
         </div>
