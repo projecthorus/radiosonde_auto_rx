@@ -632,6 +632,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             global_config.pop("email_smtp_login")
             global_config.pop("email_smtp_password")
             global_config.pop("email_smtp_server")
+            global_config.pop("email_smtp_port")
+            global_config.pop("email_from")
+            global_config.pop("email_to")
+            global_config.pop("email_smtp_authentication")
 
             return auto_rx_config
 
