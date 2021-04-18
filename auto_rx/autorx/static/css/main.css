@@ -6,7 +6,8 @@ body {
 }
 
 p {
-  margin: 0.3vh;   
+  margin-top: 0.3vh;   
+  margin-bottom: 0.3vh;  
 }
 
 body {
@@ -14,6 +15,10 @@ body {
   display: flex;
   overflow: hidden;
   flex-direction: column;
+}
+
+a {
+  color: inherit;
 }
 
 .wrapper {
@@ -171,7 +176,6 @@ body {
 #mapid { 
   flex: auto;
   z-index: 0;
-  border-radius: 25px;
 }
 
 .footerdiv {
@@ -304,7 +308,7 @@ input:checked + .slider:before {
     color: black;
 }
 
-#telem_table a:link, #telem_table a:visited {
+#telem_table a:link, #telem_table a:visited #log_data a:link, #log_data a:visited {
     font-weight: bold;
     text-decoration: none;
     color:inherit;
