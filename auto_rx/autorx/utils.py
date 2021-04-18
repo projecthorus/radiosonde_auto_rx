@@ -54,7 +54,10 @@ def check_rs_utils():
     for _file in REQUIRED_RS_UTILS:
         if not os.path.isfile(_file):
             logging.critical("Binary %s does not exist - did you run build.sh?" % _file)
-            return False
+            os.system("./build.sh")
+            if not os.path.isfile(_file):
+               logging.critical("After a build attemp, binary %s does not exist." % _file)
+               return False
 
     return True
 

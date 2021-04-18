@@ -17,6 +17,7 @@ from base64 import b64encode
 from hashlib import sha256
 from threading import Thread, Lock
 from . import __version__ as auto_rx_version
+from autorx.utils import position_info
 
 try:
     # Python 2
@@ -500,6 +501,7 @@ class HabitatUploader(object):
 
     def user_position_upload(self):
         """ Upload the the station position to Habitat. """
+        initial_position = (self.station_position[0],self.station_position[1],0)
         if self.station_position == None:
             # Upload is successful, just flag it as OK and move on.
             self.last_user_position_upload = time.time()
@@ -514,6 +516,19 @@ class HabitatUploader(object):
                 antenna=self.user_antenna,
             )
             self.last_user_position_upload = time.time()
+            final_position = (self.station_position[0],self.station_position[1],0)
+            _info = position_info(initial_position,final_position)
+            _changeinpos = int(_info["straight_distance"]/1000)
+            if _changeinpos > 10:
+               logging.info("Change in position of %ikm during upload - try upload only once more",int(_changeinpos))
+               if (self.station_position[0] != 0.0) or (self.station_position[1] != 0.0):
+                _success = uploadListenerPosition(
+                self.user_callsign,
+                self.station_position[0],
+                self.station_position[1],
+                version=auto_rx_version,
+                antenna=self.user_antenna,
+                )
             return _success
         else:
             # No position set, just flag the update as successful.

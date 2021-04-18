@@ -612,6 +612,24 @@ def station_position_update(position):
     # Quick sanity check of the incoming data
     if "valid" not in position:
         return
+    # If a station location has been provided see if there has been a jump more than 10% of max_radius_km from config file 
+    if (config["station_lat"] != 0.0) and (config["station_lon"] != 0.0):
+       _global_dictionary_position = (config["station_lat"], config["station_lon"], config["station_alt"])
+       _GPSD_position = (position["latitude"], position["longitude"], position["altitude"])
+       _info = position_info(_global_dictionary_position,_GPSD_position)
+       _changeinpos = int(_info["straight_distance"]/1000)
+
+       if _changeinpos > (config["max_radius_km"] * 0.1): #there has been a change in position greater than 0.1 of max_radius_km
+          logging.info("AUTO_RX - Before update position discrepancy is %ikm", _changeinpos)
+          config["station_lat"] = position["latitude"]
+          config["station_lon"] = position["longitude"]
+          config["station_alt"] = position["altitude"]
+          _global_dictionary_position = (config["station_lat"], config["station_lon"], config["station_alt"])
+          _GPSD_position = (position["latitude"], position["longitude"], position["altitude"])
+          _info = position_info(_global_dictionary_position,_GPSD_position)
+          _changeinpos = int(_info["straight_distance"]/1000)
+          logging.info("AUTO_RX - After update position discrepancy is %ikm", _changeinpos)
+
 
     for _exporter in exporter_objects:
         try:
