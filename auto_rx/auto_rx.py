@@ -511,7 +511,7 @@ def telemetry_filter(telemetry):
             config["station_alt"],
         )
         _payload = (telemetry["lat"], telemetry["lon"], telemetry["alt"])
-        # Calculate using positon_info function from rotator_utils.py
+        # Calculate using position_info function from rotator_utils.py
         _info = position_info(_listener, _payload)
 
         if _info["straight_distance"] > config["max_radius_km"] * 1000:
