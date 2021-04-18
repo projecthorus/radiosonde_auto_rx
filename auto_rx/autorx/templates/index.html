@@ -68,7 +68,10 @@
                   async: true,
                   success: function(data) {
                     // Update the current version field.
-                    $('#currentversion').text(data.current);
+                    if (getCookie('version') == "false") {}
+                    else {
+                        $('#currentversion').text(data.current);
+                    }
                     
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
@@ -273,6 +276,13 @@
                 document.getElementById("showimperialbutton").checked = false;
             }
             
+            // Check if user has version shown selection.
+            if (getCookie('version') == 'false') {
+                document.getElementById("showversionbutton").checked = false;
+            } else {
+                document.getElementById("showversionbutton").checked = true;
+            }
+            
             // Check if user has preffered scan chart visiblity.
             if (getCookie('scan') == 'true') {
                 document.getElementById("showscanbutton").checked = true;
@@ -351,6 +361,17 @@
                 } else {
                     setCookie("imperial", 'false', 365);     
                     location.reload();  
+                }
+            });
+            
+            // Check if show version button has been ticked.
+            $('#showversionbutton').change(function() {
+                if ($(this).is(":checked")) {
+                    setCookie("version", 'true', 365);
+                    location.reload();
+                } else {
+                    setCookie("version", 'false', 365); 
+                    location.reload();
                 }
             });
             
@@ -1418,7 +1439,17 @@
                   </label>
                   </div>
                   <br>
-                  <br>                   
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Show Software Version</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showversionbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>                  
                   <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
