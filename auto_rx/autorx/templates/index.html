@@ -72,11 +72,11 @@
                     
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
-                        $("#footertext").text("(Latest)");
+                        //pass
                     } else if (data.latest == "Unknown"){
-                        $("#footertext").text("(Unknown - Offline?)");
+                        //pass
                     } else {
-                        $("#footertext").html("(Latest: <a href='https://github.com/projecthorus/radiosonde_auto_rx/releases' target='_blank'>" + data.latest + "</a>)");
+                        $("#footertext").html("Update Available: <a href='https://github.com/projecthorus/radiosonde_auto_rx/releases' target='_blank'>" + data.latest + "</a>");
                     }
                   }
             });
@@ -1282,10 +1282,6 @@
                     </tbody>
                 </table>
             </div>
-            <div class="footerdiv">
-                <p class="footer">Version: <span id="currentversion">???</span> <span id="footertext"></span></p>
-                <br>
-            </div>
         </div>
 
     <!-- Wrapper for settings sidebar -->   
@@ -1448,8 +1444,9 @@
     <!-- Wrapper for main screen -->   
     <div id="main" onload="loadMap();">
         <div>
-            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX</span>
+            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX <span id="currentversion">0.0.0</span></span>
         </div>
+        <span style="font-size:2vh;" id="footertext"></span>
         <p style="font-size:2vh;">Station: <span id="station_callsign">???</span></p>
         <p style="font-size:2vh;">Current Task: <span id="task_status">???</span></p>
         <div id="tableid">
