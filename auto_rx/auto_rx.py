@@ -624,6 +624,9 @@ def station_position_update(position):
           config["station_lat"] = position["latitude"]
           config["station_lon"] = position["longitude"]
           config["station_alt"] = position["altitude"]
+          autorx.config.global_config["station_lat"] = position["latitude"]
+          autorx.config.global_config["station_lon"] = position["longitude"]
+          autorx.config.global_config["station_alt"] = position["altitude"]
           _global_dictionary_position = (config["station_lat"], config["station_lon"], config["station_alt"])
           _GPSD_position = (position["latitude"], position["longitude"], position["altitude"])
           _info = position_info(_global_dictionary_position,_GPSD_position)
