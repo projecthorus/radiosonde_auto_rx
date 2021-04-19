@@ -72,7 +72,7 @@ class EmailNotification(object):
         # Dictionary to track sonde IDs
         self.sondes = {}
 
-        self.max_age = 60  # 3600*2 # Only store telemetry for 2 hours
+        self.max_age = 3600*2 # Only store telemetry for 2 hours
 
         # Input Queue.
         self.input_queue = Queue()
