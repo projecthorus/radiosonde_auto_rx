@@ -35,6 +35,7 @@ import select
 import socket
 import sys
 import time
+import traceback
 from threading import Thread
 
 
@@ -399,11 +400,16 @@ class GPSDAdaptor(object):
                         else:
                             _speed = 0.0
 
+                        if _TPV["alt"] != "n/a":
+                            _alt = _TPV["alt"]
+                        else:
+                            _alt = 0.0
+
                         _gps_state = {
                             "type": "GPS",
                             "latitude": _TPV["lat"],
                             "longitude": _TPV["lon"],
-                            "altitude": _TPV["alt"],
+                            "altitude": _alt,
                             "speed": _speed,
                             "valid": True,
                         }
