@@ -14,6 +14,7 @@ from email.utils import formatdate
 from threading import Thread
 from .config import read_auto_rx_config
 from .utils import position_info
+from .geometry import GenericTrack
 
 try:
     # Python 2
@@ -71,6 +72,8 @@ class EmailNotification(object):
         # Dictionary to track sonde IDs
         self.sondes = {}
 
+        self.max_age = 3600*2 # Only store telemetry for 2 hours
+
         # Input Queue.
         self.input_queue = Queue()
 
@@ -109,7 +112,9 @@ class EmailNotification(object):
                     self.log_error("Error processing telemetry dict - %s" % str(e))
 
             # Sleep while waiting for some new data.
-            time.sleep(0.5)
+            time.sleep(2)
+
+            self.clean_telemetry_store()
 
     def process_telemetry(self, telemetry):
         """ Process a new telemmetry dict, and send an e-mail if it is a new sonde. """
@@ -120,7 +125,18 @@ class EmailNotification(object):
                 "last_time": time.time(),
                 "descending_trip": 0,
                 "descent_notified": False,
+                "track": GenericTrack(max_elements=20),
             }
+
+            # Add initial position to the track info.
+            self.sondes[_id]["track"].add_telemetry(
+                {
+                    "time": telemetry["datetime_dt"],
+                    "lat": telemetry["lat"],
+                    "lon": telemetry["lon"],
+                    "alt": telemetry["alt"],
+                }
+            )
 
             if self.launch_notifications:
 
@@ -174,14 +190,24 @@ class EmailNotification(object):
                     self.log_error("Error sending E-mail - %s" % str(e))
 
         else:
+            # Update track data.
+            _sonde_state = self.sondes[_id]["track"].add_telemetry(
+                {
+                    "time": telemetry["datetime_dt"],
+                    "lat": telemetry["lat"],
+                    "lon": telemetry["lon"],
+                    "alt": telemetry["alt"],
+                }
+            )
+            # Update last seen time, so we know when to clean out this sondes data from memory.
+            self.sondes[_id]["last_time"] = time.time()
+
             # We have seen this sonde recently. Let's check it's descending...
 
-            if ("vel_v" in telemetry) and (
-                self.sondes[_id]["descent_notified"] == False
-            ):
+            if self.sondes[_id]["descent_notified"] == False and _sonde_state:
                 # If the sonde is below our threshold altitude, *and* is descending at a reasonable rate, increment.
-                if (telemetry["alt"] < self.landing_altitude_threshold) and (telemetry["vel_v"] != -9999.0) and (
-                    telemetry["vel_v"] < -2.0
+                if (telemetry["alt"] < self.landing_altitude_threshold) and (
+                    _sonde_state["ascent_rate"] < -2.0
                 ):
                     self.sondes[_id]["descending_trip"] += 1
 
@@ -300,6 +326,18 @@ class EmailNotification(object):
             self.log_error("Error sending E-mail notification - %s" % str(e))
 
         pass
+
+    def clean_telemetry_store(self):
+        """ Remove any old data from the telemetry store """
+
+        _now = time.time()
+        _telem_ids = list(self.sondes.keys())
+        for _id in _telem_ids:
+            # If the most recently telemetry is older than self.max_age, remove all data for
+            # that sonde from the local store.
+            if (_now - self.sondes[_id]["last_time"]) > self.max_age:
+                self.sondes.pop(_id)
+                self.log_debug("Removed Sonde #%s from archive." % _id)
 
     def close(self):
         """ Close input processing thread. """

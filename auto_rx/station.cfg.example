@@ -395,10 +395,15 @@ web_port = 5000
 # Note: The higher this number, the more data the client will need to load in on startup
 archive_age = 120
 
-# Enable some additional controls on the auto_rx web interface. 
-# There is currently no authentication for these features, so use this with caution!
-# Do not set this to True on an internet-facing auto_rx instance!!!
+# Enable control over the scanner, and starting/stopping decoders from the web interface.
+# A password must also be set (below).
+# USERS ENABLE THIS AT THEIR OWN RISK!!
 web_control = False
+
+# Password for controls on the web interface. The main interface will still be publically available.
+# Note that as the web interface is HTTP-only, this password will be sent over the internet in the clear,
+# so don't re-use passwords!
+web_password = none
 
 # KML refresh rate
 kml_refresh_rate = 10
