@@ -79,7 +79,11 @@
                     } else if (data.latest == "Unknown"){
                         //pass
                     } else {
-                        $("#footertext").html("Update Available: <a href='https://github.com/projecthorus/radiosonde_auto_rx/releases' target='_blank'>" + data.latest + "</a>");
+                        if (data.latest.includes("-beta")) {
+                            $("#footertext").html("Update Available: <a href='https://github.com/projecthorus/radiosonde_auto_rx/commits/testing' target='_blank'>" + data.latest + "</a>");
+                        } else {
+                            $("#footertext").html("Update Available: <a href='https://github.com/projecthorus/radiosonde_auto_rx/releases' target='_blank'>" + data.latest + "</a>");
+                        }
                     }
                   }
             });
