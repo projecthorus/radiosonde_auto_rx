@@ -22,6 +22,9 @@ global_config = {
     "station_lon": 0.0,
 }
 
+# Web interface credentials
+web_password = "none"
+
 try:
     # Python 2
     from ConfigParser import RawConfigParser
@@ -50,7 +53,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 		auto_rx_config (dict): The configuration dictionary.
 		sdr_config (dict): A dictionary with SDR parameters.
 	"""
-    global global_config
+    global global_config, web_password
     # Configuration Defaults:
     auto_rx_config = {
         # Log Settings
@@ -91,7 +94,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "max_radius_km": 1000,
         "min_radius_km": 0,
         "radius_temporary_block": False,
-        #"sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
+        # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
         # Habitat Settings
         "habitat_enabled": False,
         "habitat_upload_rate": 30,
@@ -117,7 +120,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "web_host": "0.0.0.0",
         "web_port": 5000,
         "web_archive_age": 120,
-        "web_control": True,
+        "web_control": False,
+        #"web_password": "none",  # Commented out to ensure warning message is shown
         #'kml_refresh_rate': 10,
         # Advanced Parameters
         "search_step": 800,
@@ -165,7 +169,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
-        #"sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
+        # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
     }
 
     try:
@@ -392,7 +396,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
-            "MRZ": False, # .... except for the MRZ, until we know it works.
+            "MRZ": False,  # .... except for the MRZ, until we know it works.
             "UDP": False,
         }
 
@@ -556,6 +560,23 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["sonde_time_threshold"] = 3
 
+        # Web control password
+        try:
+            auto_rx_config["web_password"] = config.get(
+                "web", "web_password"
+            )
+            if auto_rx_config["web_password"] == "none":
+                logging.warning(
+                    "Config - Web Password not set, disabling web control"
+                )
+                auto_rx_config["web_control"] = True
+        except:
+            logging.warning(
+                "Config - Did not find Web Password setting, using default (web control disabled)"
+            )
+            auto_rx_config["web_control"] = False
+            auto_rx_config["web_password"] = "none"
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
@@ -632,6 +653,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             global_config.pop("email_smtp_login")
             global_config.pop("email_smtp_password")
             global_config.pop("email_smtp_server")
+            global_config.pop("email_smtp_port")
+            global_config.pop("email_from")
+            global_config.pop("email_to")
+            global_config.pop("email_smtp_authentication")
+            global_config.pop("sondehub_contact_email")
+            global_config.pop("web_password")
+
+            web_password = auto_rx_config["web_password"]
 
             return auto_rx_config
 

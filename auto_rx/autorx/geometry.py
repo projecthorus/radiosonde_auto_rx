@@ -137,7 +137,6 @@ class GenericTrack(object):
         self.heading = 0.0
         self.speed = 0.0
         self.is_descending = False
-        
 
         # Internal store of track history data.
         # Data is stored as a list-of-lists, with elements of [datetime, lat, lon, alt, comment]
@@ -175,7 +174,7 @@ class GenericTrack(object):
             pass
         except Exception as e:
             logging.debug(
-                "Web - Error adding new telemetry to GenericTrack %s" % str(e)
+                "Track - Error adding new telemetry to GenericTrack %s" % str(e)
             )
 
     def get_latest_state(self):

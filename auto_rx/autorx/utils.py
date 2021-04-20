@@ -68,7 +68,9 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
     try:
         _r = requests.get(version_url, timeout=5)
     except Exception as e:
-        logging.exception(f"Version - Error determining version from URL {version_url}", e)
+        logging.exception(
+            f"Version - Error determining version from URL {version_url}", e
+        )
         return None
 
     try:
@@ -79,7 +81,9 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
                 return _main_version
 
     except Exception as e:
-        logging.exception(f"Version - Error extracting version from url {version_url}.",e)
+        logging.exception(
+            f"Version - Error extracting version from url {version_url}.", e
+        )
         return None
 
 
@@ -90,7 +94,6 @@ def check_autorx_versions(current_version=auto_rx_version):
         there is an update available. Returns 'Unknown' if the version could not be determined.
     """
 
-    
     # Grab the current versions
     _main_branch_version = get_autorx_version(AUTORX_MAIN_VERSION_URL)
     _testing_branch_version = get_autorx_version(AUTORX_TESTING_VERSION_URL)
@@ -101,7 +104,7 @@ def check_autorx_versions(current_version=auto_rx_version):
 
     # First, determine if the user is on a main or beta (testing) version
     # We use the presence of a '-' in the version name to figure this out.
-    if '-' in current_version:
+    if "-" in current_version:
         # User is on a testing branch version.
         # Compare against the testing branch version - when a release is made, the testing
         # branch will have the same version as the main branch, then will advance.
@@ -131,8 +134,9 @@ def version_startup_check():
         # An error will have already been printed out for this case.
         pass
     else:
-        logging.info(f"Version - Local Version: {auto_rx_version} - Newer Version Available! ({_newer_version})")
-
+        logging.info(
+            f"Version - Local Version: {auto_rx_version} - Newer Version Available! ({_newer_version})"
+        )
 
 
 class AsynchronousFileReader(threading.Thread):

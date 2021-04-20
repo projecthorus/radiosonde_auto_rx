@@ -658,7 +658,7 @@ class SondeScanner(object):
         if len(self.temporary_block_list.keys()) > 0:
             self.log_info(
                 "Temporary blocks in place for frequencies: %s"
-                % str(self.temporary_block_list.keys())
+                % str(list(self.temporary_block_list.keys()))
             )
 
         # Error counter.

@@ -545,15 +545,17 @@ def telemetry_filter(telemetry):
             return "TempBlock"
 
     # DateTime Check
-    _delta_time = (datetime.datetime.now(datetime.timezone.utc) - parse(telemetry['datetime'])).total_seconds()
+    _delta_time = (
+        datetime.datetime.now(datetime.timezone.utc) - parse(telemetry["datetime"])
+    ).total_seconds()
     logging.debug("Delta time: %d" % _delta_time)
 
-    if abs(_delta_time) > (3600*config["sonde_time_threshold"]):
+    if abs(_delta_time) > (3600 * config["sonde_time_threshold"]):
         logging.warning(
-            "Sonde reported time too far from current UTC time. Either sonde time or system time is invalid. (Threshold: %d hours)" % config["sonde_time_threshold"]
+            "Sonde reported time too far from current UTC time. Either sonde time or system time is invalid. (Threshold: %d hours)"
+            % config["sonde_time_threshold"]
         )
         return False
-
 
     # Payload Serial Number Checks
     _serial = telemetry["id"]
@@ -575,7 +577,7 @@ def telemetry_filter(telemetry):
         meisei_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         meisei_callsign_valid = False
-    
+
     if "MRZ" in telemetry["type"]:
         mrz_callsign_valid = "x" not in _serial.split("-")[1]
     else:
@@ -598,7 +600,7 @@ def telemetry_filter(telemetry):
         # Add in a note about DFM sondes and their oddness...
         if "DFM" in telemetry["id"]:
             _id_msg += " Note: DFM sondes may take a while to get an ID."
-        
+
         if "MRZ" in telemetry["id"]:
             _id_msg += " Note: MRZ sondes may take a while to get an ID."
 
@@ -773,7 +775,9 @@ def main():
     # allows it to run indefinitely.
     if args.type != None:
         if args.type in VALID_SONDE_TYPES:
-            logging.warning("Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!")
+            logging.warning(
+                "Overriding RX timeout for manually specified radiosonde type. Decoders will not automatically stop!"
+            )
             config["rx_timeout"] = 0
             autorx.scan_results.put([[args.frequency * 1e6, args.type]])
         else:
@@ -934,7 +938,7 @@ def main():
                 config["station_lon"],
                 config["station_alt"],
             )
-        
+
         _sondehub = SondehubUploader(
             user_callsign=config["habitat_uploader_callsign"],
             user_position=_sondehub_station_position,
