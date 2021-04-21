@@ -1307,7 +1307,7 @@ class SondeDecoder(object):
                     _telem_ok = self.telem_filter(_telemetry)
                 except Exception as e:
                     self.log_error("Failed to run telemetry filter - %s" % str(e))
-                    _telem_ok = "OK"
+                    return False
 
             # Check if the telemetry filter has indicated that we should block this frequency for some time.
             if _telem_ok == "TempBlock":
