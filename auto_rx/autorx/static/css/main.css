@@ -126,7 +126,7 @@ a {
   text-align: center;
 }
 
-.settings button {
+button {
   border: none;
   color: white;
   padding: 12px 24px;
@@ -142,7 +142,7 @@ a {
   border: 2px solid #2196F3;
 }
 
-.settings button:hover {
+button:hover {
   background-color: #2196F3;
   color: white;
 }
@@ -374,6 +374,16 @@ input:checked + .slider:before {
 .close:focus {
   text-decoration: none;
   cursor: pointer;
+}
+
+input[type=text] {
+  width: 70%;
+  padding: 12px 20px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
 @media (prefers-color-scheme: dark) {
