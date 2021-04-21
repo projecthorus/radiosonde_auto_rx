@@ -321,7 +321,9 @@ input:checked + .slider:before {
 }
 
 /* Modal Body */
-.modal-body {padding: 2px 16px;}
+.modal-body {
+    padding: 2px 16px;
+}
 
 /* The Modal (background) */
 .modal {
@@ -332,16 +334,17 @@ input:checked + .slider:before {
   top: 0;
   width: 100%; /* Full width */
   height: 100%; /* Full height */
-  overflow: auto; /* Enable scroll if needed */
+  overflow: hidden; /* Enable scroll if needed */
   background-color: rgb(0,0,0); /* Fallback color */
   background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }
 
 /* Modal Content/Box */
 .modal-content {
-  position: relative;
   background-color: #fefefe;
+  overflow: scroll;
   margin: 15vh auto;
+  max-height: 75vh;
   padding: 0;
   border: 1px solid #888;
   width: 80%;
@@ -377,13 +380,17 @@ input:checked + .slider:before {
 }
 
 input[type=text] {
-  width: 70%;
+  width: 140px;
   padding: 12px 20px;
   margin: 8px 0;
   display: inline-block;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+.control {
+    height: 42px;
 }
 
 @media (prefers-color-scheme: dark) {
