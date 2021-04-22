@@ -88,9 +88,9 @@
                   }
             });
             
-            socket.on('log_event', function(msg) {
+            socket.on('log_event', function(msg) {           
                 // New log entry received.
-                var log_time = new Date(msg.timestamp);
+                var log_time = new Date(msg.timestamp);               
                 // Check if time is UTC mode.
                 if (getCookie('UTC') == 'false') {
                     // Check if entry is important.
@@ -99,6 +99,9 @@
                     } else {
                         // If entry is important colour text red.
                         var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                        if (document.getElementById("mySidenav").offsetWidth == 0) {
+                            $('#log-tray').css('color', 'red');
+                        }
                     }
                 } else {
                     if (msg.level == "INFO") {
@@ -106,6 +109,9 @@
                     } else {
                         // If entry is important colour text red.
                         var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                        if (document.getElementById("mySidenav").offsetWidth == 0) {
+                            $('#log-tray').css('color', 'red');
+                        }
                     }
                 }
                 // Append entry to log table.
@@ -315,7 +321,12 @@
             function changeTheme(dark) {
                 if (dark == false) {
                     document.body.style.background = 'white';
-                    $('#main span').css('color', 'black')
+                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                        $('#main span').css('color', 'black')
+                        $('#log-tray').css('color', 'red');
+                    } else {
+                        $('#main span').css('color', 'black')
+                    }
                     $('#main p').css('color', 'black')
                     $('.modal-content p').css('color', 'black')
                     $('.modal-content h2').css('color', 'black')
@@ -334,7 +345,12 @@
                     $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_simple.min.css") }}');
                 } else {
                     document.body.style.background = '#121212';
-                    $('#main span').css('color', 'white')
+                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                        $('#main span').css('color', 'white')
+                        $('#log-tray').css('color', 'red');
+                    } else {
+                        $('#main span').css('color', 'white')
+                    }
                     $('#main p').css('color', 'white')
                     $('.modal-content p').css('color', 'white')
                     $('.modal-content h2').css('color', 'white')
@@ -1136,7 +1152,12 @@
         });
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
-        function changeNav() {            
+        function changeNav() {
+            if (getCookie('dark') == 'true') {
+                $('#log-tray').css('color', 'white');
+            } else {
+                $('#log-tray').css('color', 'black');
+            }
             var x = document.getElementById("closebtn");
             var y = document.getElementById('mapid');
             if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
@@ -1513,7 +1534,7 @@
     <!-- Wrapper for main screen -->   
     <div id="main" onload="loadMap();">
         <div>
-            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()">&#9776; Radiosonde Auto-RX <span id="currentversion" style="white-space:nowrap"></span></span>
+            <span style="font-size:3vh;cursor:pointer;" onclick="changeNav()"><span id="log-tray">&#9776;</span> Radiosonde Auto-RX <span id="currentversion" style="white-space:nowrap"></span></span>
         </div>
         <span style="font-size:2vh;" id="footertext"></span>
         <p style="font-size:2vh;">Station: <span id="station_callsign">???</span></p>
