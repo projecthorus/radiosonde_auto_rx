@@ -379,9 +379,19 @@ input:checked + .slider:before {
   cursor: pointer;
 }
 
-input[type=text] {
+#password-input {
   width: 140px;
-  padding: 12px 20px;
+  padding: 12px 10px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+#frequency-input {
+  width: 85px;
+  padding: 12px 10px;
   margin: 8px 0;
   display: inline-block;
   border: 1px solid #ccc;
