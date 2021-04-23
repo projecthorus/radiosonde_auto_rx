@@ -126,7 +126,7 @@ a {
   text-align: center;
 }
 
-.settings button {
+button {
   border: none;
   color: white;
   padding: 12px 24px;
@@ -142,7 +142,7 @@ a {
   border: 2px solid #2196F3;
 }
 
-.settings button:hover {
+button:hover {
   background-color: #2196F3;
   color: white;
 }
@@ -214,7 +214,7 @@ table {
 
 .settings .closebtn2 {
   position: absolute;
-  top: 16px;
+  top: 6px;
   left: 16px;
   font-size: 36px;
   text-decoration: none;
@@ -312,6 +312,95 @@ input:checked + .slider:before {
     font-weight: bold;
     text-decoration: none;
     color:inherit;
+}
+
+/* Modal Header */
+.modal-header {
+  padding: 2px 16px;
+  background-color: grey;
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 2px 16px;
+}
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: hidden; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.modal-content {
+  background-color: #fefefe;
+  overflow: scroll;
+  margin: 15vh auto;
+  max-height: 75vh;
+  padding: 0;
+  border: 1px solid #888;
+  width: 80%;
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+  -webkit-animation-name: animatetop;
+  -webkit-animation-duration: 0.4s;
+  animation-name: animatetop;
+  animation-duration: 0.4s
+}
+
+/* Add Animation */
+@-webkit-keyframes animatetop {
+  from {top:-300px; opacity:0} 
+  to {top:0; opacity:1}
+}
+
+@keyframes animatetop {
+  from {top:-300px; opacity:0}
+  to {top:0; opacity:1}
+}
+
+/* The Close Button */
+.close {
+  float: right;
+  font-size: 54px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#password-input {
+  width: 140px;
+  padding: 12px 10px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+#frequency-input {
+  width: 85px;
+  padding: 12px 10px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.control {
+    height: 42px;
 }
 
 @media (prefers-color-scheme: dark) {
