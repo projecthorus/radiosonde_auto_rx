@@ -279,25 +279,47 @@ def shutdown_flask(shutdown_key):
 #   Control Endpoints.
 #
 
+@app.route("/check_password", methods=["POST"])
+def flask_check_password():
+    """ Check a supplied password 
+    Example:
+    curl -d "password=foobar" -X POST http://localhost:5000/check_password
+    """
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+
+        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+            return "OK"
+        else:
+            abort(403)
+    
+    else:
+        abort(403)
+
 
 @app.route("/start_decoder", methods=["POST"])
 def flask_start_decoder():
     """ Inject a scan result, which will cause a decoder to be started if there
     are enough resources (SDRs) to do so. 
     Example:
-    curl -d "type=DFM&freq=403240000" -X POST http://localhost:5000/start_decoder
+    curl -d "type=DFM&freq=403240000&password=foobar" -X POST http://localhost:5000/start_decoder
     """
 
-    if request.method == "POST" and autorx.config.global_config["web_control"] and (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
 
-        _type = str(request.form["type"])
-        _freq = float(request.form["freq"])
+        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
 
-        logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
+            _type = str(request.form["type"])
+            _freq = float(request.form["freq"])
 
-        autorx.scan_results.put([[_freq, _type]])
+            logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
 
-        return "OK"
+            autorx.scan_results.put([[_freq, _type]])
+
+            return "OK"
 
     else:
         abort(403)
@@ -312,17 +334,21 @@ def flask_stop_decoder():
 
     # This needs to use a lock to stop this being run more than once
 
-    if request.method == "POST" and autorx.config.global_config["web_control"] and (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
-        _freq = float(request.form["freq"])
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+        
+        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+            _freq = float(request.form["freq"])
 
-        logging.info("Web - Got decoder stop request: %f" % (_freq))
+            logging.info("Web - Got decoder stop request: %f" % (_freq))
 
-        if _freq in autorx.task_list:
-            autorx.task_list[_freq]["task"].stop()
-            return "OK"
-        else:
-            # If we aren't running a decoder, 404.
-            abort(404)
+            if _freq in autorx.task_list:
+                autorx.task_list[_freq]["task"].stop()
+                return "OK"
+            else:
+                # If we aren't running a decoder, 404.
+                abort(404)
     else:
         abort(403)
 
@@ -333,25 +359,29 @@ def flask_disable_scanner():
 
     # This probably needs to use a lock to avoid this being run simultaneously through multiple requests
 
-    if request.method == "POST" and autorx.config.global_config["web_control"] and (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
-        if "SCAN" not in autorx.task_list:
-            # No scanner thread running!
-            abort(404)
-        else:
-            logging.info("Web - Got scanner stop request.")
-            # Set the scanner inhibit flag so it doesn't automatically start again.
-            autorx.scan_inhibit = True
-            _scan_sdr = autorx.task_list["SCAN"]["device_idx"]
-            # Stop the scanner.
-            autorx.task_list["SCAN"]["task"].stop()
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+        
+        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+            if "SCAN" not in autorx.task_list:
+                # No scanner thread running!
+                abort(404)
+            else:
+                logging.info("Web - Got scanner stop request.")
+                # Set the scanner inhibit flag so it doesn't automatically start again.
+                autorx.scan_inhibit = True
+                _scan_sdr = autorx.task_list["SCAN"]["device_idx"]
+                # Stop the scanner.
+                autorx.task_list["SCAN"]["task"].stop()
 
-            # The following actions not required.
-            # Relase the SDR.
-            # autorx.sdr_list[_scan_sdr]["in_use"] = False
-            # autorx.sdr_list[_scan_sdr]["task"] = None
-            # # Remove the scanner task from the task list
-            # autorx.task_list.pop("SCAN")
-            return "OK"
+                # The following actions not required.
+                # Relase the SDR.
+                # autorx.sdr_list[_scan_sdr]["in_use"] = False
+                # autorx.sdr_list[_scan_sdr]["task"] = None
+                # # Remove the scanner task from the task list
+                # autorx.task_list.pop("SCAN")
+                return "OK"
     else:
         abort(403)
 
@@ -360,12 +390,16 @@ def flask_disable_scanner():
 def flask_enable_scanner():
     """ Re-enable the Scanner """
 
-    if request.method == "POST" and autorx.config.global_config["web_control"] and (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
-        # We re-enable the scanner by clearing the scan_inhibit flag.
-        # This makes it start up on the next run of clean_task_list (approx every 2 seconds)
-        # unless one is already running.
-        autorx.scan_inhibit = False
-        return "OK"
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+
+        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+            # We re-enable the scanner by clearing the scan_inhibit flag.
+            # This makes it start up on the next run of clean_task_list (approx every 2 seconds)
+            # unless one is already running.
+            autorx.scan_inhibit = False
+            return "OK"
     else:
         abort(403)
 
@@ -424,6 +458,11 @@ class WebHandler(logging.Handler):
     def emit(self, record):
         """ Emit a log message via SocketIO """
         if "socket.io" not in record.msg:
+            
+            # Inhibit flask session disconnected errors
+            if "Error on request" in record.msg:
+                return
+        
             # Convert log record into a dictionary
             log_data = {
                 "level": record.levelname,
