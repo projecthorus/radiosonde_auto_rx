@@ -1371,11 +1371,11 @@ class SondeDecoder(object):
             % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )
 
-    def stop(self):
+    def stop(self, nowait=False):
         """ Kill the currently running decoder subprocess """
         self.decoder_running = False
 
-        if self.decoder is not None:
+        if self.decoder is not None and (not nowait):
             self.decoder.join()
 
     def running(self):
