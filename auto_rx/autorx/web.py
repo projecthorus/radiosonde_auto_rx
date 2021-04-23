@@ -349,10 +349,6 @@ def flask_stop_decoder():
     curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
     """
 
-    # This needs to use a lock to stop this being run more than once
-
-    print(request.form)
-
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)

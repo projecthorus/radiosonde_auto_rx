@@ -53,6 +53,7 @@ function verify_password(){
         // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
         if(error == "FORBIDDEN"){
             $("#password-header").html("<h2>Incorrect Password</h2>");
+            alert("Incorrect Password!");
         }
     });
 }
@@ -86,7 +87,7 @@ function disable_scanner(){
             alert("Scanner not running!")
         } else if (error == "INTERNAL SERVER ERROR"){
             // Scanner might not have started up yet.
-            alert("Scanner not initialised... (try again!)")
+            alert("Scanner not initialised... (try again!)");
         }
     });
 }
@@ -146,7 +147,7 @@ function stop_decoder(){
             $("#password-header").html("<h2>Incorrect Password</h2>");
         } else if (error == "NOT FOUND"){
             // Scanner isn't running. Don't do anything.
-            alert("Decoder on supplied frequency not running!")
+            alert("Decoder on supplied frequency not running!");
         }
     });
 }
