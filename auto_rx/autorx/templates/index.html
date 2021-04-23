@@ -59,6 +59,11 @@
                         _station_call += " / " + autorx_config['aprs_user'];
                     }
                     $('#station_callsign').text(_station_call);
+
+                    if(autorx_config["web_control"] == false){
+                        $("#password-header").html("<h2>Web Control Disabled</h2>");
+                        disable_web_controls();
+                    }
                   }
             });
             
@@ -1518,7 +1523,7 @@
                   <h2 style="display:inline;vertical-align:middle;">Controls</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
-                    <button onclick="openModal()">ADVANCED</button>
+                    <button id="open-controls" onclick="openModal()">OPEN</button>
                   </div>                 
                   <br>
                   <br>
@@ -1563,7 +1568,7 @@
           <span id="password-header"><h2>No Password Entered</h2></span>
           <input style="display:inline;vertical-align:middle;" type="text" id="password-input" placeholder="Password" >
           <div style="display:inline;vertical-align:middle;">
-            <button onclick="verify_password();">Submit</button>
+            <button id="verify-password" onclick="verify_password();">Submit</button>
           </div>
           <div id="controls">
             <h2>Decoder Control</h2>
@@ -1583,7 +1588,7 @@
                 <option value="MRZ">MRZ-H1</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
-                <button onclick="start_decoder();">Start</button>
+                <button id="start-decoder" onclick="start_decoder();">Start</button>
             </div>
             <br>
             <p>Stop Decoder</p>
@@ -1591,15 +1596,15 @@
                 <option value="0" disabled selected>No Decoders</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
-                <button onclick="stop_decoder();">Stop</button>
+                <button id="stop-decoder" onclick="stop_decoder();">Stop</button>
             </div>
             <h2>Scanner Control</h2>
             <p>Scanner</p>
             <div style="display:inline;vertical-align:middle;">
-                <button onclick="enable_scanner();">Enable</button>
+                <button id="enable-scanner" onclick="enable_scanner();">Enable</button>
             </div>
             <div style="display:inline;vertical-align:middle;">
-                <button onclick="disable_scanner();">Disable</button>
+                <button id="disable-scanner" onclick="disable_scanner();">Disable</button>
             </div>
           </div>
           </div>

@@ -35,8 +35,27 @@ function update_task_list(){
 }
 
 
+function disable_web_controls(){
+    $("#verify-password").prop('disabled', true);
+    $("#start-decoder").prop('disabled', true);
+    $("#stop-decoder").prop('disabled', true);
+    $("#enable-scanner").prop('disabled', true);
+    $("#disable-scanner").prop('disabled', true);
+    $("#frequency-input").prop('disabled', true);
+    $("#sonde-type-select").prop('disabled', true);
+    $("#open-controls").prop('disabled', true);
+    $("#open-controls").text("DISABLED");
+
+}
+
+
 function verify_password(){
     // Attempt to verify a password provided by a user, and update the password verify indication if its ok.
+
+    if(autorx_config["web_control"] == false){
+        alert("Web Control not enabled!");
+        $("#password-header").html("<h2>Web Control Disabled</h2>");
+    }
 
     // Grab the password
     _api_password = $('#password-input').val();
