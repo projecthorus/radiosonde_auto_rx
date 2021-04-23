@@ -56,9 +56,19 @@ function verify_password(){
         alert("Web Control not enabled!");
         $("#password-header").html("<h2>Web Control Disabled</h2>");
     }
-
+    
     // Grab the password
-    _api_password = $('#password-input').val();
+    if ($('#password-input').val() == "") {
+        if (getCookie("password") === null) {
+            _api_password = "";
+        } else {
+            _api_password = getCookie("password");
+        }
+    } else {
+        _api_password = $('#password-input').val();
+    }
+    
+    setCookie("password", _api_password);
 
     // Do the request
     $.post(
@@ -67,6 +77,8 @@ function verify_password(){
         function(data){
             // If OK, update the header to indicate the password was OK.
             $("#password-header").html("<h2>Password OK!</h2>");
+            $("#password-field").hide().css("visibility", "hidden");
+            $("#controls").show().css("visibility", "visible");
         }
     ).fail(function(xhr, status, error){
         // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
@@ -82,10 +94,10 @@ function disable_scanner(){
 
     // Re-verify the password. This will occur async, so wont stop the main request from going ahead,
     // but will at least present an error for the user.
-    verify_password();
+    verify_password();        
 
     // Grab the password
-    _api_password = $('#password-input').val();
+    _api_password = getCookie("password");
 
     // Do the request
     $.post(
@@ -119,7 +131,7 @@ function enable_scanner(){
     verify_password();
 
     // Grab the password
-    _api_password = $('#password-input').val();
+    _api_password = getCookie("password");
 
     // Do the request
     $.post(
@@ -146,7 +158,7 @@ function stop_decoder(){
     verify_password();
 
     // Grab the password
-    _api_password = $('#password-input').val();
+    _api_password = getCookie("password");
 
     // Grab the selected frequency
     _decoder = $('#stop-frequency-select').val();
@@ -179,7 +191,7 @@ function start_decoder(){
     verify_password();
 
     // Grab the password
-    _api_password = $('#password-input').val();
+    _api_password = getCookie("password");
 
     // Grab the selected frequency
     _freq = $('#frequency-input').val();
