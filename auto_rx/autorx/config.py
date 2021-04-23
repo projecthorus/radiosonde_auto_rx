@@ -245,9 +245,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["max_radius_km"] = config.getint("filtering", "max_radius_km")
 
         # Habitat Settings
-        auto_rx_config["habitat_enabled"] = config.getboolean(
-            "habitat", "habitat_enabled"
-        )
+        # Deprecated from v1.5.0
+        # auto_rx_config["habitat_enabled"] = config.getboolean(
+        #     "habitat", "habitat_enabled"
+        # )
         auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
         auto_rx_config["habitat_uploader_callsign"] = config.get(
             "habitat", "uploader_callsign"
@@ -258,17 +259,19 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["habitat_uploader_antenna"] = config.get(
             "habitat", "uploader_antenna"
         ).strip()
-        try:  # Use the default configuration if not found
-            auto_rx_config["habitat_url"] = config.get("habitat", "url")
-        except:
-            pass
+        
+        # try:  # Use the default configuration if not found
+        #     auto_rx_config["habitat_url"] = config.get("habitat", "url")
+        # except:
+        #     pass
 
-        if auto_rx_config["habitat_upload_rate"] < MINIMUM_HABITAT_UPDATE_RATE:
-            logging.warning(
-                "Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat."
-                % MINIMUM_HABITAT_UPDATE_RATE
-            )
-            auto_rx_config["habitat_upload_rate"] = MINIMUM_HABITAT_UPDATE_RATE
+        # Deprecated from v1.5.0
+        # if auto_rx_config["habitat_upload_rate"] < MINIMUM_HABITAT_UPDATE_RATE:
+        #     logging.warning(
+        #         "Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat."
+        #         % MINIMUM_HABITAT_UPDATE_RATE
+        #     )
+        #     auto_rx_config["habitat_upload_rate"] = MINIMUM_HABITAT_UPDATE_RATE
 
         # APRS Settings
         auto_rx_config["aprs_enabled"] = config.getboolean("aprs", "aprs_enabled")

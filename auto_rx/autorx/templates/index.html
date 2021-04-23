@@ -27,6 +27,7 @@
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/d3.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
     
     <script>
@@ -58,6 +59,11 @@
                         _station_call += " / " + autorx_config['aprs_user'];
                     }
                     $('#station_callsign').text(_station_call);
+
+                    if(autorx_config["web_control"] == false){
+                        $("#password-header").html("<h2>Web Control Disabled</h2>");
+                        disable_web_controls();
+                    }
                   }
             });
             
@@ -163,17 +169,11 @@
             }); 
             
             socket.on('task_event', function(msg){
-                // Grab the latest task list.
-                $.getJSON("/get_task_list", function(data){
-                    var task_info = "";
-                    for (_task in data){
-                        task_info += "SDR #" + _task + ": " + data[_task] + "    ";
-                    }
-                    
-                    // Update page with latest task.
-                    $('#task_status').text(task_info);
-                });
+                update_task_list();
             });
+
+            // Update task list now.
+            update_task_list();
             
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
@@ -236,7 +236,7 @@
             
                         
             L.control.layers(baseMaps).addTo(mymap);
-            
+
             baseMaps[mapTheme].addTo(mymap);
             
             // Update preffered them cookie on layer change.
@@ -1391,7 +1391,7 @@
                   <input type="checkbox" class="10" id="checkbox10" checked>
                   <label> Velocity</label><br>
                   <input type="checkbox" class="11" id="checkbox11" checked>
-                  <label> Ascension</label><br>
+                  <label> Ascent Rate</label><br>
                   <input type="checkbox" class="12" id="checkbox12" checked>
                   <label> Temperature</label><br>
                   <input type="checkbox" class="13" id="checkbox13" checked>
@@ -1523,7 +1523,7 @@
                   <h2 style="display:inline;vertical-align:middle;">Controls</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
-                    <button onclick="openModal()">ADVANCED</button>
+                    <button id="open-controls" onclick="openModal()">OPEN</button>
                   </div>                 
                   <br>
                   <br>
@@ -1565,36 +1565,46 @@
         </div>   
         <div class="modal-body">       
           <div id="password-field">
-          <h2>LOCKED: ENTER PASSWORD</h2>
-          <input style="display:inline;vertical-align:middle;" type="text" id="password-input" placeholder="Password">
+          <span id="password-header"><h2>No Password Entered</h2></span>
+          <input style="display:inline;vertical-align:middle;" type="text" id="password-input" placeholder="Password" >
           <div style="display:inline;vertical-align:middle;">
-            <button>Submit</button>
+            <button id="verify-password" onclick="verify_password();">Submit</button>
           </div>
           <div id="controls">
             <h2>Decoder Control</h2>
             <p>Start Decoder</p>
-            <input style="display:inline;vertical-align:middle;" type="text" id="frequency-input" placeholder="Frequency">
-            <select style="display:inline;vertical-align:middle;" class="control">
-                <option value="" disabled selected>Sonde</option>
+            <input style="display:inline;vertical-align:middle;" type="text" id="frequency-input" placeholder="Frequency (MHz)">
+            <select style="display:inline;vertical-align:middle;" class="control" id="sonde-type-select">
+                <option value="RS41" selected>RS41</option>
+                <option value="RS92">RS92</option>
+                <option value="DFM">DFM</option>
+                <option value="M10">M10</option>
+                <option value="M20">M20</option>
+                <option value="LMS6">LMS6 (400 MHz)</option>
+                <option value="MK2LMS">LMS6 (1680 MHz)</option>
+                <option value="IMET">iMet-4</option>
+                <option value="IMET5">iMet-53</option>
+                <option value="MEISEI">iMS-100</option>
+                <option value="MRZ">MRZ-H1</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
-                <button>Start</button>
+                <button id="start-decoder" onclick="start_decoder();">Start</button>
             </div>
             <br>
             <p>Stop Decoder</p>
-            <select style="display:inline;vertical-align:middle;" class="control">
-                <option value="" disabled selected>Frequency</option>
+            <select style="display:inline;vertical-align:middle;" class="control" id="stop-frequency-select">
+                <option value="0" disabled selected>No Decoders</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
-                <button>Stop</button>
+                <button id="stop-decoder" onclick="stop_decoder();">Stop</button>
             </div>
             <h2>Scanner Control</h2>
             <p>Scanner</p>
             <div style="display:inline;vertical-align:middle;">
-                <button>Enable</button>
+                <button id="enable-scanner" onclick="enable_scanner();">Enable</button>
             </div>
             <div style="display:inline;vertical-align:middle;">
-                <button>Disable</button>
+                <button id="disable-scanner" onclick="disable_scanner();">Disable</button>
             </div>
           </div>
           </div>
