@@ -139,6 +139,21 @@ def version_startup_check():
         )
 
 
+def strip_sonde_serial(serial):
+    """ Strip off any leading sonde type that may be present in a serial number """
+
+    # Look for serials with prefixes matching the following known sonde types.
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ)-")
+
+    # If we have a match, return the trailing part of the serial, re-adding
+    # any - separators if they exist.
+    if _re.match(serial):
+        return "-".join(serial.split("-")[1:])
+    else:
+        # Otherwise, it's probably a RS41 or RS92
+        return serial
+
+
 class AsynchronousFileReader(threading.Thread):
     """ Asynchronous File Reader
     Helper class to implement asynchronous reading of a file
