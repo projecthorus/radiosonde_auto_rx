@@ -7,7 +7,9 @@ body {
 
 p {
   margin-top: 0.3vh;   
-  margin-bottom: 0.3vh;  
+  margin-top: calc(var(--vh, 1vh) * 0.3); 
+  margin-bottom: 0.3vh;
+  margin-bottom: calc(var(--vh, 1vh) * 0.3); 
 }
 
 body {
@@ -104,6 +106,7 @@ a {
 
 .sidenav img {
   height: 10vh;
+  height: calc(var(--vh, 1vh) * 10); 
   display: block;
   margin-left: auto;
   margin-right: auto;
@@ -344,6 +347,7 @@ input:checked + .slider:before {
   background-color: #fefefe;
   overflow: scroll;
   margin: 15vh auto;
+  margin:calc(var(--vh, 1vh) * 15) auto;
   max-height: 75vh;
   padding: 0;
   border: 1px solid #888;
