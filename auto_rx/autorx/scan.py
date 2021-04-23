@@ -1022,13 +1022,14 @@ class SondeScanner(object):
             self.sonde_scanner_running = False
             return _result
 
-    def stop(self):
+    def stop(self, nowait=False):
         """ Stop the Scan Loop """
         self.log_info("Waiting for current scan to finish...")
         self.sonde_scanner_running = False
 
+
         # Wait for the sonde scanner thread to close, if there is one.
-        if self.sonde_scan_thread != None:
+        if self.sonde_scan_thread != None and (not nowait):
             self.sonde_scan_thread.join()
 
     def running(self):

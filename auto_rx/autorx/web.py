@@ -106,17 +106,27 @@ def flask_get_task_list():
     _sdr_list = {}
 
     for _sdr in autorx.sdr_list.keys():
-        _sdr_list[str(_sdr)] = "Not Tasked"
+        _sdr_list[str(_sdr)] = {
+                    "task": "Not Tasked", 
+                    "freq": 0
+                }
         if str(_sdr) in _task_list:
             if _task_list[str(_sdr)] == "SCAN":
-                _sdr_list[str(_sdr)] = "Scanning"
+                _sdr_list[str(_sdr)] = {
+                    "task": "Scanning", 
+                    "freq": 0
+                }
             else:
                 try:
-                    _sdr_list[str(_sdr)] = "Decoding (%.3f MHz)" % (
-                        _task_list[str(_sdr)] / 1e6
-                    )
+                    _sdr_list[str(_sdr)] = {
+                        "task": "Decoding (%.3f MHz)" % (_task_list[str(_sdr)] / 1e6),
+                        "freq": _task_list[str(_sdr)]
+                    }
                 except:
-                    _sdr_list[str(_sdr)] = "Decoding (?? MHz)"
+                    _sdr_list[str(_sdr)] = {
+                        "task": "Decoding (?? MHz)",
+                        "freq": 0
+                    }
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
@@ -312,14 +322,21 @@ def flask_start_decoder():
 
         if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
 
-            _type = str(request.form["type"])
-            _freq = float(request.form["freq"])
+            try:
+                _type = str(request.form["type"])
+                _freq = float(request.form["freq"])
+            except Exception as e:
+                logging.error("Web - Error in decoder start request: %s", str(e))
+                abort(500)
+
 
             logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
 
             autorx.scan_results.put([[_freq, _type]])
 
             return "OK"
+        else:
+            abort(403)
 
     else:
         abort(403)
@@ -334,6 +351,8 @@ def flask_stop_decoder():
 
     # This needs to use a lock to stop this being run more than once
 
+    print(request.form)
+
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
@@ -344,11 +363,13 @@ def flask_stop_decoder():
             logging.info("Web - Got decoder stop request: %f" % (_freq))
 
             if _freq in autorx.task_list:
-                autorx.task_list[_freq]["task"].stop()
+                autorx.task_list[_freq]["task"].stop(nowait=True)
                 return "OK"
             else:
                 # If we aren't running a decoder, 404.
                 abort(404)
+        else:
+            abort(403)
     else:
         abort(403)
 
@@ -373,7 +394,10 @@ def flask_disable_scanner():
                 autorx.scan_inhibit = True
                 _scan_sdr = autorx.task_list["SCAN"]["device_idx"]
                 # Stop the scanner.
-                autorx.task_list["SCAN"]["task"].stop()
+                try:
+                    autorx.task_list["SCAN"]["task"].stop(nowait=True)
+                except:
+                    abort(500)
 
                 # The following actions not required.
                 # Relase the SDR.
@@ -382,6 +406,8 @@ def flask_disable_scanner():
                 # # Remove the scanner task from the task list
                 # autorx.task_list.pop("SCAN")
                 return "OK"
+        else:
+            abort(403)
     else:
         abort(403)
 
@@ -400,6 +426,8 @@ def flask_enable_scanner():
             # unless one is already running.
             autorx.scan_inhibit = False
             return "OK"
+        else:
+            abort(403)
     else:
         abort(403)
 
