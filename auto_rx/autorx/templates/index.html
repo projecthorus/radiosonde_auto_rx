@@ -724,7 +724,9 @@
                         // Create markers
                         sonde_positions[sonde_id].path = L.polyline(data[sonde_id].path,{title:telem.id + " Path", color:sonde_positions[sonde_id].colour}).addTo(mymap);
 
-                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{title:telem.id, icon: sondeAscentIcons[sonde_positions[sonde_id].colour]}).bindTooltip(sonde_id,{permanent:false,direction:'right'}).addTo(mymap);
+                        sonde_positions[sonde_id].marker = L.marker([telem.lat, telem.lon, telem.alt],{icon: sondeAscentIcons[sonde_positions[sonde_id].colour]})
+                            .bindTooltip('<div class="tooltip-container">' + sonde_id + '<div class="tooltip-container" style="color: #005ec1;">' + telem.alt.toFixed(2) + "m   " + telem.vel_v.toFixed(0) + 'm/s   ' + (telem.vel_h*3.6).toFixed(0) + 'km/h  </div></div>',{permanent:true, direction:'right', className: 'sondeTooltip', offset: [10,0], interactive: false, opacity: 0.7 })
+                            .addTo(mymap);
 
                         if(autorx_config.station_lat != 0.0){
                             sonde_positions[sonde_id].los_path = L.polyline([],
@@ -785,8 +787,8 @@
                                             // Create markers
                     sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(mymap);
 
-                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})                            
-                        .bindTooltip(msg.id,{permanent:false,direction:'right'})
+                    sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})
+                        .bindTooltip('<div class="tooltip-container">' + msg.id + '<div class="tooltip-container" style="color: #005ec1;">' + msg.alt.toFixed(2) + "m   " + msg.vel_v.toFixed(0) + 'm/s   ' + (msg.vel_h*3.6).toFixed(0) + 'km/h  </div></div>',{permanent:true,direction:'right', className: 'sondeTooltip', offset: [10,0], interactive: false, opacity: 0.7})
                         .addTo(mymap);
 
                     // If there is a station location defined, show the path from the station to the sonde.
@@ -810,7 +812,8 @@
                     sonde_positions[msg.id].age = Date.now();
                     sonde_positions[msg.id].path.addLatLng([msg.lat, msg.lon, msg.alt]);
                     sonde_positions[msg.id].marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
-
+                    sonde_positions[msg.id].marker.setTooltipContent('<div class="tooltip-container">' + msg.id + '<div class="tooltip-container" style="color: #005ec1;">' + msg.alt.toFixed(2) + "m   " + msg.vel_v.toFixed(0) + 'm/s   ' + (msg.vel_h*3.6).toFixed(0) + 'km/h  </div></div>');
+                    
                     if (msg.vel_v < 0){
                         if (selected_sonde == msg.id) {
                             sonde_positions[msg.id].marker.setIcon(sondeDescentIcons['white']);
