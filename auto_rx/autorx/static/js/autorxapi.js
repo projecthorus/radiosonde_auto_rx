@@ -31,6 +31,8 @@ function update_task_list(){
         
         // Update page with latest task.
         $('#task_status').text(task_info);
+        
+        setTimeout(resume_web_controls,2000);
     });
 }
 
@@ -43,9 +45,31 @@ function disable_web_controls(){
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
     $("#sonde-type-select").prop('disabled', true);
+    $("#stop-frequency-select").prop('disabled', true);   
     $("#open-controls").prop('disabled', true);
     $("#open-controls").text("DISABLED");
+}
 
+function pause_web_controls() {
+    $("#verify-password").prop('disabled', true);
+    $("#start-decoder").prop('disabled', true);
+    $("#stop-decoder").prop('disabled', true);
+    $("#enable-scanner").prop('disabled', true);
+    $("#disable-scanner").prop('disabled', true);
+    $("#frequency-input").prop('disabled', true);
+    $("#sonde-type-select").prop('disabled', true);
+    $("#stop-frequency-select").prop('disabled', true);   
+}
+
+function resume_web_controls() {
+    $("#verify-password").prop('disabled', false);
+    $("#start-decoder").prop('disabled', false);
+    $("#stop-decoder").prop('disabled', false);
+    $("#enable-scanner").prop('disabled', false);
+    $("#disable-scanner").prop('disabled', false);
+    $("#frequency-input").prop('disabled', false);
+    $("#sonde-type-select").prop('disabled', false);
+    $("#stop-frequency-select").prop('disabled', false);   
 }
 
 
@@ -84,7 +108,7 @@ function verify_password(){
         // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
         if(error == "FORBIDDEN"){
             $("#password-header").html("<h2>Incorrect Password</h2>");
-            alert("Incorrect Password!");
+            //alert("Incorrect Password!");
         }
     });
 }
@@ -104,9 +128,12 @@ function disable_scanner(){
         "/disable_scanner", 
         {"password": _api_password},
         function(data){
-            console.log(data);
+            //console.log(data);
             // Need to figure out where to put this data..
-            alert("Scanner disable request received - please wait until SDR is shown as Not Tasked before issuing further requests.")
+            //alert("Scanner disable request received - please wait until SDR is shown as Not Tasked before issuing further requests.")
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
+            
         }
     ).fail(function(xhr, status, error){
         console.log(error);
@@ -138,7 +165,9 @@ function enable_scanner(){
         "/enable_scanner", 
         {"password": _api_password},
         function(data){
-            console.log(data);
+            //console.log(data);
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
             // Need to figure out where to put this data..
         }
     ).fail(function(xhr, status, error){
@@ -168,7 +197,9 @@ function stop_decoder(){
         "/stop_decoder", 
         {password: _api_password, freq: _decoder},
         function(data){
-            console.log(data);
+            //console.log(data);
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
             // Need to figure out where to put this data..
         }
     ).fail(function(xhr, status, error){
@@ -218,6 +249,8 @@ function start_decoder(){
         {password: _api_password, freq: _freq_hz, type: _type},
         function(data){
             alert("Added requested decoder to results queue.")
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
         }
     ).fail(function(xhr, status, error){
         console.log(error);

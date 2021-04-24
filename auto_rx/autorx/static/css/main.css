@@ -150,6 +150,12 @@ button:hover {
   color: white;
 }
 
+button:disabled,
+button[disabled]{
+  background-color: #333333;
+  color: black;
+}
+
 .footer {
   font-size: 15px;
   color: white;
@@ -394,13 +400,25 @@ input:checked + .slider:before {
 }
 
 #frequency-input {
-  width: 85px;
+  width: 130px;
   padding: 12px 10px;
   margin: 8px 0;
   display: inline-block;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+input:disabled,
+input[disabled]{
+  background-color: #333333;
+  color: black;
+}
+
+select:disabled,
+select[disabled]{
+  background-color: #333333;
+  color: black;
 }
 
 .control {
