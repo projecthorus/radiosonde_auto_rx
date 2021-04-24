@@ -150,6 +150,12 @@ button:hover {
   color: white;
 }
 
+button:disabled,
+button[disabled]{
+  background-color: #333333;
+  color: black;
+}
+
 .footer {
   font-size: 15px;
   color: white;
