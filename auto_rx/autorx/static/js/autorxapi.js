@@ -32,7 +32,7 @@ function update_task_list(){
         // Update page with latest task.
         $('#task_status').text(task_info);
         
-        resume_web_controls();
+        setTimeout(resume_web_controls,2000);
     });
 }
 
@@ -128,7 +128,7 @@ function disable_scanner(){
         "/disable_scanner", 
         {"password": _api_password},
         function(data){
-            console.log(data);
+            //console.log(data);
             // Need to figure out where to put this data..
             //alert("Scanner disable request received - please wait until SDR is shown as Not Tasked before issuing further requests.")
             pause_web_controls();
@@ -165,7 +165,7 @@ function enable_scanner(){
         "/enable_scanner", 
         {"password": _api_password},
         function(data){
-            console.log(data);
+            //console.log(data);
             pause_web_controls();
             setTimeout(resume_web_controls,10000);
             // Need to figure out where to put this data..
@@ -197,7 +197,7 @@ function stop_decoder(){
         "/stop_decoder", 
         {password: _api_password, freq: _decoder},
         function(data){
-            console.log(data);
+            //console.log(data);
             pause_web_controls();
             setTimeout(resume_web_controls,10000);
             // Need to figure out where to put this data..
