@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from threading import Thread
 from .config import read_auto_rx_config
-from .utils import position_info
+from .utils import position_info, strip_sonde_serial
 from .geometry import GenericTrack
 
 try:
@@ -171,8 +171,8 @@ class EmailNotification(object):
                         )
 
                     msg += "\n"
-                    # msg += 'https://tracker.habhub.org/#!qm=All&q=RS_%s\n' % _id
-                    msg += "https://sondehub.org/%s\n" % _id
+                    msg += "https://sondehub.org/%s\n" % strip_sonde_serial(_id)
+                    msg += "https://sondehub.org/card/%s\n" % strip_sonde_serial(_id)
 
                     # Construct subject
                     _subject = self.mail_subject
@@ -260,8 +260,8 @@ class EmailNotification(object):
                             )
 
                             msg += "\n"
-                            msg += "https://sondehub.org/%s\n" % _id
-                            msg += "https://sondehub.org/card/%s\n" % _id
+                            msg += "https://sondehub.org/%s\n" % strip_sonde_serial(_id)
+                            msg += "https://sondehub.org/card/%s\n" % strip_sonde_serial(_id)
 
                             _subject = "Nearby Radiosonde Landing Detected - %s" % _id
 
