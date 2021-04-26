@@ -776,9 +776,12 @@ static int get_PTU(gpx_t *gpx, int ofs, int pck, int valid_alt) {
         bT2 = gpx->calfrchk[0x13];
         bH  = gpx->calfrchk[0x07];
 
-        bH2 = gpx->calfrchk[0x08] && gpx->calfrchk[0x09]
-           && gpx->calfrchk[0x10] && gpx->calfrchk[0x11]
-           && gpx->calfrchk[0x12] && gpx->calfrchk[0x13]
+        bH2 = gpx->calfrchk[0x07] && gpx->calfrchk[0x08]
+           && gpx->calfrchk[0x09] && gpx->calfrchk[0x0A]
+           && gpx->calfrchk[0x0B] && gpx->calfrchk[0x0C]
+           && gpx->calfrchk[0x0D] && gpx->calfrchk[0x0E]
+           && gpx->calfrchk[0x0F] && gpx->calfrchk[0x10]
+           && gpx->calfrchk[0x11] && gpx->calfrchk[0x12]
            && gpx->calfrchk[0x2A] && gpx->calfrchk[0x2B]
            && gpx->calfrchk[0x2C] && gpx->calfrchk[0x2D]
            && gpx->calfrchk[0x2E];
@@ -1789,9 +1792,9 @@ static int print_position(gpx_t *gpx, int ec) {
 
             if ( pos > frm_end )  // end of (sub)frame
             {
-                if (gpx->option.ptu && out && !sat && !encrypted && pck_ptu > 0) {
+                if (gpx->option.ptu && !sat && !encrypted && pck_ptu > 0) {
                     err0 = get_PTU(gpx, ofs_ptu, pck_ptu, !err3);
-                    if (!err0) prn_ptu(gpx);
+                    if (!err0 && out) prn_ptu(gpx);
                 }
                 pck_ptu = 0;
 
@@ -2363,9 +2366,13 @@ int main(int argc, char *argv[]) {
                     }
                     if ( bitQ == EOF ) break; // liest 2x EOF
 
-                    softbits[b8pos] = hsbit.sb;
+                    if (gpx.option.inv) {
+                        bit ^= 1;
+                        hsbit.hb ^= 1;
+                        hsbit.sb = -hsbit.sb; // does not affect ecc3
+                    }
 
-                    if (gpx.option.inv) bit ^= 1;
+                    softbits[b8pos] = hsbit.sb;
 
                     bitpos += 1;
                     bitbuf[b8pos] = bit;
