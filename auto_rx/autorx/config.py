@@ -249,7 +249,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # auto_rx_config["habitat_enabled"] = config.getboolean(
         #     "habitat", "habitat_enabled"
         # )
-        auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
+        #auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
         auto_rx_config["habitat_uploader_callsign"] = config.get(
             "habitat", "uploader_callsign"
         )
@@ -259,7 +259,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["habitat_uploader_antenna"] = config.get(
             "habitat", "uploader_antenna"
         ).strip()
-        
+
         # try:  # Use the default configuration if not found
         #     auto_rx_config["habitat_url"] = config.get("habitat", "url")
         # except:
