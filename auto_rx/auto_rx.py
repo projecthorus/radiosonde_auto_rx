@@ -666,7 +666,7 @@ def main():
         "--frequency",
         type=float,
         default=0.0,
-        help="Sonde Frequency Override (MHz). This overrides the scan only_scan list with the supplied frequency.",
+        help="Sonde Frequency Override (MHz). This overrides the only_scan list with the supplied frequency.",
     )
     parser.add_argument(
         "-m",
