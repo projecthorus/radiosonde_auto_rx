@@ -40,19 +40,19 @@ MINIMUM_HABITAT_UPDATE_RATE = 30
 
 
 def read_auto_rx_config(filename, no_sdr_test=False):
-    """ Read an Auto-RX v2 Station Configuration File.
+    """Read an Auto-RX v2 Station Configuration File.
 
-	This function will attempt to parse a configuration file.
-	It will also confirm the accessibility of any SDRs specified in the config file.
+    This function will attempt to parse a configuration file.
+    It will also confirm the accessibility of any SDRs specified in the config file.
 
-	Args:
-		filename (str): Filename of the configuration file to read.
-		no_sdr_test (bool): Skip testing the SDRs (used for some unit tests)
+    Args:
+            filename (str): Filename of the configuration file to read.
+            no_sdr_test (bool): Skip testing the SDRs (used for some unit tests)
 
-	Returns:
-		auto_rx_config (dict): The configuration dictionary.
-		sdr_config (dict): A dictionary with SDR parameters.
-	"""
+    Returns:
+            auto_rx_config (dict): The configuration dictionary.
+            sdr_config (dict): A dictionary with SDR parameters.
+    """
     global global_config, web_password
     # Configuration Defaults:
     auto_rx_config = {
@@ -121,7 +121,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "web_port": 5000,
         "web_archive_age": 120,
         "web_control": False,
-        #"web_password": "none",  # Commented out to ensure warning message is shown
+        # "web_password": "none",  # Commented out to ensure warning message is shown
         #'kml_refresh_rate': 10,
         # Advanced Parameters
         "search_step": 800,
@@ -227,8 +227,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["min_freq"] = config.getfloat("search_params", "min_freq")
         auto_rx_config["max_freq"] = config.getfloat("search_params", "max_freq")
         auto_rx_config["rx_timeout"] = config.getint("search_params", "rx_timeout")
-        
-        if config.has_option("search_params", "only_scan") and config.get("search_params", "only_scan") != "": # check if user has new name for scan lists
+
+        if (
+            config.has_option("search_params", "only_scan")
+            and config.get("search_params", "only_scan") != ""
+        ):  # check if user has new name for scan lists
             auto_rx_config["only_scan"] = json.loads(
                 config.get("search_params", "only_scan")
             )
@@ -240,7 +243,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 config.get("search_params", "whitelist")
             )
 
-        if config.has_option("search_params", "never_scan") and config.get("search_params", "never_scan") != "": # check if user has new name for scan lists
+        if (
+            config.has_option("search_params", "never_scan")
+            and config.get("search_params", "never_scan") != ""
+        ):  # check if user has new name for scan lists
             auto_rx_config["never_scan"] = json.loads(
                 config.get("search_params", "never_scan")
             )
@@ -252,7 +258,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 config.get("search_params", "blacklist")
             )
 
-        if config.has_option("search_params", "always_scan") and config.get("search_params", "always_scan") != "": # check if user has new name for scan lists
+        if (
+            config.has_option("search_params", "always_scan")
+            and config.get("search_params", "always_scan") != ""
+        ):  # check if user has new name for scan lists
             auto_rx_config["always_scan"] = json.loads(
                 config.get("search_params", "always_scan")
             )
@@ -278,7 +287,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # auto_rx_config["habitat_enabled"] = config.getboolean(
         #     "habitat", "habitat_enabled"
         # )
-        #auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
+        # auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
         auto_rx_config["habitat_uploader_callsign"] = config.get(
             "habitat", "uploader_callsign"
         )
@@ -594,13 +603,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
         # Web control password
         try:
-            auto_rx_config["web_password"] = config.get(
-                "web", "web_password"
-            )
+            auto_rx_config["web_password"] = config.get("web", "web_password")
             if auto_rx_config["web_password"] == "none":
-                logging.warning(
-                    "Config - Web Password not set, disabling web control"
-                )
+                logging.warning("Config - Web Password not set, disabling web control")
                 auto_rx_config["web_control"] = True
         except:
             logging.warning(
@@ -703,7 +708,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 
 if __name__ == "__main__":
-    """ Quick test script to attempt to read in a config file. """
+    """Quick test script to attempt to read in a config file."""
     import sys, pprint
 
     logging.basicConfig(

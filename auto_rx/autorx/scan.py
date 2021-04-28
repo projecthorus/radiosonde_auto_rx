@@ -62,7 +62,7 @@ def run_rtl_power(
     gain=-1,
     bias=False,
 ):
-    """ Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
+    """Capture spectrum data using rtl_power (or drop-in equivalent), and save to a file.
 
     Args:
         start (int): Start of search window, in Hz.
@@ -168,7 +168,7 @@ def run_rtl_power(
 
 
 def read_rtl_power(filename):
-    """ Read in frequency samples from a single-shot log file produced by rtl_power 
+    """Read in frequency samples from a single-shot log file produced by rtl_power
 
     Args:
         filename (str): Filename to read in.
@@ -240,7 +240,7 @@ def detect_sonde(
     save_detection_audio=False,
     ngp_tweak=False,
 ):
-    """ Receive some FM and attempt to detect the presence of a radiosonde. 
+    """Receive some FM and attempt to detect the presence of a radiosonde.
 
     Args:
         frequency (int): Frequency to perform the detection on, in Hz.
@@ -548,7 +548,7 @@ def detect_sonde(
 # Radiosonde Scanner Class
 #
 class SondeScanner(object):
-    """ Radiosonde Scanner
+    """Radiosonde Scanner
     Continuously scan for radiosondes using a RTLSDR, and pass results onto a callback function
     """
 
@@ -585,7 +585,7 @@ class SondeScanner(object):
         temporary_block_time=60,
         ngp_tweak=False,
     ):
-        """ Initialise a Sonde Scanner Object.
+        """Initialise a Sonde Scanner Object.
 
         Apologies for the huge number of args...
 
@@ -697,7 +697,7 @@ class SondeScanner(object):
             self.log_warning("Sonde scan already running!")
 
     def send_to_callback(self, results):
-        """ Send scan results to a callback.
+        """Send scan results to a callback.
 
         Args:
             results (list): List consisting of [freq, type)]
@@ -712,7 +712,7 @@ class SondeScanner(object):
             self.log_error("Error handling scan results - %s" % str(e))
 
     def scan_loop(self):
-        """ Continually perform scans, and pass any results onto the callback function """
+        """Continually perform scans, and pass any results onto the callback function"""
 
         self.log_info("Starting Scanner Thread")
         while self.sonde_scanner_running:
@@ -770,7 +770,7 @@ class SondeScanner(object):
         self.sonde_scanner_running = False
 
     def sonde_search(self, first_only=False):
-        """ Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
+        """Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
 
         In order, this function:
         - Runs rtl_power to capture spectrum data across the frequency range of interest.
@@ -954,8 +954,7 @@ class SondeScanner(object):
             # We have been provided a only_scan list - scan through the supplied frequencies.
             peak_frequencies = np.array(self.only_scan) * 1e6
             self.log_info(
-                "Scanning only frequencies (MHz): %s"
-                % str(peak_frequencies / 1e6)
+                "Scanning only frequencies (MHz): %s" % str(peak_frequencies / 1e6)
             )
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
@@ -1001,7 +1000,7 @@ class SondeScanner(object):
         return _search_results
 
     def oneshot(self, first_only=False):
-        """ Perform a once-off scan attempt 
+        """Perform a once-off scan attempt
 
         Args:
             first_only (bool): If True, return after detecting the first sonde. Otherwise continue to scan through all peaks.
@@ -1023,22 +1022,21 @@ class SondeScanner(object):
             return _result
 
     def stop(self, nowait=False):
-        """ Stop the Scan Loop """
+        """Stop the Scan Loop"""
         self.log_info("Waiting for current scan to finish...")
         self.sonde_scanner_running = False
-
 
         # Wait for the sonde scanner thread to close, if there is one.
         if self.sonde_scan_thread != None and (not nowait):
             self.sonde_scan_thread.join()
 
     def running(self):
-        """ Check if the scanner is running """
+        """Check if the scanner is running"""
         return self.sonde_scanner_running
 
     def add_temporary_block(self, frequency):
-        """ Add a frequency to the temporary block list.
-            
+        """Add a frequency to the temporary block list.
+
         Args:
             frequency (float): Frequency to be blocked, in Hz
         """
@@ -1052,28 +1050,28 @@ class SondeScanner(object):
         )
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("Scanner #%s - %s" % (self.device_idx, line))
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("Scanner #%s - %s" % (self.device_idx, line))
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.error("Scanner #%s - %s" % (self.device_idx, line))
 
     def log_warning(self, line):
-        """ Helper function to log a warning message with a descriptive heading. 
+        """Helper function to log a warning message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
