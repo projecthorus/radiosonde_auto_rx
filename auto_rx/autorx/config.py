@@ -267,7 +267,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
         else:
             logging.warning(
-                "Config - greylist configuration has been deprecated and replaced with never_scan list"
+                "Config - greylist configuration has been deprecated and replaced with always_scan list"
             )
             auto_rx_config["always_scan"] = json.loads(
                 config.get("search_params", "greylist")
