@@ -151,9 +151,9 @@ def start_scanner():
             min_freq=config["min_freq"],
             max_freq=config["max_freq"],
             search_step=config["search_step"],
-            whitelist=config["whitelist"],
-            greylist=config["greylist"],
-            blacklist=config["blacklist"],
+            only_scan=config["only_scan"],
+            always_scan=config["always_scan"],
+            never_scan=config["never_scan"],
             snr_threshold=config["snr_threshold"],
             min_distance=config["min_distance"],
             quantization=config["quantization"],
@@ -666,7 +666,7 @@ def main():
         "--frequency",
         type=float,
         default=0.0,
-        help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.",
+        help="Sonde Frequency Override (MHz). This overrides the scan only_scan list with the supplied frequency.",
     )
     parser.add_argument(
         "-m",
@@ -790,10 +790,10 @@ def main():
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
     start_flask(host=config["web_host"], port=config["web_port"])
 
-    # If we have been supplied a frequency via the command line, override the whitelist settings
+    # If we have been supplied a frequency via the command line, override the only_scan list settings
     # to only include the supplied frequency.
     if args.frequency != 0.0:
-        config["whitelist"] = [args.frequency]
+        config["only_scan"] = [args.frequency]
 
     # Start our exporter options
     # Telemetry Logger

@@ -77,9 +77,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "min_freq": 400.4,
         "max_freq": 404.0,
         "rx_timeout": 120,
-        "whitelist": [],
-        "blacklist": [],
-        "greylist": [],
+        "only_scan": [],
+        "never_scan": [],
+        "always_scan": [],
         # Location Settings
         "station_lat": 0.0,
         "station_lon": 0.0,
@@ -227,13 +227,42 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["min_freq"] = config.getfloat("search_params", "min_freq")
         auto_rx_config["max_freq"] = config.getfloat("search_params", "max_freq")
         auto_rx_config["rx_timeout"] = config.getint("search_params", "rx_timeout")
-        auto_rx_config["whitelist"] = json.loads(
-            config.get("search_params", "whitelist")
-        )
-        auto_rx_config["blacklist"] = json.loads(
-            config.get("search_params", "blacklist")
-        )
-        auto_rx_config["greylist"] = json.loads(config.get("search_params", "greylist"))
+        
+        if config.has_option("search_params", "only_scan") and config.get("search_params", "only_scan") != "": # check if user has new name for scan lists
+            auto_rx_config["only_scan"] = json.loads(
+                config.get("search_params", "only_scan")
+            )
+        else:
+            logging.warning(
+                "Config - whitelist configuration has been deprecated and replaced with only_scan list"
+            )
+            auto_rx_config["only_scan"] = json.loads(
+                config.get("search_params", "whitelist")
+            )
+
+        if config.has_option("search_params", "never_scan") and config.get("search_params", "never_scan") != "": # check if user has new name for scan lists
+            auto_rx_config["never_scan"] = json.loads(
+                config.get("search_params", "never_scan")
+            )
+        else:
+            logging.warning(
+                "Config - blacklist configuration has been deprecated and replaced with never_scan list"
+            )
+            auto_rx_config["only_scan"] = json.loads(
+                config.get("search_params", "blacklist")
+            )
+
+        if config.has_option("search_params", "always_scan") and config.get("search_params", "always_scan") != "": # check if user has new name for scan lists
+            auto_rx_config["always_scan"] = json.loads(
+                config.get("search_params", "always_scan")
+            )
+        else:
+            logging.warning(
+                "Config - greylist configuration has been deprecated and replaced with never_scan list"
+            )
+            auto_rx_config["always_scan"] = json.loads(
+                config.get("search_params", "greylist")
+            )
 
         # Location Settings
         auto_rx_config["station_lat"] = config.getfloat("location", "station_lat")

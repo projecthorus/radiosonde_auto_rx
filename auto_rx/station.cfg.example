@@ -64,8 +64,8 @@ bias = False
 # US: 
 #   Some areas have transitioned to the 400.05 - 406 MHz band, so try 400.05 - 406
 #   Some areas are still using ~1680 MHz sondes, which use channels of 1676, 1678, 1680 and 1682 MHz (Thanks Tory!)
-#   Example whitelist for these sondes: [1676.0, 1678.0, 1680.0, 1682.0]
-#   In these areas I suggest using the whitelist feature below instead of using the peak-detect search.
+#   Example only_scan for these sondes: [1676.0, 1678.0, 1680.0, 1682.0]
+#   In these areas I suggest using the only_scan feature below instead of using the peak-detect search.
 #	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
 #	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
 
@@ -77,17 +77,17 @@ rx_timeout = 180
 
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
-# White-List - Add values to this list to *only* scan on these frequencies.
+# only_scan - Add values to this list to *only* scan on these frequencies.
 # This is for when you only want to monitor a small set of launch frequencies.
-whitelist = []
+only_scan = []
 
-# Black-List - Any values added to this list will be removed from the list of detected peaks.
+# never_scan - Any values added to this list will be removed from the list of detected peaks.
 # This is used to remove known spurs or other interferers from the scan list, potentially speeding up detection of a sonde.
-blacklist = []
+never_scan = []
 
-# Grey-List - Any values in this list will be added to the start every scan run.
+# always_scan - Any values in this list will be added to the start every scan run.
 # This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
-greylist = []
+always_scan = []
 
 
 ####################

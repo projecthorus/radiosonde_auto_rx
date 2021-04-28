@@ -562,9 +562,9 @@ class SondeScanner(object):
         min_freq=400.0,
         max_freq=403.0,
         search_step=800.0,
-        whitelist=[],
-        greylist=[],
-        blacklist=[],
+        only_scan=[],
+        always_scan=[],
+        never_scan=[],
         snr_threshold=10,
         min_distance=1000,
         quantization=10000,
@@ -595,9 +595,9 @@ class SondeScanner(object):
             min_freq (float): Minimum search frequency, in MHz.
             max_freq (float): Maximum search frequency, in MHz.
             search_step (float): Search step, in *Hz*. Defaults to 800 Hz, which seems to work well.
-            whitelist (list): If provided, *only* scan on these frequencies. Frequencies provided as a list in MHz.
-            greylist (list): If provided, add these frequencies to the start of each scan attempt.
-            blacklist (list): If provided, remove these frequencies from the detected peaks before scanning.
+            only_scan (list): If provided, *only* scan on these frequencies. Frequencies provided as a list in MHz.
+            always_scan (list): If provided, add these frequencies to the start of each scan attempt.
+            never_scan (list): If provided, remove these frequencies from the detected peaks before scanning.
             snr_threshold (float): SNR to threshold detections at. (dB)
             min_distance (float): Minimum allowable distance between detected peaks, in Hz.
                 Helps avoid detection of numerous peaks due to ripples within the signal bandwidth.
@@ -607,7 +607,7 @@ class SondeScanner(object):
             detect_dwell_time (int): Number of seconds to allow rs_detect to attempt to detect a sonde. Default = 5 seconds.
             scan_delay (int): Delay X seconds between scan runs.
             max_peaks (int): Maximum number of peaks to search over. Peaks are ordered by signal power before being limited to this number.
-            scan_check_interval (int): If we are using a whitelist, re-check the RTLSDR works every X scan runs.
+            scan_check_interval (int): If we are using a only_scan list, re-check the RTLSDR works every X scan runs.
             rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
             sdr_power (str): Path to rtl_power, or drop-in equivalent. Defaults to 'rtl_power'
             sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
@@ -616,7 +616,7 @@ class SondeScanner(object):
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
             save_detection_audio (bool): Save the audio used in each detecton to detect_<device_idx>.wav
-            temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blacklisted for a set time.
+            temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blocked for a set time.
             temporary_block_time (int): How long (minutes) frequencies in the temporary block list should remain blocked for.
             ngp_tweak (bool): Narrow the detection filter when searching for 1680 MHz sondes, to enhance detection of RS92-NGPs.
         """
@@ -629,9 +629,9 @@ class SondeScanner(object):
         self.min_freq = min_freq
         self.max_freq = max_freq
         self.search_step = search_step
-        self.whitelist = whitelist
-        self.greylist = greylist
-        self.blacklist = blacklist
+        self.only_scan = only_scan
+        self.always_scan = always_scan
+        self.never_scan = never_scan
         self.snr_threshold = snr_threshold
         self.min_distance = min_distance
         self.quantization = quantization
@@ -666,7 +666,7 @@ class SondeScanner(object):
 
         # Count how many scans we have performed.
         self.scan_counter = 0
-        # If we run a whitelist, check the SDR every X scan loops.
+        # If we run a only_scan list, check the SDR every X scan loops.
         self.scan_check_interval = scan_check_interval
 
         # This will become our scanner thread.
@@ -724,9 +724,9 @@ class SondeScanner(object):
                 )
                 break
 
-            # If we are using a whitelist, we don't have an easy way of checking the RTLSDR
+            # If we are using a only_scan list, we don't have an easy way of checking the RTLSDR
             # is producing useful data, so, test it.
-            if len(self.whitelist) > 0:
+            if len(self.only_scan) > 0:
                 self.scan_counter += 1
                 if (self.scan_counter % self.scan_check_interval) == 0:
                     self.log_debug("Performing periodic check of RTLSDR.")
@@ -792,8 +792,8 @@ class SondeScanner(object):
 
         _search_results = []
 
-        if len(self.whitelist) == 0:
-            # No whitelist frequencies provided - perform a scan.
+        if len(self.only_scan) == 0:
+            # No only_scan frequencies provided - perform a scan.
             run_rtl_power(
                 self.min_freq * 1e6,
                 self.max_freq * 1e6,
@@ -841,8 +841,8 @@ class SondeScanner(object):
                 show=False,
             )
 
-            # If we have found no peaks, and no greylist has been provided, re-scan.
-            if (len(peak_indices) == 0) and (len(self.greylist) == 0):
+            # If we have found no peaks, and no always_scan list has been provided, re-scan.
+            if (len(peak_indices) == 0) and (len(self.always_scan) == 0):
                 self.log_debug("No peaks found.")
                 # Emit a notification to the client that a scan is complete.
                 flask_emit_event("scan_event")
@@ -862,12 +862,12 @@ class SondeScanner(object):
             _, peak_idx = np.unique(peak_frequencies, return_index=True)
             peak_frequencies = peak_frequencies[np.sort(peak_idx)]
 
-            # Blacklist & Temporary block list behaviour change as of v1.2.3
-            # Was: peak_frequencies==_frequency   (This only matched an exact frequency in the blacklist)
-            # Now (1.2.3): Block if the peak frequency is within +/-quantization/2.0 of a blacklist or blocklist frequency.
+            # Never scan list & Temporary block list behaviour change as of v1.2.3
+            # Was: peak_frequencies==_frequency   (This only matched an exact frequency in the never_scan list)
+            # Now (1.2.3): Block if the peak frequency is within +/-quantization/2.0 of a never_scan or blocklist frequency.
 
-            # Remove any frequencies in the blacklist.
-            for _frequency in np.array(self.blacklist) * 1e6:
+            # Remove any frequencies in the never_scan list.
+            for _frequency in np.array(self.never_scan) * 1e6:
                 _index = np.argwhere(
                     np.abs(peak_frequencies - _frequency) < (self.quantization / 2.0)
                 )
@@ -877,9 +877,9 @@ class SondeScanner(object):
             if len(peak_frequencies) > self.max_peaks:
                 peak_frequencies = peak_frequencies[: self.max_peaks]
 
-            # Append on any frequencies in the supplied greylist
+            # Append on any frequencies in the supplied always_scan list
             peak_frequencies = np.append(
-                np.array(self.greylist) * 1e6, peak_frequencies
+                np.array(self.always_scan) * 1e6, peak_frequencies
             )
 
             # Remove any frequencies in the temporary block list
@@ -942,7 +942,7 @@ class SondeScanner(object):
             flask_emit_event("scan_event")
 
             if len(peak_frequencies) == 0:
-                self.log_debug("No peaks found after blacklist frequencies removed.")
+                self.log_debug("No peaks found after never_scan frequencies removed.")
                 return []
             else:
                 self.log_info(
@@ -951,10 +951,10 @@ class SondeScanner(object):
                 )
 
         else:
-            # We have been provided a whitelist - scan through the supplied frequencies.
-            peak_frequencies = np.array(self.whitelist) * 1e6
+            # We have been provided a only_scan list - scan through the supplied frequencies.
+            peak_frequencies = np.array(self.only_scan) * 1e6
             self.log_info(
-                "Scanning on whitelist frequencies (MHz): %s"
+                "Scanning only frequencies (MHz): %s"
                 % str(peak_frequencies / 1e6)
             )
 
@@ -1091,10 +1091,10 @@ if __name__ == "__main__":
         print("SCAN RESULT: " + str(scan_result))
 
     # Local spurs at my house :-)
-    blacklist = [401.7, 401.32, 402.09, 402.47, 400.17, 402.85]
+    never_scan = [401.7, 401.32, 402.09, 402.47, 400.17, 402.85]
 
     # Instantiate scanner with default parameters.
-    _scanner = SondeScanner(callback=print_result, blacklist=blacklist)
+    _scanner = SondeScanner(callback=print_result, never_scan=never_scan)
 
     try:
         # Oneshot approach.
