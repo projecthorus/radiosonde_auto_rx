@@ -94,7 +94,7 @@ temporary_block_list = {}
 
 
 def allocate_sdr(check_only=False, task_description=""):
-    """ Allocate an un-used SDR for a task.
+    """Allocate an un-used SDR for a task.
 
     Args:
         check_only (bool) : If True, don't set the free SDR as in-use. Used to check if there are any free SDRs.
@@ -124,7 +124,7 @@ def allocate_sdr(check_only=False, task_description=""):
 
 
 def start_scanner():
-    """ Start a scanner thread on the first available SDR """
+    """Start a scanner thread on the first available SDR"""
     global config, RS_PATH, temporary_block_list
 
     if "SCAN" in autorx.task_list:
@@ -151,9 +151,9 @@ def start_scanner():
             min_freq=config["min_freq"],
             max_freq=config["max_freq"],
             search_step=config["search_step"],
-            whitelist=config["whitelist"],
-            greylist=config["greylist"],
-            blacklist=config["blacklist"],
+            only_scan=config["only_scan"],
+            always_scan=config["always_scan"],
+            never_scan=config["never_scan"],
             snr_threshold=config["snr_threshold"],
             min_distance=config["min_distance"],
             quantization=config["quantization"],
@@ -180,7 +180,7 @@ def start_scanner():
 
 
 def stop_scanner():
-    """ Stop a currently running scan thread, and release the SDR it was using. """
+    """Stop a currently running scan thread, and release the SDR it was using."""
 
     if "SCAN" not in autorx.task_list:
         # No scanner thread running!
@@ -199,7 +199,7 @@ def stop_scanner():
 
 
 def start_decoder(freq, sonde_type):
-    """ Attempt to start a decoder thread for a given sonde.
+    """Attempt to start a decoder thread for a given sonde.
 
     Args:
         freq (float): Radiosonde frequency in Hz.
@@ -255,7 +255,7 @@ def start_decoder(freq, sonde_type):
 
 
 def handle_scan_results():
-    """ Read in Scan results via the scan results Queue.
+    """Read in Scan results via the scan results Queue.
 
     Depending on how many SDRs are available, two things can happen:
     - If there is a free SDR, allocate it to a decoder.
@@ -368,7 +368,7 @@ def handle_scan_results():
 
 
 def clean_task_list():
-    """ Check the task list to see if any tasks have stopped running. If so, release the associated SDR """
+    """Check the task list to see if any tasks have stopped running. If so, release the associated SDR"""
 
     for _key in autorx.task_list.copy().keys():
         # Attempt to get the state of the task
@@ -444,7 +444,7 @@ def clean_task_list():
 
 
 def stop_all():
-    """ Shut-down all decoders, scanners, and exporters. """
+    """Shut-down all decoders, scanners, and exporters."""
     global exporter_objects
     logging.info("Starting shutdown of all threads.")
     for _task in autorx.task_list.keys():
@@ -464,7 +464,7 @@ def stop_all():
 
 
 def telemetry_filter(telemetry):
-    """ Filter incoming radiosonde telemetry based on various factors,
+    """Filter incoming radiosonde telemetry based on various factors,
         - Invalid Position
         - Invalid Altitude
         - Abnormal range from receiver.
@@ -569,7 +569,7 @@ def telemetry_filter(telemetry):
 
     # Just make sure we're not getting the 'xxxxxxxx' unknown serial from the DFM decoder.
     if "DFM" in telemetry["type"]:
-        dfm_callsign_valid = 'x' not in _serial.split("-")[1]
+        dfm_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         dfm_callsign_valid = False
 
@@ -611,7 +611,7 @@ def telemetry_filter(telemetry):
 
 
 def station_position_update(position):
-    """ Handle a callback from GPSDAdaptor object, and update each exporter object. """
+    """Handle a callback from GPSDAdaptor object, and update each exporter object."""
     global exporter_objects
     # Quick sanity check of the incoming data
     if "valid" not in position:
@@ -631,7 +631,7 @@ def station_position_update(position):
 
 
 def email_error(message="foo"):
-    """ Helper function to email an error message, if the email exporter is available """
+    """Helper function to email an error message, if the email exporter is available"""
     global email_exporter
 
     if email_exporter and config["email_error_notifications"]:
@@ -644,7 +644,7 @@ def email_error(message="foo"):
 
 
 def main():
-    """ Main Loop """
+    """Main Loop"""
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
 
     # Command line arguments.
@@ -666,7 +666,7 @@ def main():
         "--frequency",
         type=float,
         default=0.0,
-        help="Sonde Frequency Override (MHz). This overrides the scan whitelist with the supplied frequency.",
+        help="Sonde Frequency Override (MHz). This overrides the only_scan list with the supplied frequency.",
     )
     parser.add_argument(
         "-m",
@@ -790,10 +790,10 @@ def main():
     # This needs to occur AFTER logging is setup, else logging breaks horribly for some reason.
     start_flask(host=config["web_host"], port=config["web_port"])
 
-    # If we have been supplied a frequency via the command line, override the whitelist settings
+    # If we have been supplied a frequency via the command line, override the only_scan list settings
     # to only include the supplied frequency.
     if args.frequency != 0.0:
-        config["whitelist"] = [args.frequency]
+        config["only_scan"] = [args.frequency]
 
     # Start our exporter options
     # Telemetry Logger
