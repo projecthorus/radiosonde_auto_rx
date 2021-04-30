@@ -874,7 +874,7 @@
                 if (document.getElementById("sondeAutoFollow").checked == true){
                     // If we are currently following this sonde, snap the map to it.
                     if (msg.id == sonde_currently_following){
-                            mymap.panTo([msg.lat,msg.lon], { duration: 1.2, easeLinearity: 0.9 });
+                            mymap.panTo([msg.lat,msg.lon], { duration: 5.0, easeLinearity: 0.9 });
                     }
                 }
             });
