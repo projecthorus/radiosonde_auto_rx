@@ -453,3 +453,9 @@ select[disabled]{
     font-size: 11px;
     font-weight: bold;
 }
+
+/* workaround for subpixel lines https://github.com/Leaflet/Leaflet/issues/3575#issuecomment-688644225 */
+.leaflet-tile-container img {
+    width: 256.5px !important;
+    height: 256.5px !important;
+}
