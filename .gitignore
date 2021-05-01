@@ -22,9 +22,8 @@ venv
 *.autosave
 .scannerwork
 
-
 # Custom config file
-auto_rx/config/station.cfg
+auto_rx/station.cfg
 auto_rx/log/
 
 auto_rx/log_power.csv
