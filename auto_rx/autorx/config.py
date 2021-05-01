@@ -254,7 +254,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             logging.warning(
                 "Config - blacklist configuration has been deprecated and replaced with never_scan list"
             )
-            auto_rx_config["only_scan"] = json.loads(
+            auto_rx_config["never_scan"] = json.loads(
                 config.get("search_params", "blacklist")
             )
 
