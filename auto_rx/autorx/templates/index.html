@@ -797,13 +797,13 @@
                                             // Create markers
                     sonde_positions[msg.id].path = L.polyline([[msg.lat, msg.lon, msg.alt]],{title:msg.id + " Path", color:sonde_positions[msg.id].colour}).addTo(mymap);
                     if (getCookie('imperial') == 'true'){
-                            _alt = (telem.alt*3.28084).toFixed(0) + 'ft   ';
-                            _vel_v = (telem.vel_v*3.28084).toFixed(0) + 'ft/s   ';
-                            _vel_h = (telem.vel_h*2.23694).toFixed(0) + 'mph  ';
+                            _alt = (msg.alt*3.28084).toFixed(0) + 'ft   ';
+                            _vel_v = (msg.vel_v*3.28084).toFixed(0) + 'ft/s   ';
+                            _vel_h = (msg.vel_h*2.23694).toFixed(0) + 'mph  ';
                         } else {
-                            _alt = telem.alt.toFixed(0) + 'm   ';
-                            _vel_v = telem.vel_v.toFixed(1) + 'm/s   ';
-                            _vel_h = (telem.vel_h*3.6).toFixed(0) + 'km/h  ';
+                            _alt = msg.alt.toFixed(0) + 'm   ';
+                            _vel_v = msg.vel_v.toFixed(1) + 'm/s   ';
+                            _vel_h = (msg.vel_h*3.6).toFixed(0) + 'km/h  ';
                         }
                     sonde_positions[msg.id].marker = L.marker([msg.lat, msg.lon, msg.alt],{title:msg.id, icon: sondeAscentIcons[sonde_positions[msg.id].colour]})
                         .bindTooltip('<div class="tooltip-container">' + msg.id + '<div class="tooltip-container" style="color: #005ec1;">' + _alt +  _vel_v +  _vel_h + '</div></div>',{permanent:false, direction:'right', className: 'sondeTooltip', offset: [10,0], interactive: false, opacity: 0.7})
@@ -874,7 +874,7 @@
                 if (document.getElementById("sondeAutoFollow").checked == true){
                     // If we are currently following this sonde, snap the map to it.
                     if (msg.id == sonde_currently_following){
-                            mymap.panTo([msg.lat,msg.lon]);
+                            mymap.panTo([msg.lat,msg.lon], { duration: 2.5, easeLinearity: 0.9 });
                     }
                 }
             });
