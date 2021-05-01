@@ -39,6 +39,7 @@ RUN case $(uname -m) in \
   apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y \
+  libatomic1 \
   rng-tools \
   rtl-sdr \
   sox \

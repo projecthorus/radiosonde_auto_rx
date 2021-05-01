@@ -59,32 +59,99 @@ def check_rs_utils():
     return True
 
 
-AUTORX_VERSION_URL = "https://raw.githubusercontent.com/projecthorus/radiosonde_auto_rx/master/auto_rx/autorx/__init__.py"
+AUTORX_MAIN_VERSION_URL = "https://raw.githubusercontent.com/projecthorus/radiosonde_auto_rx/master/auto_rx/autorx/__init__.py"
+AUTORX_TESTING_VERSION_URL = "https://raw.githubusercontent.com/projecthorus/radiosonde_auto_rx/testing/auto_rx/autorx/__init__.py"
 
 
-def check_autorx_version():
-    """ Grab the latest __init__ file from Github and compare the version with our current version. """
+def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
+    """ Parse an auto_rx __init__ file and return the version """
     try:
-        _r = requests.get(AUTORX_VERSION_URL, timeout=5)
+        _r = requests.get(version_url, timeout=5)
     except Exception as e:
-        logging.error("Version - Error determining latest master version - %s" % str(e))
-        return
-
-    _version = "Unknown"
+        logging.exception(
+            f"Version - Error determining version from URL {version_url}", e
+        )
+        return None
 
     try:
         for _line in _r.text.split("\n"):
             if _line.startswith("__version__"):
-                _version = _line.split("=")[1]
-                _version = _version.replace('"', "").strip()
-                break
-    except Exception as e:
-        logging.error("Version - Error determining latest master version.")
+                _main_version = _line.split("=")[1]
+                _main_version = _main_version.replace('"', "").strip()
+                return _main_version
 
-    logging.info(
-        "Version - Local Version: %s  Current Master Version: %s"
-        % (auto_rx_version, _version)
-    )
+    except Exception as e:
+        logging.exception(
+            f"Version - Error extracting version from url {version_url}.", e
+        )
+        return None
+
+
+def check_autorx_versions(current_version=auto_rx_version):
+    """ 
+        Check the current auto_rx version against the latest main and testing branches.
+        Returns a string 'Latest' if this is the latest version, or the newer version if 
+        there is an update available. Returns 'Unknown' if the version could not be determined.
+    """
+
+    # Grab the current versions
+    _main_branch_version = get_autorx_version(AUTORX_MAIN_VERSION_URL)
+    _testing_branch_version = get_autorx_version(AUTORX_TESTING_VERSION_URL)
+
+    if (_main_branch_version is None) or (_testing_branch_version is None):
+        logging.error("Version - Could not determine latest versions.")
+        return "Unknown"
+
+    # First, determine if the user is on a main or beta (testing) version
+    # We use the presence of a '-' in the version name to figure this out.
+    if "-" in current_version:
+        # User is on a testing branch version.
+        # Compare against the testing branch version - when a release is made, the testing
+        # branch will have the same version as the main branch, then will advance.
+        if _testing_branch_version > current_version:
+            # Newer testing version available.
+            return _testing_branch_version
+        else:
+            # User is on latest testing branch version.
+            return "Latest"
+    else:
+        # User is running the main branch
+        if _main_branch_version > current_version:
+            return _main_branch_version
+        else:
+            return "Latest"
+
+    # Should never get here.
+    return "Unknown"
+
+
+def version_startup_check():
+    """ Helper function to check version on startup """
+    _newer_version = check_autorx_versions()
+    if _newer_version == "Latest":
+        logging.info(f"Version - Local Version: {auto_rx_version} - Up to date!")
+    elif _newer_version == "Unknown":
+        # An error will have already been printed out for this case.
+        pass
+    else:
+        logging.info(
+            f"Version - Local Version: {auto_rx_version} - Newer Version Available! ({_newer_version})"
+        )
+
+
+def strip_sonde_serial(serial):
+    """ Strip off any leading sonde type that may be present in a serial number """
+
+    # Look for serials with prefixes matching the following known sonde types.
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ)-")
+
+    # If we have a match, return the trailing part of the serial, re-adding
+    # any - separators if they exist.
+    if _re.match(serial):
+        return "-".join(serial.split("-")[1:])
+    else:
+        # Otherwise, it's probably a RS41 or RS92
+        return serial
 
 
 class AsynchronousFileReader(threading.Thread):

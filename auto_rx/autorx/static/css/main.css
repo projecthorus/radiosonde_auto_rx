@@ -6,7 +6,10 @@ body {
 }
 
 p {
-  margin: 0.3vh;   
+  margin-top: 0.3vh;   
+  margin-top: calc(var(--vh, 1vh) * 0.3); 
+  margin-bottom: 0.3vh;
+  margin-bottom: calc(var(--vh, 1vh) * 0.3); 
 }
 
 body {
@@ -14,6 +17,10 @@ body {
   display: flex;
   overflow: hidden;
   flex-direction: column;
+}
+
+a {
+  color: inherit;
 }
 
 .wrapper {
@@ -99,6 +106,7 @@ body {
 
 .sidenav img {
   height: 10vh;
+  height: calc(var(--vh, 1vh) * 10); 
   display: block;
   margin-left: auto;
   margin-right: auto;
@@ -121,7 +129,7 @@ body {
   text-align: center;
 }
 
-.settings button {
+button {
   border: none;
   color: white;
   padding: 12px 24px;
@@ -137,9 +145,15 @@ body {
   border: 2px solid #2196F3;
 }
 
-.settings button:hover {
+button:hover {
   background-color: #2196F3;
   color: white;
+}
+
+button:disabled,
+button[disabled]{
+  background-color: #333333;
+  color: black;
 }
 
 .footer {
@@ -171,7 +185,6 @@ body {
 #mapid { 
   flex: auto;
   z-index: 0;
-  border-radius: 25px;
 }
 
 .footerdiv {
@@ -210,7 +223,7 @@ table {
 
 .settings .closebtn2 {
   position: absolute;
-  top: 16px;
+  top: 6px;
   left: 16px;
   font-size: 36px;
   text-decoration: none;
@@ -304,10 +317,112 @@ input:checked + .slider:before {
     color: black;
 }
 
-#telem_table a:link, #telem_table a:visited {
+#telem_table a:link, #telem_table a:visited #log_data a:link, #log_data a:visited {
     font-weight: bold;
     text-decoration: none;
     color:inherit;
+}
+
+/* Modal Header */
+.modal-header {
+  padding: 2px 16px;
+  background-color: grey;
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 2px 16px;
+}
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: hidden; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.modal-content {
+  background-color: #fefefe;
+  overflow: scroll;
+  margin: 15vh auto;
+  margin:calc(var(--vh, 1vh) * 15) auto;
+  max-height: 75vh;
+  padding: 0;
+  border: 1px solid #888;
+  width: 80%;
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+  -webkit-animation-name: animatetop;
+  -webkit-animation-duration: 0.4s;
+  animation-name: animatetop;
+  animation-duration: 0.4s
+}
+
+/* Add Animation */
+@-webkit-keyframes animatetop {
+  from {top:-300px; opacity:0} 
+  to {top:0; opacity:1}
+}
+
+@keyframes animatetop {
+  from {top:-300px; opacity:0}
+  to {top:0; opacity:1}
+}
+
+/* The Close Button */
+.close {
+  float: right;
+  font-size: 54px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#password-input {
+  width: 140px;
+  padding: 12px 10px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+#frequency-input {
+  width: 130px;
+  padding: 12px 10px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+input:disabled,
+input[disabled]{
+  background-color: #333333;
+  color: black;
+}
+
+select:disabled,
+select[disabled]{
+  background-color: #333333;
+  color: black;
+}
+
+.control {
+    height: 42px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -332,4 +447,15 @@ input:checked + .slider:before {
     .settings {
         background-color: #414141;
     }
+}
+
+.sondeTooltip {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* workaround for subpixel lines https://github.com/Leaflet/Leaflet/issues/3575#issuecomment-688644225 */
+.leaflet-tile-container img {
+    width: 256.5px !important;
+    height: 256.5px !important;
 }
