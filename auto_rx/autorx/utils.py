@@ -17,6 +17,7 @@ import subprocess
 import threading
 import time
 import numpy as np
+import semver
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
@@ -88,9 +89,9 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
 
 
 def check_autorx_versions(current_version=auto_rx_version):
-    """ 
+    """
         Check the current auto_rx version against the latest main and testing branches.
-        Returns a string 'Latest' if this is the latest version, or the newer version if 
+        Returns a string 'Latest' if this is the latest version, or the newer version if
         there is an update available. Returns 'Unknown' if the version could not be determined.
     """
 
@@ -108,7 +109,7 @@ def check_autorx_versions(current_version=auto_rx_version):
         # User is on a testing branch version.
         # Compare against the testing branch version - when a release is made, the testing
         # branch will have the same version as the main branch, then will advance.
-        if _testing_branch_version > current_version:
+        if semver.compare(_testing_branch_version, current_version):
             # Newer testing version available.
             return _testing_branch_version
         else:
@@ -116,7 +117,7 @@ def check_autorx_versions(current_version=auto_rx_version):
             return "Latest"
     else:
         # User is running the main branch
-        if _main_branch_version > current_version:
+        if semver.compare(_main_branch_version, current_version):
             return _main_branch_version
         else:
             return "Latest"
@@ -260,8 +261,8 @@ def detect_peaks(
     -----
     The detection of valleys instead of peaks is performed internally by simply
     negating the data: `ind_valleys = detect_peaks(-x)`
-    
-    The function can handle NaN's 
+
+    The function can handle NaN's
 
     See this IPython Notebook [1]_.
 
