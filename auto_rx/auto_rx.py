@@ -158,6 +158,7 @@ def start_scanner():
             min_distance=config["min_distance"],
             quantization=config["quantization"],
             scan_dwell_time=config["scan_dwell_time"],
+            scan_delay=config["scan_delay"],
             detect_dwell_time=config["detect_dwell_time"],
             max_peaks=config["max_peaks"],
             rs_path=RS_PATH,
