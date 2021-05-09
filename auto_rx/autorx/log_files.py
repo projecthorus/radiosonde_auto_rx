@@ -246,7 +246,7 @@ def calculate_skewt_data(
             _pos_delta = position_info(_old_pos, _new_pos)
 
             _speed = _pos_delta["great_circle_distance"] / _time_delta
-            _bearing = _pos_delta["bearing"]
+            _bearing = (_pos_delta["bearing"]+180.0)%360.0
 
             if pressure is None:
                 _pressure = getDensity(altitude[i], get_pressure=True) / 100.0

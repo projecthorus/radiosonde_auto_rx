@@ -26,7 +26,7 @@ var SkewT = function(div) {
 	var w, h, x, y, xAxis, yAxis, yAxis2;
 	var data = [];
 	//aux
-	var unit = "kt"; // or kmh
+	var unit = "kmh"; // or kmh
 
 	//containers
 	var svg = wrapper.append("svg").attr("id", "svg");	 //main svg
@@ -43,7 +43,9 @@ var SkewT = function(div) {
 		h = width - margin.top - margin.bottom;		
 		x = d3.scale.linear().range([0, w]).domain([-45,50]);
 		y = d3.scale.log().range([0, h]).domain([topp, basep]);
-		xAxis = d3.svg.axis().scale(x).tickSize(0,0).ticks(10).orient("bottom");
+		xAxis = d3.svg.axis().scale(x).tickSize(0,0).ticks(10).orient("bottom").tickFormat(function(e) {
+			return e.toFixed(0) + "°C" 
+		});
 		yAxis = d3.svg.axis().scale(y).tickSize(0,0).tickValues(plines).tickFormat(d3.format(".0d")).orient("left");
 		yAxis2 = d3.svg.axis().scale(y).tickSize(5,0).tickValues(pticks).orient("right");
 	}
