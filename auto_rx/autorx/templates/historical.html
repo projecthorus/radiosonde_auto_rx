@@ -110,7 +110,129 @@
                             dataType: 'json',
                             async: false,
                             success: function(data) {
-                                //put on map
+                                var sonde_path = L.polyline([]);
+                                var max_alt = -99999.0;
+
+                                for (let i = 0; i < data['path'].length; i++){
+                                    // Extract data.
+                                    lat = parseFloat(data['path'][i][0]);
+                                    lon = parseFloat(data['path'][i][1]);
+                                    if (getCookie('imperial') == 'true') {
+                                        alt = parseFloat(data['path'][i][2])*3.28084;
+                                    } else {
+                                        alt = parseFloat(data['path'][i][2]);
+                                    }
+
+                                    sonde_path.addLatLng([lat, lon]);
+
+                                    if (alt > max_alt){
+                                        max_alt = alt;
+                                    }
+                                }
+                                
+                                //launch marker
+                                launch_lat = parseFloat(data['first'][0]);
+                                launch_lon = parseFloat(data['first'][1]);
+                                if (getCookie('imperial') == 'true') {
+                                    launch_alt = parseFloat(data['first'][2])*3.28084;
+                                } else {
+                                    launch_alt = parseFloat(data['first'][2]);
+                                }
+                                if (getCookie('UTC') == 'false') {
+                                    launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                } else {
+                                    launch_time = data['first_time'];
+                                }
+
+                                launch_icon = L.icon({
+                                    iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                                    iconSize: [15,15],
+                                    iconAnchor: [7.5,7.5]
+                                });
+
+                                if (getCookie('imperial') == 'true') {
+                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
+                                } else {
+                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
+                                }
+
+                                launchMarker = L.marker([launch_lat, launch_lon],
+                                    {
+                                        title:launchIconTitle, 
+                                        icon: launch_icon
+                                    })
+                                    .bindTooltip(launchIconTitle,{permanent:false,direction:'right'})
+                                    .addTo(mymap);
+                    
+                                //landing marker
+                                landing_lat = parseFloat(data['last'][0]);
+                                landing_lon = parseFloat(data['last'][1]);
+                                if (getCookie('imperial') == 'true') {
+                                    landing_alt = parseFloat(data['last'][2])*3.28084;
+                                } else {
+                                    landing_alt = parseFloat(data['last'][2]);
+                                }
+                                if (getCookie('UTC') == 'false') {
+                                    landing_time = new Date(data['last_time']).toLocaleString("en-AU");
+                                } else {
+                                    landing_time = data['last_time']
+                                }
+
+                                landing_icon = L.icon({
+                                    iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                                    iconSize: [15,15],
+                                    iconAnchor: [7.5,7.5]
+                                });
+
+                                if (getCookie('imperial') == 'true') {
+                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                                } else {
+                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                                }
+
+                                landingMarker = L.marker([landing_lat, landing_lon],
+                                    {
+                                        title:landingIconTitle, 
+                                        icon: landing_icon
+                                    })
+                                    .bindTooltip(landingIconTitle,{permanent:false,direction:'right'})
+                                    .addTo(mymap);
+
+                                //burst marker
+                                burst_lat = parseFloat(data['burst'][0]);
+                                burst_lon = parseFloat(data['burst'][1]);
+                                if (getCookie('imperial') == 'true') {
+                                    burst_alt = parseFloat(data['burst'][2])*3.28084;
+                                } else {
+                                    burst_alt = parseFloat(data['burst'][2]);
+                                }
+                                if (getCookie('UTC') == 'false') {
+                                    burst_time = new Date(data['burst_time']).toLocaleString("en-AU");
+                                } else {
+                                    burst_time = data['burst_time'];
+                                }
+
+                                burst_icon = L.icon({
+                                    iconUrl: "{{ url_for('static', filename='img/burst_marker.png') }}",
+                                    iconSize: [15,15],
+                                    iconAnchor: [7.5,7.5]
+                                });
+
+                                if (getCookie('imperial') == 'true') {
+                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'ft';
+                                } else {
+                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'm';
+                                }
+
+                                burstMarker = L.marker([burst_lat, burst_lon],
+                                    {
+                                        title:burstIconTitle, 
+                                        icon: burst_icon
+                                    })
+                                    .bindTooltip(burstIconTitle,{permanent:false,direction:'right'})
+                                    .addTo(mymap);
+
+                                sonde_path.addTo(mymap);
                             }
                         });  
                     }
@@ -155,14 +277,14 @@
             
             // Home Icon.
             homeIcon = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
             
             // Home Icon for dark mode.
             homeIconDark = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green-dark.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green-dark.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
