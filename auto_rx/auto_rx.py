@@ -722,6 +722,9 @@ def main():
         # Using print because logging may not be established yet
         print("Invalid logging path, using default. Does the folder exist?")
 
+    # Update Global logging path, used by other modules.
+    autorx.logging_path = logging_path
+
     # Configure logging
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)

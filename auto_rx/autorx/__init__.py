@@ -49,3 +49,6 @@ task_list = {}
 scan_results = Queue()
 # Global scan inhibit flag, used by web interface.
 scan_inhibit = False
+
+# Logging Directory
+logging_path = "./log/"

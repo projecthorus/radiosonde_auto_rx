@@ -19,6 +19,7 @@ import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
+from autorx.log_files import list_log_files, read_log_by_serial
 from threading import Thread
 import flask
 from flask import request, abort
@@ -284,6 +285,16 @@ def shutdown_flask(shutdown_key):
 
     return ""
 
+@app.route("/get_log_list")
+def flask_get_log_list():
+    """ Return a list of log files, as a list of objects """
+    return json.dumps(list_log_files())
+
+
+@app.route("/get_log_by_serial/<serial>")
+def flask_get_log_by_serial(serial):
+    """ Request a log file be read, by serial number """
+    return json.dumps(read_log_by_serial(serial))
 
 #
 #   Control Endpoints.
