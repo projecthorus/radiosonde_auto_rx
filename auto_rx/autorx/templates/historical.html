@@ -105,13 +105,12 @@
                 if (selectedrows.length > 0) {
                     var i;
                     for (i = 0; i < selectedrows.length; i++) {
-                        console.log(selectedrows[i]['serial']);
                         $.ajax({
                             url: "/get_log_by_serial/" + selectedrows[i]['serial'],
                             dataType: 'json',
                             async: false,
                             success: function(data) {
-                                console.log(data);
+                                //put on map
                             }
                         });  
                     }
