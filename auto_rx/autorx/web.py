@@ -92,6 +92,7 @@ def flask_skewt_test():
     """ Render main index page """
     return flask.render_template("skewt_test.html")
 
+
 @app.route("/get_version")
 def flask_get_version():
     """ Return current and latest auto_rx version to client """
@@ -112,27 +113,18 @@ def flask_get_task_list():
     _sdr_list = {}
 
     for _sdr in autorx.sdr_list.keys():
-        _sdr_list[str(_sdr)] = {
-                    "task": "Not Tasked", 
-                    "freq": 0
-                }
+        _sdr_list[str(_sdr)] = {"task": "Not Tasked", "freq": 0}
         if str(_sdr) in _task_list:
             if _task_list[str(_sdr)] == "SCAN":
-                _sdr_list[str(_sdr)] = {
-                    "task": "Scanning", 
-                    "freq": 0
-                }
+                _sdr_list[str(_sdr)] = {"task": "Scanning", "freq": 0}
             else:
                 try:
                     _sdr_list[str(_sdr)] = {
                         "task": "Decoding (%.3f MHz)" % (_task_list[str(_sdr)] / 1e6),
-                        "freq": _task_list[str(_sdr)]
+                        "freq": _task_list[str(_sdr)],
                     }
                 except:
-                    _sdr_list[str(_sdr)] = {
-                        "task": "Decoding (?? MHz)",
-                        "freq": 0
-                    }
+                    _sdr_list[str(_sdr)] = {"task": "Decoding (?? MHz)", "freq": 0}
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
@@ -290,6 +282,7 @@ def shutdown_flask(shutdown_key):
 
     return ""
 
+
 @app.route("/get_log_list")
 def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
@@ -301,9 +294,13 @@ def flask_get_log_by_serial(serial):
     """ Request a log file be read, by serial number """
     return json.dumps(read_log_by_serial(serial))
 
+
 @app.route("/get_log_detail", methods=["POST"])
 def flask_get_log_by_serial_detail():
-    """ Request a log file be read, by serial number """
+    """ 
+    A more customizable version of the above, with the ability
+    to set a decimation for the skewt data. 
+    """
 
     if request.method == "POST":
         if "serial" not in request.form:
@@ -315,29 +312,32 @@ def flask_get_log_by_serial_detail():
             _decim = int(float(request.form["decimation"]))
         else:
             _decim = 25
-        
 
         return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
+
 
 #
 #   Control Endpoints.
 #
 
+
 @app.route("/check_password", methods=["POST"])
 def flask_check_password():
     """ Check a supplied password 
-    Example:ß
+    Example:
     curl -d "password=foobar" -X POST http://localhost:5000/check_password
     """
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             return "OK"
         else:
             abort(403)
-    
+
     else:
         abort(403)
 
@@ -354,7 +354,9 @@ def flask_start_decoder():
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
 
             try:
                 _type = str(request.form["type"])
@@ -362,7 +364,6 @@ def flask_start_decoder():
             except Exception as e:
                 logging.error("Web - Error in decoder start request: %s", str(e))
                 abort(500)
-
 
             logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
 
@@ -386,8 +387,10 @@ def flask_stop_decoder():
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
-        
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             _freq = float(request.form["freq"])
 
             logging.info("Web - Got decoder stop request: %f" % (_freq))
@@ -413,8 +416,10 @@ def flask_disable_scanner():
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
-        
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             if "SCAN" not in autorx.task_list:
                 # No scanner thread running!
                 abort(404)
@@ -450,7 +455,9 @@ def flask_enable_scanner():
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             # We re-enable the scanner by clearing the scan_inhibit flag.
             # This makes it start up on the next run of clean_task_list (approx every 2 seconds)
             # unless one is already running.
@@ -516,11 +523,11 @@ class WebHandler(logging.Handler):
     def emit(self, record):
         """ Emit a log message via SocketIO """
         if "socket.io" not in record.msg:
-            
+
             # Inhibit flask session disconnected errors
             if "Error on request" in record.msg:
                 return
-        
+
             # Convert log record into a dictionary
             log_data = {
                 "level": record.levelname,

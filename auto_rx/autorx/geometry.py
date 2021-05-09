@@ -77,7 +77,7 @@ def getDensity(altitude, get_pressure=False):
     pressure = pressureRel * pressureSL
     if get_pressure:
         return pressure
-        
+
     density = densitySL * pressureRel * temperatureSL / temperature
 
     return density
