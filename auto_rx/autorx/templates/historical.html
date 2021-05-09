@@ -70,6 +70,7 @@
             var table = new Tabulator("#sonde-list-table", {
                 data:table_data,           //load row data from array
                 layout:"fitColumns",     //fit columns to width of table
+                selectable:true,
                 columns:[                 //define the table columns
                     {title:"Type", field:"type", width:190, resizable:false},
                     {title:"Serial", field:"serial", width:105, resizable:false},
@@ -87,6 +88,38 @@
                     }
                     }
                 ]
+            });
+
+            //select row on "select all" button click
+            $("#select-all").click(function(){
+                table.selectRow();
+            });
+
+            //deselect row on "deselect all" button click
+            $("#deselect-all").click(function(){
+                table.deselectRow();
+            });
+
+            $("#showsonde-map").click(function(){
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    var i;
+                    for (i = 0; i < selectedrows.length; i++) {
+                        console.log(selectedrows[i]['serial']);
+                        $.ajax({
+                            url: "/get_log_by_serial/" + selectedrows[i]['serial'],
+                            dataType: 'json',
+                            async: false,
+                            success: function(data) {
+                                console.log(data);
+                            }
+                        });  
+                    }
+                }
+            });
+
+            $("#showsonde-skew").click(function(){
+                //console.log(table.getSelectedData());
             });
             
             // List of available map layers.
@@ -336,6 +369,13 @@
             <a href="javascript:void(0)" class="closebtn" id="closebtn" onclick="changeNav()">&#10006;</a>
             <img src="{{ url_for('static', filename='img/autorx_logo.png') }}" alt="Radiosonde Auto-RX Button">
             <h2>Sonde List</h2>
+            <div style="width:100%;text-align:center;">
+                <button id="select-all" style="margin:0 auto">Select All</button>
+                <button id="deselect-all" style="margin:0 auto">Deselect All</button>
+                <button id="showsonde-map" style="margin:0 auto">Map</button>
+                <button id="showsonde-skew" style="margin:0 auto">Skew-T</button>
+            </div>
+            <br>
             </div>
             <div id="sonde-list-table"></div>       
         </div>
