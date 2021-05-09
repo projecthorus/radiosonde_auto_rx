@@ -155,6 +155,59 @@ def strip_sonde_serial(serial):
         return serial
 
 
+def short_type_lookup(type_name):
+    """ Lookup a short type name to a more descriptive name """
+
+    if type_name.startswith("RS41"):
+        if type_name == "RS41":
+            return "Vaisala RS41"
+        else:
+            return "Vaisala " + type_name
+    elif type_name.startswith("RS92"):
+        if type_name == "RS92":
+            return "Vaisala RS92"
+        else:
+            return "Vaisala " + type_name
+    elif type_name.startswith("DFM"):
+        return "Graw " + type_name
+    elif type_name.startswith("M10"):
+        return "Meteomodem M10"
+    elif type_name.startswith("M20"):
+        return "Meteomodem M20"
+    elif type_name == "LMS6":
+        return "Lockheed Martin LMS6-400"
+    elif type_name == "MK2LMS":
+        return "Lockheed Martin LMS6-1680"
+    elif type_name == "IMET":
+        return "Intermet Systems iMet-1/4"
+    elif type_name == "IMET5":
+        return "Intermet Systems iMet-54"
+    elif type_name == "MEISEI":
+        return "Meisei iMS-100/RS-11"
+    elif type_name == "MRZ":
+        return "Meteo-Radiy MRZ"
+    else:
+        return "Unknown"
+    
+
+def readable_timedelta(duration: timedelta):
+    """ 
+    Convert a timedelta into a readable string.
+    From: https://codereview.stackexchange.com/a/245215
+    """
+    data = {}
+    data['months'], remaining = divmod(duration.total_seconds(), 2_592_000)
+    data['days'], remaining = divmod(remaining, 86_400)
+    data['hours'], remaining = divmod(remaining, 3_600)
+    data['minutes'], _foo = divmod(remaining, 60)
+
+    time_parts = [f'{round(value)} {name}' for name, value in data.items() if value > 0]
+    if time_parts:
+        return ' '.join(time_parts)
+    else:
+        return 'below 1 second'
+
+
 class AsynchronousFileReader(threading.Thread):
     """ Asynchronous File Reader
     Helper class to implement asynchronous reading of a file
