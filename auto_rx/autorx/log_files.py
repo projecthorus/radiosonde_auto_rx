@@ -15,7 +15,7 @@ import time
 import numpy as np
 
 from dateutil.parser import parse
-from autorx.utils import short_type_lookup, readable_timedelta, strip_sonde_serial
+from autorx.utils import short_type_lookup, readable_timedelta, strip_sonde_serial, position_info
 from autorx.geometry import GenericTrack, getDensity
 
 
@@ -89,7 +89,7 @@ def list_log_files():
 
 
 
-def read_log_file(filename):
+def read_log_file(filename, skewt_decimation=10):
     """ Read in a log file """
     logging.debug(f"Attempting to read file: {filename}")
 
@@ -164,12 +164,108 @@ def read_log_file(filename):
 
 
     # TODO: Calculate data necessary for Skew-T plots
+    if 'pressure' in fields:
+        _press = _data[fields['pressure']]
+    else:
+        _press = None
+
+    _output['skewt'] = calculate_skewt_data(
+        _data[fields['datetime']],
+        _data[fields['latitude']],
+        _data[fields['longitude']],
+        _data[fields['altitude']],
+        _data[fields['temp']],
+        _data[fields['humidity']],
+        _press,
+        decimation=skewt_decimation
+    )
+
 
     return _output
     
 
+def calculate_skewt_data(datetime, latitude, longitude, altitude, temperature, humidity, pressure=None, decimation=5):
+    """ Work through a set of sonde data, and produce a dataset suitable for plotting in skewt-js """
+    
+    # A few basic checks initially
 
-def read_log_by_serial(serial):
+    # Don't bother to plot data with not enough data points.
+    if len(datetime) < 10:
+        return []
+
+    # Figure out if we have any ascent data at all.
+    _burst_idx = np.argmax(altitude)
+
+    if _burst_idx == 0:
+        # We only have descent data.
+        return []
+    
+    if altitude[0] > 15000:
+        # No point plotting SkewT plots for data only gathered above 10km altitude...
+        return []
+    
+
+    _skewt = []
+
+    i = 0
+    while i < _burst_idx:
+        i += decimation
+        try:
+            if temperature[i] < -260.0 or humidity[i] < 0.0:
+                # If we don't have any valid temp or humidity data, just skip this point
+                # to avoid doing un-necessary calculations
+                continue
+
+            _time_delta = (parse(datetime[i]) - parse(datetime[i-1])).total_seconds()
+            if _time_delta == 0:
+                continue
+
+            _old_pos = (latitude[i-1], longitude[i-1], altitude[i-1])
+            _new_pos = (latitude[i], longitude[i], altitude[i])
+
+            _pos_delta = position_info(_old_pos, _new_pos)
+
+            _speed = _pos_delta["great_circle_distance"]/_time_delta
+            _bearing = _pos_delta["bearing"]
+
+            if pressure is None:
+                _pressure = getDensity(altitude[i], get_pressure=True)/100.0
+            elif pressure[i] < 0.0:
+                _pressure = getDensity(altitude[i], get_pressure=True)/100.0
+            else:
+                _pressure = pressure[i]
+            
+            _temp = temperature[i]
+            _rh = humidity[i]
+
+            _dp = 243.04*(np.log(_rh/100)+((17.625*_temp)/(243.04+_temp)))/(17.625-np.log(_rh/100)-((17.625*_temp)/(243.04+_temp)))
+
+            if np.isnan(_dp):
+                continue
+
+            _skewt.append({
+                'press': _pressure,
+                'hght': altitude[i],
+                'temp': _temp,
+                'dwpt': _dp,
+                'wdir': _bearing,
+                'wspd': _speed
+            })
+
+            # Only produce data up to 100hPa, which is the top of the skewt plot.
+            if _pressure < 100.0:
+                break
+
+        except Exception as e:
+            print(str(e))
+
+        # Continue through the data..
+    
+    return _skewt
+
+
+
+def read_log_by_serial(serial, skewt_decimation=25):
     """ Attempt to read in a log file for a particular sonde serial number """
 
 
@@ -182,7 +278,7 @@ def read_log_by_serial(serial):
         return {}
     else:
         try:
-            data = read_log_file(_matching_files[0])
+            data = read_log_file(_matching_files[0], skewt_decimation=skewt_decimation)
             return data
         except Exception as e:
             logging.exception(f"Error reading file for serial: {serial}", e)
@@ -201,4 +297,4 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         print(f"Attempting to read serial: {sys.argv[1]}")
-        print(read_log_by_serial(sys.argv[1]))
+        read_log_by_serial(sys.argv[1])

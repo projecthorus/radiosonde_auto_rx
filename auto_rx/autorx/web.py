@@ -87,6 +87,11 @@ def flask_index():
     return flask.render_template("index.html")
 
 
+@app.route("/skewt_test.html")
+def flask_skewt_test():
+    """ Render main index page """
+    return flask.render_template("skewt_test.html")
+
 @app.route("/get_version")
 def flask_get_version():
     """ Return current and latest auto_rx version to client """
@@ -296,6 +301,24 @@ def flask_get_log_by_serial(serial):
     """ Request a log file be read, by serial number """
     return json.dumps(read_log_by_serial(serial))
 
+@app.route("/get_log_detail", methods=["POST"])
+def flask_get_log_by_serial_detail():
+    """ Request a log file be read, by serial number """
+
+    if request.method == "POST":
+        if "serial" not in request.form:
+            abort(403)
+
+        _serial = request.form["serial"]
+
+        if "decimation" in request.form:
+            _decim = int(float(request.form["decimation"]))
+        else:
+            _decim = 25
+        
+
+        return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
+
 #
 #   Control Endpoints.
 #
@@ -303,7 +326,7 @@ def flask_get_log_by_serial(serial):
 @app.route("/check_password", methods=["POST"])
 def flask_check_password():
     """ Check a supplied password 
-    Example:
+    Example:ß
     curl -d "password=foobar" -X POST http://localhost:5000/check_password
     """
     if request.method == "POST" and autorx.config.global_config["web_control"]:
