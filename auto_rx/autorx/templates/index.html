@@ -29,7 +29,6 @@
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/SmoothWheelZoom.js') }}"></script>
     
     <script>
         var autorx_config = {
@@ -227,7 +226,7 @@
             });  
             
             // Create map object.
-            mymap = L.map('mapid', {scrollWheelZoom: false, smoothWheelZoom: true, smoothSensitivity: 1}).setView([autorx_config.station_lat, autorx_config.station_lon], 8);
+            mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
             mymap.addControl(new L.Control.Fullscreen());
             if (mapTheme != 'DarkMatter' && mapTheme != 'WorldImagery') {
                 home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
@@ -1551,7 +1550,14 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button id="open-controls" onclick="openModal()">OPEN</button>
-                  </div>                 
+                  </div>    
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Historical View</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                    <button onclick="window.location.href='/historical.html'">OPEN</button>
+                  </div>                            
                   <br>
                   <br>
                   <br>
