@@ -188,7 +188,7 @@ def short_type_lookup(type_name):
         return "Meteo-Radiy MRZ"
     else:
         return "Unknown"
-    
+
 
 def readable_timedelta(duration: timedelta):
     """ 
@@ -196,16 +196,16 @@ def readable_timedelta(duration: timedelta):
     From: https://codereview.stackexchange.com/a/245215
     """
     data = {}
-    data['months'], remaining = divmod(duration.total_seconds(), 2_592_000)
-    data['days'], remaining = divmod(remaining, 86_400)
-    data['hours'], remaining = divmod(remaining, 3_600)
-    data['minutes'], _foo = divmod(remaining, 60)
+    data["months"], remaining = divmod(duration.total_seconds(), 2_592_000)
+    data["days"], remaining = divmod(remaining, 86_400)
+    data["hours"], remaining = divmod(remaining, 3_600)
+    data["minutes"], _foo = divmod(remaining, 60)
 
-    time_parts = [f'{round(value)} {name}' for name, value in data.items() if value > 0]
+    time_parts = [f"{round(value)} {name}" for name, value in data.items() if value > 0]
     if time_parts:
-        return ' '.join(time_parts)
+        return " ".join(time_parts)
     else:
-        return 'below 1 second'
+        return "below 1 second"
 
 
 class AsynchronousFileReader(threading.Thread):
