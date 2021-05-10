@@ -231,8 +231,8 @@ def calculate_skewt_data(
     while i < _burst_idx:
         i += decimation
         try:
-            if temperature[i] < -260.0 or humidity[i] < 0.0:
-                # If we don't have any valid temp or humidity data, just skip this point
+            if temperature[i] < -260.0:
+                # If we don't have any valid temp data, just skip this point
                 # to avoid doing un-necessary calculations
                 continue
 
@@ -256,13 +256,17 @@ def calculate_skewt_data(
                 _pressure = pressure[i]
 
             _temp = temperature[i]
-            _rh = humidity[i]
 
-            _dp = (
-                243.04
-                * (np.log(_rh / 100) + ((17.625 * _temp) / (243.04 + _temp)))
-                / (17.625 - np.log(_rh / 100) - ((17.625 * _temp) / (243.04 + _temp)))
-            )
+            if humidity[i] >= 0.0:
+                _rh = humidity[i]
+
+                _dp = (
+                    243.04
+                    * (np.log(_rh / 100) + ((17.625 * _temp) / (243.04 + _temp)))
+                    / (17.625 - np.log(_rh / 100) - ((17.625 * _temp) / (243.04 + _temp)))
+                )
+            else:
+                _dp = -999.0
 
             if np.isnan(_dp):
                 continue

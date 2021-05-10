@@ -217,8 +217,8 @@ var SkewT = function(div) {
 				tmpcfocus.attr("transform", "translate(" + (x(d.temp) + (y(basep)-y(d.press))/tan)+ "," + y(d.press) + ")");
 				dwpcfocus.attr("transform", "translate(" + (x(d.dwpt) + (y(basep)-y(d.press))/tan)+ "," + y(d.press) + ")");
 				hghtfocus.attr("transform", "translate(0," + y(d.press) + ")");
-				tmpcfocus.select("text").text(Math.round(d.temp)+"°C");
-				dwpcfocus.select("text").text(Math.round(d.dwpt)+"°C");
+				tmpcfocus.select("text").text("Temp: "+Math.round(d.temp)+"°C");
+				dwpcfocus.select("text").text("DP: "+Math.round(d.dwpt)+"°C");
 				hghtfocus.select("text").text("-- "+Math.round(d.hght)+" m"); 	//hgt or hghtagl ???
 				wspdfocus.attr("transform", "translate(" + (w-65)  + "," + y(d.press) + ")");
 				wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit);
