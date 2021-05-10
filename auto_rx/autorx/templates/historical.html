@@ -9,7 +9,6 @@
     <!-- Import style sheets (font and icons are remote, should fix) -->
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
@@ -24,8 +23,6 @@
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
@@ -76,6 +73,7 @@
                 columns:[                 //define the table columns
                     {title:"Type", field:"type", width:190, resizable:false},
                     {title:"Serial", field:"serial", width:105, resizable:false},
+                    {title:"Count", field:"lines", width:80, resizable:false},
                     {title:"Date", field:"datetime", width:205, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
@@ -280,8 +278,46 @@
                 historicalsonde.clearLayers();
             });
 
+            var skewt = new SkewT('#skewt');
+
+            function showSkewT () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    var i;
+                    _serial = selectedrows[0]['serial'];
+                    _type = selectedrows[0]['type'];
+                    console.log(_serial);
+                    $.ajax({
+                        url: "/get_log_by_serial/" + _serial,
+                        dataType: 'json',
+                        async: false,
+                        success: function(data) {
+
+                            if (getCookie('UTC') == 'false') {
+                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                            } else {
+                                launch_time = data['first_time'];
+                            }
+                            $('#skewt-header').html("<h2>Skew-T - "+_type + " " + _serial + " " + launch_time + "</h2>");
+
+                            // Possibly need to open the skewt window here before plotting.
+
+                            try {
+                                skewt.plot(data.skewt);
+                            }
+                            catch(err) {
+                                console.log(err);
+                                alert(err);
+                            }	
+                        }
+                    });  
+                }
+            }
+
+
             $("#showsonde-skew").click(function(){
                 //generate
+                showSkewT();
             });
 
             $("#hidesonde-skew").click(function(){
@@ -456,8 +492,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 500px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "500px";
-                    document.getElementById("main").style.marginLeft = "500px";
+                    document.getElementById("mySidenav").style.width = "560px";
+                    document.getElementById("main").style.marginLeft = "560px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -524,6 +560,7 @@
         let vh = window.innerHeight * 0.01;
         
         document.documentElement.style.setProperty('--vh', `${vh}px`);
+
     </script>
 </head>
 <body>
@@ -551,7 +588,7 @@
     <!-- Wrapper for settings sidebar -->   
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <br><h2>Skew Plot</h2>
+        <div id="skewt-header" style="width:100%;text-align:center;"><h2>Skew-T Plot</h2></div>
         <div id="skewt"></div>
     </div>
 

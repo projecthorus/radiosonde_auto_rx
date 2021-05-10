@@ -29,6 +29,17 @@ def log_filename_to_stats(filename):
     # Example log file name: 20210430-235413_IMET-89F2720A_IMET_401999_sonde.log
     # ./log/20200320-063233_R2230624_RS41_402500_sonde.log
 
+    # Get a rough estimate of the number of lines of telemetry
+    _filesize = os.path.getsize(filename) 
+    # Don't try and load files without data.
+    if _filesize < 140:
+        return None
+    
+    _lines = _filesize // 140 - 1
+
+    if _lines <= 0:
+        _lines = 1
+
     _basename = os.path.basename(filename)
 
     _now_dt = datetime.datetime.now(datetime.timezone.utc)
@@ -63,6 +74,7 @@ def log_filename_to_stats(filename):
             "serial": _serial,
             "type": _type_str,
             "freq": _freq,
+            "lines": _lines,
         }
 
     except Exception as e:
@@ -156,6 +168,11 @@ def read_log_file(filename, skewt_decimation=10):
         _data = np.genfromtxt(_file, dtype=None, encoding="ascii", delimiter=",")
 
     _file.close()
+
+
+    if _data.size == 1:
+        # Deal with log files with only one entry cleanly.
+        _data = np.array([_data])
 
     # Now we need to rearrange some data for easier use in the client
     _output = {"serial": strip_sonde_serial(_data[fields["serial"]][0])}
@@ -324,4 +341,4 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         print(f"Attempting to read serial: {sys.argv[1]}")
-        read_log_by_serial(sys.argv[1])
+        print(read_log_by_serial(sys.argv[1]))
