@@ -86,6 +86,10 @@ def flask_index():
     """ Render main index page """
     return flask.render_template("index.html")
 
+@app.route("/historical.html")
+def flask_historical():
+    """ Render historical log page """
+    return flask.render_template("historical.html")
 
 @app.route("/skewt_test.html")
 def flask_skewt_test():

@@ -213,14 +213,14 @@
             
             // Home Icon.
             homeIcon = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
             
             // Home Icon for dark mode.
             homeIconDark = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green-dark.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green-dark.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
@@ -1550,7 +1550,14 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button id="open-controls" onclick="openModal()">OPEN</button>
-                  </div>                 
+                  </div>    
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Historical View</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                    <button onclick="window.location.href='/historical.html'">OPEN</button>
+                  </div>                            
                   <br>
                   <br>
                   <br>
