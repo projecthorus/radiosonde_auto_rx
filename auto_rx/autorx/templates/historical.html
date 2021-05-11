@@ -334,6 +334,43 @@
             }
 
 
+            var skewt = new SkewT('#skewt');
+
+            function showSkewT () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    var i;
+                    _serial = selectedrows[0]['serial'];
+                    _type = selectedrows[0]['type'];
+                    console.log(_serial);
+                    $.ajax({
+                        url: "/get_log_by_serial/" + _serial,
+                        dataType: 'json',
+                        async: false,
+                        success: function(data) {
+
+                            if (getCookie('UTC') == 'false') {
+                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                            } else {
+                                launch_time = data['first_time'];
+                            }
+                            $('#skewt-header').html("<h2>Skew-T - "+_type + " " + _serial + " " + launch_time + "</h2>");
+
+                            // Possibly need to open the skewt window here before plotting.
+
+                            try {
+                                skewt.plot(data.skewt);
+                            }
+                            catch(err) {
+                                console.log(err);
+                                alert(err);
+                            }	
+                        }
+                    });  
+                }
+            }
+
+
             $("#showsonde-skew").click(function(){
                 disableMenu();
                 showSkewT();
