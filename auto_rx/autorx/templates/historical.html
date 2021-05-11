@@ -91,7 +91,6 @@
             });
 
             async function disableMenu () {
-                console.log("test1")
                 $("#select-all").prop('disabled', true);
                 $("#deselect-all").prop('disabled', true);
                 $("#showsonde-map").prop('disabled', true);
@@ -101,7 +100,6 @@
             }
 
             async function enableMenu () {
-                console.log("test2")
                 $("#select-all").prop('disabled', false);
                 $("#deselect-all").prop('disabled', false);
                 $("#showsonde-map").prop('disabled', false);
@@ -113,12 +111,12 @@
             function showSondeMap () {
                 selectedrows = table.getSelectedData();
                 if (selectedrows.length > 0) {
-                    var i;
-                    for (i = 0; i < selectedrows.length; i++) {
+                    var i = 0;	
+                    function processLog(i) {
                         $.ajax({
                             url: "/get_log_by_serial/" + selectedrows[i]['serial'],
                             dataType: 'json',
-                            async: false,
+                            async: true,
                             success: function(data) {
                                 var sonde_path = L.polyline([]);
                                 var max_alt = -99999.0;
@@ -161,9 +159,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
                                 } else {
-                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
                                 }
 
                                 launchMarker = L.marker([launch_lat, launch_lon],
@@ -196,9 +194,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
                                 } else {
-                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
                                 }
 
                                 landingMarker = L.marker([landing_lat, landing_lon],
@@ -231,9 +229,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'ft';
+                                    burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'ft';
                                 } else {
-                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'm';
+                                    burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'm';
                                 }
 
                                 burstMarker = L.marker([burst_lat, burst_lon],
@@ -249,12 +247,18 @@
 
                                 historicalsonde.addLayer(sonde_path)
 
-                                historicalsonde.addTo(mymap);
+                                if (i == selectedrows.length-1) {
+                                    enableMenu();
+                                }
                             }
                         });  
+                        if (i < (selectedrows.length-1)) {	
+                            i++;	
+                            setTimeout(processLog(i), 1);	
+                        }
                     }
+                    processLog(0);
                 }
-                enableMenu();
             }
 
             //select row on "select all" button click
@@ -267,8 +271,6 @@
                 table.deselectRow();
             });
 
-            var historicalsonde = new L.LayerGroup();
-
             $("#showsonde-map").click(function(){
                 disableMenu();
                 setTimeout(showSondeMap, 500);
@@ -277,6 +279,60 @@
             $("#hidesonde-map").click(function(){
                 historicalsonde.clearLayers();
             });
+            
+            var skewt;
+
+            function sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            function showSkewT () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    var i;
+                    _serial = selectedrows[0]['serial'];
+                    _type = selectedrows[0]['type'];
+                    console.log(_serial);
+                    $.ajax({
+                        url: "/get_log_by_serial/" + _serial,
+                        dataType: 'json',
+                        async: true,
+                        success: async function(data) {
+                            try {
+                                skewt.clear()
+                            } catch(e) {
+                                //sidebar needs to be open first time
+                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                    if ((window.innerWidth/window.innerHeight) > 1) {
+                                        document.getElementById("mySettings").style.width = "100vh";
+                                    } else {
+                                        document.getElementById("mySettings").style.width = "100%";
+                                    }
+                                    await sleep(500);
+                                }
+                                skewt = new SkewT('#skewt');
+                            }
+                                
+                            if (getCookie('UTC') == 'false') {
+                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                            } else {
+                                launch_time = data['first_time'];
+                            }
+                            $('#skewt-header').html("<h2>Skew-T - "+_type + " " + _serial + " " + launch_time + "</h2>");
+
+                            try {
+                                skewt.plot(data.skewt);
+                                enableMenu();
+                            }
+                            catch(err) {
+                                console.log(err);
+                                enableMenu();
+                            }	
+                        }
+                    });  
+                }
+            }
+
 
             var skewt = new SkewT('#skewt');
 
@@ -316,12 +372,15 @@
 
 
             $("#showsonde-skew").click(function(){
-                //generate
+                disableMenu();
                 showSkewT();
             });
 
             $("#hidesonde-skew").click(function(){
-                //hide
+                disableMenu();
+                $('#skewt-header').html("<h2>Skew-T</h2>");
+                skewt.clear();
+                enableMenu();
             });
             
             // List of available map layers.
@@ -386,6 +445,9 @@
             L.control.layers(baseMaps).addTo(mymap);
 
             baseMaps[mapTheme].addTo(mymap);
+
+            var historicalsonde = new L.LayerGroup();	
+            historicalsonde.addTo(mymap);
             
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
@@ -590,6 +652,7 @@
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
         <div id="skewt-header" style="width:100%;text-align:center;"><h2>Skew-T Plot</h2></div>
         <div id="skewt"></div>
+        <div id="skewt-footer"></div>
     </div>
 
     <!-- Wrapper for main screen -->   
