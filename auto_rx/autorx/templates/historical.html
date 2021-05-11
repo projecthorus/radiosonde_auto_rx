@@ -9,7 +9,6 @@
     <!-- Import style sheets (font and icons are remote, should fix) -->
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
@@ -24,8 +23,6 @@
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
@@ -76,6 +73,7 @@
                 columns:[                 //define the table columns
                     {title:"Type", field:"type", width:190, resizable:false},
                     {title:"Serial", field:"serial", width:105, resizable:false},
+                    {title:"Count", field:"lines", width:80, resizable:false},
                     {title:"Date", field:"datetime", width:205, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
@@ -93,7 +91,6 @@
             });
 
             async function disableMenu () {
-                console.log("test1")
                 $("#select-all").prop('disabled', true);
                 $("#deselect-all").prop('disabled', true);
                 $("#showsonde-map").prop('disabled', true);
@@ -103,7 +100,6 @@
             }
 
             async function enableMenu () {
-                console.log("test2")
                 $("#select-all").prop('disabled', false);
                 $("#deselect-all").prop('disabled', false);
                 $("#showsonde-map").prop('disabled', false);
@@ -115,12 +111,12 @@
             function showSondeMap () {
                 selectedrows = table.getSelectedData();
                 if (selectedrows.length > 0) {
-                    var i;
-                    for (i = 0; i < selectedrows.length; i++) {
+                    var i = 0;	
+                    function processLog(i) {
                         $.ajax({
                             url: "/get_log_by_serial/" + selectedrows[i]['serial'],
                             dataType: 'json',
-                            async: false,
+                            async: true,
                             success: function(data) {
                                 var sonde_path = L.polyline([]);
                                 var max_alt = -99999.0;
@@ -163,9 +159,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
                                 } else {
-                                    launchIconTitle = 'First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
                                 }
 
                                 launchMarker = L.marker([launch_lat, launch_lon],
@@ -198,9 +194,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
                                 } else {
-                                    landingIconTitle = 'Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
                                 }
 
                                 landingMarker = L.marker([landing_lat, landing_lon],
@@ -233,9 +229,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'ft';
+                                    burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'ft';
                                 } else {
-                                    burstIconTitle = 'Burst at ' + Math.floor(burst_alt) + 'm';
+                                    burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'm';
                                 }
 
                                 burstMarker = L.marker([burst_lat, burst_lon],
@@ -251,12 +247,18 @@
 
                                 historicalsonde.addLayer(sonde_path)
 
-                                historicalsonde.addTo(mymap);
+                                if (i == selectedrows.length-1) {
+                                    enableMenu();
+                                }
                             }
                         });  
+                        if (i < (selectedrows.length-1)) {	
+                            i++;	
+                            setTimeout(processLog(i), 1);	
+                        }
                     }
+                    processLog(0);
                 }
-                enableMenu();
             }
 
             //select row on "select all" button click
@@ -269,8 +271,6 @@
                 table.deselectRow();
             });
 
-            var historicalsonde = new L.LayerGroup();
-
             $("#showsonde-map").click(function(){
                 disableMenu();
                 setTimeout(showSondeMap, 500);
@@ -279,13 +279,71 @@
             $("#hidesonde-map").click(function(){
                 historicalsonde.clearLayers();
             });
+            
+            var skewt;
+
+            function sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            function showSkewT () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    var i;
+                    _serial = selectedrows[0]['serial'];
+                    _type = selectedrows[0]['type'];
+                    console.log(_serial);
+                    $.ajax({
+                        url: "/get_log_by_serial/" + _serial,
+                        dataType: 'json',
+                        async: true,
+                        success: async function(data) {
+                            try {
+                                skewt.clear()
+                            } catch(e) {
+                                //sidebar needs to be open first time
+                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                    if ((window.innerWidth/window.innerHeight) > 1) {
+                                        document.getElementById("mySettings").style.width = "100vh";
+                                    } else {
+                                        document.getElementById("mySettings").style.width = "100%";
+                                    }
+                                    await sleep(500);
+                                }
+                                skewt = new SkewT('#skewt');
+                            }
+                                
+                            if (getCookie('UTC') == 'false') {
+                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                            } else {
+                                launch_time = data['first_time'];
+                            }
+                            $('#skewt-header').html("<h2>Skew-T - "+_type + " " + _serial + " " + launch_time + "</h2>");
+
+                            try {
+                                skewt.plot(data.skewt);
+                                enableMenu();
+                            }
+                            catch(err) {
+                                console.log(err);
+                                enableMenu();
+                            }	
+                        }
+                    });  
+                }
+            }
+
 
             $("#showsonde-skew").click(function(){
-                //generate
+                disableMenu();
+                showSkewT();
             });
 
             $("#hidesonde-skew").click(function(){
-                //hide
+                disableMenu();
+                $('#skewt-header').html("<h2>Skew-T</h2>");
+                skewt.clear();
+                enableMenu();
             });
             
             // List of available map layers.
@@ -350,6 +408,9 @@
             L.control.layers(baseMaps).addTo(mymap);
 
             baseMaps[mapTheme].addTo(mymap);
+
+            var historicalsonde = new L.LayerGroup();	
+            historicalsonde.addTo(mymap);
             
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
@@ -456,8 +517,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 500px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "500px";
-                    document.getElementById("main").style.marginLeft = "500px";
+                    document.getElementById("mySidenav").style.width = "560px";
+                    document.getElementById("main").style.marginLeft = "560px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -524,6 +585,7 @@
         let vh = window.innerHeight * 0.01;
         
         document.documentElement.style.setProperty('--vh', `${vh}px`);
+
     </script>
 </head>
 <body>
@@ -551,8 +613,9 @@
     <!-- Wrapper for settings sidebar -->   
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <br><h2>Skew Plot</h2>
+        <div id="skewt-header" style="width:100%;text-align:center;"><h2>Skew-T Plot</h2></div>
         <div id="skewt"></div>
+        <div id="skewt-footer"></div>
     </div>
 
     <!-- Wrapper for main screen -->   
