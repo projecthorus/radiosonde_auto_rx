@@ -258,8 +258,10 @@
                         }
                     }
                     processLog(0);
+                } else {
+                    enableMenu();
                 }
-            }
+            } 
 
             //select row on "select all" button click
             $("#select-all").click(function(){
@@ -289,9 +291,8 @@
             function showSkewT () {
                 selectedrows = table.getSelectedData();
                 if (selectedrows.length > 0) {
-                    var i;
-                    _serial = selectedrows[0]['serial'];
-                    _type = selectedrows[0]['type'];
+                    _serial = selectedrows[selectedrows.length-1]['serial'];
+                    _type = selectedrows[selectedrows.length-1]['type'];
                     console.log(_serial);
                     $.ajax({
                         url: "/get_log_by_serial/" + _serial,
@@ -318,11 +319,18 @@
                             } else {
                                 launch_time = data['first_time'];
                             }
-                            $('#skewt-header').html("<h2>Skew-T - "+_type + " " + _serial + " " + launch_time + "</h2>");
+                            $('#skewt-header').html("Skew-T - "+_type + " " + _serial + " " + launch_time);
 
                             try {
                                 skewt.plot(data.skewt);
                                 enableMenu();
+                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                    if ((window.innerWidth/window.innerHeight) > 1) {
+                                        document.getElementById("mySettings").style.width = "100vh";
+                                    } else {
+                                        document.getElementById("mySettings").style.width = "100%";
+                                    }
+                                }
                             }
                             catch(err) {
                                 console.log(err);
@@ -330,8 +338,11 @@
                             }	
                         }
                     });  
+                } else {
+                    enableMenu();
                 }
             }
+
 
             $("#showsonde-skew").click(function(){
                 disableMenu();
@@ -457,7 +468,9 @@
                     $('.tick line').css('stroke', 'black')  
                     $('#mapid span').css('color', 'black') 
                     $('.sidenav').css('background-color', '#111')
-                    $('.settings').css('background-color', '#111')  
+                    $('.settings').css('background-color', 'LightGray')
+                    $('#skewt-header').css('color', 'black')
+                    $('#closebtn2').css('color', 'black')
                 } else {
                     document.body.style.background = '#121212';
                     if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
@@ -612,7 +625,7 @@
     <!-- Wrapper for settings sidebar -->   
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <div id="skewt-header" style="width:100%;text-align:center;"><h2>Skew-T Plot</h2></div>
+        <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
         <div id="skewt" style="width:90%;margin:3px auto"></div>
         <div id="skewt-footer"></div>
     </div>
