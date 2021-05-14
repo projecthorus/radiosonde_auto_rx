@@ -6,6 +6,7 @@
 #   Released under GNU GPL v3 or later
 #
 import autorx
+import autorx.config
 import datetime
 import glob
 import logging
@@ -119,11 +120,26 @@ def log_quick_look(filename):
         _first_lat =float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
+        _pos_info = position_info(
+            (
+                autorx.config.global_config['station_lat'],
+                autorx.config.global_config['station_lon'],
+                autorx.config.global_config['station_alt']
+            ),
+            (
+                _first_lat,
+                _first_lon,
+                _first_alt
+            )
+        )
         _output['first'] = {
             'datetime': _first_datetime,
             'lat': _first_lat,
             'lon': _first_lon,
-            'alt': _first_alt
+            'alt': _first_alt,
+            'range': _pos_info['straight_distance'],
+            'bearing': _pos_info['bearing'],
+            'elevation': _pos_info['elevation']
         }
     except Exception as e:
         # Couldn't read the first line, so likely no data.
@@ -147,11 +163,26 @@ def log_quick_look(filename):
         _last_lat = float(_fields[3])
         _last_lon = float(_fields[4])
         _last_alt = float(_fields[5])
+        _pos_info = position_info(
+            (
+                autorx.config.global_config['station_lat'],
+                autorx.config.global_config['station_lon'],
+                autorx.config.global_config['station_alt']
+            ),
+            (
+                _last_lat,
+                _last_lon,
+                _last_alt
+            )
+        )
         _output['last'] = {
             'datetime': _last_datetime,
             'lat': _last_lat,
             'lon': _last_lon,
-            'alt': _last_alt
+            'alt': _last_alt,
+            'range': _pos_info['straight_distance'],
+            'bearing': _pos_info['bearing'],
+            'elevation': _pos_info['elevation']
         }
         return _output
     except Exception as e:
