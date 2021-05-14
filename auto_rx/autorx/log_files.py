@@ -24,7 +24,7 @@ from autorx.utils import (
 from autorx.geometry import GenericTrack, getDensity
 
 
-def log_filename_to_stats(filename):
+def log_filename_to_stats(filename, quicklook=False):
     """ Attempt to extract information about a log file from a supplied filename """
     # Example log file name: 20210430-235413_IMET-89F2720A_IMET_401999_sonde.log
     # ./log/20200320-063233_R2230624_RS41_402500_sonde.log
@@ -68,7 +68,7 @@ def log_filename_to_stats(filename):
         # Fourth field is the sonde frequency in kHz
         _freq = float(_fields[3]) / 1e3
 
-        return {
+        _output = {
             "datetime": _date_str2,
             "age": _time_delta,
             "serial": _serial,
@@ -77,12 +77,94 @@ def log_filename_to_stats(filename):
             "lines": _lines,
         }
 
+        if quicklook:
+            try:
+                _quick = log_quick_look(filename)
+                if _quick:
+                    _output['first'] = _quick['first']
+                    _output['last'] = _quick['last']
+            except Exception as e:
+                logging.error(f"Could not quicklook file {filename}: {str(e)}")
+                
+
+        return _output
+
+
+
     except Exception as e:
         logging.exception(f"Could not parse filename {_basename}", e)
         return None
 
 
-def list_log_files():
+def log_quick_look(filename):
+    """ Attempt to read in the first and last line in a log file, and return the first/last position observed. """
+
+    _filesize = os.path.getsize(filename) 
+
+    # Open the file and get the header line
+    _file = open(filename, "r")
+    _header = _file.readline()
+
+    # Discard anything 
+    if "timestamp,serial,frame,lat,lon,alt" not in _header:
+        return None
+
+    _output = {}
+    try:
+        # Naeive read of the first data line
+        _first = _file.readline()
+        _fields = _first.split(",")
+        _first_datetime = _fields[0]
+        _serial = _fields[1]
+        _first_lat =float(_fields[3])
+        _first_lon = float(_fields[4])
+        _first_alt = float(_fields[5])
+        _output['first'] = {
+            'datetime': _first_datetime,
+            'lat': _first_lat,
+            'lon': _first_lon,
+            'alt': _first_alt
+        }
+    except Exception as e:
+        # Couldn't read the first line, so likely no data.
+        return None
+    
+    # Now we try and seek to near the end of the file.
+    _seek_point = _filesize - 300
+    if _seek_point < 0:
+        # Don't bother trying to read the last line, it'll be the same as the first line.
+        _output['last'] = _output['first']
+        return _output
+
+    # Read in the rest of the file
+    try:
+        _file.seek(_seek_point)
+        _remainder = _file.read()
+        # Get the last line
+        _last_line = _remainder.split('\n')[-2]
+        _fields = _last_line.split(',')
+        _last_datetime = _fields[0]
+        _last_lat = float(_fields[3])
+        _last_lon = float(_fields[4])
+        _last_alt = float(_fields[5])
+        _output['last'] = {
+            'datetime': _last_datetime,
+            'lat': _last_lat,
+            'lon': _last_lon,
+            'alt': _last_alt
+        }
+        return _output
+    except Exception as e:
+        # Couldn't read in the last line for some reason.
+        # Return what we have
+        logging.error(f"Error reading last line of {filename}: {str(e)}")
+        _output['last'] = _output['first']
+        return _output
+
+    
+
+
+def list_log_files(quicklook=False):
     """ Look for all sonde log files within the logging directory """
 
     # Output list, which will contain one object per log file, ordered by time
@@ -98,7 +180,7 @@ def list_log_files():
     _log_files.reverse()
 
     for _file in _log_files:
-        _entry = log_filename_to_stats(_file)
+        _entry = log_filename_to_stats(_file, quicklook=quicklook)
         if _entry:
             _output.append(_entry)
 
@@ -154,7 +236,7 @@ def read_log_file(filename, skewt_decimation=10):
             "type": "f11",
             "frequency": "f12",
         }
-        # Only use a subset of the columns, as the number of colums can vary in this old format
+        # Only use a subset of the columns, as the number of columns can vary in this old format
         _data = np.genfromtxt(
             _file,
             dtype=None,
@@ -337,7 +419,17 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)s:%(message)s", level=logging.DEBUG
     )
 
-    print(list_log_files())
+    _start = time.time()
+    _no_quicklook = list_log_files()
+    _stop = time.time()
+    print(f"No Quicklook: {_stop-_start}")
+
+    _start = time.time()
+    _quicklook = list_log_files(quicklook=True)
+    _stop = time.time()
+    print(f"Quicklook: {_stop-_start}")
+
+    print(_quicklook)
 
     if len(sys.argv) > 1:
         print(f"Attempting to read serial: {sys.argv[1]}")
