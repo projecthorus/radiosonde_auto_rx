@@ -290,7 +290,7 @@ def shutdown_flask(shutdown_key):
 @app.route("/get_log_list")
 def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
-    return json.dumps(list_log_files())
+    return json.dumps(list_log_files(quicklook=True))
 
 
 @app.route("/get_log_by_serial/<serial>")
