@@ -137,7 +137,7 @@ def log_quick_look(filename):
             'lat': _first_lat,
             'lon': _first_lon,
             'alt': _first_alt,
-            'range': _pos_info['straight_distance'],
+            'range_km': _pos_info['straight_distance']/1000.0,
             'bearing': _pos_info['bearing'],
             'elevation': _pos_info['elevation']
         }
@@ -180,7 +180,7 @@ def log_quick_look(filename):
             'lat': _last_lat,
             'lon': _last_lon,
             'alt': _last_alt,
-            'range': _pos_info['straight_distance'],
+            'range_km': _pos_info['straight_distance']/1000.0,
             'bearing': _pos_info['bearing'],
             'elevation': _pos_info['elevation']
         }
