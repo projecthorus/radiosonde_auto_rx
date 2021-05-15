@@ -74,10 +74,12 @@
                   async: true,
                   success: function(data) {
                     // Update the current version field.
-                    if (getCookie('version') == "false") {}
-                    else {
+                    if (getCookie('version') == 'false') {} 
+                    else if (getCookie('version') == 'true') {
                         $('#currentversion').text(data.current);
-                    }
+                    } else if ((window.innerWidth/window.innerHeight) > 1) {
+                        $('#currentversion').text(data.current);
+                    } 
                     
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
@@ -293,8 +295,12 @@
             // Check if user has version shown selection.
             if (getCookie('version') == 'false') {
                 document.getElementById("showversionbutton").checked = false;
-            } else {
+            } else if (getCookie('version') == 'true') {
                 document.getElementById("showversionbutton").checked = true;
+            } else if ((window.innerWidth/window.innerHeight) > 1) {
+                document.getElementById("showversionbutton").checked = true;
+            } else {
+                document.getElementById("showversionbutton").checked = false;
             }
             
             // Check if user has preffered scan chart visiblity.
@@ -338,6 +344,7 @@
                     $('.modal-content').css('background-color', 'white')
                     $('.close').css('color', 'black')
                     $('#myBtn').css('color', 'black')
+                    $('#historyBtn').css('color', 'black')
                     $('#scanid').css('color', 'black')
                     $('.c3-axis-y').css('fill', 'black')
                     $('.c3-axis-x').css('fill', 'black')
@@ -363,6 +370,7 @@
                     $('.modal-content').css('background-color', 'black')
                     $('.close').css('color', 'white')
                     $('#myBtn').css('color', 'white')
+                    $('#historyBtn').css('color', 'white')
                     $('#scanid').css('color', 'white')
                     $('.c3-axis-y').css('fill', 'white')
                     $('.c3-axis-x').css('fill', 'white')
@@ -1587,6 +1595,7 @@
         <br>
         <div id="mapid"></div>
         <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="historical.html" id="historyBtn"><i class="fa fa-bookmark" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
     
     <!-- Wrapper for advanced control modal -->

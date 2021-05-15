@@ -239,7 +239,8 @@ table {
 #historyBtn {
   cursor: pointer;
   position: absolute;
-  right: 80px;
+  right: 6vh;
+  right: calc(4vh + 24px);
   color: white;
 }
 
