@@ -223,7 +223,7 @@ var SkewT = function(div) {
 				dwpcfocus.select("text").text("DP: "+Math.round(d.dwpt)+"°C");
 				hghtfocus.select("text").text("-- "+Math.round(d.hght)+" m"); 	//hgt or hghtagl ???
 				wspdfocus.attr("transform", "translate(" + (w-65)  + "," + y(d.press) + ")");
-				wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit);
+				wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit + ", " + Math.round(d.wdir) + "˚ ");
 			});
 	}
 	
