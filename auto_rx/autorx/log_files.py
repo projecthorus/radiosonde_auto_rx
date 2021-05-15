@@ -84,6 +84,7 @@ def log_filename_to_stats(filename, quicklook=False):
                 if _quick:
                     _output['first'] = _quick['first']
                     _output['last'] = _quick['last']
+                    _output['has_snr'] = _quick['has_snr']
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
                 
@@ -111,6 +112,12 @@ def log_quick_look(filename):
         return None
 
     _output = {}
+
+    if 'snr' in _header:
+        _output['has_snr'] = True
+    else:
+        _output['has_snr'] = False
+
     try:
         # Naeive read of the first data line
         _first = _file.readline()
@@ -311,6 +318,9 @@ def read_log_file(filename, skewt_decimation=10):
         _press = _data[fields["pressure"]]
     else:
         _press = None
+    
+    if "snr" in fields:
+        _output['snr'] = _data[fields["snr"]]
 
     _output["skewt"] = calculate_skewt_data(
         _data[fields["datetime"]],
