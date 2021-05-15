@@ -195,6 +195,46 @@
                 }
             }
 
+            function showSondeLanding () {
+                table_data.forEach(initialShow);
+                function initialShow(value, index, array) {
+                    //landing marker
+                    landing_lat = parseFloat(value['last']['lat']);
+                    landing_lon = parseFloat(value['last']['lon']);
+                    if (getCookie('imperial') == 'true') {
+                        landing_alt = parseFloat(value['last']['alt'])*3.28084;
+                    } else {
+                        landing_alt = parseFloat(value['last']['alt']);
+                    }
+                    if (getCookie('UTC') == 'false') {
+                        landing_time = new Date(value['last']['datetime']).toLocaleString("en-AU");
+                    } else {
+                        landing_time = value['last']['datetime'];
+                    }
+
+                    landing_icon = L.icon({
+                        iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                        iconSize: [15,15],
+                        iconAnchor: [7.5,7.5]
+                    });
+
+                    if (getCookie('imperial') == 'true') {
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                    } else {
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                    }
+
+                    landingMarker = L.marker([landing_lat, landing_lon],
+                        {
+                            title:landingIconTitle, 
+                            icon: landing_icon
+                        })
+                        .bindTooltip(landingIconTitle,{permanent:false,direction:'right'});
+
+                    historicalsonde.addLayer(landingMarker)
+                }
+            }
+
             function showSondeMap () {
                 selectedrows = table.getSelectedData();
                 if (selectedrows.length > 0) {
@@ -395,7 +435,7 @@
 
             $("#showsonde-mapquick").click(function(){
                 disableMenu();
-                setTimeout(showSondeMapQuick, 500);
+                setTimeout(showSondeLanding, 500);
                 enableMenu();
             });
 
@@ -414,7 +454,6 @@
                 if (selectedrows.length > 0) {
                     _serial = selectedrows[selectedrows.length-1]['serial'];
                     _type = selectedrows[selectedrows.length-1]['type'];
-                    console.log(_serial);
                     $.ajax({
                         url: "/get_log_by_serial/" + _serial,
                         dataType: 'json',
@@ -473,7 +512,9 @@
             $("#hidesonde-skew").click(function(){
                 disableMenu();
                 $('#skewt-header').html("<h2>Skew-T</h2>");
-                skewt.clear();
+                try {
+                    skewt.clear();
+                } catch (err) {}
                 enableMenu();
             });
             
@@ -581,6 +622,7 @@
                     $('.modal-content').css('background-color', 'white')
                     $('.close').css('color', 'black')
                     $('#myBtn').css('color', 'black')
+                    $('#historyBtn').css('color', 'black')
                     $('#scanid').css('color', 'black')
                     $('.c3-axis-y').css('fill', 'black')
                     $('.c3-axis-x').css('fill', 'black')
@@ -607,6 +649,7 @@
                     $('.modal-content').css('background-color', 'black')
                     $('.close').css('color', 'white')
                     $('#myBtn').css('color', 'white')
+                    $('#historyBtn').css('color', 'white')
                     $('#scanid').css('color', 'white')
                     $('.c3-axis-y').css('fill', 'white')
                     $('.c3-axis-x').css('fill', 'white')
@@ -734,7 +777,7 @@
                 <button id="select-all" style="margin:3px auto">Select All</button>
                 <button id="deselect-all" style="margin:3px auto">Deselect All</button>
                 <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
-                <button id="showsonde-mapquick" style="margin:3px auto">Plot Fast</button>
+                <button id="showsonde-mapquick" style="margin:3px auto">Plot Landings</button>
                 <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
                 <button id="hidesonde-skew" style="margin:3px auto">Remove Skew-T</button>
@@ -761,6 +804,7 @@
         <br>
         <div id="mapid"></div>
         <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="." id="historyBtn"><i class="fa fa-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
 </div>
 </body>
