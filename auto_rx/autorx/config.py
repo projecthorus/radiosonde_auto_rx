@@ -20,6 +20,7 @@ global_config = {
     "snr_threshold": 10,
     "station_lat": 0.0,
     "station_lon": 0.0,
+    "station_alt": 0.0,
 }
 
 # Web interface credentials
