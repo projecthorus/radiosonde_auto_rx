@@ -55,7 +55,7 @@
                     $('#station_callsign').text(_station_call);
                   }
             });  
-            
+
             $.ajax({
                   // Get list of sonde.
                   url: "/get_log_list",
@@ -94,6 +94,7 @@
                 $("#select-all").prop('disabled', true);
                 $("#deselect-all").prop('disabled', true);
                 $("#showsonde-map").prop('disabled', true);
+                $("#showsonde-mapquick").prop('disabled', true);
                 $("#hidesonde-map").prop('disabled', true);
                 $("#showsonde-skew").prop('disabled', true);
                 $("#hidesonde-skew").prop('disabled', true);
@@ -103,9 +104,95 @@
                 $("#select-all").prop('disabled', false);
                 $("#deselect-all").prop('disabled', false);
                 $("#showsonde-map").prop('disabled', false);
+                $("#showsonde-mapquick").prop('disabled', false);
                 $("#hidesonde-map").prop('disabled', false);
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
+            }
+
+            function showSondeMapQuick () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    selectedrows.forEach(initialShow);
+                    function initialShow(value, index, array) {
+                        //path
+                        var sonde_path = L.polyline([]);
+                        sonde_path.addLatLng([parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]);
+                        sonde_path.addLatLng([parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]);
+
+                        historicalsonde.addLayer(sonde_path)
+
+                        //launch marker
+                        launch_lat = parseFloat(value['first']['lat']);
+                        launch_lon = parseFloat(value['first']['lon']);
+                        if (getCookie('imperial') == 'true') {
+                            launch_alt = parseFloat(value['first']['alt'])*3.28084;
+                        } else {
+                            launch_alt = parseFloat(value['first']['alt']);
+                        }
+                        if (getCookie('UTC') == 'false') {
+                            launch_time = new Date(value['first']['datetime']).toLocaleString("en-AU");
+                        } else {
+                            launch_time = value['first']['datetime'];
+                        }
+
+                        launch_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                            iconSize: [15,15],
+                            iconAnchor: [7.5,7.5]
+                        });
+
+                        if (getCookie('imperial') == 'true') {
+                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time;
+                        } else {
+                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time;
+                        }
+
+                        launchMarker = L.marker([launch_lat, launch_lon],
+                            {
+                                title:launchIconTitle, 
+                                icon: launch_icon
+                            })
+                            .bindTooltip(launchIconTitle,{permanent:false,direction:'right'});
+                        
+                        historicalsonde.addLayer(launchMarker)
+
+                        //landing marker
+                        landing_lat = parseFloat(value['last']['lat']);
+                        landing_lon = parseFloat(value['last']['lon']);
+                        if (getCookie('imperial') == 'true') {
+                            landing_alt = parseFloat(value['last']['alt'])*3.28084;
+                        } else {
+                            landing_alt = parseFloat(value['last']['alt']);
+                        }
+                        if (getCookie('UTC') == 'false') {
+                            landing_time = new Date(value['last']['datetime']).toLocaleString("en-AU");
+                        } else {
+                            landing_time = value['last']['datetime'];
+                        }
+
+                        landing_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                            iconSize: [15,15],
+                            iconAnchor: [7.5,7.5]
+                        });
+
+                        if (getCookie('imperial') == 'true') {
+                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                        } else {
+                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                        }
+
+                        landingMarker = L.marker([landing_lat, landing_lon],
+                            {
+                                title:landingIconTitle, 
+                                icon: landing_icon
+                            })
+                            .bindTooltip(landingIconTitle,{permanent:false,direction:'right'});
+
+                        historicalsonde.addLayer(landingMarker)
+                    }
+                }
             }
 
             function showSondeMap () {
@@ -120,6 +207,7 @@
                             success: function(data) {
                                 var sonde_path = L.polyline([]);
                                 var max_alt = -99999.0;
+                                var fastplot = false;
 
                                 for (let i = 0; i < data['path'].length; i++){
                                     // Extract data.
@@ -137,6 +225,15 @@
                                         max_alt = alt;
                                     }
                                 }
+
+                                //check if exists
+                                for (const [key, value] of Object.entries(historicalsonde['_layers'])) {
+                                    if (String(value['options']['title']).includes(selectedrows[i]['serial'])) {
+                                        fastplot = true;
+                                    }
+                                }
+
+
                                 
                                 //launch marker
                                 launch_lat = parseFloat(data['first'][0]);
@@ -170,9 +267,13 @@
                                         icon: launch_icon
                                     })
                                     .bindTooltip(launchIconTitle,{permanent:false,direction:'right'});
+                                    
+                                if (!fastplot) { 
+                                    historicalsonde.addLayer(launchMarker)
+                                }
                                 
-                                historicalsonde.addLayer(launchMarker)
-                    
+                                
+                                
                                 //landing marker
                                 landing_lat = parseFloat(data['last'][0]);
                                 landing_lon = parseFloat(data['last'][1]);
@@ -194,9 +295,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time;
                                 } else {
-                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ',' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time;
                                 }
 
                                 landingMarker = L.marker([landing_lat, landing_lon],
@@ -206,7 +307,10 @@
                                     })
                                     .bindTooltip(landingIconTitle,{permanent:false,direction:'right'});
 
-                                historicalsonde.addLayer(landingMarker)
+                                if (!fastplot) {
+                                    historicalsonde.addLayer(landingMarker)
+                                }
+                                
                                 
                                 //burst marker
                                 burst_lat = parseFloat(data['burst'][0]);
@@ -245,6 +349,16 @@
                                     historicalsonde.addLayer(burstMarker)
                                 }
 
+                                if (fastplot) {
+                                    for (const [key, value] of Object.entries(historicalsonde['_layers'])) {
+                                        if (typeof value['_latlngs'] !== 'undefined') {
+                                            if (value['_latlngs'][0]['lat'] == launch_lat && value['_latlngs'][0]['lng'] == launch_lon && value['_latlngs'][1]['lat'] == landing_lat && value['_latlngs'][1]['lng'] == landing_lon) {
+                                                historicalsonde.removeLayer(value['_leaflet_id']);
+                                            }
+                                        }
+                                    }
+                                }
+
                                 historicalsonde.addLayer(sonde_path)
 
                                 if (i == selectedrows.length-1) {
@@ -275,7 +389,14 @@
 
             $("#showsonde-map").click(function(){
                 disableMenu();
+                setTimeout(showSondeMapQuick, 500);
                 setTimeout(showSondeMap, 500);
+            });
+
+            $("#showsonde-mapquick").click(function(){
+                disableMenu();
+                setTimeout(showSondeMapQuick, 500);
+                enableMenu();
             });
 
             $("#hidesonde-map").click(function(){
@@ -613,6 +734,7 @@
                 <button id="select-all" style="margin:3px auto">Select All</button>
                 <button id="deselect-all" style="margin:3px auto">Deselect All</button>
                 <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
+                <button id="showsonde-mapquick" style="margin:3px auto">Plot Fast</button>
                 <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
                 <button id="hidesonde-skew" style="margin:3px auto">Remove Skew-T</button>
