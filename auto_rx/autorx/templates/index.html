@@ -74,10 +74,12 @@
                   async: true,
                   success: function(data) {
                     // Update the current version field.
-                    if (getCookie('version') == "false") {}
-                    else {
+                    if (getCookie('version') == 'false') {} 
+                    else if (getCookie('version') == 'true') {
                         $('#currentversion').text(data.current);
-                    }
+                    } else if ((window.innerWidth/window.innerHeight) > 1) {
+                        $('#currentversion').text(data.current);
+                    } 
                     
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
@@ -293,8 +295,12 @@
             // Check if user has version shown selection.
             if (getCookie('version') == 'false') {
                 document.getElementById("showversionbutton").checked = false;
-            } else {
+            } else if (getCookie('version') == 'true') {
                 document.getElementById("showversionbutton").checked = true;
+            } else if ((window.innerWidth/window.innerHeight) > 1) {
+                document.getElementById("showversionbutton").checked = true;
+            } else {
+                document.getElementById("showversionbutton").checked = false;
             }
             
             // Check if user has preffered scan chart visiblity.
