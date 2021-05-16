@@ -422,7 +422,8 @@ def calculate_skewt_data(
                 }
             )
 
-            # Only produce data up to 100hPa, which is the top of the skewt plot.
+            # Only produce data up to 50hPa (~20km alt), which is the top of the skewt plot.
+            # We *could* go above this, but the data becomes less useful at those altitudes.
             if _pressure < 50.0:
                 break
 
