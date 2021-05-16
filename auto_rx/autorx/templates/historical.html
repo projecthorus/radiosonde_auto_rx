@@ -11,7 +11,7 @@
     <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
+    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet" >
     <link id='tabulatorsheet' href="{{ url_for('static', filename='css/tabulator_midnight.min.css') }}" rel='stylesheet'>
     <link href="{{ url_for('static', filename='css/skewt.css') }}" rel="stylesheet">
     
@@ -23,7 +23,7 @@
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
+    <script src="{{ url_for('static', filename='js/d3.3.5.3.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
@@ -63,6 +63,20 @@
                   async: false,
                   success: function(data) {
                     table_data = data;
+                    var x = document.getElementById("closebtn");
+                    if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
+                        if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
+                            x.style.display = "none";
+                            document.getElementById("mySidenav").style.width = "620px";
+                            document.getElementById("main").style.marginLeft = "620px";
+                            document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                        } else { // Fullsize on mobile.
+                            x.style.display = "block";
+                            document.getElementById("mySidenav").style.width = "100%";
+                            document.getElementById("main").style.marginLeft = "0";
+                            document.getElementById("mySidenav").style.borderRadius = "0px";
+                        }
+                    }
                   }
             });   
 
@@ -86,7 +100,8 @@
                             return cell.getValue();
                         }
                     }
-                    }
+                    },
+                    {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ]
             });
 
@@ -108,6 +123,10 @@
                 $("#hidesonde-map").prop('disabled', false);
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
+            }
+
+            if ((window.innerWidth/window.innerHeight) < 1) {
+                $('#historicaltitle').html(" Auto-RX Historical");
             }
 
             function showSondeMapQuick () {
@@ -429,12 +448,30 @@
 
             $("#showsonde-map").click(function(){
                 disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
                 setTimeout(showSondeMapQuick, 500);
                 setTimeout(showSondeMap, 500);
             });
 
             $("#showsonde-mapquick").click(function(){
                 disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
                 setTimeout(showSondeLanding, 500);
                 enableMenu();
             });
@@ -658,7 +695,7 @@
                     $('.tick line').css('stroke', 'white')
                     $('#mapid span').css('color', 'black')
                     $('.sidenav').css('background-color', '#414141')
-                    $('.settings').css('background-color', '#414141')
+                    $('.settings').css('background-color', '#808080')
                 }
             }
 
@@ -690,11 +727,11 @@
             var x = document.getElementById("closebtn");
             var y = document.getElementById('mapid');
             if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
-                if ((window.innerWidth/window.innerHeight) > 1) { // 500px wide on desktop.
+                if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "560px";
-                    document.getElementById("main").style.marginLeft = "560px";
+                    document.getElementById("mySidenav").style.width = "620px";
+                    document.getElementById("main").style.marginLeft = "620px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -798,13 +835,13 @@
     <!-- Wrapper for main screen -->   
     <div id="main" onload="loadMap();">
         <div>
-            <span style="font-size:3vh;font-size:calc(var(--vh, 1vh) * 3);cursor:pointer;" onclick="changeNav()"><span id="log-tray">&#9776;</span> Radiosonde Auto-RX Historical</span>
+            <span style="font-size:3vh;font-size:calc(var(--vh, 1vh) * 3);cursor:pointer;" onclick="changeNav()"><span id="log-tray">&#9776;</span><span id="historicaltitle"> Radiosonde Auto-RX Historical</span></span>
         </div>
         <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
         <br>
         <div id="mapid"></div>
-        <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
-        <a href="." id="historyBtn"><i class="fa fa-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+        <i id="myBtn" onclick="changeSettings()" class="icon-chart-line" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="." id="historyBtn"><i class="icon-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
 </div>
 </body>
