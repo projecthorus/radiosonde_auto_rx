@@ -12,8 +12,8 @@
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
-    <link id='tabulatorsheet' href='{{ url_for('static', filename='css/tabulator_midnight.min.css') }}' rel='stylesheet'>
+    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet" >
+    <link id='tabulatorsheet' href="{{ url_for('static', filename='css/tabulator_midnight.min.css') }}" rel='stylesheet'>
     
     <!-- Import local libraries -->
     <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
@@ -25,7 +25,7 @@
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/d3.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/d3.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
@@ -1572,7 +1572,7 @@
             </div>       
         </div>    
         <div id="downdiv">
-            <i class="fa fa-angle-down" style="font-size:60px;opacity:1;"></i>
+            <i class="icon-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
 
@@ -1594,8 +1594,8 @@
         </div>
         <br>
         <div id="mapid"></div>
-        <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
-        <a href="historical.html" id="historyBtn"><i class="fa fa-bookmark" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+        <i id="myBtn" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="historical.html" id="historyBtn"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
     
     <!-- Wrapper for advanced control modal -->
