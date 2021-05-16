@@ -488,14 +488,16 @@
 
             function showSkewT () {
                 selectedrows = table.getSelectedData();
+                // TODO: Get this decimation value from some kind of user input (slider?)
+                // Reasonable values are 1 through 100, with a default of 25.
+                decimation = 25;
                 if (selectedrows.length > 0) {
                     _serial = selectedrows[selectedrows.length-1]['serial'];
                     _type = selectedrows[selectedrows.length-1]['type'];
-                    $.ajax({
-                        url: "/get_log_by_serial/" + _serial,
-                        dataType: 'json',
-                        async: true,
-                        success: async function(data) {
+                    $.post(
+                        "/get_log_detail", 
+                        {serial: _serial, decimation:decimation},
+                        async function(data){
                             try {
                                 skewt.clear()
                             } catch(e) {
@@ -533,8 +535,11 @@
                                 console.log(err);
                                 enableMenu();
                             }	
-                        }
-                    });  
+                        },
+                        "json"
+                        ).fail(function(xhr, status, error){
+                            console.log(error);
+                        });
                 } else {
                     enableMenu();
                 }
@@ -668,9 +673,12 @@
                     $('.tick line').css('stroke', 'black')  
                     $('#mapid span').css('color', 'black') 
                     $('.sidenav').css('background-color', '#111')
-                    $('.settings').css('background-color', 'LightGray')
                     $('#skewt-header').css('color', 'black')
                     $('#closebtn2').css('color', 'black')
+                    // SkewT Light Mode Colors
+                    $('.settings').css('background-color', '#f2f2f2')
+                    $(".gridline").css('stroke', '#c4c4c4')
+                    $(".tempzero").css('stroke', '#c4c4c4')
                 } else {
                     document.body.style.background = '#121212';
                     if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
@@ -696,6 +704,7 @@
                     $('#mapid span').css('color', 'black')
                     $('.sidenav').css('background-color', '#414141')
                     $('.settings').css('background-color', '#808080')
+                    // TODO: Dark Mode SkewT Colors for better contrast.
                 }
             }
 

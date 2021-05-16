@@ -361,7 +361,7 @@ def calculate_skewt_data(
         # We only have descent data.
         return []
 
-    if altitude[0] > 15000:
+    if altitude[0] > 20000:
         # No point plotting SkewT plots for data only gathered above 10km altitude...
         return []
 
@@ -422,8 +422,9 @@ def calculate_skewt_data(
                 }
             )
 
-            # Only produce data up to 100hPa, which is the top of the skewt plot.
-            if _pressure < 100.0:
+            # Only produce data up to 50hPa (~20km alt), which is the top of the skewt plot.
+            # We *could* go above this, but the data becomes less useful at those altitudes.
+            if _pressure < 50.0:
                 break
 
         except Exception as e:

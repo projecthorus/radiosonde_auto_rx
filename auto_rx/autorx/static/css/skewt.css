@@ -27,11 +27,11 @@
 .mean     { stroke-width: 2.5px; }
 
 .gridline, .tempzero {
-   stroke: #dfdfdf;
+   stroke: #c4c4c4;
    stroke-width: 0.75px;
    fill: none;
 }
-.tempzero { stroke: #aaa; stroke-width: 1.25px; }
+.tempzero { stroke: #aaa; stroke-width: 1.5px; }
 
 .windbarb { stroke: #000; stroke-width: 0.75px; fill: none;}
 .flag { fill: #000; }
