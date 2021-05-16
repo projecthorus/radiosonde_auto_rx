@@ -16,9 +16,9 @@ var SkewT = function(div) {
 	var deg2rad = (Math.PI/180);
 	var tan = Math.tan(55*deg2rad);
 	var basep = 1050;
-	var topp = 100;
-	var plines = [1000,850,700,500,300,200,100];
-	var pticks = [950,900,800,750,650,600,550,450,400,350,250,150];
+	var topp = 50;
+	var plines = [1000,850,700,500,300,200,100,50];
+	var pticks = [950,900,800,750,650,600,550,450,400,350,250,150,75];
 	var barbsize = 25;
 	// functions for Scales and axes. Note the inverted domain for the y-scale: bigger is up!
 	var r = d3.scale.linear().range([0,300]).domain([0,150]);
@@ -146,10 +146,11 @@ var SkewT = function(div) {
 		skewtbg.append("g").attr("class", "x axis").attr("transform", "translate(0," + (h-0.5) + ")").call(xAxis);
 		skewtbg.append("g").attr("class", "y axis").attr("transform", "translate(-0.5,0)").call(yAxis);
 		skewtbg.append("g").attr("class", "y axis ticks").attr("transform", "translate(-0.5,0)").call(yAxis2);		
+
 	}
 	
 	var makeBarbTemplates = function(){
-		var speeds = d3.range(5,105,5);
+		var speeds = d3.range(5,155,5);
 		var barbdef = container.append('defs')
 		speeds.forEach(function(d) {
 			var thisbarb = barbdef.append('g').attr('id', 'barb'+d);
@@ -202,7 +203,7 @@ var SkewT = function(div) {
 		hghtfocus.append("text").attr("x", 0).attr("text-anchor", "start").attr("dy", ".35em");
 
 		var wspdfocus = skewtgroup.append("g").attr("class", "focus windspeed").style("display", "none");
-		wspdfocus.append("text").attr("x", 0).attr("text-anchor", "start").attr("dy", ".35em");	  
+		wspdfocus.append("text").attr("x", 0).attr("text-anchor", "end").attr("dy", ".35em");	  
 	
 		container.append("rect")
 			.attr("class", "overlay")
@@ -235,7 +236,7 @@ var SkewT = function(div) {
 		if(data.length==0) return;
 
 		//skew-t stuff
-		var skewtline = data.filter(function(d) { return (d.temp > -1000 && d.dwpt > -1000); });
+		var skewtline = data.filter(function(d) { return (d.temp > -1000 && d.dwpt > -800); });
 		var skewtlines = [];
 		skewtlines.push(skewtline);
 		
