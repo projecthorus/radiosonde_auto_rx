@@ -16,9 +16,9 @@ var SkewT = function(div) {
 	var deg2rad = (Math.PI/180);
 	var tan = Math.tan(55*deg2rad);
 	var basep = 1050;
-	var topp = 50;
-	var plines = [1000,850,700,500,300,200,100,50];
-	var pticks = [950,900,800,750,650,600,550,450,400,350,250,150,75];
+	var topp = 100; // Note: If we want to increase this to 50 hPa we need to fix generation of the temp grid.
+	var plines = [1000,850,700,500,300,200,100];
+	var pticks = [950,900,800,750,650,600,550,450,400,350,250,150];
 	var barbsize = 25;
 	// functions for Scales and axes. Note the inverted domain for the y-scale: bigger is up!
 	var r = d3.scale.linear().range([0,300]).domain([0,150]);
