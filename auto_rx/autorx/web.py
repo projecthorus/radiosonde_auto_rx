@@ -7,12 +7,15 @@
 #
 import copy
 import datetime
+import io
 import json
 import logging
+import pathlib
 import random
 import requests
 import time
 import traceback
+import zipfile
 import sys
 import autorx
 import autorx.config
@@ -22,7 +25,7 @@ from autorx.utils import check_autorx_versions
 from autorx.log_files import list_log_files, read_log_by_serial
 from threading import Thread
 import flask
-from flask import request, abort
+from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
 import re
 
@@ -247,6 +250,32 @@ def flask_get_kml_feed():
         200,
         {"content-type": "application/vnd.google-earth.kml+xml"},
     )
+
+
+@app.route("/export_logs")
+def flask_get_logs():
+    """ Return a compressed copy of auto_rx log directory """
+    base_path = pathlib.Path('./log/')
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, mode='w') as z:
+        for f_name in base_path.iterdir():
+            z.write(f_name)
+    data.seek(0)
+
+    ts = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+
+    response = make_response(flask.send_file(
+        data,
+        mimetype='application/zip',
+        as_attachment=True,
+        attachment_filename=f'autorx_logfiles_{ts}.zip'
+    ))
+
+    # Add header asking client not to cache the download
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+
+    return response
 
 
 @app.route("/get_config")
