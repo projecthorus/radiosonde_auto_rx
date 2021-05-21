@@ -236,9 +236,13 @@ var SkewT = function(div) {
 		if(data.length==0) return;
 
 		//skew-t stuff
-		var skewtline = data.filter(function(d) { return (d.temp > -1000 && d.dwpt > -800); });
+		var skewtline = data.filter(function(d) { return (d.temp > -1000 && d.dwpt > -1000); });
+		// Separate filter for dewpoint data.
+		var skewtline_dewp = data.filter(function(d) { return (d.temp > -1000 && d.dwpt > -800); });
 		var skewtlines = [];
+		var skewtlines_dewp = [];
 		skewtlines.push(skewtline);
+		skewtlines_dewp.push(skewtline_dewp);
 		
 		var templine = d3.svg.line().interpolate("linear").x(function(d,i) { return x(d.temp) + (y(basep)-y(d.press))/tan; }).y(function(d,i) { return y(d.press); });
 		var tempLines = skewtgroup.selectAll("templines")
@@ -249,7 +253,7 @@ var SkewT = function(div) {
 
 		var tempdewline = d3.svg.line().interpolate("linear").x(function(d,i) { return x(d.dwpt) + (y(basep)-y(d.press))/tan; }).y(function(d,i) { return y(d.press); });
 		var tempDewlines = skewtgroup.selectAll("tempdewlines")
-			.data(skewtlines).enter().append("path")
+			.data(skewtlines_dewp).enter().append("path")
 			.attr("class", function(d,i) { return (i<10) ? "dwpt skline" : "dwpt mean" })
 			.attr("clip-path", "url(#clipper)")
 			.attr("d", tempdewline);
