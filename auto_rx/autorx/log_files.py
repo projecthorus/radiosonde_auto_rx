@@ -379,8 +379,8 @@ def calculate_skewt_data(
 
     _skewt = []
 
-    # Make sure we start on zero.
-    i = -1*decimation
+    # Make sure we start on index one.
+    i = -1*decimation + 1
 
     while i < _burst_idx:
         i += decimation

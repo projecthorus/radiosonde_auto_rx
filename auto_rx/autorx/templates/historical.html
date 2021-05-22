@@ -171,9 +171,9 @@
                         });
 
                         if (getCookie('imperial') == 'true') {
-                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + 'mi range, ' + launch_bearing;
+                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
                         } else {
-                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + 'km range, ' + launch_bearing;
+                            launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
                         }
 
                         launchMarker = L.marker([launch_lat, launch_lon],
@@ -214,9 +214,9 @@
                         });
 
                         if (getCookie('imperial') == 'true') {
-                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'mi range, ' + landing_bearing;
+                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
                         } else {
-                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'km range, ' + landing_bearing;
+                            landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' km range, ' + landing_bearing;
                         }
 
                         landingMarker = L.marker([landing_lat, landing_lon],
@@ -232,6 +232,10 @@
             }
 
             function showSondeLanding () {
+
+                var layerBounds = new L.LatLngBounds();
+                layerBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
+
                 table_data.forEach(initialShow);
                 function initialShow(value, index, array) {
                     //landing marker
@@ -263,20 +267,32 @@
                     });
 
                     if (getCookie('imperial') == 'true') {
-                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'mi range, ' + landing_bearing;
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
                     } else {
-                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'km range, ' + landing_bearing;
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' km range, ' + landing_bearing;
                     }
 
                     landingMarker = L.marker([landing_lat, landing_lon],
                         {
-                            //title:landingIconTitle, 
+                            title: value['serial'], 
                             icon: landing_icon
                         })
-                        .bindTooltip(landingIconTitle,{permanent:false,direction:'right'});
-
+                        .bindTooltip(landingIconTitle,{permanent:false,direction:'right'})
+                        .on("click", function(e){
+                            // Bump up the size of the landing icon slightly on click.
+                            new_icon = e.sourceTarget.options.icon;
+                            new_icon.options.iconSize = [20, 20];
+                            new_icon.options.iconAnchor= [10,10];
+                            e.sourceTarget.setIcon(new_icon);
+                            // Select the sonde in the table.
+                            table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                        });
+                    
+                    layerBounds.extend([landing_lat, landing_lon]);
                     historicalsonde.addLayer(landingMarker)
                 }
+
+                mymap.fitBounds(layerBounds);
             }
 
             function showSondeMap () {
@@ -341,9 +357,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + 'mi range, ' + launch_bearing;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
                                 } else {
-                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + 'km range, ' + launch_bearing;
+                                    launchIconTitle = selectedrows[i]['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
                                 }
 
                                 launchMarker = L.marker([launch_lat, launch_lon],
@@ -388,9 +404,9 @@
                                 });
 
                                 if (getCookie('imperial') == 'true') {
-                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'mi range ' + landing_bearing;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range ' + landing_bearing;
                                 } else {
-                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + 'km range ' + landing_bearing;
+                                    landingIconTitle = selectedrows[i]['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' km range ' + landing_bearing;
                                 }
 
                                 landingMarker = L.marker([landing_lat, landing_lon],
