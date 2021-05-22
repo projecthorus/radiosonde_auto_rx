@@ -137,11 +137,10 @@
                     selectedrows.forEach(initialShow);
                     function initialShow(value, index, array) {
                         //path
-                        // Commented out for now, these lines weren't going away for some reason.
-                        //var sonde_path = L.polyline([]);
-                        //sonde_path.addLatLng([parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]);
-                        //sonde_path.addLatLng([parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]);
-                        //historicalsonde.addLayer(sonde_path)
+                        var sonde_path = L.polyline([]);
+                        sonde_path.addLatLng([parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]);
+                        sonde_path.addLatLng([parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]);
+                        historicalsonde.addLayer(sonde_path)
 
                         //launch marker
                         launch_lat = parseFloat(value['first']['lat']);
@@ -311,14 +310,7 @@
                                     }
                                 }
 
-                                //check if exists
-                                for (const [key, value] of Object.entries(historicalsonde['_layers'])) {
-                                    if (String(value['options']['title']).includes(selectedrows[i]['serial'])) {
-                                        fastplot = true;
-                                    }
-                                }
-
-
+                                fastplot = true;
                                 
                                 //launch marker
                                 launch_lat = parseFloat(data['first'][0]);
@@ -530,10 +522,12 @@
 
             function showSkewT () {
                 selectedrows = table.getSelectedData();
-                // TODO: Get this decimation value from some kind of user input (slider?)
-                // Reasonable values are 1 through 100, with a default of 25.
-                //decimation = 25;
-                decimation = parseInt($("#skewt-decimation").val());
+                if ((getCookie("skewt-decimation") != null) && ($("#skewt-buttons").css("visibility") != "visible")) {
+                    decimation = getCookie("skewt-decimation");
+                } else {
+                    decimation = parseInt($("#skewt-decimation").val());
+                    setCookie("skewt-decimation", decimation);
+                }
                 if (selectedrows.length > 0) {
                     _serial = selectedrows[selectedrows.length-1]['serial'];
                     _type = selectedrows[selectedrows.length-1]['type'];
@@ -568,6 +562,7 @@
                                 $("#skewt-buttons").css('visibility', 'visible');
                                 var slider = document.getElementById("skewt-decimation");
                                 var output = document.getElementById("skewt-decimation-value");
+                                slider.value = decimation;
                                 output.innerHTML = slider.value; // Display the default slider value
 
                                 // Update the current slider value (each time you drag the slider handle)
@@ -928,7 +923,7 @@
                 <option value="25">
                 <option value="50">
             </datalist>
-            <span id="skewt-decimation-value"></span>
+            <span style="width:30px;display:inline-block;" id="skewt-decimation-value"></span>
             <button id="regenerate-skewt" style="margin:3px auto;vertical-align:middle;">Regenerate</button>
         </span>
         <div id="skewt-footer"></div>
