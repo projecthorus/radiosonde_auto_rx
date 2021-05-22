@@ -559,6 +559,35 @@
                 } catch (err) {}
                 enableMenu();
             });
+
+            function downloadLogs() {
+                // Download a set of log files.
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    // Create the list of log files.
+                    _serial_list = [];
+                    for (let i = 0; i < selectedrows.length; i++){
+                        _serial_list.push(selectedrows[i]['serial']);
+                    }
+
+                    if(_serial_list.length>50){
+                        if (confirm("Warning - downloading lots of log may take some time. Are you sure?")) {
+                            // Just continue on.
+                        } else {
+                            return;
+                        }
+                    }
+
+                    // Convert the list to JSON, and then to base64
+                    b64 = btoa(JSON.stringify(_serial_list));
+                    // Make the request in a new tab
+                    window.open("/export_log_files/"+b64 , '_blank');
+                }
+            }
+
+            $("#download-logs").click(function(){
+                downloadLogs();
+            });
             
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
@@ -827,6 +856,7 @@
                 <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
                 <button id="hidesonde-skew" style="margin:3px auto">Remove Skew-T</button>
+                <button id="download-logs" style="margin:3px auto">Download Logs</button>
             </div>
             <br>
             </div>

@@ -9,9 +9,11 @@ import autorx
 import autorx.config
 import datetime
 import glob
+import io
 import logging
 import os.path
 import time
+import zipfile
 
 import numpy as np
 
@@ -31,11 +33,11 @@ def log_filename_to_stats(filename, quicklook=False):
     # ./log/20200320-063233_R2230624_RS41_402500_sonde.log
 
     # Get a rough estimate of the number of lines of telemetry
-    _filesize = os.path.getsize(filename) 
+    _filesize = os.path.getsize(filename)
     # Don't try and load files without data.
     if _filesize < 140:
         return None
-    
+
     _lines = _filesize // 140 - 1
 
     if _lines <= 0:
@@ -82,16 +84,13 @@ def log_filename_to_stats(filename, quicklook=False):
             try:
                 _quick = log_quick_look(filename)
                 if _quick:
-                    _output['first'] = _quick['first']
-                    _output['last'] = _quick['last']
-                    _output['has_snr'] = _quick['has_snr']
+                    _output["first"] = _quick["first"]
+                    _output["last"] = _quick["last"]
+                    _output["has_snr"] = _quick["has_snr"]
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
-                
 
         return _output
-
-
 
     except Exception as e:
         logging.exception(f"Could not parse filename {_basename}", e)
@@ -101,22 +100,22 @@ def log_filename_to_stats(filename, quicklook=False):
 def log_quick_look(filename):
     """ Attempt to read in the first and last line in a log file, and return the first/last position observed. """
 
-    _filesize = os.path.getsize(filename) 
+    _filesize = os.path.getsize(filename)
 
     # Open the file and get the header line
     _file = open(filename, "r")
     _header = _file.readline()
 
-    # Discard anything 
+    # Discard anything
     if "timestamp,serial,frame,lat,lon,alt" not in _header:
         return None
 
     _output = {}
 
-    if 'snr' in _header:
-        _output['has_snr'] = True
+    if "snr" in _header:
+        _output["has_snr"] = True
     else:
-        _output['has_snr'] = False
+        _output["has_snr"] = False
 
     try:
         # Naeive read of the first data line
@@ -124,39 +123,35 @@ def log_quick_look(filename):
         _fields = _first.split(",")
         _first_datetime = _fields[0]
         _serial = _fields[1]
-        _first_lat =float(_fields[3])
+        _first_lat = float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
         _pos_info = position_info(
             (
-                autorx.config.global_config['station_lat'],
-                autorx.config.global_config['station_lon'],
-                autorx.config.global_config['station_alt']
+                autorx.config.global_config["station_lat"],
+                autorx.config.global_config["station_lon"],
+                autorx.config.global_config["station_alt"],
             ),
-            (
-                _first_lat,
-                _first_lon,
-                _first_alt
-            )
+            (_first_lat, _first_lon, _first_alt),
         )
-        _output['first'] = {
-            'datetime': _first_datetime,
-            'lat': _first_lat,
-            'lon': _first_lon,
-            'alt': _first_alt,
-            'range_km': _pos_info['straight_distance']/1000.0,
-            'bearing': _pos_info['bearing'],
-            'elevation': _pos_info['elevation']
+        _output["first"] = {
+            "datetime": _first_datetime,
+            "lat": _first_lat,
+            "lon": _first_lon,
+            "alt": _first_alt,
+            "range_km": _pos_info["straight_distance"] / 1000.0,
+            "bearing": _pos_info["bearing"],
+            "elevation": _pos_info["elevation"],
         }
     except Exception as e:
         # Couldn't read the first line, so likely no data.
         return None
-    
+
     # Now we try and seek to near the end of the file.
     _seek_point = _filesize - 300
     if _seek_point < 0:
         # Don't bother trying to read the last line, it'll be the same as the first line.
-        _output['last'] = _output['first']
+        _output["last"] = _output["first"]
         return _output
 
     # Read in the rest of the file
@@ -164,42 +159,36 @@ def log_quick_look(filename):
         _file.seek(_seek_point)
         _remainder = _file.read()
         # Get the last line
-        _last_line = _remainder.split('\n')[-2]
-        _fields = _last_line.split(',')
+        _last_line = _remainder.split("\n")[-2]
+        _fields = _last_line.split(",")
         _last_datetime = _fields[0]
         _last_lat = float(_fields[3])
         _last_lon = float(_fields[4])
         _last_alt = float(_fields[5])
         _pos_info = position_info(
             (
-                autorx.config.global_config['station_lat'],
-                autorx.config.global_config['station_lon'],
-                autorx.config.global_config['station_alt']
+                autorx.config.global_config["station_lat"],
+                autorx.config.global_config["station_lon"],
+                autorx.config.global_config["station_alt"],
             ),
-            (
-                _last_lat,
-                _last_lon,
-                _last_alt
-            )
+            (_last_lat, _last_lon, _last_alt),
         )
-        _output['last'] = {
-            'datetime': _last_datetime,
-            'lat': _last_lat,
-            'lon': _last_lon,
-            'alt': _last_alt,
-            'range_km': _pos_info['straight_distance']/1000.0,
-            'bearing': _pos_info['bearing'],
-            'elevation': _pos_info['elevation']
+        _output["last"] = {
+            "datetime": _last_datetime,
+            "lat": _last_lat,
+            "lon": _last_lon,
+            "alt": _last_alt,
+            "range_km": _pos_info["straight_distance"] / 1000.0,
+            "bearing": _pos_info["bearing"],
+            "elevation": _pos_info["elevation"],
         }
         return _output
     except Exception as e:
         # Couldn't read in the last line for some reason.
         # Return what we have
         logging.error(f"Error reading last line of {filename}: {str(e)}")
-        _output['last'] = _output['first']
+        _output["last"] = _output["first"]
         return _output
-
-    
 
 
 def list_log_files(quicklook=False):
@@ -289,7 +278,6 @@ def read_log_file(filename, skewt_decimation=10):
 
     _file.close()
 
-
     if _data.size == 1:
         # Deal with log files with only one entry cleanly.
         _data = np.array([_data])
@@ -318,9 +306,9 @@ def read_log_file(filename, skewt_decimation=10):
         _press = _data[fields["pressure"]]
     else:
         _press = None
-    
+
     if "snr" in fields:
-        _output['snr'] = _data[fields["snr"]].tolist()
+        _output["snr"] = _data[fields["snr"]].tolist()
 
     _output["skewt"] = calculate_skewt_data(
         _data[fields["datetime"]],
@@ -386,7 +374,7 @@ def calculate_skewt_data(
             _pos_delta = position_info(_old_pos, _new_pos)
 
             _speed = _pos_delta["great_circle_distance"] / _time_delta
-            _bearing = (_pos_delta["bearing"]+180.0)%360.0
+            _bearing = (_pos_delta["bearing"] + 180.0) % 360.0
 
             if pressure is None:
                 _pressure = getDensity(altitude[i], get_pressure=True) / 100.0
@@ -403,7 +391,11 @@ def calculate_skewt_data(
                 _dp = (
                     243.04
                     * (np.log(_rh / 100) + ((17.625 * _temp) / (243.04 + _temp)))
-                    / (17.625 - np.log(_rh / 100) - ((17.625 * _temp) / (243.04 + _temp)))
+                    / (
+                        17.625
+                        - np.log(_rh / 100)
+                        - ((17.625 * _temp) / (243.04 + _temp))
+                    )
                 )
             else:
                 _dp = -999.0
@@ -454,6 +446,39 @@ def read_log_by_serial(serial, skewt_decimation=25):
             return {}
 
 
+def zip_log_files(serial_list=None):
+    """ Take a list of serial numbers and find and zip all related log files """
+
+    if serial_list is None:
+        # Get all log files.
+        # Search for file matching the expected log file name
+        _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+        _log_files = glob.glob(_log_mask)
+    else:
+        # Have been provided a list of log files.
+        _log_files = []
+        for _serial in serial_list:
+            _log_mask = os.path.join(autorx.logging_path, f"*_*{_serial}_*_sonde.log")
+            _matching_files = glob.glob(_log_mask)
+
+            if len(_matching_files) >= 1:
+                _log_files.append(_matching_files[0])
+
+    logging.debug(f"Log Files - Zipping up {len(_log_files)} log files.")
+
+    # Perform the zipping
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, compression=zipfile.ZIP_DEFLATED, mode="w") as z:
+        for f_name in _log_files:
+            z.write(f_name, arcname=os.path.basename(f_name))
+    logging.debug(f"Log Files - Resultant zip file is {data.tell()/1024768} MiB.")
+    # Seek back to the start
+    data.seek(0)
+
+    # Return the BytesIO object
+    return data
+
+
 if __name__ == "__main__":
     import sys
     import json
@@ -472,7 +497,18 @@ if __name__ == "__main__":
     _stop = time.time()
     print(f"Quicklook: {_stop-_start}")
 
+    # Test out the zipping function
+    _serial = []
+    for x in range(5):
+        _serial.append(_quicklook[x]["serial"])
 
-    if len(sys.argv) > 1:
-        print(f"Attempting to read serial: {sys.argv[1]}")
-        print(json.dumps(read_log_by_serial(sys.argv[1])))
+    print(_serial)
+    _start = time.time()
+    _zip = zip_log_files(serial_list=_serial)
+    _stop = time.time()
+    print(f"Zip 5 logs: {_stop - _start}")
+
+    _start = time.time()
+    _zip = zip_log_files()
+    _stop = time.time()
+    print(f"Zip all logs: {_stop - _start}")
