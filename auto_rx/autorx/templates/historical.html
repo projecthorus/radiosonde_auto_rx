@@ -232,6 +232,10 @@
             }
 
             function showSondeLanding () {
+
+                var layerBounds = new L.LatLngBounds();
+                layerBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
+
                 table_data.forEach(initialShow);
                 function initialShow(value, index, array) {
                     //landing marker
@@ -283,9 +287,12 @@
                             // Select the sonde in the table.
                             table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                         });
-
+                    
+                    layerBounds.extend([landing_lat, landing_lon]);
                     historicalsonde.addLayer(landingMarker)
                 }
+
+                mymap.fitBounds(layerBounds);
             }
 
             function showSondeMap () {
