@@ -324,7 +324,7 @@ def flask_get_log_by_serial_detail():
 
 
 @app.route("/export_log_files/<serialb64>")
-def flask_export_log_files(serialb64):
+def flask_export_selected_log_files(serialb64):
     """ 
     Zip and download a set of log files.
     The list of log files is provided in the URL as a base64-encoded JSON list.
@@ -356,6 +356,36 @@ def flask_export_log_files(serialb64):
         logging.error("Web - Error handling Zip request:" + str(e))
         abort(400)
 
+
+@app.route("/export_all_log_files")
+def flask_export_all_log_files():
+    """ 
+    Zip and download all log files. This may take some time.
+    """
+
+    try:
+        _zip = zip_log_files()
+
+        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+
+        response = make_response(
+            flask.send_file(
+                _zip,
+                mimetype="application/zip",
+                as_attachment=True,
+                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+            )
+        )
+
+        # Add header asking client not to cache the download
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+
+        return response
+
+    except Exception as e:
+        logging.error("Web - Error handling Zip request:" + str(e))
+        abort(400)
 
 #
 #   Control Endpoints.

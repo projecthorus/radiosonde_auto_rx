@@ -10,7 +10,7 @@ var SkewT = function(div) {
 	//properties used in calculations
 	var wrapper = d3.select(div);
 	// These width and height values get used when the plot is first shown
-	var width = parseInt(wrapper.style('width'), 10)-100;
+	var width = parseInt(wrapper.style('width'), 10)-50;
 	var height = width;//parseInt(wrapper.style('height'), 10)-100; // width; //tofix
 	var margin = {top: 30, right: 40, bottom: 20, left: 35}; //container margins
 	var deg2rad = (Math.PI/180);
@@ -39,7 +39,7 @@ var SkewT = function(div) {
 	//local functions	
 	function setVariables() {
 		// These width and height values get calculated when the plot is updated
-		width = parseInt(wrapper.style('width'), 10) - 10; // tofix: using -10 to prevent x overflow
+		width = parseInt(wrapper.style('width'), 10) - 50; // tofix: using -10 to prevent x overflow
 		height = width; //to fix
 		w = width - margin.left - margin.right;
 		h = width - margin.top - margin.bottom;		
