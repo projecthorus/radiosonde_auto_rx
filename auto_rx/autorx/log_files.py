@@ -9,9 +9,11 @@ import autorx
 import autorx.config
 import datetime
 import glob
+import io
 import logging
 import os.path
 import time
+import zipfile
 
 import numpy as np
 
@@ -454,6 +456,39 @@ def read_log_by_serial(serial, skewt_decimation=25):
             return {}
 
 
+def zip_log_files(serial_list=None):
+    """ Take a list of serial numbers and find and zip all related log files """
+    
+    if serial_list is None:
+        # Get all log files.
+        # Search for file matching the expected log file name
+        _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+        _log_files = glob.glob(_log_mask)
+    else:
+        # Have been provided a list of log files.
+        _log_files = []
+        for _serial in serial_list:
+            _log_mask = os.path.join(autorx.logging_path, f"*_*{_serial}_*_sonde.log")
+            _matching_files = glob.glob(_log_mask)
+
+            if len(_matching_files)>=1:
+                _log_files.append(_matching_files[0])
+    
+    logging.debug(f"Log Files - Zipping up {len(_log_files)} log files.")
+
+    # Perform the zipping
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, compression=zipfile.ZIP_DEFLATED, mode='w') as z:
+        for f_name in _log_files:
+            z.write(f_name, arcname=os.path.basename(f_name))
+    logging.debug(f"Log Files - Resultant zip file is {data.tell()/1024768} MiB.")
+    # Seek back to the start 
+    data.seek(0)
+
+    # Return the BytesIO object
+    return data
+
+
 if __name__ == "__main__":
     import sys
     import json
@@ -472,7 +507,20 @@ if __name__ == "__main__":
     _stop = time.time()
     print(f"Quicklook: {_stop-_start}")
 
+    # Test out the zipping function
+    _serial = []
+    for x in range(5):
+        _serial.append(_quicklook[x]['serial'])
+    
+    print(_serial)
+    _start = time.time()
+    _zip = zip_log_files(serial_list=_serial)
+    _stop = time.time()
+    print(f"Zip 5 logs: {_stop - _start}")
 
-    if len(sys.argv) > 1:
-        print(f"Attempting to read serial: {sys.argv[1]}")
-        print(json.dumps(read_log_by_serial(sys.argv[1])))
+    _start = time.time()
+    _zip = zip_log_files()
+    _stop = time.time()
+    print(f"Zip all logs: {_stop - _start}")
+
+

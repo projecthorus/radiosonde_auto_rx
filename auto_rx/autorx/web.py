@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under MIT License
 #
+import base64
 import copy
 import datetime
 import json
@@ -19,10 +20,10 @@ import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
-from autorx.log_files import list_log_files, read_log_by_serial
+from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
 from threading import Thread
 import flask
-from flask import request, abort
+from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
 import re
 
@@ -318,6 +319,38 @@ def flask_get_log_by_serial_detail():
             _decim = 25
 
         return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
+
+
+@app.route("/export_log_files/<serialb64>")
+def flask_export_log_files(serialb64):
+    """ 
+    Zip and download a set of log files.
+    The list of log files is provided in the URL as a base64-encoded JSON list.
+    """
+
+    try:
+        _serial_list = json.loads(base64.b64decode(serialb64))
+
+        _zip = zip_log_files(_serial_list)
+
+        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+
+        response = make_response(flask.send_file(
+            _zip,
+            mimetype='application/zip',
+            as_attachment=True,
+            attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip"
+        ))
+
+        # Add header asking client not to cache the download
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+
+        return response
+
+    except Exception as e:
+        logging.error("Web - Error handling Zip request:" + str(e))
+        abort(400)
 
 
 #
