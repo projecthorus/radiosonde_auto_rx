@@ -113,6 +113,7 @@
                 $("#hidesonde-map").prop('disabled', true);
                 $("#showsonde-skew").prop('disabled', true);
                 $("#hidesonde-skew").prop('disabled', true);
+                $("#download-logs").prop('disabled', true);
             }
 
             async function enableMenu () {
@@ -123,6 +124,7 @@
                 $("#hidesonde-map").prop('disabled', false);
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
+                $("#download-logs").prop('disabled', false);
             }
 
             if ((window.innerWidth/window.innerHeight) < 1) {
@@ -522,6 +524,15 @@
 
                             try {
                                 skewt.plot(data.skewt);
+                                $("#skewt-buttons").css('visibility', 'visible');
+                                var slider = document.getElementById("skewt-decimation");
+                                var output = document.getElementById("skewt-decimation-value");
+                                output.innerHTML = slider.value; // Display the default slider value
+
+                                // Update the current slider value (each time you drag the slider handle)
+                                slider.oninput = function() {
+                                    output.innerHTML = this.value;
+                                }
                                 enableMenu();
                                 if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
@@ -549,15 +560,6 @@
             $("#showsonde-skew").click(function(){
                 disableMenu();
                 showSkewT();
-            });
-
-            $("#hidesonde-skew").click(function(){
-                disableMenu();
-                $('#skewt-header').html("<h2>Skew-T</h2>");
-                try {
-                    skewt.clear();
-                } catch (err) {}
-                enableMenu();
             });
 
             function downloadLogs() {
@@ -846,16 +848,14 @@
         <div id="mySidenav" class="sidenav">
             <div class="headerdiv">
             <a href="javascript:void(0)" class="closebtn" id="closebtn" onclick="changeNav()">&#10006;</a>
-            <img src="{{ url_for('static', filename='img/autorx_logo.png') }}" alt="Radiosonde Auto-RX Button">
             <h2>Sonde List</h2>
             <div style="width:100%;text-align:center;">
                 <button id="select-all" style="margin:3px auto">Select All</button>
                 <button id="deselect-all" style="margin:3px auto">Deselect All</button>
+                <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
                 <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
                 <button id="showsonde-mapquick" style="margin:3px auto">Plot Landings</button>
-                <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
-                <button id="hidesonde-skew" style="margin:3px auto">Remove Skew-T</button>
                 <button id="download-logs" style="margin:3px auto">Download Logs</button>
             </div>
             <br>
@@ -868,6 +868,14 @@
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
         <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
         <div id="skewt" style="width:90%;margin:3px auto"></div>
+        <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
+            <input style="vertical-align:middle;" type="range" min="1" max="100" value="25" class="slider" id="skewt-decimation" list="my-detents">
+            <datalist id="my-detents">
+                <option value="25">
+            </datalist>
+            <span id="skewt-decimation-value"></span>
+            <button id="regenerate-skewt" style="margin:3px auto;vertical-align:middle;">Regenerate</button>
+        </span>
         <div id="skewt-footer"></div>
     </div>
 
