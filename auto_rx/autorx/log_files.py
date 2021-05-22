@@ -301,6 +301,30 @@ def read_log_file(filename, skewt_decimation=10):
     _output["burst"] = _output["path"][_burst_idx]
     _output["burst_time"] = _data[fields["datetime"]][_burst_idx]
 
+    # Calculate first position info
+    _pos_info = position_info(
+        (
+            autorx.config.global_config["station_lat"],
+            autorx.config.global_config["station_lon"],
+            autorx.config.global_config["station_alt"],
+        ),
+        _output["first"],
+    )
+    _output["first_range_km"] = _pos_info["straight_distance"] / 1000.0
+    _output["first_bearing"] = _pos_info["bearing"]
+
+    # Calculate last position info
+    _pos_info = position_info(
+        (
+            autorx.config.global_config["station_lat"],
+            autorx.config.global_config["station_lon"],
+            autorx.config.global_config["station_alt"],
+        ),
+        _output["last"],
+    )
+    _output["last_range_km"] = _pos_info["straight_distance"] / 1000.0
+    _output["last_bearing"] = _pos_info["bearing"]
+
     # TODO: Calculate data necessary for Skew-T plots
     if "pressure" in fields:
         _press = _data[fields["pressure"]]
@@ -355,7 +379,9 @@ def calculate_skewt_data(
 
     _skewt = []
 
-    i = 0
+    # Make sure we start on zero.
+    i = -1*decimation
+
     while i < _burst_idx:
         i += decimation
         try:

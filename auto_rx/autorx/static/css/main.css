@@ -469,7 +469,7 @@ select[disabled]{
 }
 
 /* The slider itself */
-.slider {
+#skewt-decimation {
   -webkit-appearance: none;  /* Override default CSS styles */
   appearance: none;
   width: 25%; /* Full-width */
@@ -483,16 +483,16 @@ select[disabled]{
 }
 
 /* Mouse-over effects */
-.slider:hover {
+#skewt-decimation:hover {
   opacity: 1; /* Fully shown on mouse-over */
 }
 
-.slider:before {
+#skewt-decimation:before {
   visibility: hidden;
 }
 
 /* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */
-.slider::-webkit-slider-thumb {
+#skewt-decimation::-webkit-slider-thumb {
   -webkit-appearance: none; /* Override default look */
   appearance: none;
   width: 35px; /* Set a specific slider handle width */
@@ -501,7 +501,7 @@ select[disabled]{
   cursor: pointer; /* Cursor on hover */
 }
 
-.slider::-moz-range-thumb {
+#skewt-decimation::-moz-range-thumb {
   width: 35px; /* Set a specific slider handle width */
   height: 35px; /* Slider handle height */
   background: #04AA6D; /* Green background */

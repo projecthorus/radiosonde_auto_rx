@@ -524,13 +524,13 @@
                     },
                     {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);           
+                            return (Math.round((cell.getValue()*196.85) * 10) / 10);           
                         } else {
                             return cell.getValue();
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (ft/s)";              
+                            return cell.getValue() + " (ft/min)";              
                         } else {
                             return cell.getValue() + " (m/s)";
                         }
