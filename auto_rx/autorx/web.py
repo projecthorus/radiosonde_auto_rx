@@ -87,10 +87,12 @@ def flask_index():
     """ Render main index page """
     return flask.render_template("index.html")
 
+
 @app.route("/historical.html")
 def flask_historical():
     """ Render historical log page """
     return flask.render_template("historical.html")
+
 
 @app.route("/skewt_test.html")
 def flask_skewt_test():
@@ -335,16 +337,18 @@ def flask_export_log_files(serialb64):
 
         _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
 
-        response = make_response(flask.send_file(
-            _zip,
-            mimetype='application/zip',
-            as_attachment=True,
-            attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip"
-        ))
+        response = make_response(
+            flask.send_file(
+                _zip,
+                mimetype="application/zip",
+                as_attachment=True,
+                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+            )
+        )
 
         # Add header asking client not to cache the download
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
 
         return response
 
