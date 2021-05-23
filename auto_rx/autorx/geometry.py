@@ -12,7 +12,7 @@ import numpy as np
 from .utils import position_info
 
 
-def getDensity(altitude):
+def getDensity(altitude, get_pressure=False):
     """ 
     Calculate the atmospheric density for a given altitude in metres.
     This is a direct port of the oziplotter Atmosphere class
@@ -75,6 +75,9 @@ def getDensity(altitude):
     # Finally, work out the density...
     speedOfSound = math.sqrt(gamma * R * temperature)
     pressure = pressureRel * pressureSL
+    if get_pressure:
+        return pressure
+
     density = densitySL * pressureRel * temperatureSL / temperature
 
     return density
@@ -125,13 +128,14 @@ class GenericTrack(object):
     The track history can be exported to a LineString using the to_line_string method.
     """
 
-    def __init__(self, ascent_averaging=6, landing_rate=5.0):
+    def __init__(self, ascent_averaging=6, landing_rate=5.0, max_elements=None):
         """ Create a GenericTrack Object. """
 
         # Averaging rate.
         self.ASCENT_AVERAGING = ascent_averaging
         # Payload state.
         self.landing_rate = landing_rate
+        self.max_elements = max_elements
         self.ascent_rate = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -158,6 +162,12 @@ class GenericTrack(object):
                 _comment = ""
 
             self.track_history.append([_datetime, _lat, _lon, _alt, _comment])
+
+            # Clip size of track history if a maximum number of elements is set.
+            if self.max_elements:
+                if len(self.track_history) > self.max_elements:
+                    self.track_history = self.track_history[1:]
+
             self.update_states()
             return self.get_latest_state()
         except ValueError:
@@ -167,7 +177,7 @@ class GenericTrack(object):
             pass
         except Exception as e:
             logging.debug(
-                "Web - Error adding new telemetry to GenericTrack %s" % str(e)
+                "Track - Error adding new telemetry to GenericTrack %s" % str(e)
             )
 
     def get_latest_state(self):

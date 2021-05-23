@@ -64,8 +64,8 @@ bias = False
 # US: 
 #   Some areas have transitioned to the 400.05 - 406 MHz band, so try 400.05 - 406
 #   Some areas are still using ~1680 MHz sondes, which use channels of 1676, 1678, 1680 and 1682 MHz (Thanks Tory!)
-#   Example whitelist for these sondes: [1676.0, 1678.0, 1680.0, 1682.0]
-#   In these areas I suggest using the whitelist feature below instead of using the peak-detect search.
+#   Example only_scan for these sondes: [1676.0, 1678.0, 1680.0, 1682.0]
+#   In these areas I suggest using the only_scan feature below instead of using the peak-detect search.
 #	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
 #	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
 
@@ -77,23 +77,23 @@ rx_timeout = 180
 
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
-# White-List - Add values to this list to *only* scan on these frequencies.
+# only_scan - Add values to this list to *only* scan on these frequencies.
 # This is for when you only want to monitor a small set of launch frequencies.
-whitelist = []
+only_scan = []
 
-# Black-List - Any values added to this list will be removed from the list of detected peaks.
+# never_scan - Any values added to this list will be removed from the list of detected peaks.
 # This is used to remove known spurs or other interferers from the scan list, potentially speeding up detection of a sonde.
-blacklist = []
+never_scan = []
 
-# Grey-List - Any values in this list will be added to the start every scan run.
+# always_scan - Any values in this list will be added to the start every scan run.
 # This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
-greylist = []
+always_scan = []
 
 
 ####################
 # STATION LOCATION #
 ####################
-# Used by the Habitat/Sondehub Uploaders, APRS Uploader, and by Rotator Control
+# Used by the Sondehub Uploader, APRS Uploader, and by Rotator Control
 # Lat/Lon in decimal degrees, altitude in metres.
 # Note: You do not need to specify your home station accurately if you don't want to!
 # Feel free to use a position somewhere near your general area, that doesn't identify your home location.
@@ -107,6 +107,8 @@ station_alt = 0.0
 # NOTE: This feature is intended to make life slightly easier when using an auto_rx station in a portable
 # capacity, in particular when using a rotator. For the web interface to start up correctly, a lat/lon still
 # needs to be entered above.
+# If you are operating a stationary auto_rx station, please just set a fixed position above rather than using GPSD.
+#
 # If you are doing mobile balloon chasing, please use chasemapper ( https://github.com/projecthorus/chasemapper )
 # which is far beter suited than auto_rx by itself...
 gpsd_enabled = False
@@ -114,50 +116,29 @@ gpsd_host = localhost
 gpsd_port = 2947
 
 
-###########################
-# HABITAT UPLOAD SETTINGS #
-###########################
-# Settings for uploading to the Habitat HAB tracking database ( https://tracker.habhub.org/ )
-#   Note that the habitat upload will use a fixed string format of:
-#  `$$RS_<sonde_serial>,<sequence number>,<time>,<lat>,<lon>,<alt>,<speed>,<temp>,<humidity>,<comment>*<CRC16>`
+###################################################
+# SONDEHUB / HABITAT (deprecated) UPLOAD SETTINGS #
+###################################################
 #
-# NOTE: These settings will eventually be merged with the SondeHub settings below.
-# For now, the uploader callsign and upload_listener_position and uploader_antenna fields are
-# shared between Habitat and Sondehub uploaders.
+# Settings relating to uploads to the SondeHub v2 Database and tracker,
+# available at https://tracker.sondehub.org/
 #
-
-
+# Note that uploads to the Habitat (amateur HAB) database are now disabled,
+# and any references to Habitat in this config are for legacy reasons only.
 [habitat]
-habitat_enabled = True
 
-# Uploader callsign, as shown above. PLEASE CHANGE THIS TO SOMETHING UNIQUE.
+# Uploader callsign. PLEASE CHANGE THIS TO SOMETHING UNIQUE.
 uploader_callsign = CHANGEME_AUTO_RX
 
-# Upload listener position to Habitat? (So you show up on the map)
-# Note that if GPSD is used, this is overriden.
+# Upload listener position to Sondehub? (So you show up on the map)
+# Note that if GPSD is used, this is overriden and enabled.
 upload_listener_position = True
 
 # Uploader Antenna Description.
 # If upload_listener_position is enabled, this information will show up in your station description on the habhub map.
 uploader_antenna = 1/4 wave monopole
 
-# Habitat Upload Rate - Upload a packet every X seconds.
-# IMPORTANT NOTE: Please remember that the use of Habitat for tracking radiosondes is secondary to its primary purpose of
-# tracking amateur high-altitude balloon flights. It is STRONGLY RECOMMENDED that the update rate is not set to anything 
-# lower than 30 seconds, to avoid congesting the system and causing higher processing latencies. If this becomes a problem, 
-# then we may have to implement server-side rate-limiting to avoid affecting performance.
-upload_rate = 30
-
-
-#################################
-# SONDEHUB v2 DATABASE SETTINGS #
-#################################
-# Settings for uploading to the new Sondehub v2 database.
-#
-# Please ensure you have set the uploader callsign and antenna detail settings in the
-# Habitat section above, as these are also used by Sondehub v2.
 [sondehub]
-
 # Enable uploading to Sondehub v2 - please leave this enabled!
 sondehub_enabled = True
 
@@ -395,10 +376,15 @@ web_port = 5000
 # Note: The higher this number, the more data the client will need to load in on startup
 archive_age = 120
 
-# Enable some additional controls on the auto_rx web interface. 
-# There is currently no authentication for these features, so use this with caution!
-# Do not set this to True on an internet-facing auto_rx instance!!!
+# Enable control over the scanner, and starting/stopping decoders from the web interface.
+# A password must also be set (below).
+# USERS ENABLE THIS AT THEIR OWN RISK!!
 web_control = False
+
+# Password for controls on the web interface. The main interface will still be publicly available.
+# Note that as the web interface is HTTP-only, this password will be sent over the internet in the clear,
+# so don't re-use passwords!
+web_password = none
 
 # KML refresh rate
 kml_refresh_rate = 10

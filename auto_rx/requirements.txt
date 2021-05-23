@@ -4,4 +4,5 @@ flask
 flask-socketio
 numpy
 requests
+semver
 simplekml

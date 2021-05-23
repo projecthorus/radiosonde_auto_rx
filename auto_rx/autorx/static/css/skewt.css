@@ -1,0 +1,46 @@
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1px;
+  shape-rendering: crispEdges;
+}
+.x.axis path {  }
+.y.axis path {  }
+.axis { fill: #000; }
+.y.axis { font-size: 13px; }
+.y.axis.hght { font-size: 9px; fill: red;}
+.x.axis { font-size: 13px; }
+.y.axis.ticks text { display: none; }
+
+.temp {
+  fill: none;
+  stroke: red;
+  stroke-width: 3px;
+}
+.dwpt {
+  fill: none;
+  stroke: green;
+  stroke-width: 3px;
+}
+.skline   { stroke-width: 1.8px; opacity: 0.8;}
+.mean     { stroke-width: 2.5px; }
+
+.gridline, .tempzero {
+   stroke: #c4c4c4;
+   stroke-width: 0.75px;
+   fill: none;
+}
+.tempzero { stroke: #aaa; stroke-width: 1.5px; }
+
+.windbarb { stroke: #000; stroke-width: 0.75px; fill: none;}
+.flag { fill: #000; }
+
+.overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+.focus.tmpc circle { fill: red;   stroke: none; }
+.focus.dwpc circle { fill: green; stroke: none; }
+.focus text { font-size: 12px; }

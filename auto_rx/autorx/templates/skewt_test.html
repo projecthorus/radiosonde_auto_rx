@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skew-t Examples</title>
+	<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+	<link href="{{ url_for('static', filename='css/skewt.css') }}" rel="stylesheet">
+	<style>
+		.btn-spc {
+			margin: 2px;
+		}
+	</style>
+  </head>
+  <body>
+    <div class="container">
+		<h2>auto_rx SkewT Plot Testing</h2>
+		<div class="row">			
+			<div class="col-md-12">
+				<div class="row">
+						<input type="text" id="serial-input" placeholder="Serial" >
+						<input type="text" id="decimation-input" placeholder="Decimation" value=25 >
+						<button class="btn btn-primary" onClick="download();">load</button>
+						<button class="btn btn-primary" onClick="skewt.clear();">clear</button>
+				</div>				
+				<div class="row">
+					<div class="col-md-12 panel panel-default">
+						<div id="skewt"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="{{ url_for('static', filename='js/skewt.js') }}"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
+	<script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
+	<script>
+
+	function loadskewT(data)
+	{
+		try {
+			skewt.plot(data);
+		}
+		catch(err) {
+		    console.log(err);
+		    alert(err);
+		}		
+	}
+
+	var skewt = new SkewT('#skewt');
+
+
+	function download() {
+		console.log("downloading");
+		_serial = $('#serial-input').val();
+		_decim = $('#decimation-input').val();
+
+		$.post(
+		"/get_log_detail", 
+        {serial: _serial, decimation:_decim},
+        function(data){
+			console.log(data);
+            loadskewT(data.skewt);
+		},
+		"json"
+		).fail(function(xhr, status, error){
+			console.log(error);
+		});
+	}
+
+	</script>	
+  </body>
+</html>

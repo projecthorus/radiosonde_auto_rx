@@ -20,7 +20,11 @@ global_config = {
     "snr_threshold": 10,
     "station_lat": 0.0,
     "station_lon": 0.0,
+    "station_alt": 0.0,
 }
+
+# Web interface credentials
+web_password = "none"
 
 try:
     # Python 2
@@ -37,20 +41,20 @@ MINIMUM_HABITAT_UPDATE_RATE = 30
 
 
 def read_auto_rx_config(filename, no_sdr_test=False):
-    """ Read an Auto-RX v2 Station Configuration File.
+    """Read an Auto-RX v2 Station Configuration File.
 
-	This function will attempt to parse a configuration file.
-	It will also confirm the accessibility of any SDRs specified in the config file.
+    This function will attempt to parse a configuration file.
+    It will also confirm the accessibility of any SDRs specified in the config file.
 
-	Args:
-		filename (str): Filename of the configuration file to read.
-		no_sdr_test (bool): Skip testing the SDRs (used for some unit tests)
+    Args:
+            filename (str): Filename of the configuration file to read.
+            no_sdr_test (bool): Skip testing the SDRs (used for some unit tests)
 
-	Returns:
-		auto_rx_config (dict): The configuration dictionary.
-		sdr_config (dict): A dictionary with SDR parameters.
-	"""
-    global global_config
+    Returns:
+            auto_rx_config (dict): The configuration dictionary.
+            sdr_config (dict): A dictionary with SDR parameters.
+    """
+    global global_config, web_password
     # Configuration Defaults:
     auto_rx_config = {
         # Log Settings
@@ -74,9 +78,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "min_freq": 400.4,
         "max_freq": 404.0,
         "rx_timeout": 120,
-        "whitelist": [],
-        "blacklist": [],
-        "greylist": [],
+        "only_scan": [],
+        "never_scan": [],
+        "always_scan": [],
         # Location Settings
         "station_lat": 0.0,
         "station_lon": 0.0,
@@ -91,7 +95,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "max_radius_km": 1000,
         "min_radius_km": 0,
         "radius_temporary_block": False,
-        #"sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
+        # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
         # Habitat Settings
         "habitat_enabled": False,
         "habitat_upload_rate": 30,
@@ -117,7 +121,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "web_host": "0.0.0.0",
         "web_port": 5000,
         "web_archive_age": 120,
-        "web_control": True,
+        "web_control": False,
+        # "web_password": "none",  # Commented out to ensure warning message is shown
         #'kml_refresh_rate': 10,
         # Advanced Parameters
         "search_step": 800,
@@ -165,7 +170,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
-        #"sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
+        # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
     }
 
     try:
@@ -223,13 +228,51 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["min_freq"] = config.getfloat("search_params", "min_freq")
         auto_rx_config["max_freq"] = config.getfloat("search_params", "max_freq")
         auto_rx_config["rx_timeout"] = config.getint("search_params", "rx_timeout")
-        auto_rx_config["whitelist"] = json.loads(
-            config.get("search_params", "whitelist")
-        )
-        auto_rx_config["blacklist"] = json.loads(
-            config.get("search_params", "blacklist")
-        )
-        auto_rx_config["greylist"] = json.loads(config.get("search_params", "greylist"))
+
+        if (
+            config.has_option("search_params", "only_scan")
+            and config.get("search_params", "only_scan") != ""
+        ):  # check if user has new name for scan lists
+            auto_rx_config["only_scan"] = json.loads(
+                config.get("search_params", "only_scan")
+            )
+        else:
+            logging.warning(
+                "Config - whitelist configuration has been deprecated and replaced with only_scan list"
+            )
+            auto_rx_config["only_scan"] = json.loads(
+                config.get("search_params", "whitelist")
+            )
+
+        if (
+            config.has_option("search_params", "never_scan")
+            and config.get("search_params", "never_scan") != ""
+        ):  # check if user has new name for scan lists
+            auto_rx_config["never_scan"] = json.loads(
+                config.get("search_params", "never_scan")
+            )
+        else:
+            logging.warning(
+                "Config - blacklist configuration has been deprecated and replaced with never_scan list"
+            )
+            auto_rx_config["never_scan"] = json.loads(
+                config.get("search_params", "blacklist")
+            )
+
+        if (
+            config.has_option("search_params", "always_scan")
+            and config.get("search_params", "always_scan") != ""
+        ):  # check if user has new name for scan lists
+            auto_rx_config["always_scan"] = json.loads(
+                config.get("search_params", "always_scan")
+            )
+        else:
+            logging.warning(
+                "Config - greylist configuration has been deprecated and replaced with always_scan list"
+            )
+            auto_rx_config["always_scan"] = json.loads(
+                config.get("search_params", "greylist")
+            )
 
         # Location Settings
         auto_rx_config["station_lat"] = config.getfloat("location", "station_lat")
@@ -241,10 +284,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["max_radius_km"] = config.getint("filtering", "max_radius_km")
 
         # Habitat Settings
-        auto_rx_config["habitat_enabled"] = config.getboolean(
-            "habitat", "habitat_enabled"
-        )
-        auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
+        # Deprecated from v1.5.0
+        # auto_rx_config["habitat_enabled"] = config.getboolean(
+        #     "habitat", "habitat_enabled"
+        # )
+        # auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
         auto_rx_config["habitat_uploader_callsign"] = config.get(
             "habitat", "uploader_callsign"
         )
@@ -254,17 +298,19 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["habitat_uploader_antenna"] = config.get(
             "habitat", "uploader_antenna"
         ).strip()
-        try:  # Use the default configuration if not found
-            auto_rx_config["habitat_url"] = config.get("habitat", "url")
-        except:
-            pass
 
-        if auto_rx_config["habitat_upload_rate"] < MINIMUM_HABITAT_UPDATE_RATE:
-            logging.warning(
-                "Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat."
-                % MINIMUM_HABITAT_UPDATE_RATE
-            )
-            auto_rx_config["habitat_upload_rate"] = MINIMUM_HABITAT_UPDATE_RATE
+        # try:  # Use the default configuration if not found
+        #     auto_rx_config["habitat_url"] = config.get("habitat", "url")
+        # except:
+        #     pass
+
+        # Deprecated from v1.5.0
+        # if auto_rx_config["habitat_upload_rate"] < MINIMUM_HABITAT_UPDATE_RATE:
+        #     logging.warning(
+        #         "Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat."
+        #         % MINIMUM_HABITAT_UPDATE_RATE
+        #     )
+        #     auto_rx_config["habitat_upload_rate"] = MINIMUM_HABITAT_UPDATE_RATE
 
         # APRS Settings
         auto_rx_config["aprs_enabled"] = config.getboolean("aprs", "aprs_enabled")
@@ -392,7 +438,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
-            "MRZ": False, # .... except for the MRZ, until we know it works.
+            "MRZ": False,  # .... except for the MRZ, until we know it works.
             "UDP": False,
         }
 
@@ -556,6 +602,19 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["sonde_time_threshold"] = 3
 
+        # Web control password
+        try:
+            auto_rx_config["web_password"] = config.get("web", "web_password")
+            if auto_rx_config["web_password"] == "none":
+                logging.warning("Config - Web Password not set, disabling web control")
+                auto_rx_config["web_control"] = True
+        except:
+            logging.warning(
+                "Config - Did not find Web Password setting, using default (web control disabled)"
+            )
+            auto_rx_config["web_control"] = False
+            auto_rx_config["web_password"] = "none"
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
@@ -632,6 +691,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             global_config.pop("email_smtp_login")
             global_config.pop("email_smtp_password")
             global_config.pop("email_smtp_server")
+            global_config.pop("email_smtp_port")
+            global_config.pop("email_from")
+            global_config.pop("email_to")
+            global_config.pop("email_smtp_authentication")
+            global_config.pop("sondehub_contact_email")
+            global_config.pop("web_password")
+
+            web_password = auto_rx_config["web_password"]
 
             return auto_rx_config
 
@@ -642,7 +709,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 
 if __name__ == "__main__":
-    """ Quick test script to attempt to read in a config file. """
+    """Quick test script to attempt to read in a config file."""
     import sys, pprint
 
     logging.basicConfig(
