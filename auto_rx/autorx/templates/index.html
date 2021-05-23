@@ -12,8 +12,8 @@
     <link href="{{ url_for('static', filename='css/c3.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
-    <link id='tabulatorsheet' href='{{ url_for('static', filename='css/tabulator_midnight.min.css') }}' rel='stylesheet'>
+    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet" >
+    <link id='tabulatorsheet' href="{{ url_for('static', filename='css/tabulator_midnight.min.css') }}" rel='stylesheet'>
     
     <!-- Import local libraries -->
     <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
@@ -25,7 +25,7 @@
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/d3.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/d3.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
@@ -74,10 +74,12 @@
                   async: true,
                   success: function(data) {
                     // Update the current version field.
-                    if (getCookie('version') == "false") {}
-                    else {
+                    if (getCookie('version') == 'false') {} 
+                    else if (getCookie('version') == 'true') {
                         $('#currentversion').text(data.current);
-                    }
+                    } else if ((window.innerWidth/window.innerHeight) > 1) {
+                        $('#currentversion').text(data.current);
+                    } 
                     
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
@@ -213,14 +215,14 @@
             
             // Home Icon.
             homeIcon = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
             
             // Home Icon for dark mode.
             homeIconDark = L.icon({
-            iconUrl: '{{ url_for('static', filename='img/antenna-green-dark.png') }}',
+            iconUrl: "{{ url_for('static', filename='img/antenna-green-dark.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
             });  
@@ -293,8 +295,12 @@
             // Check if user has version shown selection.
             if (getCookie('version') == 'false') {
                 document.getElementById("showversionbutton").checked = false;
-            } else {
+            } else if (getCookie('version') == 'true') {
                 document.getElementById("showversionbutton").checked = true;
+            } else if ((window.innerWidth/window.innerHeight) > 1) {
+                document.getElementById("showversionbutton").checked = true;
+            } else {
+                document.getElementById("showversionbutton").checked = false;
             }
             
             // Check if user has preffered scan chart visiblity.
@@ -338,6 +344,7 @@
                     $('.modal-content').css('background-color', 'white')
                     $('.close').css('color', 'black')
                     $('#myBtn').css('color', 'black')
+                    $('#historyBtn').css('color', 'black')
                     $('#scanid').css('color', 'black')
                     $('.c3-axis-y').css('fill', 'black')
                     $('.c3-axis-x').css('fill', 'black')
@@ -363,6 +370,7 @@
                     $('.modal-content').css('background-color', 'black')
                     $('.close').css('color', 'white')
                     $('#myBtn').css('color', 'white')
+                    $('#historyBtn').css('color', 'white')
                     $('#scanid').css('color', 'white')
                     $('.c3-axis-y').css('fill', 'white')
                     $('.c3-axis-x').css('fill', 'white')
@@ -516,13 +524,13 @@
                     },
                     {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return (Math.round((cell.getValue()*3.28084) * 10) / 10);           
+                            return (Math.round((cell.getValue()*196.85) * 10) / 10);           
                         } else {
                             return cell.getValue();
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (ft/s)";              
+                            return cell.getValue() + " (ft/min)";              
                         } else {
                             return cell.getValue() + " (m/s)";
                         }
@@ -1550,14 +1558,21 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button id="open-controls" onclick="openModal()">OPEN</button>
-                  </div>                 
+                  </div>    
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Historical View</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                    <button onclick="window.location.href='/historical.html'">OPEN</button>
+                  </div>                            
                   <br>
                   <br>
                   <br>
             </div>       
         </div>    
         <div id="downdiv">
-            <i class="fa fa-angle-down" style="font-size:60px;opacity:1;"></i>
+            <i class="icon-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
 
@@ -1579,7 +1594,8 @@
         </div>
         <br>
         <div id="mapid"></div>
-        <i id="myBtn" onclick="changeSettings()" class="fa fa-gear" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <i id="myBtn" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="historical.html" id="historyBtn"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
     
     <!-- Wrapper for advanced control modal -->

@@ -12,7 +12,7 @@ import numpy as np
 from .utils import position_info
 
 
-def getDensity(altitude):
+def getDensity(altitude, get_pressure=False):
     """ 
     Calculate the atmospheric density for a given altitude in metres.
     This is a direct port of the oziplotter Atmosphere class
@@ -75,6 +75,9 @@ def getDensity(altitude):
     # Finally, work out the density...
     speedOfSound = math.sqrt(gamma * R * temperature)
     pressure = pressureRel * pressureSL
+    if get_pressure:
+        return pressure
+
     density = densitySL * pressureRel * temperatureSL / temperature
 
     return density

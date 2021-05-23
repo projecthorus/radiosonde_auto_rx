@@ -158,6 +158,7 @@ def start_scanner():
             min_distance=config["min_distance"],
             quantization=config["quantization"],
             scan_dwell_time=config["scan_dwell_time"],
+            scan_delay=config["scan_delay"],
             detect_dwell_time=config["detect_dwell_time"],
             max_peaks=config["max_peaks"],
             rs_path=RS_PATH,
@@ -720,6 +721,9 @@ def main():
     else:
         # Using print because logging may not be established yet
         print("Invalid logging path, using default. Does the folder exist?")
+
+    # Update Global logging path, used by other modules.
+    autorx.logging_path = logging_path
 
     # Configure logging
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")

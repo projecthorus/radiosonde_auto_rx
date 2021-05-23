@@ -17,6 +17,7 @@ import subprocess
 import threading
 import time
 import numpy as np
+import semver
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
@@ -88,9 +89,9 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
 
 
 def check_autorx_versions(current_version=auto_rx_version):
-    """ 
+    """
         Check the current auto_rx version against the latest main and testing branches.
-        Returns a string 'Latest' if this is the latest version, or the newer version if 
+        Returns a string 'Latest' if this is the latest version, or the newer version if
         there is an update available. Returns 'Unknown' if the version could not be determined.
     """
 
@@ -108,7 +109,7 @@ def check_autorx_versions(current_version=auto_rx_version):
         # User is on a testing branch version.
         # Compare against the testing branch version - when a release is made, the testing
         # branch will have the same version as the main branch, then will advance.
-        if _testing_branch_version > current_version:
+        if semver.compare(_testing_branch_version, current_version):
             # Newer testing version available.
             return _testing_branch_version
         else:
@@ -116,7 +117,7 @@ def check_autorx_versions(current_version=auto_rx_version):
             return "Latest"
     else:
         # User is running the main branch
-        if _main_branch_version > current_version:
+        if semver.compare(_main_branch_version, current_version):
             return _main_branch_version
         else:
             return "Latest"
@@ -152,6 +153,59 @@ def strip_sonde_serial(serial):
     else:
         # Otherwise, it's probably a RS41 or RS92
         return serial
+
+
+def short_type_lookup(type_name):
+    """ Lookup a short type name to a more descriptive name """
+
+    if type_name.startswith("RS41"):
+        if type_name == "RS41":
+            return "Vaisala RS41"
+        else:
+            return "Vaisala " + type_name
+    elif type_name.startswith("RS92"):
+        if type_name == "RS92":
+            return "Vaisala RS92"
+        else:
+            return "Vaisala " + type_name
+    elif type_name.startswith("DFM"):
+        return "Graw " + type_name
+    elif type_name.startswith("M10"):
+        return "Meteomodem M10"
+    elif type_name.startswith("M20"):
+        return "Meteomodem M20"
+    elif type_name == "LMS6":
+        return "Lockheed Martin LMS6-400"
+    elif type_name == "MK2LMS":
+        return "Lockheed Martin LMS6-1680"
+    elif type_name == "IMET":
+        return "Intermet Systems iMet-1/4"
+    elif type_name == "IMET5":
+        return "Intermet Systems iMet-54"
+    elif type_name == "MEISEI":
+        return "Meisei iMS-100/RS-11"
+    elif type_name == "MRZ":
+        return "Meteo-Radiy MRZ"
+    else:
+        return "Unknown"
+
+
+def readable_timedelta(duration: timedelta):
+    """ 
+    Convert a timedelta into a readable string.
+    From: https://codereview.stackexchange.com/a/245215
+    """
+    data = {}
+    data["months"], remaining = divmod(duration.total_seconds(), 2_592_000)
+    data["days"], remaining = divmod(remaining, 86_400)
+    data["hours"], remaining = divmod(remaining, 3_600)
+    data["minutes"], _foo = divmod(remaining, 60)
+
+    time_parts = [f"{round(value)} {name}" for name, value in data.items() if value > 0]
+    if time_parts:
+        return " ".join(time_parts)
+    else:
+        return "below 1 second"
 
 
 class AsynchronousFileReader(threading.Thread):
@@ -260,8 +314,8 @@ def detect_peaks(
     -----
     The detection of valleys instead of peaks is performed internally by simply
     negating the data: `ind_valleys = detect_peaks(-x)`
-    
-    The function can handle NaN's 
+
+    The function can handle NaN's
 
     See this IPython Notebook [1]_.
 

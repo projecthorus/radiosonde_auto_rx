@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Radiosonde Auto-RX Historical</title>
+
+    <!-- Configure to work on mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Import style sheets (font and icons are remote, should fix) -->
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet" >
+    <link id='tabulatorsheet' href="{{ url_for('static', filename='css/tabulator_midnight.min.css') }}" rel='stylesheet'>
+    <link href="{{ url_for('static', filename='css/skewt.css') }}" rel="stylesheet">
+    
+    <!-- Import local libraries -->
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/leaflet-providers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/d3.3.5.3.min.js') }}" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/skewt.js') }}"></script>
+    
+    <script>
+        var autorx_config = {
+            lat: 0.0,
+            lon: 0.0
+        };
+
+        var table_data = {}
+            
+        $( document ).ready(function() {
+
+            namespace = '/update_status';
+
+            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+            
+            $.ajax({
+                  // Get station.cfg file.
+                  url: "/get_config",
+                  dataType: 'json',
+                  async: false,
+                  success: function(data) {
+                    autorx_config = data;
+                    // Update station callsign area
+                    _station_call = autorx_config['habitat_uploader_callsign'];
+                    $('#station_callsign').text(_station_call);
+                  }
+            });  
+
+            $.ajax({
+                  // Get list of sonde.
+                  url: "/get_log_list",
+                  dataType: 'json',
+                  async: false,
+                  success: function(data) {
+                    table_data = data;
+                    var x = document.getElementById("closebtn");
+                    if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
+                        if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
+                            x.style.display = "none";
+                            document.getElementById("mySidenav").style.width = "620px";
+                            document.getElementById("main").style.marginLeft = "620px";
+                            document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                        } else { // Fullsize on mobile.
+                            x.style.display = "block";
+                            document.getElementById("mySidenav").style.width = "100%";
+                            document.getElementById("main").style.marginLeft = "0";
+                            document.getElementById("mySidenav").style.borderRadius = "0px";
+                        }
+                    }
+                  }
+            });   
+
+            var table = new Tabulator("#sonde-list-table", {
+                data:table_data,           //load row data from array
+                layout:"fitColumns",     //fit columns to width of table
+                selectable:true,
+                columns:[                 //define the table columns
+                    {title:"Type", field:"type", width:190, resizable:false},
+                    {title:"Serial", field:"serial", width:105, resizable:false},
+                    {title:"Count", field:"lines", width:80, resizable:false},
+                    {title:"Date", field:"datetime", width:205, resizable:false, formatter:function(cell, formatterParams, onRendered){
+                        if (getCookie('UTC') == 'false') {
+                            var temp_time = new Date(cell.getValue());
+                            if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
+                                return;
+                            } else {
+                                return temp_time.toLocaleString("en-AU");
+                            }                            
+                        } else {
+                            return cell.getValue();
+                        }
+                    }
+                    },
+                    {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
+                ],
+                rowSelected:function(row){
+                    mymap.eachLayer(function(layer){
+                        if (row.getData().serial == layer['options']['title']) {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [20, 20];
+                            new_icon.options.iconAnchor = [10, 10];
+                            layer.setIcon(new_icon);
+                        }
+                    });
+                },
+                rowDeselected:function(row){
+                    mymap.eachLayer(function(layer){
+                        if (row.getData().serial == layer['options']['title']) {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [15, 15];
+                            new_icon.options.iconAnchor = [7.5, 7.5];
+                            layer.setIcon(new_icon);
+                        }
+                    });
+                },
+            });
+
+            async function disableMenu () {
+                $("#select-all").prop('disabled', true);
+                $("#deselect-all").prop('disabled', true);
+                $("#showsonde-map").prop('disabled', true);
+                $("#showsonde-mapquick").prop('disabled', true);
+                $("#hidesonde-map").prop('disabled', true);
+                $("#showsonde-skew").prop('disabled', true);
+                $("#hidesonde-skew").prop('disabled', true);
+                $("#download-logs").prop('disabled', true);
+            }
+
+            async function enableMenu () {
+                $("#select-all").prop('disabled', false);
+                $("#deselect-all").prop('disabled', false);
+                $("#showsonde-map").prop('disabled', false);
+                $("#showsonde-mapquick").prop('disabled', false);
+                $("#hidesonde-map").prop('disabled', false);
+                $("#showsonde-skew").prop('disabled', false);
+                $("#hidesonde-skew").prop('disabled', false);
+                $("#download-logs").prop('disabled', false);
+            }
+
+            if ((window.innerWidth/window.innerHeight) < 1) {
+                $('#historicaltitle').html(" Auto-RX Historical");
+            }
+
+            function showSondeLanding () {
+
+                var layerBounds = new L.LatLngBounds();
+                layerBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
+
+                table_data.forEach(initialShow);
+                function initialShow(value, index, array) {
+                    //landing marker
+                    landing_lat = parseFloat(value['last']['lat']);
+                    landing_lon = parseFloat(value['last']['lon']);
+                    if (getCookie('imperial') == 'true') {
+                        landing_alt = parseFloat(value['last']['alt'])*3.28084;
+                    } else {
+                        landing_alt = parseFloat(value['last']['alt']);
+                    }
+                    if (getCookie('UTC') == 'false') {
+                        landing_time = new Date(value['last']['datetime']).toLocaleString("en-AU");
+                    } else {
+                        landing_time = value['last']['datetime'];
+                    }
+
+                    if (getCookie('imperial') == 'true') {
+                        landing_range = parseFloat(value['last']['range_km'])*0.621371;
+                    } else {
+                        landing_range = parseFloat(value['last']['range_km']);
+                    }
+
+                    landing_bearing = Math.floor(parseFloat(value['last']['bearing'])) + "˚ True.";
+
+                    //check if row selected
+                    var match = false;
+                    for (rows = 0; rows < table.getSelectedRows().length; rows++) {
+                        if (table.getSelectedRows()[rows]['_row']['data']['serial'] == value['serial']) {
+                            match = true;
+                        }
+                    }
+
+                    if (match) {
+                        landing_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                    } else {
+                        landing_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                            iconSize: [15, 15],
+                            iconAnchor: [7.5, 7.5]
+                        });
+                    }
+
+                    if (getCookie('imperial') == 'true') {
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
+                    } else {
+                        landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' km range, ' + landing_bearing;
+                    }
+
+                    landingMarker = L.marker([landing_lat, landing_lon],
+                        {
+                            title: value['serial'], 
+                            icon: landing_icon
+                        })
+                        .bindTooltip(landingIconTitle,{permanent:false,direction:'right'})
+                        .on("click", function(e){
+                            // Bump up the size of the landing icon slightly on click.
+                            if (e.sourceTarget.options.icon['options']['iconSize'][0] == 15) {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [20, 20];
+                                new_icon.options.iconAnchor= [10, 10];
+                                table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            } else {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [15, 15];
+                                new_icon.options.iconAnchor= [7.5, 7.5];
+                                table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            }
+                            e.sourceTarget.setIcon(new_icon);
+                        });
+                    
+                    layerBounds.extend([landing_lat, landing_lon]);
+                    historicalsonde.addLayer(landingMarker)
+                }
+
+                mymap.fitBounds(layerBounds);
+            }
+
+            function showSondeMap () {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    shown = [];
+                    shown.splice(0, shown.length);
+                    selected = [];
+                    selected.splice(0, shown.length);
+                    mymap.eachLayer(function(layer){
+                        try {
+                            if (layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
+                                shown.push(layer['_tooltip']['_content'].split(' ')[0]);
+                            }
+                            if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                                selected.push(layer['_tooltip']['_content'].split(' ')[0]);
+                            }
+                        } catch(err) {}
+                    });
+
+                    var i = 0;	
+                    function processLog(i) {
+                        highest = -1;
+                        if (!shown.includes(selectedrows[i]['serial'])) {
+                            if (i > highest) {
+                                highest = i;
+                            }
+                            $.ajax({
+                                url: "/get_log_by_serial/" + selectedrows[i]['serial'],
+                                dataType: 'json',
+                                async: true,
+                                success: function(data) {
+                                    var sonde_path = L.polyline([]);
+                                    var max_alt = -99999.0;
+
+                                    for (let i = 0; i < data['path'].length; i++){
+                                        // Extract data.
+                                        lat = parseFloat(data['path'][i][0]);
+                                        lon = parseFloat(data['path'][i][1]);
+                                        if (getCookie('imperial') == 'true') {
+                                            alt = parseFloat(data['path'][i][2])*3.28084;
+                                        } else {
+                                            alt = parseFloat(data['path'][i][2]);
+                                        }
+
+                                        sonde_path.addLatLng([lat, lon]);
+
+                                        if (alt > max_alt){
+                                            max_alt = alt;
+                                        }
+                                    }
+
+                                    fastplot = true;
+                                    
+                                    //launch marker
+                                    launch_lat = parseFloat(data['first'][0]);
+                                    launch_lon = parseFloat(data['first'][1]);
+                                    if (getCookie('imperial') == 'true') {
+                                        launch_alt = parseFloat(data['first'][2])*3.28084;
+                                    } else {
+                                        launch_alt = parseFloat(data['first'][2]);
+                                    }
+                                    if (getCookie('UTC') == 'false') {
+                                        launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                    } else {
+                                        launch_time = data['first_time'];
+                                    }
+
+                                    if (getCookie('imperial') == 'true') {
+                                        launch_range = parseFloat(data['first_range_km'])*0.621371;
+                                    } else {
+                                        launch_range = parseFloat(data['first_range_km']);
+                                    }
+
+                                    launch_bearing = Math.floor(parseFloat(data['first_bearing'])) + "˚ True.";
+
+                                    launch_icon = L.icon({
+                                        iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                                        iconSize: [15,15],
+                                        iconAnchor: [7.5,7.5]
+                                    });
+
+                                    if (getCookie('imperial') == 'true') {
+                                        launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
+                                    } else {
+                                        launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
+                                    }
+
+                                    launchMarker = L.marker([launch_lat, launch_lon],
+                                        {
+                                            title: data['serial'], 
+                                            icon: launch_icon
+                                        })
+                                        .bindTooltip(launchIconTitle,{permanent:false,direction:'right'});
+                                        
+                                    historicalsonde.addLayer(launchMarker)
+                                    
+                                    //landing marker
+                                    landing_lat = parseFloat(data['last'][0]);
+                                    landing_lon = parseFloat(data['last'][1]);
+
+                                    if (!selected.includes(data['serial'])) {
+                                        if (getCookie('imperial') == 'true') {
+                                            landing_alt = parseFloat(data['last'][2])*3.28084;
+                                        } else {
+                                            landing_alt = parseFloat(data['last'][2]);
+                                        }
+                                        if (getCookie('UTC') == 'false') {
+                                            landing_time = new Date(data['last_time']).toLocaleString("en-AU");
+                                        } else {
+                                            landing_time = data['last_time']
+                                        }
+                                        
+                                        if (getCookie('imperial') == 'true') {
+                                            landing_range = parseFloat(data['last_range_km'])*0.621371;
+                                        } else {
+                                            landing_range = parseFloat(data['last_range_km']);
+                                        }
+
+                                        landing_bearing = Math.floor(parseFloat(data['last_bearing'])) + "˚ True.";
+
+                                        landing_icon = L.icon({
+                                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                                            iconSize: [15, 15],
+                                            iconAnchor: [7.5, 7.5]
+                                        });
+
+                                        if (getCookie('imperial') == 'true') {
+                                            landingIconTitle = data['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
+                                        } else {
+                                            landingIconTitle = data['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'm) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' km range, ' + landing_bearing;
+                                        }
+
+                                        landingMarker = L.marker([landing_lat, landing_lon],
+                                            {
+                                                title: data['serial'], 
+                                                icon: landing_icon
+                                            })
+                                            .bindTooltip(landingIconTitle,{permanent:false,direction:'right'})
+                                            .on("click", function(e){
+                                                // Bump up the size of the landing icon slightly on click.
+                                                if (e.sourceTarget.options.icon['options']['iconSize'][0] == 15) {
+                                                    new_icon = e.sourceTarget.options.icon;
+                                                    new_icon.options.iconSize = [20, 20];
+                                                    new_icon.options.iconAnchor= [10, 10];
+                                                    table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                                                } else {
+                                                    new_icon = e.sourceTarget.options.icon;
+                                                    new_icon.options.iconSize = [15, 15];
+                                                    new_icon.options.iconAnchor= [7.5, 7.5];
+                                                    table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                                                }
+                                                e.sourceTarget.setIcon(new_icon);
+                                            });
+
+                                        historicalsonde.addLayer(landingMarker)              
+                                    }
+                                    
+                                    //burst marker
+                                    burst_lat = parseFloat(data['burst'][0]);
+                                    burst_lon = parseFloat(data['burst'][1]);
+                                    if (getCookie('imperial') == 'true') {
+                                        burst_alt = parseFloat(data['burst'][2])*3.28084;
+                                    } else {
+                                        burst_alt = parseFloat(data['burst'][2]);
+                                    }
+                                    if (getCookie('UTC') == 'false') {
+                                        burst_time = new Date(data['burst_time']).toLocaleString("en-AU");
+                                    } else {
+                                        burst_time = data['burst_time'];
+                                    }
+
+                                    burst_icon = L.icon({
+                                        iconUrl: "{{ url_for('static', filename='img/burst_marker.png') }}",
+                                        iconSize: [15,15],
+                                        iconAnchor: [7.5,7.5]
+                                    });
+
+                                    if (getCookie('imperial') == 'true') {
+                                        burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'ft';
+                                    } else {
+                                        burstIconTitle = selectedrows[i]['serial'] + ' Burst at ' + Math.floor(burst_alt) + 'm';
+                                    }
+
+                                    burstMarker = L.marker([burst_lat, burst_lon],
+                                        {
+                                            title:burstIconTitle, 
+                                            icon: burst_icon
+                                        })
+                                        .bindTooltip(burstIconTitle,{permanent:false,direction:'right'});
+
+                                    if (burst_lat != landing_lat && burst_lon != landing_lon) {
+                                        historicalsonde.addLayer(burstMarker)
+                                    }
+
+                                    historicalsonde.addLayer(sonde_path)
+
+                                    if (i == highest) {
+                                        enableMenu();
+                                        if (selectedrows.length == table.getData().length) {
+                                            table.deselectRow();
+                                        }
+                                    }
+                                }
+                            });  
+                        }
+                        if (i < (selectedrows.length-1)) {
+                            i++;	
+                            setTimeout(processLog(i), 1);
+                        }
+                    }
+                    processLog(0);
+                } else {
+                    enableMenu();
+                }
+            } 
+
+            //select row on "select all" button click
+            $("#select-all").click(function(){
+                table.selectRow();
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [20, 20];
+                            new_icon.options.iconAnchor = [10, 10];
+                            layer.setIcon(new_icon);
+                        }
+                    } catch(err) {}
+                });
+            });
+
+            //deselect row on "deselect all" button click
+            $("#deselect-all").click(function(){
+                table.deselectRow();
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [15, 15];
+                            new_icon.options.iconAnchor = [7.5, 7.5];
+                            layer.setIcon(new_icon);
+                        }
+                    } catch(err) {}
+                });
+            });
+
+            $("#showsonde-map").click(function(){
+                disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
+
+                shown = [];
+                shown.splice(0, shown.length);
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
+                            shown.push(layer['_tooltip']['_content'].split(' ')[0]);
+                        }
+                    } catch(err) {}
+                });
+
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            if (layer['options']['icon']['options']['iconSize'][0] == 15) {
+                                if (!shown.includes(layer['options']['title'])) {
+                                    mymap.removeLayer(layer);
+                                }
+                            }
+                        }
+                    } catch(err) {}
+                });
+                setTimeout(showSondeMap, 500);
+            });
+
+            $("#showsonde-mapquick").click(function(){
+                disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
+                setTimeout(showSondeLanding, 500);
+                enableMenu();
+            });
+
+            $("#hidesonde-map").click(function(){
+                historicalsonde.clearLayers();
+                table.deselectRow();
+                $('#skewt-header').html("<h2>Skew-T</h2>");
+                try {
+                    skewt.clear();
+                } catch (err) {}
+            });
+            
+            var skewt;
+
+            function sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            function showSkewT () {
+                selectedrows = table.getSelectedData();
+                if ((getCookie("skewt-decimation") != null) && ($("#skewt-buttons").css("visibility") != "visible")) {
+                    decimation = getCookie("skewt-decimation");
+                } else {
+                    decimation = parseInt($("#skewt-decimation").val());
+                    setCookie("skewt-decimation", decimation);
+                }
+                if (selectedrows.length > 0) {
+                    _serial = selectedrows[selectedrows.length-1]['serial'];
+                    _type = selectedrows[selectedrows.length-1]['type'];
+                    $.post(
+                        "/get_log_detail", 
+                        {serial: _serial, decimation:decimation},
+                        async function(data){
+                            try {
+                                skewt.clear()
+                            } catch(e) {
+                                //sidebar needs to be open first time
+                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                    if ((window.innerWidth/window.innerHeight) > 1) {
+                                        document.getElementById("mySettings").style.width = "100vh";
+                                    } else {
+                                        document.getElementById("mySettings").style.width = "100%";
+                                    }
+                                    await sleep(500);
+                                }
+                                skewt = new SkewT('#skewt');
+                            }
+                                
+                            if (getCookie('UTC') == 'false') {
+                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                            } else {
+                                launch_time = data['first_time'];
+                            }
+                            $('#skewt-header').html("Skew-T - "+_type + " " + _serial + " " + launch_time);
+
+                            try {
+                                skewt.plot(data.skewt);
+                                $("#skewt-buttons").css('visibility', 'visible');
+                                var slider = document.getElementById("skewt-decimation");
+                                var output = document.getElementById("skewt-decimation-value");
+                                slider.value = decimation;
+                                output.innerHTML = slider.value; // Display the default slider value
+
+                                // Update the current slider value (each time you drag the slider handle)
+                                slider.oninput = function() {
+                                    output.innerHTML = this.value;
+                                }
+                                enableMenu();
+                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                    if ((window.innerWidth/window.innerHeight) > 1) {
+                                        document.getElementById("mySettings").style.width = "100vh";
+                                    } else {
+                                        document.getElementById("mySettings").style.width = "100%";
+                                    }
+                                }
+                            }
+                            catch(err) {
+                                console.log(err);
+                                enableMenu();
+                            }	
+                        },
+                        "json"
+                        ).fail(function(xhr, status, error){
+                            console.log(error);
+                        });
+                } else {
+                    enableMenu();
+                }
+            }
+
+
+            $("#showsonde-skew").click(function(){
+                disableMenu();
+                showSkewT();
+            });
+            $("#regenerate-skewt").click(function(){
+                disableMenu();
+                showSkewT();
+            });
+
+            function downloadLogs() {
+                // Download a set of log files.
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    // Create the list of log files.
+                    _serial_list = [];
+                    for (let i = 0; i < selectedrows.length; i++){
+                        _serial_list.push(selectedrows[i]['serial']);
+                    }
+
+                    if(_serial_list.length>50){
+                        if (confirm("Warning - downloading lots of log may take some time. Are you sure?")) {
+                            // Just continue on.
+                        } else {
+                            return;
+                        }
+                    }
+
+                    if(_serial_list.length == table.getData().length){
+                        // Request all log files
+                        window.open("/export_all_log_files" , '_blank');
+                    }else {
+                        // Just request the selected ones.
+                        // Convert the list to JSON, and then to base64
+                        b64 = btoa(JSON.stringify(_serial_list));
+                        // Make the request in a new tab
+                        window.open("/export_log_files/"+b64 , '_blank');
+                    }
+                }
+            }
+
+            $("#download-logs").click(function(){
+                downloadLogs();
+            });
+            
+            // List of available map layers.
+            var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
+            var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
+            var Terrain = L.tileLayer.provider("Stamen.Terrain", {edgeBufferTiles: 2});
+            var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
+            var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
+            var OpenTopoMap = L.tileLayer.provider("OpenTopoMap", {edgeBufferTiles: 2});
+            
+            // Add maps to baseMaps.
+            var baseMaps = {
+                "Mapnik": Mapnik,
+                "DarkMatter": DarkMatter,
+                "WorldImagery": WorldImagery,
+                "Terrain": Terrain,
+                "Voyager": Voyager,
+                "OpenTopoMap": OpenTopoMap                          
+            };
+
+            // Check if user has preffered map theme.
+            var x = getCookie('theme');
+            if (x) {
+                mapTheme = x;
+            } else {
+                if (getCookie('dark') == "false") {
+                    mapTheme = "Mapnik"
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    mapTheme = "DarkMatter"
+                } else {
+                    mapTheme = "Mapnik"
+                }
+            }
+            
+            // Home Icon.
+            homeIcon = L.icon({
+            iconUrl: "{{ url_for('static', filename='img/antenna-green.png') }}",
+            iconSize: [26, 34],
+            iconAnchor: [13, 34]
+            });  
+            
+            // Home Icon for dark mode.
+            homeIconDark = L.icon({
+            iconUrl: "{{ url_for('static', filename='img/antenna-green-dark.png') }}",
+            iconSize: [26, 34],
+            iconAnchor: [13, 34]
+            });  
+            
+            // Create map object.
+            mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
+            mymap.addControl(new L.Control.Fullscreen());
+            if (mapTheme != 'DarkMatter' && mapTheme != 'WorldImagery') {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+                        {title: 'Receiver Location', icon: homeIcon}
+                        ).addTo(mymap);
+            } else {
+                home_marker = L.marker([autorx_config.station_lat, autorx_config.station_lon, autorx_config.alt],
+                        {title: 'Receiver Location', icon: homeIconDark}
+                        ).addTo(mymap);
+            }
+
+            mymap.doubleClickZoom.disable(); 
+                       
+            L.control.layers(baseMaps).addTo(mymap);
+
+            baseMaps[mapTheme].addTo(mymap);
+
+            var historicalsonde = new L.LayerGroup();	
+            historicalsonde.addTo(mymap);
+            
+            // Update preffered them cookie on layer change.
+            mymap.on('baselayerchange', function(e) {
+                setCookie("theme", e['name'], 365);
+                if(e['name'] == "DarkMatter" || e['name'] == "WorldImagery"){
+                    home_marker.setIcon(homeIconDark);
+                 }else{
+                    home_marker.setIcon(homeIcon);
+                 }
+            });
+            
+            // Check if user has dark mode set.
+            if (getCookie('dark') == 'true') {
+                changeTheme(true);
+            } else if (getCookie('dark') == 'false') {
+                changeTheme(false);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                changeTheme(true);
+            } else {
+                changeTheme(false);
+            }              
+               
+            // Function to change CSS options when changing dark mode.
+            function changeTheme(dark) {
+                if (dark == false) {
+                    document.body.style.background = 'white';
+                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                        $('#main span').css('color', 'black')
+                        $('#log-tray').css('color', 'red');
+                    } else {
+                        $('#main span').css('color', 'black')
+                    }
+                    $('#main p').css('color', 'black')
+                    $('.modal-content p').css('color', 'black')
+                    $('.modal-content h2').css('color', 'black')
+                    $('.modal-content span').css('color', 'black')
+                    $('.modal-content').css('background-color', 'white')
+                    $('.close').css('color', 'black')
+                    $('#myBtn').css('color', 'black')
+                    $('#historyBtn').css('color', 'black')
+                    $('#scanid').css('color', 'black')
+                    $('.c3-axis-y').css('fill', 'black')
+                    $('.c3-axis-x').css('fill', 'black')
+                    $('.c3-legend-item text').css('fill', 'black')
+                    $('.domain').css('stroke', 'black')
+                    $('.tick line').css('stroke', 'black')  
+                    $('#mapid span').css('color', 'black') 
+                    $('.sidenav').css('background-color', '#111')
+                    $('#skewt-header').css('color', 'black')
+                    $('#closebtn2').css('color', 'black')
+                    // SkewT Light Mode Colors
+                    $('.settings').css('background-color', '#f2f2f2')
+                    $(".gridline").css('stroke', '#c4c4c4')
+                    $(".tempzero").css('stroke', '#c4c4c4')
+                } else {
+                    document.body.style.background = '#121212';
+                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                        $('#main span').css('color', 'white')
+                        $('#log-tray').css('color', 'red');
+                    } else {
+                        $('#main span').css('color', 'white')
+                    }
+                    $('#main p').css('color', 'white')
+                    $('.modal-content p').css('color', 'white')
+                    $('.modal-content h2').css('color', 'white')
+                    $('.modal-content span').css('color', 'white')
+                    $('.modal-content').css('background-color', 'black')
+                    $('.close').css('color', 'white')
+                    $('#myBtn').css('color', 'white')
+                    $('#historyBtn').css('color', 'white')
+                    $('#scanid').css('color', 'white')
+                    $('.c3-axis-y').css('fill', 'white')
+                    $('.c3-axis-x').css('fill', 'white')
+                    $('.c3-legend-item text').css('fill', 'white')
+                    $('.domain').css('stroke', 'white')
+                    $('.tick line').css('stroke', 'white')
+                    $('#mapid span').css('color', 'black')
+                    $('.sidenav').css('background-color', '#414141')
+                    $('.settings').css('background-color', '#808080')
+                    // TODO: Dark Mode SkewT Colors for better contrast.
+                }
+            }
+
+            // Invalidate map size to fix problems with elements resizing.
+            mymap.invalidateSize(); 
+
+            socket.on('station_update', function(msg) {
+                // Station update messages indicate a move of the station location, as updated
+                // by a GPS receiver.
+
+                if(initial_load_complete == false){
+                    // If we have not completed our initial load of telemetry data, discard this data.
+                    return
+                }
+
+                // Update the marker position.
+                home_marker.setLatLng([msg.lat, msg.lon, msg.alt]).update();
+
+                // Update the autorx_config object, which is used to calculate relative look angles for the telemetry table.
+                autorx_config.station_lat = msg.lat;
+                autorx_config.station_lon = msg.lon;
+                autorx_config.station_alt = msg.alt;
+
+            });
+        });
+
+        // Function to open/close left log menu along with adjusting other elements so they render correctly.
+        function changeNav() {
+            var x = document.getElementById("closebtn");
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = "620px";
+                    document.getElementById("main").style.marginLeft = "620px";
+                    document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                    mymap.invalidateSize();
+                } else { // Fullsize on mobile.
+                    x.style.display = "block";
+                    y.style.display = "none";
+                    document.getElementById("mySidenav").style.width = "100%";
+                    document.getElementById("main").style.marginLeft = "0";
+                    document.getElementById("mySidenav").style.borderRadius = "0px";
+                }
+            } else {
+                x.style.display = "none";
+                y.style.display = "block";
+                document.getElementById("mySidenav").style.width = 0;
+                document.getElementById("main").style.marginLeft = 0;
+                mymap.invalidateSize();
+            }
+        }
+
+        // Function to open/close right settings menu along with adjusting other elements so they render correctly.
+        function changeSettings() {            
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
+                    y.style.display = "block";
+                    document.getElementById("mySettings").style.width = "100vh";
+                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
+                    mymap.invalidateSize();
+                } else { // Fullsize on mobile.
+                    y.style.display = "none";
+                    document.getElementById("mySettings").style.width = "100%";
+                    document.getElementById("main").style.marginRight = "0";
+                    document.getElementById("mySettings").style.borderRadius = "0px";
+                }
+            } else {
+                y.style.display = "block";
+                document.getElementById("mySettings").style.width = 0;
+                document.getElementById("main").style.marginRight = 0;
+                mymap.invalidateSize();
+            }
+        }
+
+        // Set given cookie name and value.
+        function setCookie(name,value) {
+            localStorage.setItem(name, value);
+        }
+
+        // Return cookie value given name.
+        function getCookie(name) {
+            return localStorage.getItem(name);
+        }
+
+        // Reset specific cookie.
+        function eraseCookie(name) {   
+            localStorage.removeItem(name);
+        }
+
+        // Reset all cookies.
+        function deleteAllCookies() {
+            localStorage.clear();
+            location.reload();
+        }
+        
+        let vh = window.innerHeight * 0.01;
+        
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+    </script>
+</head>
+<body>
+    <!-- Wrapper for entire body to ensure flex works -->    
+    <div class="wrapper">
+        <!-- Wrapper for sonde list sidebar -->   
+        <div id="mySidenav" class="sidenav">
+            <div class="headerdiv">
+            <a href="javascript:void(0)" class="closebtn" id="closebtn" onclick="changeNav()">&#10006;</a>
+            <h2>Sonde List</h2>
+            <div style="width:100%;text-align:center;">
+                <button id="select-all" style="margin:3px auto">Select All</button>
+                <button id="deselect-all" style="margin:3px auto">Deselect All</button>
+                <button id="hidesonde-map" style="margin:3px auto">Reset</button>
+                <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
+                <button id="showsonde-mapquick" style="margin:3px auto">Plot Landings</button>
+                <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
+                <button id="download-logs" style="margin:3px auto">Download Logs</button>
+            </div>
+            <br>
+            </div>
+            <div id="sonde-list-table"></div>       
+        </div>
+
+    <!-- Wrapper for settings sidebar -->   
+    <div id="mySettings" class="settings">
+        <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
+        <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
+        <div id="skewt" style="width:90%;margin:3px auto"></div>
+        <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
+            Decimation:
+            <input style="vertical-align:middle;" type="range" min="1" max="100" value="25" class="slider" id="skewt-decimation" list="my-detents">
+            <datalist id="my-detents">
+                <option value="5">
+                <option value="10">
+                <option value="25">
+                <option value="50">
+            </datalist>
+            <span style="width:30px;display:inline-block;" id="skewt-decimation-value"></span>
+            <button id="regenerate-skewt" style="margin:3px auto;vertical-align:middle;">Regenerate</button>
+        </span>
+        <div id="skewt-footer"></div>
+    </div>
+
+    <!-- Wrapper for main screen -->   
+    <div id="main" onload="loadMap();">
+        <div>
+            <span style="font-size:3vh;font-size:calc(var(--vh, 1vh) * 3);cursor:pointer;" onclick="changeNav()"><span id="log-tray">&#9776;</span><span id="historicaltitle"> Radiosonde Auto-RX Historical</span></span>
+        </div>
+        <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
+        <br>
+        <div id="mapid"></div>
+        <i id="myBtn" onclick="changeSettings()" class="icon-chart-line" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="." id="historyBtn"><i class="icon-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+    </div>
+</div>
+</body>
+</html>

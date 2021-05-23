@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under MIT License
 #
+import base64
 import copy
 import datetime
 import json
@@ -19,9 +20,10 @@ import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
+from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
 from threading import Thread
 import flask
-from flask import request, abort
+from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
 import re
 
@@ -86,6 +88,18 @@ def flask_index():
     return flask.render_template("index.html")
 
 
+@app.route("/historical.html")
+def flask_historical():
+    """ Render historical log page """
+    return flask.render_template("historical.html")
+
+
+@app.route("/skewt_test.html")
+def flask_skewt_test():
+    """ Render main index page """
+    return flask.render_template("skewt_test.html")
+
+
 @app.route("/get_version")
 def flask_get_version():
     """ Return current and latest auto_rx version to client """
@@ -106,27 +120,18 @@ def flask_get_task_list():
     _sdr_list = {}
 
     for _sdr in autorx.sdr_list.keys():
-        _sdr_list[str(_sdr)] = {
-                    "task": "Not Tasked", 
-                    "freq": 0
-                }
+        _sdr_list[str(_sdr)] = {"task": "Not Tasked", "freq": 0}
         if str(_sdr) in _task_list:
             if _task_list[str(_sdr)] == "SCAN":
-                _sdr_list[str(_sdr)] = {
-                    "task": "Scanning", 
-                    "freq": 0
-                }
+                _sdr_list[str(_sdr)] = {"task": "Scanning", "freq": 0}
             else:
                 try:
                     _sdr_list[str(_sdr)] = {
                         "task": "Decoding (%.3f MHz)" % (_task_list[str(_sdr)] / 1e6),
-                        "freq": _task_list[str(_sdr)]
+                        "freq": _task_list[str(_sdr)],
                     }
                 except:
-                    _sdr_list[str(_sdr)] = {
-                        "task": "Decoding (?? MHz)",
-                        "freq": 0
-                    }
+                    _sdr_list[str(_sdr)] = {"task": "Decoding (?? MHz)", "freq": 0}
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
@@ -285,9 +290,107 @@ def shutdown_flask(shutdown_key):
     return ""
 
 
+@app.route("/get_log_list")
+def flask_get_log_list():
+    """ Return a list of log files, as a list of objects """
+    return json.dumps(list_log_files(quicklook=True))
+
+
+@app.route("/get_log_by_serial/<serial>")
+def flask_get_log_by_serial(serial):
+    """ Request a log file be read, by serial number """
+    return json.dumps(read_log_by_serial(serial))
+
+
+@app.route("/get_log_detail", methods=["POST"])
+def flask_get_log_by_serial_detail():
+    """ 
+    A more customizable version of the above, with the ability
+    to set a decimation for the skewt data. 
+    """
+
+    if request.method == "POST":
+        if "serial" not in request.form:
+            abort(403)
+
+        _serial = request.form["serial"]
+
+        if "decimation" in request.form:
+            _decim = int(float(request.form["decimation"]))
+        else:
+            _decim = 25
+
+        return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
+
+
+@app.route("/export_log_files/<serialb64>")
+def flask_export_selected_log_files(serialb64):
+    """ 
+    Zip and download a set of log files.
+    The list of log files is provided in the URL as a base64-encoded JSON list.
+    """
+
+    try:
+        _serial_list = json.loads(base64.b64decode(serialb64))
+
+        _zip = zip_log_files(_serial_list)
+
+        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+
+        response = make_response(
+            flask.send_file(
+                _zip,
+                mimetype="application/zip",
+                as_attachment=True,
+                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+            )
+        )
+
+        # Add header asking client not to cache the download
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+
+        return response
+
+    except Exception as e:
+        logging.error("Web - Error handling Zip request:" + str(e))
+        abort(400)
+
+
+@app.route("/export_all_log_files")
+def flask_export_all_log_files():
+    """ 
+    Zip and download all log files. This may take some time.
+    """
+
+    try:
+        _zip = zip_log_files()
+
+        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+
+        response = make_response(
+            flask.send_file(
+                _zip,
+                mimetype="application/zip",
+                as_attachment=True,
+                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+            )
+        )
+
+        # Add header asking client not to cache the download
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+
+        return response
+
+    except Exception as e:
+        logging.error("Web - Error handling Zip request:" + str(e))
+        abort(400)
+
 #
 #   Control Endpoints.
 #
+
 
 @app.route("/check_password", methods=["POST"])
 def flask_check_password():
@@ -299,11 +402,13 @@ def flask_check_password():
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             return "OK"
         else:
             abort(403)
-    
+
     else:
         abort(403)
 
@@ -320,7 +425,9 @@ def flask_start_decoder():
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
 
             try:
                 _type = str(request.form["type"])
@@ -328,7 +435,6 @@ def flask_start_decoder():
             except Exception as e:
                 logging.error("Web - Error in decoder start request: %s", str(e))
                 abort(500)
-
 
             logging.info("Web - Got decoder start request: %s, %f" % (_type, _freq))
 
@@ -352,8 +458,10 @@ def flask_stop_decoder():
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
-        
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             _freq = float(request.form["freq"])
 
             logging.info("Web - Got decoder stop request: %f" % (_freq))
@@ -379,8 +487,10 @@ def flask_disable_scanner():
     if request.method == "POST" and autorx.config.global_config["web_control"]:
         if "password" not in request.form:
             abort(403)
-        
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             if "SCAN" not in autorx.task_list:
                 # No scanner thread running!
                 abort(404)
@@ -416,7 +526,9 @@ def flask_enable_scanner():
         if "password" not in request.form:
             abort(403)
 
-        if (request.form["password"] == autorx.config.web_password) and (autorx.config.web_password != "none"):
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
             # We re-enable the scanner by clearing the scan_inhibit flag.
             # This makes it start up on the next run of clean_task_list (approx every 2 seconds)
             # unless one is already running.
@@ -482,11 +594,11 @@ class WebHandler(logging.Handler):
     def emit(self, record):
         """ Emit a log message via SocketIO """
         if "socket.io" not in record.msg:
-            
+
             # Inhibit flask session disconnected errors
             if "Error on request" in record.msg:
                 return
-        
+
             # Convert log record into a dictionary
             log_data = {
                 "level": record.levelname,
