@@ -102,7 +102,27 @@
                     }
                     },
                     {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
-                ]
+                ],
+                rowSelected:function(row){
+                    mymap.eachLayer(function(layer){
+                        if (row.getData().serial == layer['options']['title']) {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [20, 20];
+                            new_icon.options.iconAnchor = [10, 10];
+                            layer.setIcon(new_icon);
+                        }
+                    });
+                },
+                rowDeselected:function(row){
+                    mymap.eachLayer(function(layer){
+                        if (row.getData().serial == layer['options']['title']) {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [15, 15];
+                            new_icon.options.iconAnchor = [7.5, 7.5];
+                            layer.setIcon(new_icon);
+                        }
+                    });
+                },
             });
 
             async function disableMenu () {
@@ -136,11 +156,6 @@
                 if (selectedrows.length > 0) {
                     selectedrows.forEach(initialShow);
                     function initialShow(value, index, array) {
-                        //path
-                        var sonde_path = L.polyline([]);
-                        sonde_path.addLatLng([parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]);
-                        sonde_path.addLatLng([parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]);
-                        historicalsonde.addLayer(sonde_path)
 
                         //launch marker
                         launch_lat = parseFloat(value['first']['lat']);
@@ -226,7 +241,7 @@
                             })
                             .bindTooltip(landingIconTitle,{permanent:false,direction:'right'});
 
-                        historicalsonde.addLayer(landingMarker)
+                        //historicalsonde.addLayer(landingMarker)
                     }
                 }
             }
@@ -260,11 +275,27 @@
 
                     landing_bearing = Math.floor(parseFloat(value['last']['bearing'])) + "˚ True.";
 
-                    landing_icon = L.icon({
-                        iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
-                        iconSize: [15,15],
-                        iconAnchor: [7.5,7.5]
-                    });
+                    //check if row selected
+                    var match = false;
+                    for (rows = 0; rows < table.getSelectedRows().length; rows++) {
+                        if (table.getSelectedRows()[rows]['_row']['data']['serial'] == value['serial']) {
+                            match = true;
+                        }
+                    }
+
+                    if (match) {
+                        landing_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                    } else {
+                        landing_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                            iconSize: [15, 15],
+                            iconAnchor: [7.5, 7.5]
+                        });
+                    }
 
                     if (getCookie('imperial') == 'true') {
                         landingIconTitle = value['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
@@ -280,12 +311,18 @@
                         .bindTooltip(landingIconTitle,{permanent:false,direction:'right'})
                         .on("click", function(e){
                             // Bump up the size of the landing icon slightly on click.
-                            new_icon = e.sourceTarget.options.icon;
-                            new_icon.options.iconSize = [20, 20];
-                            new_icon.options.iconAnchor= [10,10];
+                            if (e.sourceTarget.options.icon['options']['iconSize'][0] == 15) {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [20, 20];
+                                new_icon.options.iconAnchor= [10, 10];
+                                table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            } else {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [15, 15];
+                                new_icon.options.iconAnchor= [7.5, 7.5];
+                                table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            }
                             e.sourceTarget.setIcon(new_icon);
-                            // Select the sonde in the table.
-                            table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                         });
                     
                     layerBounds.extend([landing_lat, landing_lon]);
@@ -489,11 +526,31 @@
             //select row on "select all" button click
             $("#select-all").click(function(){
                 table.selectRow();
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [20, 20];
+                            new_icon.options.iconAnchor = [10, 10];
+                            layer.setIcon(new_icon);
+                        }
+                    } catch(err) {}
+                });
             });
 
             //deselect row on "deselect all" button click
             $("#deselect-all").click(function(){
                 table.deselectRow();
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            new_icon = layer['options']['icon'];
+                            new_icon.options.iconSize = [15, 15];
+                            new_icon.options.iconAnchor = [7.5, 7.5];
+                            layer.setIcon(new_icon);
+                        }
+                    } catch(err) {}
+                });
             });
 
             $("#showsonde-map").click(function(){
@@ -507,6 +564,16 @@
                     document.getElementById("main").style.marginLeft = 0;
                     mymap.invalidateSize();
                 }
+
+                mymap.eachLayer(function(layer){
+                    try {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                            if (layer['options']['icon']['options']['iconSize'][0] == 15) {
+                                mymap.removeLayer(layer);
+                            }
+                        }
+                    } catch(err) {}
+                });
                 setTimeout(showSondeMapQuick, 500);
                 setTimeout(showSondeMap, 500);
             });
@@ -528,6 +595,11 @@
 
             $("#hidesonde-map").click(function(){
                 historicalsonde.clearLayers();
+                table.deselectRow();
+                $('#skewt-header').html("<h2>Skew-T</h2>");
+                try {
+                    skewt.clear();
+                } catch (err) {}
             });
             
             var skewt;
@@ -711,6 +783,8 @@
                         {title: 'Receiver Location', icon: homeIconDark}
                         ).addTo(mymap);
             }
+
+            mymap.doubleClickZoom.disable(); 
                        
             L.control.layers(baseMaps).addTo(mymap);
 
@@ -914,7 +988,7 @@
             <div style="width:100%;text-align:center;">
                 <button id="select-all" style="margin:3px auto">Select All</button>
                 <button id="deselect-all" style="margin:3px auto">Deselect All</button>
-                <button id="hidesonde-map" style="margin:3px auto">Reset Map</button>
+                <button id="hidesonde-map" style="margin:3px auto">Reset</button>
                 <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
                 <button id="showsonde-mapquick" style="margin:3px auto">Plot Landings</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
