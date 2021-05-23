@@ -255,11 +255,13 @@
                         } catch(err) {}
                     });
 
-                    console.log(selected);
-
                     var i = 0;	
                     function processLog(i) {
+                        highest = -1;
                         if (!shown.includes(selectedrows[i]['serial'])) {
+                            if (i > highest) {
+                                highest = i;
+                            }
                             $.ajax({
                                 url: "/get_log_by_serial/" + selectedrows[i]['serial'],
                                 dataType: 'json',
@@ -267,7 +269,6 @@
                                 success: function(data) {
                                     var sonde_path = L.polyline([]);
                                     var max_alt = -99999.0;
-                                    var fastplot = false;
 
                                     for (let i = 0; i < data['path'].length; i++){
                                         // Extract data.
@@ -357,8 +358,8 @@
 
                                         landing_icon = L.icon({
                                             iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
-                                            iconSize: [20, 20],
-                                            iconAnchor: [10, 10]
+                                            iconSize: [15, 15],
+                                            iconAnchor: [7.5, 7.5]
                                         });
 
                                         if (getCookie('imperial') == 'true') {
@@ -389,9 +390,8 @@
                                                 e.sourceTarget.setIcon(new_icon);
                                             });
 
-                                        historicalsonde.addLayer(landingMarker)
+                                        historicalsonde.addLayer(landingMarker)              
                                     }
-                                    
                                     
                                     //burst marker
                                     burst_lat = parseFloat(data['burst'][0]);
@@ -431,11 +431,15 @@
                                     }
 
                                     historicalsonde.addLayer(sonde_path)
+
+                                    if (i == highest) {
+                                        enableMenu();
+                                        if (selectedrows.length == table.getData().length) {
+                                            table.deselectRow();
+                                        }
+                                    }
                                 }
                             });  
-                        }
-                        if (i == selectedrows.length-1) {
-                            enableMenu();
                         }
                         if (i < (selectedrows.length-1)) {
                             i++;	
@@ -499,8 +503,6 @@
                         }
                     } catch(err) {}
                 });
-
-                console.log(shown);
 
                 mymap.eachLayer(function(layer){
                     try {
