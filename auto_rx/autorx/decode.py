@@ -6,9 +6,11 @@
 #   Released under GNU GPL v3 or later
 #
 import autorx
+import datetime
 import logging
 import json
 import os
+import os.path
 import signal
 import subprocess
 import time
@@ -133,7 +135,7 @@ class SondeDecoder(object):
         rs92_ephemeris=None,
         rs41_drift_tweak=False,
         experimental_decoder=False,
-        imet_location="SONDE",
+        save_raw_hex=False
     ):
         """ Initialise and start a Sonde Decoder.
 
@@ -163,8 +165,7 @@ class SondeDecoder(object):
 
             rs41_drift_tweak (bool): If True, add a high-pass filter in the decode chain, which can improve decode performance on drifty SDRs.
             experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
-
-            imet_location (str): OPTIONAL - A location field which is use in the generation of iMet unique ID.
+            save_raw_hex (bool): If True, save the raw hex output from the decoder to a file.
         """
         # Thread running flag
         self.decoder_running = True
@@ -187,7 +188,16 @@ class SondeDecoder(object):
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
         self.experimental_decoder = experimental_decoder
-        self.imet_location = imet_location
+        self.save_raw_hex = save_raw_hex
+        self.raw_file = None
+
+        # Raw hex filename
+        if self.save_raw_hex:
+            _outfilename = f"{datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')}_{self.sonde_type}_{int(self.sonde_freq)}.raw"
+            _outfilename = os.path.join(autorx.logging_path, _outfilename)
+            self.raw_file_option = "-r"
+        else:
+            self.raw_file_option = ""
 
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
         # which don't necessarily have a consistent packet count to time increment ratio.
@@ -281,6 +291,12 @@ class SondeDecoder(object):
             self.log_error("Could not generate decoder command. Not starting decoder.")
             self.decoder_running = False
         else:
+
+            if self.save_raw_hex:
+                self.log_debug(f"Opening {_outfilename} to save decoder raw data.")
+                # Open the log file in binary mode.
+                self.raw_file = open(_outfilename, 'wb')
+
             # Start up the decoder thread.
             self.decode_process = None
             self.async_reader = None
@@ -467,7 +483,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # iMet-4 (IMET1RS) decoder
-            decode_cmd += "./imet1rs_dft --json 2>/dev/null"
+            decode_cmd += f"./imet1rs_dft --json {self.raw_file_option} 2>/dev/null"
 
         elif self.sonde_type == "IMET5":
             # iMet-54 Sondes
@@ -487,7 +503,7 @@ class SondeDecoder(object):
 
             # iMet-54 Decoder
             decode_cmd += (
-                "./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
+                f"./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu {self.raw_file_option} 2>/dev/null"
             )
 
         elif self.sonde_type == "MRZ":
@@ -530,7 +546,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
-            # iMet-4 (IMET1RS) decoder
+            # LMS6-1680 decoder
             if self.inverted:
                 self.log_debug("Using inverted MK2A decoder.")
                 decode_cmd += "./mk2a_lms1680 -i --json 2>/dev/null"
@@ -588,7 +604,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # Meisei IMS-100 decoder
-            decode_cmd += "./meisei100mod --json 2>/dev/null"
+            decode_cmd += f"./meisei100mod --json {self.raw_file_option} 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
@@ -655,7 +671,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = "./rs41mod --ptu2 --json --softin -i 2>/dev/null"
+            decode_cmd = f"./rs41mod --ptu2 --json --softin -i {self.raw_file_option} 2>/dev/null"
 
             # RS41s transmit pulsed beacons - average over the last 2 frames, and use a peak-hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -731,8 +747,8 @@ class SondeDecoder(object):
             )
 
             decode_cmd = (
-                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s 2>/dev/null"
-                % (_rs92_gps_data, _ptu_ops)
+                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_ops, self.raw_file_option)
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
@@ -775,7 +791,7 @@ class SondeDecoder(object):
 
             # DFM decoder
             decode_cmd = (
-                "./dfm09mod -vv --ecc --json --dist --auto --softin -i 2>/dev/null"
+                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option} 2>/dev/null"
             )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
@@ -815,7 +831,7 @@ class SondeDecoder(object):
             )
 
             # M10 decoder
-            decode_cmd = "./m10mod --json --ptu -vvv --softin -i 2>/dev/null"
+            decode_cmd = f"./m10mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
 
             # M10 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -853,7 +869,7 @@ class SondeDecoder(object):
             )
 
             # M20 decoder
-            decode_cmd = "./mXXmod --json --ptu -vvv --softin -i 2>/dev/null"
+            decode_cmd = f"./mXXmod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
 
             # M20 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -892,7 +908,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = "./lms6Xmod --json --softin --vit2 -i 2>/dev/null"
+            decode_cmd = f"./lms6Xmod --json --softin --vit2 -i {self.raw_file_option} 2>/dev/null"
 
             # LMS sondes transmit continuously - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -931,7 +947,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = "./imet54mod --ecc --json --softin -i --ptu 2>/dev/null"
+            decode_cmd = f"./imet54mod --ecc --json --softin -i --ptu {self.raw_file_option} 2>/dev/null"
 
             # iMet54 sondes transmit in bursts. Use a peak hold.
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -972,7 +988,7 @@ class SondeDecoder(object):
             )
 
             # MRZ decoder
-            decode_cmd = "./mp3h1mod --auto --json --softin --ptu 2>/dev/null"
+            decode_cmd = f"./mp3h1mod --auto --json --softin --ptu {self.raw_file_option} 2>/dev/null"
 
             # MRZ sondes transmit continuously - average over the last frame, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
@@ -1126,9 +1142,14 @@ class SondeDecoder(object):
 
         # Don't even try and decode lines which don't start with a '{'
         # These may be other output from the decoder, which we shouldn't try to parse.
-        # TODO: Perhaps we should add the option to log the raw data output from the decoders?
+        # If we have raw logging enabled, log these lines to disk.
         if data.decode("ascii")[0] != "{":
-            return
+
+            # Save the line verbatim to the raw data file, if we have that enabled
+            if self.raw_file:
+                self.raw_file.write(data)
+            else:
+                return
 
         else:
             try:
@@ -1255,7 +1276,7 @@ class SondeDecoder(object):
                 # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
                 # Latch this ID and re-use it for the entire decode run.
                 if self.imet_id == None:
-                    self.imet_id = imet_unique_id(_telemetry, custom=self.imet_location)
+                    self.imet_id = imet_unique_id(_telemetry)
 
                 # Re-generate the datetime string.
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
@@ -1377,6 +1398,9 @@ class SondeDecoder(object):
 
         if self.decoder is not None and (not nowait):
             self.decoder.join()
+        
+        if self.raw_file:
+            self.raw_file.close()
 
     def running(self):
         """ Check if the decoder subprocess is running. 
