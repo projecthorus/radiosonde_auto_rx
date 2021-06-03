@@ -51,7 +51,7 @@ def fix_datetime(datetime_str, local_dt_str=None):
 #
 
 
-def imet_unique_id(telemetry, custom=""):
+def imet_unique_id(telemetry, custom="SONDE"):
     """
 	Generate a 'unique' imet radiosonde ID based on the power-on time, frequency, and an optional location code.
 	This requires the following fields be present in the telemetry dict:

@@ -596,81 +596,79 @@ void print_frame(int len) {
         }
         printf("\n");
     }
-    else {
 
-        if (frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
-            if ( !crc_err ) {
-                if (frame_bytes[pos_SondeID]   == frame_bytes[pos_FullID]  &&
-                    frame_bytes[pos_SondeID+1] == frame_bytes[pos_FullID+1]) {
-                    ui32_t __id =  (frame_bytes[pos_FullID+2]<<24) | (frame_bytes[pos_FullID+3]<<16)
-                                 | (frame_bytes[pos_FullID]  << 8) |  frame_bytes[pos_FullID+1];
-                    gpx.id = __id;
-                }
+    if (frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
+        if ( !crc_err ) {
+            if (frame_bytes[pos_SondeID]   == frame_bytes[pos_FullID]  &&
+                frame_bytes[pos_SondeID+1] == frame_bytes[pos_FullID+1]) {
+                ui32_t __id =  (frame_bytes[pos_FullID+2]<<24) | (frame_bytes[pos_FullID+3]<<16)
+                                | (frame_bytes[pos_FullID]  << 8) |  frame_bytes[pos_FullID+1];
+                gpx.id = __id;
             }
         }
+    }
 
-        if (frame_bytes[OFS] == 0x54  &&  len/BITS > pos_GPSalt+4) {
+    if (frame_bytes[OFS] == 0x54  &&  len/BITS > pos_GPSalt+4) {
 
-            get_FrameNb();
-            get_GPStime();
-            get_GPSlat();
-            get_GPSlon();
-            get_GPSalt();
+        get_FrameNb();
+        get_GPStime();
+        get_GPSlat();
+        get_GPSlon();
+        get_GPSalt();
 
-            if ( !crc_err ) {
-                ui32_t _id = (frame_bytes[pos_SondeID]<<8) | frame_bytes[pos_SondeID+1];
-                if ((gpx.id & 0xFFFF) != _id) gpx.id = _id;
-            }
-            if (option_verbose && !crc_err) {
-                if (gpx.id & 0xFFFF0000) printf(" (%u)", gpx.id);
-                else if (gpx.id) printf(" (0x%04X)", gpx.id);
-            }
+        if ( !crc_err ) {
+            ui32_t _id = (frame_bytes[pos_SondeID]<<8) | frame_bytes[pos_SondeID+1];
+            if ((gpx.id & 0xFFFF) != _id) gpx.id = _id;
+        }
+        if (option_verbose && !crc_err) {
+            if (gpx.id & 0xFFFF0000) printf(" (%u)", gpx.id);
+            else if (gpx.id) printf(" (0x%04X)", gpx.id);
+        }
 
-            printf(" [%5d] ", gpx.frnr);
+        printf(" [%5d] ", gpx.frnr);
 
-            printf("%s ", weekday[gpx.wday]);
-            printf("%02d:%02d:%06.3f ", gpx.std, gpx.min, gpx.sek); // falls Rundung auf 60s: Ueberlauf
-            printf(" lat: %.5f ", gpx.lat);
-            printf(" lon: %.5f ", gpx.lon);
-            printf(" alt: %.2fm ", gpx.alt);
+        printf("%s ", weekday[gpx.wday]);
+        printf("%02d:%02d:%06.3f ", gpx.std, gpx.min, gpx.sek); // falls Rundung auf 60s: Ueberlauf
+        printf(" lat: %.5f ", gpx.lat);
+        printf(" lon: %.5f ", gpx.lon);
+        printf(" alt: %.2fm ", gpx.alt);
 
-            get_GPSvel24();
-            printf("  vH: %.1fm/s  D: %.1f  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vV);
-            //if (option_verbose == 2) printf("  (%.1f ,%.1f,%.1f) ", gpx.vE, gpx.vN, gpx.vU);
+        get_GPSvel24();
+        printf("  vH: %.1fm/s  D: %.1f  vV: %.1fm/s ", gpx.vH, gpx.vD, gpx.vV);
+        //if (option_verbose == 2) printf("  (%.1f ,%.1f,%.1f) ", gpx.vE, gpx.vN, gpx.vU);
 
-            if (option_crc) {
-                if (crc_err==0) printf(" [OK]"); else printf(" [NO]");
-            }
+        if (option_crc) {
+            if (crc_err==0) printf(" [OK]"); else printf(" [NO]");
+        }
 
-            printf("\n");
+        printf("\n");
 
-            if (option_jsn) {
-                // Print JSON output required by auto_rx.
-                if (crc_err==0 && (gpx.id & 0xFFFF0000)) { // CRC-OK and FullID
-                    if (gpx.prev_frnr != gpx.frnr) { //|| gpx.id != _id0
-                        // UTC oder GPS?
-                        char *ver_jsn = NULL;
-                        printf("{ \"type\": \"%s\"", "LMS");
-                        printf(", \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
-                               gpx.frnr, gpx.id, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
-                        printf(", \"subtype\": \"%s\"", "MK2A");
-                        if (gpx.jsn_freq > 0) {
-                            printf(", \"freq\": %d", gpx.jsn_freq);
-                        }
-                        #ifdef VER_JSN_STR
-                            ver_jsn = VER_JSN_STR;
-                        #endif
-                        if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
-                        printf(" }\n");
-                        printf("\n");
-                        gpx.prev_frnr = gpx.frnr;
+        if (option_jsn) {
+            // Print JSON output required by auto_rx.
+            if (crc_err==0 && (gpx.id & 0xFFFF0000)) { // CRC-OK and FullID
+                if (gpx.prev_frnr != gpx.frnr) { //|| gpx.id != _id0
+                    // UTC oder GPS?
+                    char *ver_jsn = NULL;
+                    printf("{ \"type\": \"%s\"", "LMS");
+                    printf(", \"frame\": %d, \"id\": \"LMS6-%d\", \"datetime\": \"%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
+                            gpx.frnr, gpx.id, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
+                    printf(", \"subtype\": \"%s\"", "MK2A");
+                    if (gpx.jsn_freq > 0) {
+                        printf(", \"freq\": %d", gpx.jsn_freq);
                     }
+                    #ifdef VER_JSN_STR
+                        ver_jsn = VER_JSN_STR;
+                    #endif
+                    if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
+                    printf(" }\n");
+                    printf("\n");
+                    gpx.prev_frnr = gpx.frnr;
                 }
             }
-
         }
 
     }
+
 
 }
 
