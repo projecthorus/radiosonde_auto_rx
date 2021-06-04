@@ -503,7 +503,7 @@ class SondeDecoder(object):
 
             # iMet-54 Decoder
             decode_cmd += (
-                f"./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu {self.raw_file_option} 2>/dev/null"
+                f"./imet54mod --ecc --IQ 0.0 --lp - 48000 16 --json --ptu 2>/dev/null"
             )
 
         elif self.sonde_type == "MRZ":
@@ -549,9 +549,9 @@ class SondeDecoder(object):
             # LMS6-1680 decoder
             if self.inverted:
                 self.log_debug("Using inverted MK2A decoder.")
-                decode_cmd += "./mk2a_lms1680 -i --json 2>/dev/null"
+                decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
             else:
-                decode_cmd += "./mk2a_lms1680 --json 2>/dev/null"
+                decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
 
         elif self.sonde_type.startswith("LMS"):
             # LMS6 Decoder command.
@@ -604,7 +604,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
 
             # Meisei IMS-100 decoder
-            decode_cmd += f"./meisei100mod --json {self.raw_file_option} 2>/dev/null"
+            decode_cmd += f"./meisei100mod --json 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
@@ -747,8 +747,8 @@ class SondeDecoder(object):
             )
 
             decode_cmd = (
-                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s %s 2>/dev/null"
-                % (_rs92_gps_data, _ptu_ops, self.raw_file_option)
+                "./rs92mod -vx -v --crc --ecc --vel --json --softin -i %s %s 2>/dev/null"
+                % (_rs92_gps_data, _ptu_ops)
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
@@ -791,7 +791,7 @@ class SondeDecoder(object):
 
             # DFM decoder
             decode_cmd = (
-                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option} 2>/dev/null"
+                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option.upper()} 2>/dev/null"
             )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
@@ -947,7 +947,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = f"./imet54mod --ecc --json --softin -i --ptu {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./imet54mod --ecc --json --softin -i --ptu 2>/dev/null"
 
             # iMet54 sondes transmit in bursts. Use a peak hold.
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -988,7 +988,7 @@ class SondeDecoder(object):
             )
 
             # MRZ decoder
-            decode_cmd = f"./mp3h1mod --auto --json --softin --ptu {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./mp3h1mod --auto --json --softin --ptu 2>/dev/null"
 
             # MRZ sondes transmit continuously - average over the last frame, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
@@ -1283,7 +1283,6 @@ class SondeDecoder(object):
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
                 _telemetry["id"] = self.imet_id
-                _telemetry["station_code"] = self.imet_location
 
             # iMet-54 Specific Actions
             if self.sonde_type == "IMET5":

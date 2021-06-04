@@ -904,7 +904,7 @@ static void proc_frame(gpx_t *gpx, int len) {
                     printf("\n");
                 }
 
-                if (gpx->option.raw == 0) print_frame(gpx, crc_err, len);
+                print_frame(gpx, crc_err, len);
 
                 gpx->frm_pos = 0;
                 gpx->sf6 = 0;
