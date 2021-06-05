@@ -165,37 +165,38 @@
 
                 var polygonData = {};
 
+                var divisorValue = 2; //1-360
+                //should probablly be auto selected based on number of logs
+
                 table_data.forEach(coveragePoints);
                 function coveragePoints(value, index, array) {
-                    var divisorValue = 2; //1-360
-                    //should probablly be auto selected based on number of logs
-
-                    bearingRounded = Math.round(parseFloat(value['first']['bearing'])/divisorValue)*divisorValue;
-                    if (bearingRounded in polygonData) {
-                        if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
+                    try {
+                        bearingRounded = Math.round(parseFloat(value['first']['bearing'])/divisorValue)*divisorValue;
+                        if (bearingRounded in polygonData) {
+                            if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
+                                polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
+                                edge_lat = parseFloat(value['first']['lat']);
+                                edge_lon = parseFloat(value['first']['lon']);
+                            }
+                        } else {
                             polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
                             edge_lat = parseFloat(value['first']['lat']);
                             edge_lon = parseFloat(value['first']['lon']);
                         }
-                    } else {
-                        polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
-                        edge_lat = parseFloat(value['first']['lat']);
-                        edge_lon = parseFloat(value['first']['lon']);
-                    }
-                    bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
-                    if (bearingRounded in polygonData) {
-                        if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
+                        bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
+                        if (bearingRounded in polygonData) {
+                            if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
+                                polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
+                                edge_lat = parseFloat(value['last']['lat']);
+                                edge_lon = parseFloat(value['last']['lon']);
+                            }
+                        } else {
                             polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
                             edge_lat = parseFloat(value['last']['lat']);
                             edge_lon = parseFloat(value['last']['lon']);
                         }
-                    } else {
-                        polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
-                        edge_lat = parseFloat(value['last']['lat']);
-                        edge_lon = parseFloat(value['last']['lon']);
-                    }
-
-                    layerBounds.extend([edge_lat, edge_lon]);
+                        layerBounds.extend([edge_lat, edge_lon]);
+                    } catch (err) {}
                 }
                 //create polygon
                 var polygonLatLngs = []
