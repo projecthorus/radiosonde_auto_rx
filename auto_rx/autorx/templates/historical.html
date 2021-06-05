@@ -156,8 +156,33 @@
                 var layerBounds = new L.LatLngBounds();
                 layerBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
 
+                var polygonData = {};
+
                 table_data.forEach(initialShow);
                 function initialShow(value, index, array) {
+                    //polygon data
+
+                    var divisorValue = 2; //1-360
+                    //should probablly be auto selected based on number of logs
+
+                    bearingRounded = Math.round(parseFloat(value['first']['bearing'])/divisorValue)*divisorValue;
+                    if (bearingRounded in polygonData) {
+                        if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
+                            polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
+                        }
+                    } else {
+                        polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
+                    }
+                    bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
+                    if (bearingRounded in polygonData) {
+                        if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
+                            polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
+                        }
+                    } else {
+                        polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
+                    }
+                    
+
                     //landing marker
                     landing_lat = parseFloat(value['last']['lat']);
                     landing_lon = parseFloat(value['last']['lon']);
@@ -233,6 +258,16 @@
                     layerBounds.extend([landing_lat, landing_lon]);
                     historicalsonde.addLayer(landingMarker)
                 }
+
+                //create polygon
+                var polygonLatLngs = []
+                for (const [key, value] of Object.entries(polygonData)) {
+                    tempLatLng = [value[1], value[2]];
+                    polygonLatLngs.push(tempLatLng);
+                }
+                var polygonTesting = L.polygon(polygonLatLngs, {color: 'red'});
+
+                historicalsonde.addLayer(polygonTesting);
 
                 mymap.fitBounds(layerBounds);
             }
