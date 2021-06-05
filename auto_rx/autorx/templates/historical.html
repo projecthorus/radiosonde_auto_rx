@@ -175,27 +175,19 @@
                         if (bearingRounded in polygonData) {
                             if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
                                 polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
-                                edge_lat = parseFloat(value['first']['lat']);
-                                edge_lon = parseFloat(value['first']['lon']);
                             }
                         } else {
                             polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
-                            edge_lat = parseFloat(value['first']['lat']);
-                            edge_lon = parseFloat(value['first']['lon']);
                         }
                         bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
                         if (bearingRounded in polygonData) {
                             if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
                                 polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
-                                edge_lat = parseFloat(value['last']['lat']);
-                                edge_lon = parseFloat(value['last']['lon']);
                             }
                         } else {
                             polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
-                            edge_lat = parseFloat(value['last']['lat']);
-                            edge_lon = parseFloat(value['last']['lon']);
                         }
-                        layerBounds.extend([edge_lat, edge_lon]);
+                        
                     } catch (err) {}
                 }
                 //create polygon
@@ -204,6 +196,9 @@
                 for (const [key, value] of Object.entries(polygonData)) {
                     tempLatLng = [value[1], value[2]];
                     polygonLatLngs.push(tempLatLng);
+                    edge_lat = value[1];
+                    edge_lon = value[2];
+                    layerBounds.extend([edge_lat, edge_lon]);
                 }
 
                 var polygonTesting = L.polygon(polygonLatLngs, {color: 'red'});
