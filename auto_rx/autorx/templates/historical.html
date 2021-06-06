@@ -692,7 +692,7 @@
                 table.selectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [20, 20];
                             new_icon.options.iconAnchor = [10, 10];
@@ -707,7 +707,7 @@
                 table.deselectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [15, 15];
                             new_icon.options.iconAnchor = [7.5, 7.5];
