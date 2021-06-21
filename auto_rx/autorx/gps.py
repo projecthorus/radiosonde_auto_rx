@@ -78,7 +78,7 @@ def get_almanac(destination="almanac.txt", timeout=20):
             logging.error("GPS Grabber - Downloaded file is not a GPS almanac.")
             return None
     except Exception as e:
-        logging.error("GPS Grabber - Failed to download almanac data - " % str(e))
+        logging.error(f"GPS Grabber - Failed to download almanac data - {str(e)}")
         return None
 
 
