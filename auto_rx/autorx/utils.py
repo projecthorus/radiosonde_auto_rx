@@ -144,7 +144,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ|LMS6)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
@@ -186,6 +186,40 @@ def short_type_lookup(type_name):
         return "Meisei iMS-100/RS-11"
     elif type_name == "MRZ":
         return "Meteo-Radiy MRZ"
+    else:
+        return "Unknown"
+
+def short_short_type_lookup(type_name):
+    """ Lookup a short type name to a more descriptive, but short name """
+
+    if type_name.startswith("RS41"):
+        if type_name == "RS41":
+            return "RS41"
+        else:
+            return type_name
+    elif type_name.startswith("RS92"):
+        if type_name == "RS92":
+            return "RS92"
+        else:
+            return type_name
+    elif type_name.startswith("DFM"):
+        return type_name
+    elif type_name.startswith("M10"):
+        return "M10"
+    elif type_name.startswith("M20"):
+        return "M20"
+    elif type_name == "LMS6":
+        return "LMS6-400"
+    elif type_name == "MK2LMS":
+        return "LMS6-1680"
+    elif type_name == "IMET":
+        return "iMet-1/4"
+    elif type_name == "IMET5":
+        return "iMet-54"
+    elif type_name == "MEISEI":
+        return "iMS-100"
+    elif type_name == "MRZ":
+        return "MRZ"
     else:
         return "Unknown"
 
