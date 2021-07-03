@@ -554,6 +554,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["sondehub_upload_rate"] = config.getint(
                 "sondehub", "sondehub_upload_rate"
             )
+            if auto_rx_config["sondehub_upload_rate"] < 10:
+                logging.warning(
+                    "Config - Clipped Sondehub update rate to lower limit of 10 seconds"
+                )
+                auto_rx_config["sondehub_upload_rate"] = 10
         except:
             logging.warning(
                 "Config - Did not find sondehub_enabled setting, using default (enabled / 15 seconds)."
