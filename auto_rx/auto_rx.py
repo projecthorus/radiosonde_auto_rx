@@ -245,9 +245,9 @@ def start_decoder(freq, sonde_type):
             timeout=config["rx_timeout"],
             telem_filter=telemetry_filter,
             rs92_ephemeris=rs92_ephemeris,
-            imet_location=config["station_code"],
             rs41_drift_tweak=config["rs41_drift_tweak"],
             experimental_decoder=config["experimental_decoders"][_exp_sonde_type],
+            save_raw_hex=config["save_raw_hex"]
         )
         autorx.sdr_list[_device_idx]["task"] = autorx.task_list[freq]["task"]
 
@@ -566,7 +566,9 @@ def telemetry_filter(telemetry):
     # This will need to be re-evaluated if we're still using this code in 2021!
     # UPDATE: Had some confirmation that Vaisala will continue to use the alphanumeric numbering up until
     # ~2025-2030, so have expanded the regex to match (and also support some older RS92s)
-    vaisala_callsign_valid = re.match(r"[E-Z][0-5][\d][1-7]\d{4}", _serial)
+    # Modified 2021-06 to be more flexible and match older sondes, and reprogrammed sondes.
+    # Still needs a letter at the start, but the numbers don't need to match the format exactly.
+    vaisala_callsign_valid = re.match(r"[C-Z][\d][\d][\d]\d{4}", _serial)
 
     # Just make sure we're not getting the 'xxxxxxxx' unknown serial from the DFM decoder.
     if "DFM" in telemetry["type"]:

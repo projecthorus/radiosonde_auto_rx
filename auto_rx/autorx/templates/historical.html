@@ -39,6 +39,10 @@
             
         $( document ).ready(function() {
 
+            shown = [];
+            quickLaunches = false;
+            quickLandings = false;
+
             namespace = '/update_status';
 
             var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
@@ -67,8 +71,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "620px";
-                            document.getElementById("main").style.marginLeft = "620px";
+                            document.getElementById("mySidenav").style.width = "630px";
+                            document.getElementById("main").style.marginLeft = "630px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -84,11 +88,16 @@
                 data:table_data,           //load row data from array
                 layout:"fitColumns",     //fit columns to width of table
                 selectable:true,
+                tooltips:function(cell){
+
+                        if (cell.getField() == "short_type"){
+                            return cell.getData().type;
+                        } else{
+                            return false;
+                        }
+                    },
                 columns:[                 //define the table columns
-                    {title:"Type", field:"type", width:190, resizable:false},
-                    {title:"Serial", field:"serial", width:105, resizable:false},
-                    {title:"Count", field:"lines", width:80, resizable:false},
-                    {title:"Date", field:"datetime", width:205, resizable:false, formatter:function(cell, formatterParams, onRendered){
+                    {title:"Date", field:"datetime", width:170, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
@@ -99,8 +108,20 @@
                         } else {
                             return cell.getValue();
                         }
-                    }
+                        },
+                        headerTooltip:"First Observed Date/Time"
                     },
+                    {title:"Type", field:"short_type", width:90, resizable:false},
+                    {title:"Serial", field:"serial", width:105, resizable:false},
+                    {title:"Count", field:"lines", width:75, resizable:false, headerTooltip:"Received Lines of Telemetry"},
+                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " m"; //return the contents of the cell;
+                        }},
+                    {title:"Max R", field:"max_range", width:75, resizable:false, headerTooltip:"Maximum Observed Range (km))",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " km"; //return the contents of the cell;
+                        }},
                     {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
                 rowSelected:function(row){
@@ -130,6 +151,8 @@
                 $("#deselect-all").prop('disabled', true);
                 $("#showsonde-map").prop('disabled', true);
                 $("#showsonde-mapquick").prop('disabled', true);
+                $("#showsonde-launches").prop('disabled', true);
+                $("#showsonde-coverage").prop('disabled', true);
                 $("#hidesonde-map").prop('disabled', true);
                 $("#showsonde-skew").prop('disabled', true);
                 $("#hidesonde-skew").prop('disabled', true);
@@ -141,6 +164,8 @@
                 $("#deselect-all").prop('disabled', false);
                 $("#showsonde-map").prop('disabled', false);
                 $("#showsonde-mapquick").prop('disabled', false);
+                $("#showsonde-launches").prop('disabled', false);
+                $("#showsonde-coverage").prop('disabled', false);
                 $("#hidesonde-map").prop('disabled', false);
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
@@ -151,13 +176,63 @@
                 $('#historicaltitle').html(" Auto-RX Historical");
             }
 
-            function showSondeLanding () {
-
+            function showSondeCoverage () {
                 var layerBounds = new L.LatLngBounds();
                 layerBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
 
+                var polygonData = {};
+
+                var divisorValue = 2; //1-360
+                //should probablly be auto selected based on number of logs
+
+                table_data.forEach(coveragePoints);
+                function coveragePoints(value, index, array) {
+                    try {
+                        bearingRounded = Math.round(parseFloat(value['first']['bearing'])/divisorValue)*divisorValue;
+                        if (bearingRounded in polygonData) {
+                            if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
+                                polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
+                            }
+                        } else {
+                            polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
+                        }
+                        bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
+                        if (bearingRounded in polygonData) {
+                            if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
+                                polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
+                            }
+                        } else {
+                            polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
+                        }
+                        
+                    } catch (err) {}
+                }
+                //create polygon
+                var polygonLatLngs = []
+
+                for (const [key, value] of Object.entries(polygonData)) {
+                    tempLatLng = [value[1], value[2]];
+                    polygonLatLngs.push(tempLatLng);
+                    edge_lat = value[1];
+                    edge_lon = value[2];
+                    layerBounds.extend([edge_lat, edge_lon]);
+                }
+
+                var polygonTesting = L.polygon(polygonLatLngs, {color: 'red'});
+
+                historicalsonde.addLayer(polygonTesting);
+
+                mymap.fitBounds(layerBounds);
+            }
+
+            function showSondeLanding () {
+
+                var landingBounds = new L.LatLngBounds();
+                landingBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
+
                 table_data.forEach(initialShow);
                 function initialShow(value, index, array) {
+
                     //landing marker
                     landing_lat = parseFloat(value['last']['lat']);
                     landing_lon = parseFloat(value['last']['lon']);
@@ -220,41 +295,145 @@
                                 new_icon = e.sourceTarget.options.icon;
                                 new_icon.options.iconSize = [20, 20];
                                 new_icon.options.iconAnchor= [10, 10];
+                                mymap.eachLayer(function(layer){
+                                    if (layer['options']['title'] == value['serial']) {
+                                        new_icon2 = layer['options']['icon'];
+                                        new_icon2.options.iconSize = [20, 20];
+                                        new_icon2.options.iconAnchor = [10, 10];
+                                        layer.setIcon(new_icon2);
+                                    }
+                                });
                                 table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                             } else {
                                 new_icon = e.sourceTarget.options.icon;
                                 new_icon.options.iconSize = [15, 15];
                                 new_icon.options.iconAnchor= [7.5, 7.5];
+                                mymap.eachLayer(function(layer){
+                                    if (layer['options']['title'] == value['serial']) {
+                                        new_icon2 = layer['options']['icon'];
+                                        new_icon2.options.iconSize = [15, 15];
+                                        new_icon2.options.iconAnchor = [7.5, 7.5];
+                                        layer.setIcon(new_icon2);
+                                    }
+                                });
                                 table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                             }
                             e.sourceTarget.setIcon(new_icon);
                         });
                     
-                    layerBounds.extend([landing_lat, landing_lon]);
+                    landingBounds.extend([landing_lat, landing_lon]);
                     historicalsonde.addLayer(landingMarker)
                 }
+                mymap.fitBounds(landingBounds);
+                quickLandings = true;
+            }
 
-                mymap.fitBounds(layerBounds);
+            function showSondeLaunch () {
+
+                var launchBounds = new L.LatLngBounds();
+                launchBounds.extend([autorx_config.station_lat, autorx_config.station_lon]);
+
+                table_data.forEach(initialShow);
+                function initialShow(value, index, array) {
+
+                    //launch marker
+                    launch_lat = parseFloat(value['first']['lat']);
+                    launch_lon = parseFloat(value['first']['lon']);
+                    if (getCookie('imperial') == 'true') {
+                        launch_alt = parseFloat(value['first']['alt'])*3.28084;
+                    } else {
+                        launch_alt = parseFloat(value['first']['alt']);
+                    }
+                    if (getCookie('UTC') == 'false') {
+                        launch_time = new Date(value['first']['datetime']).toLocaleString("en-AU");
+                    } else {
+                        launch_time = value['first']['datetime'];
+                    }
+
+                    if (getCookie('imperial') == 'true') {
+                        launch_range = parseFloat(value['first']['range_km'])*0.621371;
+                    } else {
+                        launch_range = parseFloat(value['first']['range_km']);
+                    }
+
+                    launch_bearing = Math.floor(parseFloat(value['first']['bearing'])) + "˚ True.";
+
+                    //check if row selected
+                    var match = false;
+                    for (rows = 0; rows < table.getSelectedRows().length; rows++) {
+                        if (table.getSelectedRows()[rows]['_row']['data']['serial'] == value['serial']) {
+                            match = true;
+                        }
+                    }
+
+                    if (match) {
+                        launch_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                    } else {
+                        launch_icon = L.icon({
+                            iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                            iconSize: [15, 15],
+                            iconAnchor: [7.5, 7.5]
+                        });
+                    }
+
+                    if (getCookie('imperial') == 'true') {
+                        launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
+                    } else {
+                        launchIconTitle = value['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
+                    }
+
+                    launchMarker = L.marker([launch_lat, launch_lon],
+                        {
+                            title: value['serial'], 
+                            icon: launch_icon
+                        })
+                        .bindTooltip(launchIconTitle,{permanent:false,direction:'right'})
+                        .on("click", function(e){
+                            // Bump up the size of the launch icon slightly on click.
+                            if (e.sourceTarget.options.icon['options']['iconSize'][0] == 15) {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [20, 20];
+                                new_icon.options.iconAnchor= [10, 10];
+                                mymap.eachLayer(function(layer){
+                                    if (layer['options']['title'] == value['serial']) {
+                                        new_icon2 = layer['options']['icon'];
+                                        new_icon2.options.iconSize = [20, 20];
+                                        new_icon2.options.iconAnchor = [10, 10];
+                                        layer.setIcon(new_icon2);
+                                    }
+                                });
+                                table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            } else {
+                                new_icon = e.sourceTarget.options.icon;
+                                new_icon.options.iconSize = [15, 15];
+                                new_icon.options.iconAnchor= [7.5, 7.5];
+                                mymap.eachLayer(function(layer){
+                                    if (layer['options']['title'] == value['serial']) {
+                                        new_icon2 = layer['options']['icon'];
+                                        new_icon2.options.iconSize = [15, 15];
+                                        new_icon2.options.iconAnchor = [7.5, 7.5];
+                                        layer.setIcon(new_icon2);
+                                    }
+                                });
+                                table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                            }
+                            e.sourceTarget.setIcon(new_icon);
+                        });
+                    
+                    launchBounds.extend([launch_lat, launch_lon]);
+                    historicalsonde.addLayer(launchMarker)
+                }
+                mymap.fitBounds(launchBounds);
+                quickLaunches = true;
             }
 
             function showSondeMap () {
                 selectedrows = table.getSelectedData();
                 if (selectedrows.length > 0) {
-                    shown = [];
-                    shown.splice(0, shown.length);
-                    selected = [];
-                    selected.splice(0, shown.length);
-                    mymap.eachLayer(function(layer){
-                        try {
-                            if (layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
-                                shown.push(layer['_tooltip']['_content'].split(' ')[0]);
-                            }
-                            if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
-                                selected.push(layer['_tooltip']['_content'].split(' ')[0]);
-                            }
-                        } catch(err) {}
-                    });
-
                     var i = 0;	
                     function processLog(i) {
                         highest = -1;
@@ -286,57 +465,96 @@
                                             max_alt = alt;
                                         }
                                     }
-
-                                    fastplot = true;
                                     
-                                    //launch marker
-                                    launch_lat = parseFloat(data['first'][0]);
-                                    launch_lon = parseFloat(data['first'][1]);
-                                    if (getCookie('imperial') == 'true') {
-                                        launch_alt = parseFloat(data['first'][2])*3.28084;
-                                    } else {
-                                        launch_alt = parseFloat(data['first'][2]);
+                                    if (!quickLaunches) {
+                                        //launch marker
+                                        launch_lat = parseFloat(data['first'][0]);
+                                        launch_lon = parseFloat(data['first'][1]);
+                                        if (getCookie('imperial') == 'true') {
+                                            launch_alt = parseFloat(data['first'][2])*3.28084;
+                                        } else {
+                                            launch_alt = parseFloat(data['first'][2]);
+                                        }
+                                        if (getCookie('UTC') == 'false') {
+                                            launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                        } else {
+                                            launch_time = data['first_time'];
+                                        }
+
+                                        if (getCookie('imperial') == 'true') {
+                                            launch_range = parseFloat(data['first_range_km'])*0.621371;
+                                        } else {
+                                            launch_range = parseFloat(data['first_range_km']);
+                                        }
+
+                                        launch_bearing = Math.floor(parseFloat(data['first_bearing'])) + "˚ True.";
+
+                                        if (selectedrows.length == table.getData().length) {
+                                            launch_icon = L.icon({
+                                                iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                                                iconSize: [15,15],
+                                                iconAnchor: [7.5,7.5]
+                                            });
+                                        } else {
+                                            launch_icon = L.icon({
+                                                iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
+                                                iconSize: [20,20],
+                                                iconAnchor: [10,10]
+                                            });
+                                        }
+
+                                        if (getCookie('imperial') == 'true') {
+                                            launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
+                                        } else {
+                                            launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
+                                        }
+
+                                        launchMarker = L.marker([launch_lat, launch_lon],
+                                            {
+                                                title: data['serial'], 
+                                                icon: launch_icon
+                                            })
+                                            .bindTooltip(launchIconTitle,{permanent:false,direction:'right'})
+                                            .on("click", function(e){
+                                                // Bump up the size of the launch icon slightly on click.
+                                                if (e.sourceTarget.options.icon['options']['iconSize'][0] == 15) {
+                                                    new_icon = e.sourceTarget.options.icon;
+                                                    new_icon.options.iconSize = [20, 20];
+                                                    new_icon.options.iconAnchor= [10, 10];
+                                                    mymap.eachLayer(function(layer){
+                                                        if (layer['options']['title'] == data['serial']) {
+                                                            new_icon2 = layer['options']['icon'];
+                                                            new_icon2.options.iconSize = [20, 20];
+                                                            new_icon2.options.iconAnchor = [10, 10];
+                                                            layer.setIcon(new_icon2);
+                                                        }
+                                                    });
+                                                    table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                                                } else {
+                                                    new_icon = e.sourceTarget.options.icon;
+                                                    new_icon.options.iconSize = [15, 15];
+                                                    new_icon.options.iconAnchor= [7.5, 7.5];
+                                                    mymap.eachLayer(function(layer){
+                                                        if (layer['options']['title'] == data['serial']) {
+                                                            new_icon2 = layer['options']['icon'];
+                                                            new_icon2.options.iconSize = [15, 15];
+                                                            new_icon2.options.iconAnchor = [7.5, 7.5];
+                                                            layer.setIcon(new_icon2);
+                                                        }
+                                                    });
+                                                    table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
+                                                }
+                                                e.sourceTarget.setIcon(new_icon);
+                                            });
+                                            
+                                        historicalsonde.addLayer(launchMarker)
                                     }
-                                    if (getCookie('UTC') == 'false') {
-                                        launch_time = new Date(data['first_time']).toLocaleString("en-AU");
-                                    } else {
-                                        launch_time = data['first_time'];
-                                    }
-
-                                    if (getCookie('imperial') == 'true') {
-                                        launch_range = parseFloat(data['first_range_km'])*0.621371;
-                                    } else {
-                                        launch_range = parseFloat(data['first_range_km']);
-                                    }
-
-                                    launch_bearing = Math.floor(parseFloat(data['first_bearing'])) + "˚ True.";
-
-                                    launch_icon = L.icon({
-                                        iconUrl: "{{ url_for('static', filename='img/launch_marker.png') }}",
-                                        iconSize: [15,15],
-                                        iconAnchor: [7.5,7.5]
-                                    });
-
-                                    if (getCookie('imperial') == 'true') {
-                                        launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'ft) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' mi range, ' + launch_bearing;
-                                    } else {
-                                        launchIconTitle = data['serial'] + ' First Observed Position (' + launch_lat + ', ' + launch_lon+ ', ' + Math.floor(launch_alt) + 'm) <br/>at ' + launch_time + ', ' + Math.floor(launch_range) + ' km range, ' + launch_bearing;
-                                    }
-
-                                    launchMarker = L.marker([launch_lat, launch_lon],
-                                        {
-                                            title: data['serial'], 
-                                            icon: launch_icon
-                                        })
-                                        .bindTooltip(launchIconTitle,{permanent:false,direction:'right'});
-                                        
-                                    historicalsonde.addLayer(launchMarker)
                                     
-                                    //landing marker
                                     landing_lat = parseFloat(data['last'][0]);
                                     landing_lon = parseFloat(data['last'][1]);
 
-                                    if (!selected.includes(data['serial'])) {
+                                    if (!quickLandings) {
+                                        //landing marker
                                         if (getCookie('imperial') == 'true') {
                                             landing_alt = parseFloat(data['last'][2])*3.28084;
                                         } else {
@@ -356,11 +574,19 @@
 
                                         landing_bearing = Math.floor(parseFloat(data['last_bearing'])) + "˚ True.";
 
-                                        landing_icon = L.icon({
-                                            iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
-                                            iconSize: [15, 15],
-                                            iconAnchor: [7.5, 7.5]
-                                        });
+                                        if (selectedrows.length == table.getData().length) {
+                                            landing_icon = L.icon({
+                                                iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                                                iconSize: [15, 15],
+                                                iconAnchor: [7.5, 7.5]
+                                            });
+                                        } else {
+                                            landing_icon = L.icon({
+                                                iconUrl: "{{ url_for('static', filename='img/landing_marker.png') }}",
+                                                iconSize: [20, 20],
+                                                iconAnchor: [10, 10]
+                                            });
+                                        }
 
                                         if (getCookie('imperial') == 'true') {
                                             landingIconTitle = data['serial'] + ' Last Observed Position (' + landing_lat + ', ' + landing_lon+ ', ' + Math.floor(landing_alt) + 'ft) <br/>at ' + landing_time + ', ' + Math.floor(landing_range) + ' mi range, ' + landing_bearing;
@@ -380,11 +606,27 @@
                                                     new_icon = e.sourceTarget.options.icon;
                                                     new_icon.options.iconSize = [20, 20];
                                                     new_icon.options.iconAnchor= [10, 10];
+                                                    mymap.eachLayer(function(layer){
+                                                        if (layer['options']['title'] == data['serial']) {
+                                                            new_icon2 = layer['options']['icon'];
+                                                            new_icon2.options.iconSize = [20, 20];
+                                                            new_icon2.options.iconAnchor = [10, 10];
+                                                            layer.setIcon(new_icon2);
+                                                        }
+                                                    });
                                                     table.selectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                                                 } else {
                                                     new_icon = e.sourceTarget.options.icon;
                                                     new_icon.options.iconSize = [15, 15];
                                                     new_icon.options.iconAnchor= [7.5, 7.5];
+                                                    mymap.eachLayer(function(layer){
+                                                        if (layer['options']['title'] == data['serial']) {
+                                                            new_icon2 = layer['options']['icon'];
+                                                            new_icon2.options.iconSize = [15, 15];
+                                                            new_icon2.options.iconAnchor = [7.5, 7.5];
+                                                            layer.setIcon(new_icon2);
+                                                        }
+                                                    });
                                                     table.deselectRow(table.getRows().filter(row => row.getData().serial == e.sourceTarget.options.title));
                                                 }
                                                 e.sourceTarget.setIcon(new_icon);
@@ -432,7 +674,10 @@
 
                                     historicalsonde.addLayer(sonde_path)
 
+                                    shown.push(data['serial']);
+
                                     if (i == highest) {
+                                        setTimeout(resetQuick, 1);
                                         enableMenu();
                                         if (selectedrows.length == table.getData().length) {
                                             table.deselectRow();
@@ -449,15 +694,22 @@
                     processLog(0);
                 } else {
                     enableMenu();
+                    quickLaunches = false;
+                    quickLandings = false;
                 }
             } 
+
+            function resetQuick() {
+                quickLaunches = false;
+                quickLandings = false;
+            }
 
             //select row on "select all" button click
             $("#select-all").click(function(){
                 table.selectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [20, 20];
                             new_icon.options.iconAnchor = [10, 10];
@@ -472,7 +724,7 @@
                 table.deselectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [15, 15];
                             new_icon.options.iconAnchor = [7.5, 7.5];
@@ -494,19 +746,9 @@
                     mymap.invalidateSize();
                 }
 
-                shown = [];
-                shown.splice(0, shown.length);
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
-                            shown.push(layer['_tooltip']['_content'].split(' ')[0]);
-                        }
-                    } catch(err) {}
-                });
-
-                mymap.eachLayer(function(layer){
-                    try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             if (layer['options']['icon']['options']['iconSize'][0] == 15) {
                                 if (!shown.includes(layer['options']['title'])) {
                                     mymap.removeLayer(layer);
@@ -533,8 +775,41 @@
                 enableMenu();
             });
 
+            $("#showsonde-launches").click(function(){
+                disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
+                setTimeout(showSondeLaunch, 500);
+                enableMenu();
+            });
+
+            $("#showsonde-coverage").click(function(){
+                disableMenu();
+                if ((window.innerWidth/window.innerHeight) < 1) {
+                    var x = document.getElementById("closebtn");
+                    var y = document.getElementById('mapid');
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = 0;
+                    document.getElementById("main").style.marginLeft = 0;
+                    mymap.invalidateSize();
+                }
+                setTimeout(showSondeCoverage, 500);
+                enableMenu();
+            });
+
             $("#hidesonde-map").click(function(){
                 historicalsonde.clearLayers();
+                shown = [];
+                quickLaunches = false;
+                quickLandings = false;
                 table.deselectRow();
                 $('#skewt-header').html("<h2>Skew-T</h2>");
                 try {
@@ -846,8 +1121,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "620px";
-                    document.getElementById("main").style.marginLeft = "620px";
+                    document.getElementById("mySidenav").style.width = "630px";
+                    document.getElementById("main").style.marginLeft = "630px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -930,7 +1205,9 @@
                 <button id="deselect-all" style="margin:3px auto">Deselect All</button>
                 <button id="hidesonde-map" style="margin:3px auto">Reset</button>
                 <button id="showsonde-map" style="margin:3px auto">Plot Paths</button>
-                <button id="showsonde-mapquick" style="margin:3px auto">Plot Landings</button>
+                <button id="showsonde-mapquick" style="margin:3px auto">Plot Last RX</button>
+                <button id="showsonde-launches" style="margin:3px auto">Plot First RX</button>
+                <button id="showsonde-coverage" style="margin:3px auto">Plot Coverage</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
                 <button id="download-logs" style="margin:3px auto">Download Logs</button>
             </div>

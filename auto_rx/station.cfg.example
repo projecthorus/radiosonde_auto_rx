@@ -412,6 +412,10 @@ save_decode_audio = False
 # Note: This will use a LOT of disk space.
 save_decode_iq = False
 
+# Save raw hexadecimal radiosonde frame data. This is useful to provide data for telemetry analysis.
+# Raw hex data is saved to the logging directory with a filename of format YYYYMMDD-HHMMSS_<type>_<freq>.raw
+# Saving raw data is currently only supported for: RS41, LMS6-1680, LMS6-400, M10, M20, IMET-4
+save_raw_hex = False
 
 #####################
 # ADVANCED SETTINGS #

@@ -20,6 +20,7 @@ import numpy as np
 from dateutil.parser import parse
 from autorx.utils import (
     short_type_lookup,
+    short_short_type_lookup,
     readable_timedelta,
     strip_sonde_serial,
     position_info,
@@ -67,6 +68,7 @@ def log_filename_to_stats(filename, quicklook=False):
         # Third field is the sonde type, in 'shortform'
         _type = _fields[2]
         _type_str = short_type_lookup(_type)
+        _short_type = short_short_type_lookup(_type)
 
         # Fourth field is the sonde frequency in kHz
         _freq = float(_fields[3]) / 1e3
@@ -76,6 +78,7 @@ def log_filename_to_stats(filename, quicklook=False):
             "age": _time_delta,
             "serial": _serial,
             "type": _type_str,
+            "short_type": _short_type,
             "freq": _freq,
             "lines": _lines,
         }
@@ -87,6 +90,8 @@ def log_filename_to_stats(filename, quicklook=False):
                     _output["first"] = _quick["first"]
                     _output["last"] = _quick["last"]
                     _output["has_snr"] = _quick["has_snr"]
+                    _output["max_range"] = int(max(_output["first"]["range_km"],_output["last"]["range_km"]))
+                    _output["min_height"] = int(_output["last"]["alt"])
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 

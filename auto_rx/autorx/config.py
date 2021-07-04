@@ -161,6 +161,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "save_detection_audio": False,
         "save_decode_audio": False,
         "save_decode_iq": False,
+        "save_raw_hex": False,
         # URL for the Habitat DB Server.
         # As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
         # from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
@@ -553,6 +554,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["sondehub_upload_rate"] = config.getint(
                 "sondehub", "sondehub_upload_rate"
             )
+            if auto_rx_config["sondehub_upload_rate"] < 10:
+                logging.warning(
+                    "Config - Clipped Sondehub update rate to lower limit of 10 seconds"
+                )
+                auto_rx_config["sondehub_upload_rate"] = 10
         except:
             logging.warning(
                 "Config - Did not find sondehub_enabled setting, using default (enabled / 15 seconds)."
@@ -614,6 +620,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["web_control"] = False
             auto_rx_config["web_password"] = "none"
+        
+        try:
+            auto_rx_config["save_raw_hex"] = config.getboolean(
+                "debugging", "save_raw_hex"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find save_raw_hex setting, using default (disabled)"
+            )
+            auto_rx_config["save_raw_hex"] = False
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
