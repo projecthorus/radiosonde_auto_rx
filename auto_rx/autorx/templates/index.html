@@ -60,6 +60,9 @@
                     }
                     $('#station_callsign').text(_station_call);
 
+                    // Update webpage title
+                    document.title = _station_call + " Auto-RX Status";
+
                     if(autorx_config["web_control"] == false){
                         $("#password-header").html("<h2>Web Control Disabled</h2>");
                         disable_web_controls();
