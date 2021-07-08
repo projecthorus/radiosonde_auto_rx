@@ -494,7 +494,7 @@
                         }
                     }
                     },
-                    {title:"Frame", field:"frame", headerSort:true},
+                    {title:"Frame", field:"frame", formatter:'html', headerTooltip:"Nr of frames, lookup on SQ6KXY Radiosonde Tracker", headerSort:true},
                     {title:"Latitude", field:"lat", width:80, formatter:'html', headerSort:false},
                     {title:"Longitude", field:"lon", width:80, formatter:'html', headerSort:false},
                     {title:"Alt", field:"alt", headerSort:true, formatter:function(cell, formatterParams, onRendered){
@@ -657,6 +657,9 @@
                             sonde_id_data.elevation = "";
                             sonde_id_data.range = "";
                         }
+                        // Add link to SQ6KXY Radiosonde Tracker website to observe and register sondes
+                        temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        sonde_id_data.frame = temp_frame;
 
                         // Modify some of the fields to fixed point values.
 
