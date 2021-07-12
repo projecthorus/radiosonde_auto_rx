@@ -657,8 +657,19 @@
                             sonde_id_data.elevation = "";
                             sonde_id_data.range = "";
                         }
-                        // Add link to SQ6KXY Radiosonde Tracker website to observe and register sondes
-                        temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        // Add link to SQ6KXY Radiosonde Tracker website to track and register sondes
+                        temp_type = sonde_id_data.type
+                        temp_frame = sonde_id_data.frame
+                        if (temp_type.startsWith("RS41") || temp_type.startsWith("RS92")) {
+                            temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        } else if (temp_type.startsWith("DFM")) {
+                            temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id.replace(/^(DFM)-/,"D") + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        } else if (temp_type.startsWith("M10") || temp_type.startsWith("M20")) {
+                            temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id.replace(/^(M10|M20)-/,"ME") + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        // } else if (temp_type.startsWith("IMET")) {
+                        //     temp_frame = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id.replace(/-/,"") + "' target='_blank'>" + sonde_id_data.frame + "</a>";
+                        // IMET doesn't transmist sn and logic to calculate is unknown. IMET URL would not match.
+                        }
                         sonde_id_data.frame = temp_frame;
 
                         // Modify some of the fields to fixed point values.
