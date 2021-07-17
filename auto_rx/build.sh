@@ -47,7 +47,7 @@ gcc mp3h1mod.c demod_mod.o -lm -O3 -o mp3h1mod -w $VERS_FLAG
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 demod."
 cd ../../mk2a/
-gcc mk2a1680mod.c -O3 -lm -o mk2mod $VERS_FLAG
+gcc mk2a1680mod.c -Ofast -lm -o mk2mod $VERS_FLAG
 
 echo "Building iMet-4 demod."
 cd ../imet/
