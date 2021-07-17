@@ -18,7 +18,7 @@ import traceback
 from dateutil.parser import parse
 from threading import Thread
 from types import FunctionType, MethodType
-from .utils import AsynchronousFileReader, rtlsdr_test, position_info
+from .utils import AsynchronousFileReader, rtlsdr_test, position_info, generate_aprs_id
 from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
@@ -528,11 +528,15 @@ class SondeDecoder(object):
 
         elif self.sonde_type == "MK2LMS":
             # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
-            # TODO: see if we need to use a high-pass filter, and how much it degrades telemetry reception.
             # This fsk_demod command *almost* works (using the updated fsk_demod)
             # rtl_fm -p 0 -d 0 -M raw -F9 -s 307712 -f 1676000000 2>/dev/null |~/Dev/codec2-upstream/build/src/fsk_demod --cs16 -p 32 --mask=100000 --stats=5  2 307712 9616 - - 2> stats.txt | python ./test/bit_to_samples.py 48080 9616 | sox -t raw -r 48080 -e unsigned-integer -b 8 -c 1 - -r 48080 -b 8 -t wav - 2>/dev/null| ./mk2a_lms1680 --json
 
-            decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 200k -f %d 2>/dev/null |" % (
+            # Notes:
+            # - Have dropped the low-leakage FIR filter (-F9) to save a bit of CPU
+            # Have scaled back sample rate to 220 kHz to again save CPU.
+            # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
+
+            decode_cmd = "%s %s-p %d -d %s %s-M raw -s 220k -f %d 2>/dev/null |" % (
                 self.sdr_fm,
                 bias_option,
                 int(self.ppm),
@@ -540,18 +544,20 @@ class SondeDecoder(object):
                 gain_param,
                 self.sonde_freq,
             )
-            decode_cmd += "sox -t raw -r 200k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 2>/dev/null |"
 
             # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
 
             # LMS6-1680 decoder
-            if self.inverted:
-                self.log_debug("Using inverted MK2A decoder.")
-                decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
-            else:
-                decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
+            decode_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
+            # Settings for old decoder, which cares about FM inversion.
+            # if self.inverted:
+            #     self.log_debug("Using inverted MK2A decoder.")
+                
+            #     decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
+            # else:
+            #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
 
         elif self.sonde_type.startswith("LMS"):
             # LMS6 Decoder command.
@@ -1317,6 +1323,10 @@ class SondeDecoder(object):
                     )
                     # Calculate estimated frequency error from where we expected the sonde to be.
                     _telemetry["f_error"] = _telemetry["f_centre"] - self.sonde_freq
+
+            # Try and generate an APRS callsign for this sonde.
+            # Doing this calculation here allows us to pass it to the web interface to generate an appropriate link
+            _telemetry["aprsid"] = generate_aprs_id(_telemetry)
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response

@@ -280,6 +280,15 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["station_lon"] = config.getfloat("location", "station_lon")
         auto_rx_config["station_alt"] = config.getfloat("location", "station_alt")
 
+        if auto_rx_config["station_lat"] > 90.0 or auto_rx_config["station_lat"] < -90.0:
+            logging.critical("Config - Invalid Station Latitude! (Outside +/- 90 degrees!)")
+            return None
+        
+        if auto_rx_config["station_lon"] > 180.0 or auto_rx_config["station_lon"] < -180.0:
+            logging.critical("Config - Invalid Station Longitude! (Outside +/- 180 degrees!)")
+            return None
+
+
         # Position Filtering
         auto_rx_config["max_altitude"] = config.getint("filtering", "max_altitude")
         auto_rx_config["max_radius_km"] = config.getint("filtering", "max_radius_km")
