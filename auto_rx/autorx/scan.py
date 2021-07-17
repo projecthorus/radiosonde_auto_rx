@@ -303,7 +303,7 @@ def detect_sonde(
         else:
             # LMS6-1680 Detection
             _mode = "FM"
-            _rx_bw = 200000
+            _rx_bw = 250000 # Expanded to 250 kHz 2021-07-17. Results in better off-freq detection.
 
     if _mode == "IQ":
         # IQ decoding
