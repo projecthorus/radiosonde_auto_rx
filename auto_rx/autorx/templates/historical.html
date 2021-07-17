@@ -192,27 +192,19 @@
                         if (bearingRounded in polygonData) {
                             if (parseFloat(value['first']['range_km']) > polygonData[bearingRounded][0]) {
                                 polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
-                                edge_lat = parseFloat(value['first']['lat']);
-                                edge_lon = parseFloat(value['first']['lon']);
                             }
                         } else {
                             polygonData[bearingRounded] = [parseFloat(value['first']['range_km']), parseFloat(value['first']['lat']), parseFloat(value['first']['lon'])]
-                            edge_lat = parseFloat(value['first']['lat']);
-                            edge_lon = parseFloat(value['first']['lon']);
                         }
                         bearingRounded = Math.round(parseFloat(value['last']['bearing'])/divisorValue)*divisorValue;
                         if (bearingRounded in polygonData) {
                             if (parseFloat(value['last']['range_km']) > polygonData[bearingRounded][0]) {
                                 polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
-                                edge_lat = parseFloat(value['last']['lat']);
-                                edge_lon = parseFloat(value['last']['lon']);
                             }
                         } else {
                             polygonData[bearingRounded] = [parseFloat(value['last']['range_km']), parseFloat(value['last']['lat']), parseFloat(value['last']['lon'])]
-                            edge_lat = parseFloat(value['last']['lat']);
-                            edge_lon = parseFloat(value['last']['lon']);
                         }
-                        layerBounds.extend([edge_lat, edge_lon]);
+                        
                     } catch (err) {}
                 }
                 //create polygon
@@ -221,6 +213,9 @@
                 for (const [key, value] of Object.entries(polygonData)) {
                     tempLatLng = [value[1], value[2]];
                     polygonLatLngs.push(tempLatLng);
+                    edge_lat = value[1];
+                    edge_lon = value[2];
+                    layerBounds.extend([edge_lat, edge_lon]);
                 }
 
                 var polygonTesting = L.polygon(polygonLatLngs, {color: 'red'});
@@ -714,7 +709,7 @@
                 table.selectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [20, 20];
                             new_icon.options.iconAnchor = [10, 10];
@@ -729,7 +724,7 @@
                 table.deselectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [15, 15];
                             new_icon.options.iconAnchor = [7.5, 7.5];

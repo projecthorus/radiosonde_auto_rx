@@ -6,7 +6,19 @@ FROM python:3.7-buster AS build
 # Upgrade base packages.
 RUN apt-get update && \
   apt-get upgrade -y && \
+  apt-get install -y \
+    cmake \
+    libusb-1.0-0-dev && \
   rm -rf /var/lib/apt/lists/*
+
+# Compile rtl-sdr from source.
+RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
+  mkdir -p /root/librtlsdr/build && \
+  cd /root/librtlsdr/build && \
+  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
+  make && \
+  make install && \
+  rm -rf /root/librtlsdr
 
 # Copy in requirements.txt.
 COPY auto_rx/requirements.txt \
@@ -41,12 +53,15 @@ RUN case $(uname -m) in \
   apt-get install -y \
   libatomic1 \
   rng-tools \
-  rtl-sdr \
   sox \
   tini \
   usbutils \
   ${extra_packages} && \
   rm -rf /var/lib/apt/lists/*
+
+# Copy rtl-sdr from the build container.
+COPY --from=build /root/target /
+RUN ldconfig
 
 # Copy any additional Python packages from the build container.
 COPY --from=build /root/.local /root/.local
