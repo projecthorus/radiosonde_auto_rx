@@ -6,7 +6,7 @@ FROM python:3.7-buster AS build
 # Upgrade base packages.
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y \
+  apt-get install -y --no-install-recommends \
     cmake \
     libusb-1.0-0-dev && \
   rm -rf /var/lib/apt/lists/*
@@ -46,7 +46,7 @@ EXPOSE 5000/tcp
 # Upgrade base packages and install application dependencies.
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y \
+  apt-get install -y --no-install-recommends \
   libatomic1 \
   rng-tools \
   sox \

@@ -5,7 +5,7 @@ EXPOSE 5000/tcp
 # Upgrade base packages and install dependencies.
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y \
+  apt-get install -y --no-install-recommends \
   cmake \
   libatomic1 \
   libusb-1.0-0-dev \
