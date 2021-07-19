@@ -3,11 +3,7 @@ FROM python:3.7-buster
 EXPOSE 5000/tcp
 
 # Upgrade base packages and install dependencies.
-RUN case $(uname -m) in \
-    "armv6l") extra_packages="libatlas3-base libgfortran5" ;; \
-    "armv7l") extra_packages="libatlas3-base libgfortran5" ;; \
-  esac && \
-  apt-get update && \
+RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y \
   cmake \
@@ -16,8 +12,7 @@ RUN case $(uname -m) in \
   rng-tools \
   sox \
   tini \
-  usbutils \
-  ${extra_packages} && \
+  usbutils && \
   rm -rf /var/lib/apt/lists/*
 
 # Compile rtl-sdr from source and install.
@@ -35,9 +30,9 @@ COPY auto_rx/requirements.txt \
   /tmp/requirements.txt
 
 # Install Python packages.
-RUN pip3 --no-cache-dir install \
-  --extra-index-url https://www.piwheels.org/simple \
-  -r /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
+  --no-warn-script-location \
+  -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Run bash.
 WORKDIR /root
