@@ -34,7 +34,7 @@ COPY auto_rx/requirements.txt \
 
 # Install Python packages.
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
-  --user --no-warn-script-location \
+  --user --no-warn-script-location --no-binary numpy \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Copy in radiosonde_auto_rx.

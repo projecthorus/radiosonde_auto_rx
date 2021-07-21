@@ -40,7 +40,7 @@ COPY auto_rx/requirements.txt \
 
 # Install Python packages.
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
-  --no-warn-script-location \
+  --no-warn-script-location --no-binary numpy \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Run bash.
