@@ -2,7 +2,7 @@ crcmod
 python-dateutil
 flask
 flask-socketio
-numpy
+numpy --no-binary
 requests
 semver
 simplekml
