@@ -1326,7 +1326,13 @@ class SondeDecoder(object):
 
             # Try and generate an APRS callsign for this sonde.
             # Doing this calculation here allows us to pass it to the web interface to generate an appropriate link
-            _telemetry["aprsid"] = generate_aprs_id(_telemetry)
+            try:
+                _telemetry["aprsid"] = generate_aprs_id(_telemetry)
+            except Exception as e:
+                self.log_debug(
+                    f"Couldn't generate APRS ID for {_telemetry['id']}"
+                )
+                _telemetry["aprsid"] = None
 
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
@@ -1347,6 +1353,7 @@ class SondeDecoder(object):
                 self.exit_state = "TempBlock"
                 self.decoder_running = False
                 return False
+
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
