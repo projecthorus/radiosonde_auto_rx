@@ -1,14 +1,22 @@
 # -------------------
 # The build container
 # -------------------
-FROM python:3.7-buster AS build
+FROM debian:buster-slim AS build
 
 # Upgrade base packages.
 RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y --no-install-recommends \
+    build-essential \
     cmake \
-    libusb-1.0-0-dev && \
+    git \
+    libatlas-base-dev \
+    libusb-1.0-0-dev \
+    pkg-config \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-setuptools && \
   rm -rf /var/lib/apt/lists/*
 
 # Compile rtl-sdr from source.
@@ -26,7 +34,7 @@ COPY auto_rx/requirements.txt \
 
 # Install Python packages.
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
-  --user --no-warn-script-location \
+  --user --no-warn-script-location --no-binary numpy \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Copy in radiosonde_auto_rx.
@@ -39,7 +47,7 @@ RUN /bin/sh build.sh
 # -------------------------
 # The application container
 # -------------------------
-FROM python:3.7-slim-buster
+FROM debian:buster-slim
 
 EXPOSE 5000/tcp
 
@@ -47,7 +55,9 @@ EXPOSE 5000/tcp
 RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y --no-install-recommends \
+  libatlas3-base \
   libatomic1 \
+  python3 \
   rng-tools \
   sox \
   tini \
