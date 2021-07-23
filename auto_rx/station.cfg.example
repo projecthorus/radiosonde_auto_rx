@@ -191,7 +191,27 @@ aprs_server = radiosondy.info
 # For all other APRS-IS servers (licensed amateur radio operators only!), use port 14580.
 aprs_port = 14590
 
-# Custom Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
+# APRS Station Location Beaconing
+# If enabled, you will show up on APRS using the aprs_user callsign set above.
+# This also requires your station location to be set in the above [location] section.
+station_beacon_enabled = False
+
+# Station beaconing rate, in minutes.
+station_beacon_rate = 30
+
+# Station beacon comment.
+# <version> will be replaced with the current auto_rx version number
+station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
+
+# Station Beacon Icon
+# The APRS icon to use, as defined in http://www.aprs.org/symbols.html
+# Note that the two characters that define the icon need to be concatenated. Examples:
+# Antenna Tower = /r
+# House with Yagi = /y
+# Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
+station_beacon_icon = /`
+
+# Custom Object name / Callsign to be used when uploading telemetry to APRS-IS (Max 9 chars)
 # WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
 # TO CHANGE IT!
 #
@@ -215,7 +235,7 @@ aprs_use_custom_object_id = False
 # False = Upload position as an Object, sourced from <aprs_user>
 # True = Position Report (with emulated iGating via <aprs_user>)
 # Note that if using Position Reports with aprs_object_id set to <id>, then non-AX.25 compatible callsigns will be generated.
-# If in doubt, leave this at False.
+# THIS SHOULD BE LEFT AT FALSE UNLESS YOU HAVE A VERY SPECIFIC REASON OTHERWISE.
 aprs_position_report = False
 
 # The APRS-IS beacon comment. The following fields can be included:
@@ -230,26 +250,6 @@ aprs_position_report = False
 # The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
 # if absolutely necessary.
 aprs_custom_comment = Clb=<vel_v> t=<temp> h=<humidity> p=<pressure> <freq> Type=<type> Radiosonde
-
-# APRS Station Location Beaconing
-# If enabled, you will show up on APRS using the aprs_user callsign set above.
-# This also requires your station location to be set in the above [location] section.
-station_beacon_enabled = False
-
-# Station beaconing rate, in minutes.
-station_beacon_rate = 30
-
-# Station beacon comment.
-# <version> will be replaced with the current auto_rx version number
-station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
-
-# Station Beacon Icon
-# The APRS icon to use, as defined in http://www.aprs.org/symbols.html
-# Note that the two characters that define the icon need to be concatenated. Examples:
-# Antenna Tower = /r
-# House with Yagi = /y
-# Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
-station_beacon_icon = /`
 
 
 ###########################

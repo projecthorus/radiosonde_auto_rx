@@ -20,7 +20,7 @@ jobs:
         id: meta
         uses: crazy-max/ghaction-docker-meta@v1
         with:
-          images: ghcr.io/${{ github.repository_owner }}/radiosonde_auto_rx
+          images: ghcr.io/${{ github.repository }}
           tag-semver: |
             {{version}}
 

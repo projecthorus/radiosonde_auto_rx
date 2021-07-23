@@ -47,7 +47,7 @@ gcc mp3h1mod.c demod_mod.o -lm -O3 -o mp3h1mod -w $VERS_FLAG
 # Build LMS6-1680 Decoder
 echo "Building LMS6-1680 demod."
 cd ../../mk2a/
-gcc mk2a_lms1680.c -lm -O3 -o mk2a_lms1680 $VERS_FLAG
+gcc mk2a1680mod.c -Ofast -lm -o mk2mod $VERS_FLAG
 
 echo "Building iMet-4 demod."
 cd ../imet/
@@ -70,7 +70,7 @@ cd ../auto_rx/
 cp ../scan/dft_detect .
 cp ../utils/fsk_demod .
 cp ../imet/imet1rs_dft .
-cp ../mk2a/mk2a_lms1680 .
+cp ../mk2a/mk2mod .
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
 cp ../demod/mod/m10mod .
