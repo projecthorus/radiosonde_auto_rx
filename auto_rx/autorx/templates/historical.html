@@ -111,14 +111,18 @@
                         },
                         headerTooltip:"First Observed Date/Time"
                     },
-                    {title:"Type", field:"short_type", width:90, resizable:false},
-                    {title:"Serial", field:"serial", width:105, resizable:false},
-                    {title:"Count", field:"lines", width:75, resizable:false, headerTooltip:"Received Lines of Telemetry"},
+                    {title:"Type", field:"short_type", width:85, resizable:false},
+                    {title:"Serial", field:"serial", width:95, resizable:false},
+                    {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"},
                     {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " m"; //return the contents of the cell;
                         }},
-                    {title:"Max R", field:"max_range", width:75, resizable:false, headerTooltip:"Maximum Observed Range (km))",
+                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range (km)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " km"; //return the contents of the cell;
+                        }},
+                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range (km))",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " km"; //return the contents of the cell;
                         }},
