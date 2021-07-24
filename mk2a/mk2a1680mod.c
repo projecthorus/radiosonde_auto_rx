@@ -13,6 +13,11 @@
         ./mk2mod -v --iq <fq> --lpIQ --lpbw 160 --lpFM --dc --crc iq_rfbase.wav
         ./mk2mod -v --iq0 --lpIQ --lpbw 160 --lpFM --crc iq_if.wav
         ./mk2mod -v --lpFM --crc fm_audio.wav
+        # FM decimation: --decFM
+        ./mk2mod -v --iq <fq> --lpbw 160 --decFM --crc iq_base.wav
+        ./mk2mod -vv --dc --iq <fq> --lpbw 160 --decFM --crc iq_base.wav
+        # --IQ
+        ./mk2mod -vv --IQ <fq> --crc iq_base.wav
 */
 
 #include <stdio.h>
@@ -79,6 +84,7 @@ typedef struct {
     //
     ui32_t sample_in;
     ui32_t sample_out;
+    ui32_t sample_fm;
     ui32_t delay;
     ui32_t sc;
     int buffered;
@@ -90,12 +96,6 @@ typedef struct {
     float mv;
     ui32_t mv_pos;
     //
-    int N_norm;
-    int Nvar;
-    float xsum;
-    float qsum;
-    float *xs;
-    float *qs;
 
     // IQ-data
     int opt_iq;
@@ -154,6 +154,9 @@ typedef struct {
     float *lpFM_buf;
 	float *fm_buffer;
 
+    int opt_fmdec;
+    int decFM;
+
 } dsp_t;
 
 
@@ -184,6 +187,7 @@ typedef struct {
 // -------------------------------------------------------------------------------------------------
 // demod_mod_Lband.c
 
+#define FM_DEC  4     // 2, 4
 #define FM_GAIN (0.8)
 
 static void raw_dft(dft_t *dft, float complex *Z) {
@@ -728,104 +732,139 @@ static float re_lowpass(float buffer[], ui32_t sample, ui32_t taps, float *ws) {
 static
 int f32buf_sample(dsp_t *dsp, int inv) {
     float s = 0.0;
-    float xneu, xalt;
 
     float complex z, w, z0;
     double gain = FM_GAIN;
 
-    double t = dsp->sample_in / (double)dsp->sr;
+    ui32_t decFM = 1;
+    ui32_t _sample = dsp->sample_in;
+    int m = 0;
 
-
-    if (dsp->opt_iq) {
-
-        if (dsp->opt_iq >= 5) {
-            ui32_t s_reset = dsp->dectaps*dsp->lut_len;
-            int j;
-            if ( f32read_cblock(dsp) < dsp->decM ) return EOF;
-            for (j = 0; j < dsp->decM; j++) {
-                z = dsp->decMbuf[j] * dsp->ex[dsp->sample_dec % dsp->lut_len];
-                dsp->decXbuffer[dsp->sample_dec % dsp->dectaps] = z;
-                dsp->sample_dec += 1;
-                if (dsp->sample_dec == s_reset) dsp->sample_dec = 0;
-            }
-            if (dsp->decM > 1)
-            {
-                z = lowpass(dsp->decXbuffer, dsp->sample_dec, dsp->dectaps, ws_dec);
-            }
-        }
-        else if ( f32read_csample(dsp, &z) == EOF ) return EOF;
-
-        z *= cexp(-t*2*M_PI*dsp->Df*I);
-
-
-        // IF-lowpass
-        if (dsp->opt_lp & 1) {
-            dsp->lpIQ_buf[dsp->sample_in % dsp->lpIQtaps] = z;
-            z = lowpass(dsp->lpIQ_buf, dsp->sample_in, dsp->lpIQtaps, dsp->ws_lpIQ);
-        }
-
-
-        z0 = dsp->rot_iqbuf[(dsp->sample_in-1 + dsp->N_IQBUF) % dsp->N_IQBUF];
-        w = z * conj(z0);
-        s = gain * carg(w)/M_PI;
-
-        dsp->rot_iqbuf[dsp->sample_in % dsp->N_IQBUF] = z;
-
-
-        // FM-lowpass
-        if (dsp->opt_lp & 2) {
-            dsp->lpFM_buf[dsp->sample_in % dsp->lpFMtaps] = s;
-            s = re_lowpass(dsp->lpFM_buf, dsp->sample_in, dsp->lpFMtaps, dsp->ws_lpFM);
-        }
-
-        dsp->fm_buffer[(dsp->sample_in - dsp->lpFMtaps/2 + dsp->M) % dsp->M] = s;
-
-
-        if (dsp->opt_iq >= 2 && dsp->opt_iq < 6)
-        {
-            double xbit = 0.0;
-            //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
-            double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
-            double f2 = -f1;
-
-            float complex X0 = 0;
-            float complex X  = 0;
-
-            int n = dsp->sps;
-            double tn = (dsp->sample_in-n) / (double)dsp->sr;
-            //t = dsp->sample_in / (double)dsp->sr;
-            //z = dsp->rot_iqbuf[dsp->sample_in % dsp->N_IQBUF];
-            z0 = dsp->rot_iqbuf[(dsp->sample_in-n + dsp->N_IQBUF) % dsp->N_IQBUF];
-
-            // f1
-            X0 = z0 * cexp(-tn*2*M_PI*f1*I); // alt
-            X  = z  * cexp(-t *2*M_PI*f1*I); // neu
-            dsp->F1sum +=  X - X0;
-
-            // f2
-            X0 = z0 * cexp(-tn*2*M_PI*f2*I); // alt
-            X  = z  * cexp(-t *2*M_PI*f2*I); // neu
-            dsp->F2sum +=  X - X0;
-
-            xbit = cabs(dsp->F2sum) - cabs(dsp->F1sum);
-
-            s = xbit / dsp->sps;
-        }
+    if (dsp->opt_fmdec) {
+        decFM = dsp->decFM;
+        _sample = dsp->sample_in * decFM;
     }
-    else {
-        if (f32read_sample(dsp, &s) == EOF) return EOF;
+
+    for (m = 0; m < decFM; m++)
+    {
+        double t = _sample / (double)dsp->sr;
+
+        if (dsp->opt_iq) {
+
+            if (dsp->opt_iq >= 5) {
+                ui32_t s_reset = dsp->dectaps*dsp->lut_len;
+                int j;
+                if ( f32read_cblock(dsp) < dsp->decM ) return EOF;
+                for (j = 0; j < dsp->decM; j++) {
+                    z = dsp->decMbuf[j] * dsp->ex[dsp->sample_dec % dsp->lut_len];
+                    dsp->decXbuffer[dsp->sample_dec % dsp->dectaps] = z;
+                    dsp->sample_dec += 1;
+                    if (dsp->sample_dec == s_reset) dsp->sample_dec = 0;
+                }
+                if (dsp->decM > 1)
+                {
+                    z = lowpass(dsp->decXbuffer, dsp->sample_dec, dsp->dectaps, ws_dec);
+                }
+            }
+            else if ( f32read_csample(dsp, &z) == EOF ) return EOF;
+
+            z *= cexp(-t*2*M_PI*dsp->Df*I);
+
+
+            // IF-lowpass
+            if (dsp->opt_lp & 1) {
+                dsp->lpIQ_buf[_sample % dsp->lpIQtaps] = z;
+                z = lowpass(dsp->lpIQ_buf, _sample, dsp->lpIQtaps, dsp->ws_lpIQ);
+            }
+
+
+            z0 = dsp->rot_iqbuf[(_sample-1 + dsp->N_IQBUF) % dsp->N_IQBUF];
+            w = z * conj(z0);
+            s = gain * carg(w)/M_PI;
+
+            dsp->rot_iqbuf[_sample % dsp->N_IQBUF] = z;
+
+
+            // FM-lowpass
+            if (dsp->opt_lp & 2) {
+                dsp->lpFM_buf[_sample % dsp->lpFMtaps] = s;
+                if (m+1 == decFM) {
+                    s = re_lowpass(dsp->lpFM_buf, _sample, dsp->lpFMtaps, dsp->ws_lpFM);
+                }
+            }
+
+            dsp->fm_buffer[(_sample - dsp->lpFMtaps/2 + dsp->M) % dsp->M] = s;
+
+
+            if (0 && dsp->opt_iq >= 2 && dsp->opt_iq < 6)
+            {
+                double xbit = 0.0;
+                //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
+                double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
+                double f2 = -f1;
+
+                float complex X0 = 0;
+                float complex X  = 0;
+
+                int n = dsp->sps;
+                double tn = (_sample-n) / (double)dsp->sr;
+                //t = _sample / (double)dsp->sr;
+                //z = dsp->rot_iqbuf[_sample % dsp->N_IQBUF];
+                z0 = dsp->rot_iqbuf[(_sample-n + dsp->N_IQBUF) % dsp->N_IQBUF];
+
+                // f1
+                X0 = z0 * cexp(-tn*2*M_PI*f1*I); // alt
+                X  = z  * cexp(-t *2*M_PI*f1*I); // neu
+                dsp->F1sum +=  X - X0;
+
+                // f2
+                X0 = z0 * cexp(-tn*2*M_PI*f2*I); // alt
+                X  = z  * cexp(-t *2*M_PI*f2*I); // neu
+                dsp->F2sum +=  X - X0;
+
+                xbit = cabs(dsp->F2sum) - cabs(dsp->F1sum);
+
+                s = xbit / dsp->sps;
+            }
+            else if (dsp->opt_iq >= 2 && dsp->opt_iq < 6)
+            {
+                double xbit = 0.0;
+                //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
+                double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
+                double f2 = -f1;
+
+                float complex X1 = 0;
+                float complex X2 = 0;
+
+                int n = dsp->sps;
+                float sk = dsp->sps/2.4f;
+
+                while (n > 0) {
+                    n--;
+                    if (n > sk && n < dsp->sps-sk)
+                    {
+                        t = -n / (double)dsp->sr;
+                        z = dsp->rot_iqbuf[(dsp->sample_in - n + dsp->N_IQBUF) % dsp->N_IQBUF];  // +1
+                        X1 += z*cexp(-t*2*M_PI*f1*I);
+                        X2 += z*cexp(-t*2*M_PI*f2*I);
+                    }
+                }
+
+                xbit = cabs(X2) - cabs(X1);
+
+                s = xbit / dsp->sps;
+            }
+        }
+        else {
+            if (f32read_sample(dsp, &s) == EOF) return EOF;
+        }
+
+        _sample += 1;
+
     }
 
     if (inv) s = -s;
     dsp->bufs[dsp->sample_in % dsp->M] = s;
-
-    xneu = dsp->bufs[(dsp->sample_in  ) % dsp->M];
-    xalt = dsp->bufs[(dsp->sample_in+dsp->M - dsp->Nvar) % dsp->M];
-    dsp->xsum +=  xneu - xalt;                 // + xneu - xalt
-    dsp->qsum += (xneu - xalt)*(xneu + xalt);  // + xneu*xneu - xalt*xalt
-    dsp->xs[dsp->sample_in % dsp->M] = dsp->xsum;
-    dsp->qs[dsp->sample_in % dsp->M] = dsp->qsum;
-
 
     dsp->sample_out = dsp->sample_in - dsp->delay;
 
@@ -997,8 +1036,8 @@ int read_softbit2p(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l,
 #define IF_SAMPLE_RATE      48000
 #define IF_SAMPLE_RATE_MIN  32000
 
-#define IF_TRANSITION_BW (4e3)  // 4kHz transition width
-#define FM_TRANSITION_BW (2e3)  // 2kHz transition width
+#define IF_TRANSITION_BW (8e3)  // (min) transition width
+#define FM_TRANSITION_BW (2e3)  // (min) transition width
 
 #define SQRT2 1.4142135624   // sqrt(2)
 // sigma = sqrt(log(2)) / (2*PI*BT):
@@ -1054,12 +1093,12 @@ int init_buffers_Lband(dsp_t *dsp) {
             decM = sr_base / IF_sr;
         }
 
-        f_lp = (IF_sr+20e3)/(4.0*sr_base);
-        t_bw = (IF_sr-20e3)/*/2.0*/;
+        f_lp = (IF_sr+60e3)/(4.0*sr_base);
+        t_bw = (IF_sr-180e3)/*/2.0*/;
         if (dsp->opt_IFmin) {
-            t_bw = (IF_sr-12e3);
+            t_bw = (IF_sr-80e3);
         }
-        if (t_bw < 0) t_bw = 10e3;
+        if (t_bw < 0) t_bw = 160e3;
         t_bw /= sr_base;
         taps = 4.0/t_bw; if (taps%2==0) taps++;
 
@@ -1126,10 +1165,12 @@ int init_buffers_Lband(dsp_t *dsp) {
         int taps; // lowpass taps: 4*sr/transition_bw
 
         // IF lowpass
-        f_lp = 24e3/(float)dsp->sr/2.0; // default
+        f_lp = 160e3/(float)dsp->sr/2.0; // default
         if (dsp->lpIQ_bw) f_lp = dsp->lpIQ_bw/(float)dsp->sr/2.0;
-        taps = 4*dsp->sr/IF_TRANSITION_BW; if (taps%2==0) taps++;
-        if (dsp->lpIQ_bw > 120e3) taps = taps/4 + 1;  // dsp->opt_iq
+        taps = 4*dsp->sr/IF_TRANSITION_BW;
+        if (dsp->sr > 100e3) taps = taps/2;
+        if (dsp->sr > 200e3) taps = taps/2;
+        if (taps%2==0) taps++;
         taps = lowpass_init(1.5*f_lp, taps, &dsp->ws_lpIQ0); if (taps < 0) return -1;
         taps = lowpass_init(f_lp, taps, &dsp->ws_lpIQ1); if (taps < 0) return -1;
 
@@ -1158,9 +1199,15 @@ int init_buffers_Lband(dsp_t *dsp) {
 
         f_lp = 10e3/(float)dsp->sr; // default
         if (dsp->lpFM_bw > 0) f_lp = dsp->lpFM_bw/(float)dsp->sr;
-        taps = 4*dsp->sr/FM_TRANSITION_BW; if (taps%2==0) taps++;
-        if (dsp->lpIQ_bw > 120e3) taps = taps/4 + 1;  // dsp->opt_iq
-        //if (dsp->lpIQ_bw >  60e3) taps = taps/2 + 1;  // dsp->opt_iq
+        taps = 4*dsp->sr/FM_TRANSITION_BW;
+        if (dsp->decFM > 1) {
+            f_lp *= 2.0;
+            taps = taps/2;
+        }
+        if (dsp->sr > 100e3) taps = taps/2;
+        if (dsp->sr > 200e3) taps = taps/2;
+        if (dsp->opt_iq == 5) taps = taps/2;
+        if (taps%2==0) taps++;
         taps = lowpass_init(f_lp, taps, &dsp->ws_lpFM); if (taps < 0) return -1;
 
         dsp->lpFMtaps = taps;
@@ -1177,6 +1224,7 @@ int init_buffers_Lband(dsp_t *dsp) {
     }
 
 
+    // FM dec: sps = sps_if / FM_DEC
     L = dsp->hdrlen * dsp->sps + 0.5;
     M = 3*L;
     //if (dsp->sps < 6) M = 6*L;
@@ -1186,13 +1234,15 @@ int init_buffers_Lband(dsp_t *dsp) {
 
     p2 = 1;
     while (p2 < M) p2 <<= 1;
-    while (p2 < 0x2000) p2 <<= 1;  // or 0x4000, if sample not too short
+    while (p2 < 0x2000) p2 <<= 1;  // 0x1000 if header distance too short, or reduce K  // 0x4000, if sample not too short
     M = p2;
     dsp->DFT.N = p2; // 2*p2
     dsp->DFT.LOG2N = log(dsp->DFT.N)/log(2)+0.1; // 32bit cpu ... intermediate floating-point precision
     //while ((1 << dsp->DFT.LOG2N) < dsp->DFT.N) dsp->DFT.LOG2N++;  // better N = (1 << LOG2N) ...
 
     K = M-L - dsp->delay; // L+K < M
+    // header distance 24 52 4d .. 24 52 54 : 790 bits
+    while (K > 790*dsp->sps) K--;
 
     dsp->DFT.sr = dsp->sr;
 
@@ -1200,14 +1250,10 @@ int init_buffers_Lband(dsp_t *dsp) {
     dsp->L = L;
     dsp->M = M;
 
-    dsp->Nvar = L; // wenn Nvar fuer xnorm, dann Nvar=rshd.L
-
 
     dsp->bufs  = (float *)calloc( M+1, sizeof(float)); if (dsp->bufs  == NULL) return -100;
     dsp->match = (float *)calloc( L+1, sizeof(float)); if (dsp->match == NULL) return -100;
 
-    dsp->xs = (float *)calloc( M+1, sizeof(float)); if (dsp->xs == NULL) return -100;
-    dsp->qs = (float *)calloc( M+1, sizeof(float)); if (dsp->qs == NULL) return -100;
 
     dsp->rawbits = (char *)calloc( 2*dsp->hdrlen+1, sizeof(char)); if (dsp->rawbits == NULL) return -100;
 
@@ -1290,8 +1336,6 @@ int free_buffers(dsp_t *dsp) {
 
     if (dsp->match) { free(dsp->match); dsp->match = NULL; }
     if (dsp->bufs)  { free(dsp->bufs);  dsp->bufs  = NULL; }
-    if (dsp->xs)  { free(dsp->xs);  dsp->xs  = NULL; }
-    if (dsp->qs)  { free(dsp->qs);  dsp->qs  = NULL; }
     if (dsp->rawbits) { free(dsp->rawbits); dsp->rawbits = NULL; }
 
     if (dsp->DFT.xn) { free(dsp->DFT.xn); dsp->DFT.xn = NULL; }
@@ -1745,7 +1789,6 @@ static int get_GPSalt(gpx_t *gpx) {
 }
 
 static int get_GPSvel24(gpx_t *gpx) {
-    int i;
     ui8_t *gpsVel_bytes;
     int vel24;
     double vx, vy, vz, dir; //, alpha;
@@ -1814,7 +1857,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
         }
         printf("\n");
     }
-    //else
+
     {
         if (gpx->frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
             if ( !crc_err ) {
@@ -1928,6 +1971,7 @@ int main(int argc, char **argv) {
     int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_decFM = 0;
 
     int k;
 
@@ -1943,7 +1987,7 @@ int main(int argc, char **argv) {
     float _mv = 0.0;
 
     int symlen = 1;
-    int bitofs = 1; // 0..+1
+    int bitofs = 0; // fm:0 , iq:+1
     int shift = 0;
 
     pcm_t pcm = {0};
@@ -2001,9 +2045,9 @@ int main(int argc, char **argv) {
         }
         else if   (strcmp(*argv, "--iq0") == 0) { option_iq = 1; }  // differential/FM-demod
         else if   (strcmp(*argv, "--iqdc") == 0) { option_iqdc = 1; }  // iq-dc removal (iq0,2,3)
-        else if   (strcmp(*argv, "--iq") == 0) { // fq baseband -> IF (rotate from and decimate)
-            double fq = 0.0;                     // --iq <fq> , -0.5 < fq < 0.5
-            option_iq = 6;
+        else if   (strcmp(*argv, "--IQ") == 0 || strcmp(*argv, "--iq") == 0) { // fq baseband -> IF (rotate from and decimate)
+            double fq = 0.0;                                                   // --IQ <fq> , -0.5 < fq < 0.5
+            if (strcmp(*argv, "--IQ") == 0) option_iq = 5; else option_iq = 6;
             ++argv;
             if (*argv) fq = atof(*argv);
             else return -1;
@@ -2012,7 +2056,6 @@ int main(int argc, char **argv) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
         }
         else if   (strcmp(*argv, "--lpIQ") == 0) { option_lp |= 1; }  // IQ lowpass
-        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= 2; }  // FM lowpass
         else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
             double bw = 0.0;
             ++argv;
@@ -2020,6 +2063,11 @@ int main(int argc, char **argv) {
             else return -1;
             if (bw > 100.0 && bw < 240.0) lpIQ_bw = bw*1e3;
             option_lp |= 1;
+        }
+        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= 2; }  // FM lowpass
+        else if   (strcmp(*argv, "--decFM") == 0) {   // FM decimation
+            option_lp |= 2;
+            option_decFM = 1;
         }
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
@@ -2104,7 +2152,20 @@ int main(int argc, char **argv) {
         dsp.nch = pcm.nch;
         dsp.ch = pcm.sel_ch;
         dsp.br = (float)BAUD_RATE;
+
+        if (option_decFM) {
+            if (dsp.sr > 4*44000) dsp.opt_fmdec = 1;
+        }
         dsp.sps = (float)dsp.sr/dsp.br;
+        dsp.decFM = 1;
+        if (dsp.opt_fmdec) {
+            dsp.decFM = FM_DEC;
+            while (dsp.sr % dsp.decFM > 0  &&  dsp.decFM > 1) dsp.decFM /= 2;
+            dsp.sps /= (float)dsp.decFM;
+        }
+
+        if (option_iq == 5 && option_dc) option_lp |= 2;
+
         dsp.symlen = symlen;
         dsp.symhd = 1;
         dsp._spb = dsp.sps*symlen;
@@ -2137,8 +2198,11 @@ int main(int argc, char **argv) {
             return -1;
         }
 
+        if (option_iq && !dsp.opt_fmdec) bitofs += 1;
         bitofs += shift;
         _bl = 0.7*dsp.sps/2.0;
+        if (_bl < 2.0) _bl = -1;
+        if (dsp.opt_fmdec) _bl = -1;
     }
     else {
         // init circular header bit buffer
@@ -2151,7 +2215,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "error: malloc\n");
             return -1;
         }
-        hdb.ths = 0.7; // caution/test false positive
+        hdb.ths = 0.8; // caution/test false positive
         hdb.sbuf = calloc(hdb.len, sizeof(float));
         if (hdb.sbuf == NULL) {
             fprintf(stderr, "error: malloc\n");
