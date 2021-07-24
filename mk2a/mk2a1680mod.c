@@ -1857,7 +1857,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
         }
         printf("\n");
     }
-    
+
     {
         if (gpx->frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
             if ( !crc_err ) {
@@ -1938,6 +1938,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
                         if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                         printf(" }\n");
                         printf("\n");
+                        fflush(stdout);
                         gpx->prev_frnr = gpx->frnr;
                     }
                 }
