@@ -13,6 +13,7 @@ import traceback
 import socket
 from threading import Thread, Lock
 from . import __version__ as auto_rx_version
+from .utils import strip_sonde_serial
 
 try:
     # Python 2
@@ -74,7 +75,7 @@ def telemetry_to_aprs_position(
     # Generate the comment field.
     _aprs_comment = aprs_comment
     _aprs_comment = _aprs_comment.replace("<freq>", _freq)
-    _aprs_comment = _aprs_comment.replace("<id>", sonde_data["id"])
+    _aprs_comment = _aprs_comment.replace("<id>", strip_sonde_serial(sonde_data["id"]))
     _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data["temp"])
     _aprs_comment = _aprs_comment.replace(
         "<pressure>", "%.1fhPa" % sonde_data["pressure"]

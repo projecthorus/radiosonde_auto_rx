@@ -249,7 +249,7 @@ aprs_position_report = False
 # <batt> - Battery Voltage (e.g. 3.1V)
 # The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
 # if absolutely necessary.
-aprs_custom_comment = Clb=<vel_v> t=<temp> h=<humidity> p=<pressure> <freq> Type=<type> Radiosonde
+aprs_custom_comment = Clb=<vel_v> t=<temp> h=<humidity> p=<pressure> <freq> Type=<type> ser=<id> Radiosonde
 
 
 ###########################

@@ -7,6 +7,7 @@
 #
 
 from __future__ import division, print_function
+import codecs
 import fcntl
 import logging
 import os
@@ -254,6 +255,15 @@ def generate_aprs_id(sonde_data):
         elif "M10" in sonde_data["type"]:
             # Use the generated id same as dxlAPRS
             _object_name = sonde_data["aprsid"]
+
+        elif "M20" in sonde_data["type"]:
+            # Generate the M20 ID based on the first two hex digits of the
+            # raw hexadecimal id, followed by the last decimal section.
+            # Why we do this and not just use the three hex bytes, nobody knows...
+            if 'rawid' in sonde_data:
+                _object_name = "ME" + sonde_data['rawid'].split('_')[1][:2] + sonde_data["id"].split("-")[-1]
+            else:
+                _object_name = None
 
         elif "IMET" in sonde_data["type"]:
             # Use the last 5 characters of the unique ID we have generated.

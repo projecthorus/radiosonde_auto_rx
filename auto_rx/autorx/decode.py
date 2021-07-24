@@ -535,6 +535,7 @@ class SondeDecoder(object):
             # - Have dropped the low-leakage FIR filter (-F9) to save a bit of CPU
             # Have scaled back sample rate to 220 kHz to again save CPU.
             # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
+            # Update 2021-07-24: Updated version with speedups now taking 240 kHz BW and only using 50% of a core.
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s 240k -f %d 2>/dev/null |" % (
                 self.sdr_fm,
