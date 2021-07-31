@@ -71,8 +71,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "640px";
-                            document.getElementById("main").style.marginLeft = "640px";
+                            document.getElementById("mySidenav").style.width = "665px";
+                            document.getElementById("main").style.marginLeft = "665px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -97,7 +97,7 @@
                         }
                     },
                 columns:[                 //define the table columns
-                    {title:"Date", field:"datetime", width:170, resizable:false, formatter:function(cell, formatterParams, onRendered){
+                    {title:"Date", field:"datetime", width:156, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
@@ -1125,8 +1125,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "640px";
-                    document.getElementById("main").style.marginLeft = "640px";
+                    document.getElementById("mySidenav").style.width = "665px";
+                    document.getElementById("main").style.marginLeft = "665px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.

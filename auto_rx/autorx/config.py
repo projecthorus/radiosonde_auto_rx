@@ -639,6 +639,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find save_raw_hex setting, using default (disabled)"
             )
             auto_rx_config["save_raw_hex"] = False
+        
+        try:
+            auto_rx_config["experimental_decoders"]["MK2LMS"] = config.getboolean(
+                "advanced", "lms6-1680_experimental"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find lms6-1680_experimental setting, using default (disabled)"
+            )
+            auto_rx_config["experimental_decoders"]["MK2LMS"] = False
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

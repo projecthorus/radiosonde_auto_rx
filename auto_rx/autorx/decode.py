@@ -1001,6 +1001,40 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
             self.rx_frequency = _freq
 
+        elif self.sonde_type == "MK2LMS":
+            # 1680 MHz LMS6 sondes, using 9600 baud MK2A-format telemetry.
+            # This fsk_demod command *almost* works (using the updated fsk_demod)
+            # rtl_fm -p 0 -d 0 -M raw -F9 -s 307712 -f 1676000000 2>/dev/null |~/Dev/codec2-upstream/build/src/fsk_demod --cs16 -p 32 --mask=100000 --stats=5  2 307712 9616 - - 2> stats.txt | python ./test/bit_to_samples.py 48080 9616 | sox -t raw -r 48080 -e unsigned-integer -b 8 -c 1 - -r 48080 -b 8 -t wav - 2>/dev/null| ./mk2a_lms1680 --json
+
+            # Notes:
+            # - Have dropped the low-leakage FIR filter (-F9) to save a bit of CPU
+            # Have scaled back sample rate to 220 kHz to again save CPU.
+            # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
+
+            demod_cmd = "%s %s-p %d -d %s %s-M raw -s 220k -f %d 2>/dev/null |" % (
+                self.sdr_fm,
+                bias_option,
+                int(self.ppm),
+                str(self.device_idx),
+                gain_param,
+                self.sonde_freq,
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+
+            # LMS6-1680 decoder
+            demod_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
+            decode_cmd = None
+            demod_stats = None
+            # Settings for old decoder, which cares about FM inversion.
+            # if self.inverted:
+            #     self.log_debug("Using inverted MK2A decoder.")
+                
+            #     decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
+            # else:
+            #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
         else:
             return None
 
@@ -1254,7 +1288,8 @@ class SondeDecoder(object):
             else:
                 # If no subtype field provided, we use the identified sonde type.
                 _telemetry["type"] = self.sonde_type
-                _telemetry["subtype"] = self.sonde_type
+                # Don't include the subtype field if we don't have a subtype.
+                #_telemetry["subtype"] = self.sonde_type
 
             _telemetry["freq_float"] = self.sonde_freq / 1e6
             _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)

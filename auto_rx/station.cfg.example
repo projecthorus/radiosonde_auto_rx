@@ -478,6 +478,10 @@ dfm_experimental = True
 m10_experimental = True
 lms6-400_experimental = True
 imet54_experimental = True
+# LMS6-1680 Decoder options:
+# False = Less CPU, possibly worse weak-signal performance.
+# True = Higher CPU (Pushing a RPi 3 to its limits), possibly better weak-signal performance.
+lms6-1680_experimental = False
 
 # MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
 # If someone can confirm that this works, I'll set it to True by default!
