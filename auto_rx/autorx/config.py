@@ -332,9 +332,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["aprs_custom_comment"] = config.get(
             "aprs", "aprs_custom_comment"
         )
-        auto_rx_config["aprs_position_report"] = config.getboolean(
-            "aprs", "aprs_position_report"
-        )
+        # 2021-08-08 - Disable option for producing APRS position reports.
+        #auto_rx_config["aprs_position_report"] = config.getboolean(
+        #    "aprs", "aprs_position_report"
+        #)
+        auto_rx_config["aprs_position_report"] = False
         auto_rx_config["station_beacon_enabled"] = config.getboolean(
             "aprs", "station_beacon_enabled"
         )
