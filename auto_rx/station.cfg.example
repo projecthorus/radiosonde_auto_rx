@@ -231,13 +231,6 @@ aprs_object_id = <id>
 # Please read the notes above before setting this to True.
 aprs_use_custom_object_id = False
 
-# Select between uploading the radiosonde position as either an APRS Object, or as a position report.
-# False = Upload position as an Object, sourced from <aprs_user>
-# True = Position Report (with emulated iGating via <aprs_user>)
-# Note that if using Position Reports with aprs_object_id set to <id>, then non-AX.25 compatible callsigns will be generated.
-# THIS SHOULD BE LEFT AT FALSE UNLESS YOU HAVE A VERY SPECIFIC REASON OTHERWISE.
-aprs_position_report = False
-
 # The APRS-IS beacon comment. The following fields can be included:
 # <freq> - Sonde Frequency, e.g. 401.520 MHz
 # <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)

@@ -97,7 +97,7 @@
                         }
                     },
                 columns:[                 //define the table columns
-                    {title:"Date", field:"datetime", width:156, resizable:false, formatter:function(cell, formatterParams, onRendered){
+                    {title:"Date", field:"datetime", width:160, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
