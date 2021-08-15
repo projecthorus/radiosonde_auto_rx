@@ -13,6 +13,7 @@ import traceback
 import socket
 from threading import Thread, Lock
 from . import __version__ as auto_rx_version
+from .utils import strip_sonde_serial
 
 try:
     # Python 2
@@ -37,78 +38,27 @@ def telemetry_to_aprs_position(
 
     # Generate the APRS 'callsign' for the sonde.
     if object_name == "<id>":
-        # Use the radiosonde ID as the object ID
-        if ("RS92" in sonde_data["type"]) or ("RS41" in sonde_data["type"]):
-            # We can use the Vaisala sonde ID directly.
-            _object_name = sonde_data["id"].strip()
-        elif "DFM" in sonde_data["type"]:
-            # As per agreement with other radiosonde decoding software developers, we will now
-            # use the DFM serial number verbatim in the APRS ID, prefixed with 'D'.
-            # For recent DFM sondes, this will result in a object ID of: Dyynnnnnn
-            # Where yy is the manufacture year, and nnnnnn is a sequential serial.
-            # Older DFMs may have only a 6-digit ID of Dnnnnnn.
-            # Mark J - 2019-12-29
+        _object_name = None
 
-            # Split out just the serial number part of the ID, and cast it to an int
-            # This acts as another check that we have been provided with a numeric serial.
-            _dfm_id = int(sonde_data["id"].split("-")[-1])
+        # We should have been provided a APRS ID in the telemetry.
+        # This is added in in decode.py, and generated in utils.py
+        if 'aprsid' in sonde_data:
+            if sonde_data['aprsid'] is not None:
+                _object_name = sonde_data['aprsid']
 
-            # Create the object name
-            _object_name = "D%d" % _dfm_id
-
-            # Convert to upper-case hex, and take the last 5 nibbles.
-            _id_suffix = hex(_dfm_id).upper()[-5:]
-
-        elif "M10" in sonde_data["type"]:
-            # Use the generated id same as dxlAPRS
-            _object_name = sonde_data["aprsid"]
-
-        elif "IMET" in sonde_data["type"]:
-            # Use the last 5 characters of the unique ID we have generated.
-            _object_name = "IMET" + sonde_data["id"][-5:]
-
-        elif "LMS" in sonde_data["type"]:
-            # Use the last 5 hex digits of the sonde ID.
-            _id_suffix = int(sonde_data["id"].split("-")[1])
-            _id_hex = hex(_id_suffix).upper()
-            _object_name = "LMS6" + _id_hex[-5:]
-
-        elif "MEISEI" in sonde_data["type"]:
-            # Convert the serial number to an int
-            _meisei_id = int(sonde_data["id"].split("-")[-1])
-            _id_suffix = hex(_meisei_id).upper().split("0X")[1]
-            # Clip to 6 hex digits, in case we end up with more for some reason.
-            if len(_id_suffix) > 6:
-                _id_suffix = _id_suffix[-6:]
-            _object_name = "IMS" + _id_suffix
-
-        elif "MRZ" in sonde_data["type"]:
-            # Concatenate the two portions of the serial number, convert to an int,
-            # then take the 6 least-significant hex digits as our ID, prefixed with 'MRZ'.
-            # e.g. MRZ-5667-39155 -> 566739155 -> 21C7C0D3 -> MRZC7C0D3
-            _mrz_id_parts = sonde_data["id"].split("-")
-            _mrz_id = int(_mrz_id_parts[1] + _mrz_id_parts[2])
-            _id_hex = "%06x" % _mrz_id
-            if len(_id_hex) > 6:
-                _id_hex = _id_hex[-6:]
-            _object_name = "MRZ" + _id_hex.upper()
-
-        # New Sonde types will be added in here.
-        else:
+        # However, it may be 'None', which indicates we don't know how to handle this sonde ID yet.
+        if _object_name is None:
             # Unknown sonde type, don't know how to handle this yet.
             logging.error(
                 "No APRS ID conversion available for sonde type: %s"
                 % sonde_data["type"]
             )
             return (None, None)
+
     else:
         _object_name = object_name
 
-    # Pad or limit the object name to 9 characters, if it is to long or short.
-    if len(_object_name) > 9:
-        _object_name = _object_name[:9]
-    elif len(_object_name) < 9:
-        _object_name = _object_name + " " * (9 - len(_object_name))
+
 
     # Use the actual sonde frequency, if we have it.
     if "f_centre" in sonde_data:
@@ -125,7 +75,7 @@ def telemetry_to_aprs_position(
     # Generate the comment field.
     _aprs_comment = aprs_comment
     _aprs_comment = _aprs_comment.replace("<freq>", _freq)
-    _aprs_comment = _aprs_comment.replace("<id>", sonde_data["id"])
+    _aprs_comment = _aprs_comment.replace("<id>", strip_sonde_serial(sonde_data["id"]))
     _aprs_comment = _aprs_comment.replace("<temp>", "%.1fC" % sonde_data["temp"])
     _aprs_comment = _aprs_comment.replace(
         "<pressure>", "%.1fhPa" % sonde_data["pressure"]

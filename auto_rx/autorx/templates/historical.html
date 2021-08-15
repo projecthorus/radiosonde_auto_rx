@@ -71,8 +71,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "630px";
-                            document.getElementById("main").style.marginLeft = "630px";
+                            document.getElementById("mySidenav").style.width = "665px";
+                            document.getElementById("main").style.marginLeft = "665px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -97,7 +97,7 @@
                         }
                     },
                 columns:[                 //define the table columns
-                    {title:"Date", field:"datetime", width:170, resizable:false, formatter:function(cell, formatterParams, onRendered){
+                    {title:"Date", field:"datetime", width:160, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
                             if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
@@ -111,14 +111,18 @@
                         },
                         headerTooltip:"First Observed Date/Time"
                     },
-                    {title:"Type", field:"short_type", width:90, resizable:false},
-                    {title:"Serial", field:"serial", width:105, resizable:false},
-                    {title:"Count", field:"lines", width:75, resizable:false, headerTooltip:"Received Lines of Telemetry"},
+                    {title:"Type", field:"short_type", width:85, resizable:false}, // 90
+                    {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                    {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
                     {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " m"; //return the contents of the cell;
                         }},
-                    {title:"Max R", field:"max_range", width:75, resizable:false, headerTooltip:"Maximum Observed Range (km))",
+                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range (km)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " km"; //return the contents of the cell;
+                        }},
+                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range (km))",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " km"; //return the contents of the cell;
                         }},
@@ -207,6 +211,15 @@
                         
                     } catch (err) {}
                 }
+
+
+                // Fill in any empty slots with the station position, and 0 range.
+                for(let i = 0; i<=360; i=i+divisorValue){
+                    if(!polygonData.hasOwnProperty(i)){
+                        polygonData[i] = [0,autorx_config.station_lat, autorx_config.station_lon];
+                    }
+                }
+
                 //create polygon
                 var polygonLatLngs = []
 
@@ -1121,8 +1134,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "630px";
-                    document.getElementById("main").style.marginLeft = "630px";
+                    document.getElementById("mySidenav").style.width = "665px";
+                    document.getElementById("main").style.marginLeft = "665px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.

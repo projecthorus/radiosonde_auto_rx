@@ -191,46 +191,6 @@ aprs_server = radiosondy.info
 # For all other APRS-IS servers (licensed amateur radio operators only!), use port 14580.
 aprs_port = 14590
 
-# Custom Object name / Callsign to be used when uploading to APRS-IS (Max 9 chars)
-# WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
-# TO CHANGE IT!
-#
-# Using <id> means the uploads from multiple stations remain consistent, and we don't end up with
-# lots of duplicate sondes on APRS-IS. If you enable the station location beaconing (below), maps
-# like aprs.fi and radiosondy.info will show your station as the receiver.
-#
-# If used, this field should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
-# or <id>, which will be replaced with the radiosondes serial number.
-#
-# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
-# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
-aprs_object_id = <id>
-
-# Confirmation of the above setting.
-# Set to True to confirm use of the custom object ID set above.
-# Please read the notes above before setting this to True.
-aprs_use_custom_object_id = False
-
-# Select between uploading the radiosonde position as either an APRS Object, or as a position report.
-# False = Upload position as an Object, sourced from <aprs_user>
-# True = Position Report (with emulated iGating via <aprs_user>)
-# Note that if using Position Reports with aprs_object_id set to <id>, then non-AX.25 compatible callsigns will be generated.
-# If in doubt, leave this at False.
-aprs_position_report = False
-
-# The APRS-IS beacon comment. The following fields can be included:
-# <freq> - Sonde Frequency, e.g. 401.520 MHz
-# <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)
-# <id> - Sonde Serial Number (i.e. M1234567)
-# <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
-# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. 
-# <humidity> - Sonde reported humidity.
-# <pressure> - Sonde reported pressure
-# <batt> - Battery Voltage (e.g. 3.1V)
-# The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
-# if absolutely necessary.
-aprs_custom_comment = Clb=<vel_v> t=<temp> h=<humidity> p=<pressure> <freq> Type=<type> Radiosonde
-
 # APRS Station Location Beaconing
 # If enabled, you will show up on APRS using the aprs_user callsign set above.
 # This also requires your station location to be set in the above [location] section.
@@ -250,6 +210,39 @@ station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
 # House with Yagi = /y
 # Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
 station_beacon_icon = /`
+
+# Custom Object name / Callsign to be used when uploading telemetry to APRS-IS (Max 9 chars)
+# WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
+# TO CHANGE IT!
+#
+# Using <id> means the uploads from multiple stations remain consistent, and we don't end up with
+# lots of duplicate sondes on APRS-IS. If you enable the station location beaconing (below), maps
+# like aprs.fi and radiosondy.info will show your station as the receiver.
+#
+# If used, this field should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
+# or <id>, which will be replaced with the radiosondes serial number.
+#
+# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
+# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
+aprs_object_id = <id>
+
+# Confirmation of the above setting.
+# Set to True to confirm use of the custom object ID set above.
+# Please read the notes above before setting this to True.
+aprs_use_custom_object_id = False
+
+# The APRS-IS beacon comment. The following fields can be included:
+# <freq> - Sonde Frequency, e.g. 401.520 MHz
+# <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)
+# <id> - Sonde Serial Number (i.e. M1234567)
+# <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
+# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. 
+# <humidity> - Sonde reported humidity.
+# <pressure> - Sonde reported pressure
+# <batt> - Battery Voltage (e.g. 3.1V)
+# The default comment (below) is compatible with radiosondy.info's parsers, and should only be modified
+# if absolutely necessary.
+aprs_custom_comment = Clb=<vel_v> t=<temp> h=<humidity> p=<pressure> <freq> Type=<type> ser=<id> Radiosonde
 
 
 ###########################
@@ -478,6 +471,10 @@ dfm_experimental = True
 m10_experimental = True
 lms6-400_experimental = True
 imet54_experimental = True
+# LMS6-1680 Decoder options:
+# False = Less CPU, possibly worse weak-signal performance.
+# True = Higher CPU (Pushing a RPi 3 to its limits), possibly better weak-signal performance.
+lms6-1680_experimental = False
 
 # MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
 # If someone can confirm that this works, I'll set it to True by default!

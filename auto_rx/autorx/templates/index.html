@@ -60,6 +60,9 @@
                     }
                     $('#station_callsign').text(_station_call);
 
+                    // Update webpage title
+                    document.title = _station_call + " Auto-RX Status";
+
                     if(autorx_config["web_control"] == false){
                         $("#password-header").html("<h2>Web Control Disabled</h2>");
                         disable_web_controls();
@@ -477,7 +480,25 @@
                     {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:true},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
-                    {title:"ID", field:"id", formatter:'html', width:80, headerSort:true},
+                    {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        _cell_data = cell.getData();
+                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"");
+                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"");
+                        
+                        // Add Sondehub Link
+                        _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
+
+                        // Add Radiosondy Link
+                        if(_cell_data.aprsid != null){
+                            _aprs_id = _cell_data.aprsid.trim();
+                            _id += "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + _aprs_id + "' title='View on Radiosondy.info' target='_blank'>" + "<img src='{{ url_for('static', filename='img/radiosondy.png')}}'/>" + "</a>";
+
+                        } else {
+                            _aprs_id = null;
+                        }
+
+                        return _id;
+                    }},
                     {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
@@ -666,21 +687,18 @@
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
+                        
+
                         // Add a link to HabHub if we have habitat enabled.
-                        if (autorx_config.sondehub_enabled == true) {
-                            // Add a link to HabHub card if sonde is old.
-                            if (sonde_id_data.age != "old") {
-                                sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id  + "</a>";
-                            } else {
-                                sonde_id_data.id = "<a href='http://sondehub.org/card/" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id  + "</a>";
-                            }
-                        // These links are only going to work for Vaisala radiosondes since the APRS callsign is never passed through to the web interface,
-                        // and the APRS callsigns for everything other than RS41s and RS92s is different to the 'full' serials
-                        } else if (autorx_config.aprs_enabled == true && autorx_config.aprs_server == "radiosondy.info") {
-                            sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
-                        } else if (autorx_config.aprs_enabled == true) {
-                            sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
-                        }
+                        // if (autorx_config.sondehub_enabled == true) {
+                        //     sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id  + "</a>";
+                        // // These links are only going to work for Vaisala radiosondes since the APRS callsign is never passed through to the web interface,
+                        // // and the APRS callsigns for everything other than RS41s and RS92s is different to the 'full' serials
+                        // } else if (autorx_config.aprs_enabled == true && autorx_config.aprs_server == "radiosondy.info") {
+                        //     sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
+                        // } else if (autorx_config.aprs_enabled == true) {
+                        //     sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
+                        // }
                         
                         sonde_id_data.realid = sonde_id;
 
