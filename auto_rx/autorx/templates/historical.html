@@ -211,6 +211,15 @@
                         
                     } catch (err) {}
                 }
+
+
+                // Fill in any empty slots with the station position, and 0 range.
+                for(let i = 0; i<=360; i=i+divisorValue){
+                    if(!polygonData.hasOwnProperty(i)){
+                        polygonData[i] = [0,autorx_config.station_lat, autorx_config.station_lon];
+                    }
+                }
+
                 //create polygon
                 var polygonLatLngs = []
 
