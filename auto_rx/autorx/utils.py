@@ -110,7 +110,7 @@ def check_autorx_versions(current_version=auto_rx_version):
         # User is on a testing branch version.
         # Compare against the testing branch version - when a release is made, the testing
         # branch will have the same version as the main branch, then will advance.
-        if semver.compare(_testing_branch_version, current_version):
+        if semver.compare(_testing_branch_version, current_version) == 1:
             # Newer testing version available.
             return _testing_branch_version
         else:
@@ -118,7 +118,7 @@ def check_autorx_versions(current_version=auto_rx_version):
             return "Latest"
     else:
         # User is running the main branch
-        if semver.compare(_main_branch_version, current_version):
+        if semver.compare(_main_branch_version, current_version) == 1:
             return _main_branch_version
         else:
             return "Latest"
@@ -299,18 +299,18 @@ def generate_aprs_id(sonde_data):
         else:
             # Unknown sonde type, don't know how to handle this yet.
             _object_name = None
-        
+
         # Pad or clip to 9 characters
         if len(_object_name) > 9:
             _object_name = _object_name[:9]
         elif len(_object_name) < 9:
             _object_name = _object_name + " " * (9 - len(_object_name))
-        
+
         return _object_name
 
 
 def readable_timedelta(duration: timedelta):
-    """ 
+    """
     Convert a timedelta into a readable string.
     From: https://codereview.stackexchange.com/a/245215
     """
