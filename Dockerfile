@@ -1,39 +1,24 @@
 # -------------------
 # The build container
 # -------------------
-FROM debian:buster-slim AS build
+FROM alpine:3.14 AS build
 
 # Upgrade base packages.
-RUN apt-get update && \
-  apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
-    libatlas-base-dev \
-    libusb-1.0-0-dev \
-    pkg-config \
-    python3 \
-    python3-dev \
-    python3-pip \
-    python3-setuptools \
-    python3-wheel && \
-  rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache
 
-# Compile rtl-sdr from source.
-RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
-  mkdir -p /root/librtlsdr/build && \
-  cd /root/librtlsdr/build && \
-  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
-  make && \
-  make install && \
-  rm -rf /root/librtlsdr
+# Install build dependencies.
+RUN apk add --no-cache \
+  build-base \
+  python3 \
+  python3-dev \
+  py3-pip \
+  py3-wheel
 
 # Copy in requirements.txt.
 COPY auto_rx/requirements.txt \
   /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
-# Install Python packages.
+# Install additional Python packages.
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
   --user --no-warn-script-location --ignore-installed --no-binary numpy \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
@@ -48,26 +33,21 @@ RUN /bin/sh build.sh
 # -------------------------
 # The application container
 # -------------------------
-FROM debian:buster-slim
+FROM alpine:3.14
 
 EXPOSE 5000/tcp
 
-# Upgrade base packages and install application dependencies.
-RUN apt-get update && \
-  apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends \
-  libatlas3-base \
-  libatomic1 \
+# Upgrade base packages.
+RUN apk upgrade --no-cache
+
+# Install application dependencies.
+RUN apk add --no-cache \
+  coreutils \
   python3 \
-  rng-tools \
+  rtl-sdr \
   sox \
   tini \
-  usbutils && \
-  rm -rf /var/lib/apt/lists/*
-
-# Copy rtl-sdr from the build container.
-COPY --from=build /root/target /
-RUN ldconfig
+  usbutils
 
 # Copy any additional Python packages from the build container.
 COPY --from=build /root/.local /root/.local
@@ -79,11 +59,8 @@ COPY --from=build /root/radiosonde_auto_rx/auto_rx/ /opt/auto_rx/
 # Set the working directory.
 WORKDIR /opt/auto_rx
 
-# Ensure scripts from Python packages are in PATH.
-ENV PATH=/root/.local/bin:$PATH
-
 # Use tini as init.
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--"]
 
 # Run auto_rx.py.
 CMD ["python3", "/opt/auto_rx/auto_rx.py"]
