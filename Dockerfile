@@ -1,7 +1,7 @@
 # -------------------
 # The build container
 # -------------------
-FROM debian:bullseye-slim AS build
+FROM debian:buster-slim AS build
 
 # Upgrade base packages.
 RUN apt-get update && \
@@ -48,7 +48,7 @@ RUN /bin/sh build.sh
 # -------------------------
 # The application container
 # -------------------------
-FROM debian:bullseye-slim
+FROM debian:buster-slim
 
 EXPOSE 5000/tcp
 
