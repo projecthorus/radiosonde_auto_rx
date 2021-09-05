@@ -199,8 +199,11 @@ class SondehubUploader(object):
 
         elif telemetry["type"] == "IMET5":
             _output["manufacturer"] = "Intermet Systems"
-            _output["type"] = "iMet-54"
+            _output["type"] = "iMet-5x"
             _output["serial"] = telemetry["id"].split("-")[1]
+            if "subtype" in telemetry:
+                _output["type"] = telemetry["subtype"]
+                _output["subtype"] = telemetry["subtype"]
 
         elif telemetry["type"] == "MEISEI":
             _output["manufacturer"] = "Meisei"

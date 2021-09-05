@@ -1326,7 +1326,7 @@ class SondeDecoder(object):
                 )
                 _telemetry["id"] = self.imet_id
 
-            # iMet-54 Specific Actions
+            # iMet-5x Specific Actions
             if self.sonde_type == "IMET5":
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])

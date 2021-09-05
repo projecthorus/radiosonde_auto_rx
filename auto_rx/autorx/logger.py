@@ -130,6 +130,11 @@ class TelemetryLogger(object):
             telemetry (dict): Telemetry dictionary to process.
         """
         # timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,type,freq,other
+        if 'subtype' in telemetry:
+            _type = telemetry['subtype']
+        else:
+            _type = telemetry['type']
+
         _log_line = "%s,%s,%d,%.5f,%.5f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%s,%.3f" % (
             telemetry["datetime"],
             telemetry["id"],
@@ -143,7 +148,7 @@ class TelemetryLogger(object):
             telemetry["temp"],
             telemetry["humidity"],
             telemetry["pressure"],
-            telemetry["type"],
+            _type,
             telemetry["freq_float"],
         )
 
