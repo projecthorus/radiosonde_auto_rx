@@ -482,8 +482,8 @@
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
-                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"");
-                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"");
+                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
+                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
                         
                         // Add Sondehub Link
                         _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
@@ -1644,7 +1644,7 @@
                 <option value="LMS6">LMS6 (400 MHz)</option>
                 <option value="MK2LMS">LMS6 (1680 MHz)</option>
                 <option value="IMET">iMet-4</option>
-                <option value="IMET5">iMet-53</option>
+                <option value="IMET5">iMet-50/54</option>
                 <option value="MEISEI">iMS-100</option>
                 <option value="MRZ">MRZ-H1</option>
             </select>

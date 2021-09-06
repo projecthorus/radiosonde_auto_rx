@@ -145,7 +145,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ|LMS6)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
@@ -182,7 +182,7 @@ def short_type_lookup(type_name):
     elif type_name == "IMET":
         return "Intermet Systems iMet-1/4"
     elif type_name == "IMET5":
-        return "Intermet Systems iMet-54"
+        return "Intermet Systems iMet-5x"
     elif type_name == "MEISEI":
         return "Meisei iMS-100/RS-11"
     elif type_name == "MRZ":
@@ -216,7 +216,7 @@ def short_short_type_lookup(type_name):
     elif type_name == "IMET":
         return "iMet-1/4"
     elif type_name == "IMET5":
-        return "iMet-54"
+        return "iMet-5x"
     elif type_name == "MEISEI":
         return "iMS-100"
     elif type_name == "MRZ":
@@ -268,6 +268,7 @@ def generate_aprs_id(sonde_data):
         elif "IMET" in sonde_data["type"]:
             # Use the last 5 characters of the unique ID we have generated.
             _object_name = "IMET" + sonde_data["id"][-5:]
+
 
         elif "LMS" in sonde_data["type"]:
             # Use the last 5 hex digits of the sonde ID.
