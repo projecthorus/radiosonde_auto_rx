@@ -108,6 +108,7 @@ static ui8_t rs_sync[] = { 0x00, 0x58, 0xf3, 0x3f, 0xb8};
 static char  blk_syncbits[] = "0000000000000000""0000001101011101""0100100111000010""0100111111110010""0110100001101011";
 
 static ui8_t frm_sync6[] = { 0x24, 0x54, 0x00, 0x00};
+//static ui8_t frm_sync6_05[] = { 0x24, 0x54, 0x00, 0x05};
 static ui8_t frm_syncX[] = { 0x24, 0x46, 0x05, 0x00};
 
 
@@ -792,9 +793,14 @@ static int frmsync_6(gpx_t *gpx, ui8_t block_bytes[], int blk_pos) {
     int j;
 
     while ( blk_pos-SYNC_LEN < FRM_LEN ) {
+        int sf6_00 = 0;
+        int sf6_05 = 0;
         gpx->sf6 = 0;
-        for (j = 0; j < 4; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
-        if (gpx->sf6 == 4)  {
+        for (j = 0; j < 3; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
+        sf6_00 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x00);
+        sf6_05 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x05);
+        if (sf6_00 == 4 || sf6_05 == 4)  {
+            gpx->sf6 = 4;
             gpx->frm_pos = 0;
             break;
         }
@@ -919,9 +925,14 @@ static void proc_frame(gpx_t *gpx, int len) {
         if (gpx->sfX < 4) {
             //blk_pos = SYNC_LEN;
             while ( blk_pos-SYNC_LEN < FRM_LEN ) {
+                int sf6_00 = 0;
+                int sf6_05 = 0;
                 gpx->sf6 = 0;
-                for (j = 0; j < 4; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
-                if (gpx->sf6 == 4)  {
+                for (j = 0; j < 3; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
+                sf6_00 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x00);
+                sf6_05 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x05);
+                if (sf6_00 == 4 || sf6_05 == 4)  {
+                    gpx->sf6 = 4;
                     gpx->frm_pos = 0;
                     if (gpx->auto_detect) { gpx->typ = 6; gpx->reset_dsp = 1; }
                     break;
