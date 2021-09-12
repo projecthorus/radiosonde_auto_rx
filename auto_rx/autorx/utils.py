@@ -176,7 +176,7 @@ def short_type_lookup(type_name):
     elif type_name.startswith("M20"):
         return "Meteomodem M20"
     elif type_name == "LMS6":
-        return "Lockheed Martin LMS6-400"
+        return "Lockheed Martin LMS6-403"
     elif type_name == "MK2LMS":
         return "Lockheed Martin LMS6-1680"
     elif type_name == "IMET":
@@ -210,7 +210,7 @@ def short_short_type_lookup(type_name):
     elif type_name.startswith("M20"):
         return "M20"
     elif type_name == "LMS6":
-        return "LMS6-400"
+        return "LMS6-403"
     elif type_name == "MK2LMS":
         return "LMS6-1680"
     elif type_name == "IMET":
