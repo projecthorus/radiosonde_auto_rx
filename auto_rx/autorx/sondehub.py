@@ -181,10 +181,8 @@ class SondehubUploader(object):
 
         elif telemetry["type"] == "LMS6":
             _output["manufacturer"] = "Lockheed Martin"
-            if "LMSX" in telemetry["id"]:
-                _output["type"] = "LMSX-400"
-            else:
-                _output["type"] = "LMS6-400"
+            _output["type"] = "LMS6-403"
+            _output["subtype"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
         elif telemetry["type"] == "MK2LMS":
