@@ -108,6 +108,7 @@ static ui8_t rs_sync[] = { 0x00, 0x58, 0xf3, 0x3f, 0xb8};
 static char  blk_syncbits[] = "0000000000000000""0000001101011101""0100100111000010""0100111111110010""0110100001101011";
 
 static ui8_t frm_sync6[] = { 0x24, 0x54, 0x00, 0x00};
+//static ui8_t frm_sync6_05[] = { 0x24, 0x54, 0x00, 0x05};
 static ui8_t frm_syncX[] = { 0x24, 0x46, 0x05, 0x00};
 
 
@@ -575,8 +576,8 @@ static int get_GPSlat(gpx_t *gpx) {
     for (i = 0; i < 4; i++) {
         gpslat |= gpslat_bytes[i] << (8*(3-i));
     }
-    if (gpx->typ == 6) lat = gpslat / B60B60;
-    else /*typ==10*/   lat = gpslat / 1e7;
+    if ((gpx->typ & 0xFF) == 6) lat = gpslat / B60B60;
+    else /* gpx->typ == 10 */   lat = gpslat / 1e7;
 
     gpx->lat = lat;
 
@@ -596,8 +597,8 @@ static int get_GPSlon(gpx_t *gpx) {
         gpslon |= gpslon_bytes[i] << (8*(3-i));
     }
 
-    if (gpx->typ == 6) lon = gpslon / B60B60;
-    else /*typ==10*/   lon = gpslon / 1e7;
+    if ((gpx->typ & 0xFF) == 6) lon = gpslon / B60B60;
+    else /* gpx->typ == 10 */   lon = gpslon / 1e7;
 
     gpx->lon = lon;
 
@@ -617,8 +618,8 @@ static int get_GPSalt(gpx_t *gpx) {
         gpsheight |= gpsheight_bytes[i] << (8*(3-i));
     }
 
-    if (gpx->typ == 6) alt = gpsheight / 1000.0;
-    else /*typ==10*/   alt = gpsheight / 100.0;
+    if ((gpx->typ & 0xFF) == 6) alt = gpsheight / 1000.0;
+    else /* gpx->typ == 10 */   alt = gpsheight / 100.0;
 
     gpx->alt = alt;
 
@@ -725,7 +726,7 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
             get_GPSlat(gpx);
             get_GPSlon(gpx);
             err2 = get_GPSalt(gpx);
-            if (gpx->typ == 6)
+            if ((gpx->typ & 0xFF) == 6)
             {
                 err1 = get_GPStime(gpx, crc_err);
                 get_GPSvel24(gpx);
@@ -763,15 +764,17 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                 if (crc_err==0) { // CRC-OK
                     // UTC oder GPS?
                     char *ver_jsn = NULL;
-                    char sntyp[] = "LMS6-";
-                    if (gpx->typ == 10) sntyp[3] = 'X';
+                    char sntyp[]  = "LMS6-";
+                    char subtyp[] = "LMS6-403\0\0";
+                    if (gpx->typ == 10) { sntyp[3] = 'X'; subtyp[3] = 'X'; }
+                    else if (gpx->typ == 0x0206) strcpy(subtyp, "LMS6-403-2");
                     printf("{ \"type\": \"%s\"", "LMS");
                     printf(", \"frame\": %d, \"id\": \"%s%d\", \"datetime\": \"", gpx->frnr, sntyp, gpx->sn );
                     //if (gpx->week > 0) printf("%04d-%02d-%02dT", gpx->jahr, gpx->monat, gpx->tag );
                     printf("%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                            gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD, gpx->vV );
                     printf(", \"gpstow\": %d", gpx->gpstow );
-                    printf(", \"subtype\": \"%c\"", sntyp[3]); // "6":LMS6-403, "X":lms6X, "MK2A":LMS6-1680/Mk2a
+                    printf(", \"subtype\": \"%s\"", subtyp); // "LMS6-403", "LMS6-403-2", "LMSX-403"; "MK2A":LMS6-1680/Mk2a
                     if (gpx->jsn_freq > 0) {
                         printf(", \"freq\": %d", gpx->jsn_freq);
                     }
@@ -792,10 +795,17 @@ static int frmsync_6(gpx_t *gpx, ui8_t block_bytes[], int blk_pos) {
     int j;
 
     while ( blk_pos-SYNC_LEN < FRM_LEN ) {
+        int sf6_00 = 0;
+        int sf6_05 = 0;
         gpx->sf6 = 0;
-        for (j = 0; j < 4; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
-        if (gpx->sf6 == 4)  {
+        for (j = 0; j < 3; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
+        sf6_00 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x00);
+        sf6_05 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x05);
+        if (sf6_00 == 4 || sf6_05 == 4)  {
+            gpx->sf6 = 4;
             gpx->frm_pos = 0;
+            gpx->typ = 6;
+            if (sf6_05 == 4) gpx->typ |= 0x0200;
             break;
         }
         blk_pos++;
@@ -865,7 +875,7 @@ static void proc_frame(gpx_t *gpx, int len) {
 
     blk_pos = SYNC_LEN;
 
-    if (gpx->typ == 6)
+    if ((gpx->typ & 0xFF) == 6)
     {
         if (gpx->option.ecc) {
             for (j = 0; j < rs_N; j++) rs_cw[rs_N-1-j] = block_bytes[SYNC_LEN+j];
@@ -919,11 +929,20 @@ static void proc_frame(gpx_t *gpx, int len) {
         if (gpx->sfX < 4) {
             //blk_pos = SYNC_LEN;
             while ( blk_pos-SYNC_LEN < FRM_LEN ) {
+                int sf6_00 = 0;
+                int sf6_05 = 0;
                 gpx->sf6 = 0;
-                for (j = 0; j < 4; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
-                if (gpx->sf6 == 4)  {
+                for (j = 0; j < 3; j++) gpx->sf6 += (block_bytes[blk_pos+j] == frm_sync6[j]);
+                sf6_00 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x00);
+                sf6_05 = gpx->sf6 + (block_bytes[blk_pos+3] == 0x05);
+                if (sf6_00 == 4 || sf6_05 == 4)  {
+                    gpx->sf6 = 4;
                     gpx->frm_pos = 0;
-                    if (gpx->auto_detect) { gpx->typ = 6; gpx->reset_dsp = 1; }
+                    if (gpx->auto_detect) {
+                        gpx->reset_dsp = 1;
+                        gpx->typ = 6;
+                        if (sf6_05 == 4) gpx->typ |= 0x0200;
+                    }
                     break;
                 }
                 blk_pos++;
@@ -933,7 +952,11 @@ static void proc_frame(gpx_t *gpx, int len) {
             // LMS6: frm_rate = 4800.0 * FRAME_LEN/BLOCK_LEN = 4800*300/260 = 5538
             // LMSX: delta_mp = 4797.8 (longer timesync-frames possible)
             if (gpx->frm_rate > 5000.0 || gpx->frm_rate < 4000.0) { // lms6-blocklen = 260/300 sr, sync wird ueberlesen ...
-                if (gpx->auto_detect) { gpx->typ = 6; gpx->reset_dsp = 1; }
+                if (gpx->auto_detect) {
+                    gpx->reset_dsp = 1;
+                    gpx->typ = 6;
+                    //if (sf6_05 == 4) gpx->typ |= 0x0200;
+                }
             }
         }
         else
@@ -1408,7 +1431,7 @@ int main(int argc, char **argv) {
 
                     bitofs = bitofsX + shift;
                 }
-                if (gpx->typ == 6) {
+                if ((gpx->typ & 0xFF) == 6) {
                     // set lms6
                     rawbitblock_len = RAWBITBLOCK_LEN_6;
                     dsp.br = (float)BAUD_RATE6;

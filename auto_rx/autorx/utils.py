@@ -110,7 +110,7 @@ def check_autorx_versions(current_version=auto_rx_version):
         # User is on a testing branch version.
         # Compare against the testing branch version - when a release is made, the testing
         # branch will have the same version as the main branch, then will advance.
-        if semver.compare(_testing_branch_version, current_version):
+        if semver.compare(_testing_branch_version, current_version) == 1:
             # Newer testing version available.
             return _testing_branch_version
         else:
@@ -118,7 +118,7 @@ def check_autorx_versions(current_version=auto_rx_version):
             return "Latest"
     else:
         # User is running the main branch
-        if semver.compare(_main_branch_version, current_version):
+        if semver.compare(_main_branch_version, current_version) == 1:
             return _main_branch_version
         else:
             return "Latest"
@@ -145,7 +145,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET54|MRZ|LMS6)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
@@ -176,13 +176,13 @@ def short_type_lookup(type_name):
     elif type_name.startswith("M20"):
         return "Meteomodem M20"
     elif type_name == "LMS6":
-        return "Lockheed Martin LMS6-400"
+        return "Lockheed Martin LMS6-403"
     elif type_name == "MK2LMS":
         return "Lockheed Martin LMS6-1680"
     elif type_name == "IMET":
         return "Intermet Systems iMet-1/4"
     elif type_name == "IMET5":
-        return "Intermet Systems iMet-54"
+        return "Intermet Systems iMet-5x"
     elif type_name == "MEISEI":
         return "Meisei iMS-100/RS-11"
     elif type_name == "MRZ":
@@ -210,13 +210,13 @@ def short_short_type_lookup(type_name):
     elif type_name.startswith("M20"):
         return "M20"
     elif type_name == "LMS6":
-        return "LMS6-400"
+        return "LMS6-403"
     elif type_name == "MK2LMS":
         return "LMS6-1680"
     elif type_name == "IMET":
         return "iMet-1/4"
     elif type_name == "IMET5":
-        return "iMet-54"
+        return "iMet-5x"
     elif type_name == "MEISEI":
         return "iMS-100"
     elif type_name == "MRZ":
@@ -269,6 +269,7 @@ def generate_aprs_id(sonde_data):
             # Use the last 5 characters of the unique ID we have generated.
             _object_name = "IMET" + sonde_data["id"][-5:]
 
+
         elif "LMS" in sonde_data["type"]:
             # Use the last 5 hex digits of the sonde ID.
             _id_suffix = int(sonde_data["id"].split("-")[1])
@@ -299,18 +300,18 @@ def generate_aprs_id(sonde_data):
         else:
             # Unknown sonde type, don't know how to handle this yet.
             _object_name = None
-        
+
         # Pad or clip to 9 characters
         if len(_object_name) > 9:
             _object_name = _object_name[:9]
         elif len(_object_name) < 9:
             _object_name = _object_name + " " * (9 - len(_object_name))
-        
+
         return _object_name
 
 
 def readable_timedelta(duration: timedelta):
-    """ 
+    """
     Convert a timedelta into a readable string.
     From: https://codereview.stackexchange.com/a/245215
     """
