@@ -224,6 +224,61 @@ static ui8_t hamming(int opt_ecc, ui8_t *cwb, ui8_t *sym) {
     return ret; // { 0, 1, 0xF0 }
 }
 
+static int crc32ok(ui8_t *bytes, int len) {
+    ui32_t poly0 = 0x0EDB;
+    ui32_t poly1 = 0x8260;
+    //[105 , 7, 0x8EDB, 0x8260],
+    //[104 , 0, 0x48EB, 0x1ACA]
+    int n = 104;
+    int b = 0;
+    ui32_t c0 = 0x48EB;
+    ui32_t c1 = 0x1ACA;
+    ui32_t nx_c0 = c0;
+    ui32_t nx_c1 = c1;
+
+    ui32_t data_c0 = (bytes[100]<<8) | bytes[101];
+    ui32_t data_c1 = (bytes[106]<<8) | bytes[107];
+
+    ui32_t crc0 = 0;
+    ui32_t crc1 = 0;
+
+    if (len < 108) return 0;
+
+    while (n >= 0) {
+
+        if (n < 100 || (n > 101 && n < 106)) {
+            if ((bytes[n]>>b) & 1) {
+                crc0 ^= c0;
+                crc1 ^= c1;
+            }
+        }
+
+        if (c1 & 0x8000) {
+            nx_c0 ^= poly0;
+            nx_c1 ^= poly1;
+        }
+        nx_c0 <<= 1;
+        nx_c1 <<= 1;
+        if ( c1     & 0x8000) nx_c0 |= 1;
+        if ((c1^c0) & 0x8000) nx_c1 |= 1;
+        nx_c0 &= 0xFFFF;
+        c0 = nx_c0;
+        c1 = nx_c1;
+
+        if (b < 7) b += 1;
+        else {
+            b = 0;
+            if (n % 4 == 3) n -= 7;
+            else            n += 1;
+        }
+    }
+
+    crc0 ^= data_c0^0x5000;
+    crc1 ^= data_c1^0x1DAD;
+
+    if (crc1 == 0 && (crc0 & 0xF000) == 0) return 1;
+    return 0;
+}
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -303,6 +358,12 @@ static int get_GPS(gpx_t *gpx) {
     val = i4be(gpx->frame+pos_GPSalt);
     gpx->alt = val / 1e1;
 
+    // plausibility checks
+    if (gpx->timems < 0.0 || gpx->timems > 235959999) return -1;
+    if (gpx->lat <  -90.0 || gpx->lat >  90.0) return -2;
+    if (gpx->lon < -180.0 || gpx->lon > 180.0) return -2;
+    if (gpx->alt < -400.0 || gpx->alt > 60000.0) return -2;
+
     return 0;
 }
 
@@ -332,7 +393,10 @@ static int get_PTU(gpx_t *gpx) {
     val = i4be(gpx->frame + pos_PTU_T);
     if (*f > -120.0f && *f < 80.0f)  gpx->T = *f;
     else gpx->T = -273.15f;
-    if (val == 0x4E6E6B28) count_1e9 += 1;
+    if (val == 0x4E6E6B28) {
+        gpx->T = -273.15f;
+        count_1e9 += 1;
+    }
 
     // raw RH?
     // water vapor saturation pressure (Hyland and Wexler)?
@@ -341,13 +405,19 @@ static int get_PTU(gpx_t *gpx) {
     if      (*f <   0.0f)  gpx->_RH =   0.0f;
     else if (*f > 100.0f)  gpx->_RH = 100.0f;
     else gpx->_RH = *f;
-    if (val == 0x4E6E6B28) count_1e9 += 1;
+    if (val == 0x4E6E6B28) {
+        gpx->_RH = -1.0f;
+        count_1e9 += 1;
+    }
 
     // temperatur of r.h. sensor?
     val = i4be(gpx->frame + pos_PTU_Trh);
     if (*f > -120.0f && *f < 80.0f)  gpx->Trh = *f;
     else gpx->Trh = -273.15f;
-    if (val == 0x4E6E6B28) count_1e9 += 1;
+    if (val == 0x4E6E6B28)  {
+        gpx->Trh = -273.15f;
+        count_1e9 += 1;
+    }
 
     // (Hyland and Wexler)
     if (gpx->T > -273.0f && gpx->Trh > -273.0f) {
@@ -389,10 +459,13 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
         prnPTU = 0,
         prnSTS = 0;
     int ptu1e9 = 0;
+    int tp_err = 0;
     int pos_ok = 0,
-        frm_ok = 0;
+        frm_ok = 0,
+        crc_ok = 0;
     int rs_type = 54;
 
+    crc_ok = crc32ok(gpx->frame, len);
     pos_ok = (ecc_frm >= 0  &&  len > pos_STATUS+2);
     frm_ok = (ecc_frm >= 0  &&  len > pos_F8);
 
@@ -401,8 +474,9 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
     if (len > pos_GPSalt+4)
     {
         get_SN(gpx);
-        get_GPS(gpx);
-        prnGPS = 1;
+        tp_err = get_GPS(gpx);
+        if (tp_err == 0) prnGPS = 1;
+        else frm_ok = 0;
     }
     if (len > pos_PTU_Trh+4)
     {
@@ -441,6 +515,10 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
             if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%% ", gpx->RH);
         }
 
+        if (gpx->option.vbs) {
+            if ( crc_ok ) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+        }
+
         // (imet54:GPS+PTU) status: 003E , (imet50:GPS); 0030
         if (gpx->option.vbs && prnSTS) {
             fprintf(stdout, "  [%04X] ", gpx->status);
@@ -456,8 +534,9 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
     }
 
     // prnGPS,prnTPU
-    if (gpx->option.jsn && frm_ok && (gpx->status&0x30)==0x30) {
+    if (gpx->option.jsn && frm_ok && crc_ok && (gpx->status&0x30)==0x30) {
         char *ver_jsn = NULL;
+        //char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
         char *subtype = (rs_type == 54) ? "iMet-54" : "iMet-50";
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
@@ -539,6 +618,7 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
                 if (gpx->option.raw == 4 && i % 4 == 3) fprintf(stdout, " ");
             }
         }
+        if ( crc32ok(gpx->frame, len) ) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
         if (gpx->option.ecc && ecc_frm != 0) {
             fprintf(stdout, " # (%d)", ecc_frm);
             fprintf(stdout, " [%d]", ecc_gps);
