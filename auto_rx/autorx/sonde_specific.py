@@ -93,6 +93,8 @@ def decode_dfm_subtype(subtype):
 
     if subtype == "0x6":
         return "DFM06"
+    elif subtype == "0x7":
+        return "PS-15"
     elif subtype == "0xA":
         return "DFM09"
     elif subtype == "0xB":

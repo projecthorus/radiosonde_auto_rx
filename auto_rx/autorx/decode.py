@@ -1360,6 +1360,9 @@ class SondeDecoder(object):
                     # Calculate estimated frequency error from where we expected the sonde to be.
                     _telemetry["f_error"] = _telemetry["f_centre"] - self.sonde_freq
 
+                    # TODO - Compare the frequency estimate with any frequency information supplied in the sonde telemetry.
+                    # If there is a large difference (> 5 kHz or so), log a warning.
+
             # Try and generate an APRS callsign for this sonde.
             # Doing this calculation here allows us to pass it to the web interface to generate an appropriate link
             try:
