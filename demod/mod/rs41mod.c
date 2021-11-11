@@ -1848,6 +1848,12 @@ static int print_position(gpx_t *gpx, int ec) {
                             if (gpx->freq > 0) fq_kHz = gpx->freq;
                             fprintf(stdout, ", \"freq\": %d", fq_kHz);
                         }
+
+                        // Include frequency derived from subframe information if available.
+                        if (gpx->freq > 0){
+                            fprintf(stdout, ", \"tx_frequency\": %d", gpx->freq );
+                        }
+
                         #ifdef VER_JSN_STR
                             ver_jsn = VER_JSN_STR;
                         #endif

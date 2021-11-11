@@ -700,6 +700,7 @@ int main(int argc, char **argv) {
                                     gpx.sek = (double)ms/1000.0;
 
                                     if (option_jsn && err_blks==0 && gpx.frnr1-gpx.frnr==1) {
+                                        char *ver_jsn = NULL;
                                         char id_str[] = "xxxxxx\0\0\0\0\0\0";
                                         //if (gpx._sn > 0) { sprintf(id_str, "%08x", gpx._sn); }
                                         if (gpx.sn > 0 && gpx.sn < 1e9) {
@@ -712,6 +713,13 @@ int main(int argc, char **argv) {
                                         if (gpx.jsn_freq > 0) {
                                             printf(", \"freq\": %d", gpx.jsn_freq);
                                         }
+                                        if (gpx.fq > 0) { // include frequency derived from subframe information if available
+                                            fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
+                                        }
+                                        #ifdef VER_JSN_STR
+                                            ver_jsn = VER_JSN_STR;
+                                        #endif
+                                        if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                                         printf(" }\n");
                                         printf("\n");
                                     }
@@ -933,6 +941,9 @@ int main(int argc, char **argv) {
                                     printf(", \"subtype\": \"IMS100\"");
                                     if (gpx.jsn_freq > 0) { // not gpx.fq, because gpx.sn not in every frame
                                         printf(", \"freq\": %d", gpx.jsn_freq);
+                                    }
+                                    if (gpx.fq > 0) { // include frequency derived from subframe information if available
+                                        fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
                                     }
                                     #ifdef VER_JSN_STR
                                         ver_jsn = VER_JSN_STR;

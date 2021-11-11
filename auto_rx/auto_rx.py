@@ -294,7 +294,7 @@ def handle_scan_results():
                             if abs(_key - _freq) < config["decoder_spacing_limit"]:
                                 # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
                                 # Without actually starting another decoder and matching IDs, we can't be 100% sure, but it's a good chance.
-                                logging.warning(
+                                logging.info(
                                     "Task Manager - Detected %s sonde on %.3f MHz, but this is within %d kHz of an already running decoder. (This limit can be set using the 'decoder_spacing_limit' advanced config option.)"
                                     % (
                                         _type,
