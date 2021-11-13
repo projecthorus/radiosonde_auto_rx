@@ -1,6 +1,7 @@
 [Unit]
 Description=auto_rx
 After=syslog.target
+After=network.target
 
 [Service]
 ExecStart=/usr/bin/python3 /home/pi/radiosonde_auto_rx/auto_rx/auto_rx.py -t 0
@@ -12,5 +13,3 @@ SyslogIdentifier=auto_rx
 
 [Install]
 WantedBy=multi-user.target
-
-
