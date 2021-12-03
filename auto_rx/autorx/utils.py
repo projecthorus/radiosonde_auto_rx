@@ -46,6 +46,7 @@ REQUIRED_RS_UTILS = [
     "meisei100mod",
     "imet54mod",
     "mp3h1mod",
+    "m20mod",
 ]
 
 

@@ -876,7 +876,7 @@ class SondeDecoder(object):
             )
 
             # M20 decoder
-            decode_cmd = f"./mXXmod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./m20mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
 
             # M20 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)

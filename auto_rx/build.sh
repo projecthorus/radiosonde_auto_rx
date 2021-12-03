@@ -14,6 +14,7 @@ echo "Building for radiosonde_auto_rx version: $AUTO_RX_VERSION"
 
 VERS_FLAG="-DVER_JSN_STR=$AUTO_RX_VERSION"
 
+
 # Build rs_detect.
 echo "Building dft_detect"
 cd ../scan/
@@ -38,7 +39,7 @@ gcc meisei100mod.c demod_mod.o bch_ecc_mod.o -lm -O3 -o meisei100mod -w $VERS_FL
 echo "Building M10 demod."
 gcc m10mod.c demod_mod.o -lm -O3 -o m10mod -w $VERS_FLAG
 echo "Building M20 demod."
-gcc mXXmod.c demod_mod.o -lm -O3 -o mXXmod -w $VERS_FLAG
+gcc m20mod.c demod_mod.o -lm -O3 -o m20mod -w $VERS_FLAG
 echo "Building iMet-54 demod."
 gcc imet54mod.c demod_mod.o -lm -O3 -o imet54mod -w $VERS_FLAG
 echo "Building MRZ demod."
@@ -74,7 +75,7 @@ cp ../mk2a/mk2mod .
 cp ../demod/mod/rs41mod .
 cp ../demod/mod/dfm09mod .
 cp ../demod/mod/m10mod .
-cp ../demod/mod/mXXmod .
+cp ../demod/mod/m20mod .
 cp ../demod/mod/rs92mod .
 cp ../demod/mod/lms6Xmod .
 cp ../demod/mod/meisei100mod .
