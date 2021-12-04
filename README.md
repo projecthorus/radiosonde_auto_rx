@@ -20,12 +20,12 @@ Vaisala | RS92-SGP/NGP | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_
 Vaisala | RS41-SG/SGP/SGM | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: (for -SGP)
 Graw | DFM06/09/17 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x:
 Meteomodem | M10 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent
-Meteomodem | M20 | :heavy_check_mark: | :x: | :x: | Not Sent
+Meteomodem | M20 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: (For some models)
 Intermet Systems | iMet-4 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent
 Intermet Systems | iMet-54 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent
 Lockheed Martin | LMS6-400/1680 | :heavy_check_mark: | :x: | :x: | :x:
 Meisei | iMS-100 | :heavy_check_mark: | :x: | :x: | :x:
-Meteo-Radiy | MRZ (400 MHz) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:
+Meteo-Radiy | MRZ-H1 (400 MHz) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:
 
 Support for other radiosondes may be added as required - please send us sondes to test with! If you have any information about telemetry formats, we'd love to hear from you (see our contact details below).
 
