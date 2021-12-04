@@ -1320,8 +1320,6 @@ class SondeDecoder(object):
 
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-                # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
-                # Latch this ID and re-use it for the entire decode run.
 
                 # Generate a unique ID based on the power-on time and frequency, as iMet sonde telemetry is painful
                 # and doesn't send any ID. 
