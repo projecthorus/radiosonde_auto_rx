@@ -203,7 +203,12 @@ class SondeDecoder(object):
         # which don't necessarily have a consistent packet count to time increment ratio.
         # This is a tradeoff between being able to handle multiple iMet sondes on a single frequency, and
         # not flooding the various databases with sonde IDs in the case of a bad sonde.
-        self.imet_id = None
+
+        # iMet ID store v2
+        # Now instead of just latching onto an ID, we allow up to 4 new IDs to be created per decoder.
+        # This should hopefully handle a few iMets on the same frequency in a graceful manner.
+        self.imet_max_ids = 4
+        self.imet_id = []
 
         # This will become our decoder thread.
         self.decoder = None
@@ -876,7 +881,7 @@ class SondeDecoder(object):
             )
 
             # M20 decoder
-            decode_cmd = f"./mXXmod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./m20mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
 
             # M20 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -1315,16 +1320,30 @@ class SondeDecoder(object):
 
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-                # Generate a unique ID based on the power-on time and frequency, as iMet sondes don't send one.
-                # Latch this ID and re-use it for the entire decode run.
-                if self.imet_id == None:
-                    self.imet_id = imet_unique_id(_telemetry)
+
+                # Generate a unique ID based on the power-on time and frequency, as iMet sonde telemetry is painful
+                # and doesn't send any ID. 
+                _new_imet_id = imet_unique_id(_telemetry)
+
+                # If we have seen this ID before, keep using it.
+                if _new_imet_id in self.imet_id:
+                    _telemetry["id"] = _new_imet_id
+                else:
+                    # We have seen less than 4 different IDs while this decoder has been runing.
+                    # Accept that this may be a new iMet sonde, and add the ID to the iMet ID list.
+                    if len(self.imet_id) < self.imet_max_ids:
+                        self.imet_id.append(_new_imet_id)
+                        _telemetry["id"] = _new_imet_id
+                    else:
+                        # We have seen see many IDs this decode run, suspect this is likely an old iMet-1
+                        # Which doesn't have a useful frame counter.
+                        self.log_error("Exceeded maximum number of iMet sonde IDs for a decoder (4) - discarding this frame.")
+                        return False
 
                 # Re-generate the datetime string.
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
-                _telemetry["id"] = self.imet_id
 
             # iMet-5x Specific Actions
             if self.sonde_type == "IMET5":

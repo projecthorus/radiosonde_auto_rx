@@ -24,7 +24,10 @@ rm lms6mod
 rm lms6Xmod
 rm meisei100mod
 rm m10mod
+rm m20mod
 rm mXXmod
+rm mp3h1mod
+rm imet54mod
 
 # LMS6-1680 Decoder
 echo "Cleaning LMS6-1680 Demodulator."
@@ -56,8 +59,11 @@ rm rs92mod
 rm dfm09mod
 rm m10mod
 rm mXXmod
+rm m20mod
 rm lms6Xmod
 rm meisei100mod
+rm mp3h1mod
+rm imet54mod
 
 
 echo "Done!"

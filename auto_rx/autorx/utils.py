@@ -46,6 +46,7 @@ REQUIRED_RS_UTILS = [
     "meisei100mod",
     "imet54mod",
     "mp3h1mod",
+    "m20mod",
 ]
 
 
@@ -70,8 +71,8 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
     try:
         _r = requests.get(version_url, timeout=5)
     except Exception as e:
-        logging.exception(
-            f"Version - Error determining version from URL {version_url}", e
+        logging.error(
+            f"Version - Error determining version from URL {version_url}: {str(e)}"
         )
         return None
 
@@ -83,8 +84,8 @@ def get_autorx_version(version_url=AUTORX_MAIN_VERSION_URL):
                 return _main_version
 
     except Exception as e:
-        logging.exception(
-            f"Version - Error extracting version from url {version_url}.", e
+        logging.error(
+            f"Version - Error extracting version from url {version_url}: {str(e)}."
         )
         return None
 
