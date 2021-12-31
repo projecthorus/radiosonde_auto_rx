@@ -206,6 +206,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 auto_rx_config["email_from"] = config.get("email", "from")
                 auto_rx_config["email_to"] = config.get("email", "to")
                 auto_rx_config["email_subject"] = config.get("email", "subject")
+                auto_rx_config["email_nearby_landing_subject"] = config.get("email", "nearby_landing_subject")
 
                 if auto_rx_config["email_smtp_authentication"] not in [
                     "None",
