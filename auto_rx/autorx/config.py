@@ -70,6 +70,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "email_from": "sonde@localhost",
         "email_to": None,
         "email_subject": "<type> Sonde launch detected on <freq>: <id>",
+        "email_nearby_landing_subject": "Nearby Radiosonde Landing Detected - <id>",
         # SDR Settings
         "sdr_fm": "rtl_fm",
         "sdr_power": "rtl_power",
@@ -205,6 +206,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 auto_rx_config["email_from"] = config.get("email", "from")
                 auto_rx_config["email_to"] = config.get("email", "to")
                 auto_rx_config["email_subject"] = config.get("email", "subject")
+                auto_rx_config["email_nearby_landing_subject"] = config.get("email", "nearby_landing_subject")
 
                 if auto_rx_config["email_smtp_authentication"] not in [
                     "None",
