@@ -497,7 +497,7 @@ def telemetry_filter(telemetry):
     if "sats" in telemetry:
         if telemetry["sats"] < 4:
             logging.warning(
-                "Sonde %s can only see %d SVs - discarding position as bad."
+                "Sonde %s can only see %d GNSS sats - discarding position as bad."
                 % (telemetry["id"], telemetry["sats"])
             )
             return False
