@@ -339,6 +339,7 @@ int print_ePTU(int pos, ui8_t PKT_ID) {
         fprintf(stdout, "[NO]");
         gpx.ptu_valid = 0;
     }
+    fprintf(stdout, "\n");
 
     return (crc_val != crc);
 }
@@ -439,6 +440,7 @@ int print_eGPS(int pos, ui8_t PKT_ID) {
         fprintf(stdout, "[NO]");
         gpx.gps_valid = 0;
     }
+    fprintf(stdout, "\n");
 
     return (crc_val != crc);
 }
@@ -451,8 +453,8 @@ offset bytes description
  1     1     PKT_ID = 0x03
  2     2     N = number of data bytes to follow
  3+N   2     CRC (16-bit)
-N=8: Ozonesonde (MSB)
- 3     1     Instrument_type = 0x01
+N=8, ID=0x01: Ozonesonde (MSB)
+ 3     1     Instrument_type = 0x01 (ID)
  4     1     Instrument_number
  5     2     Icell, uA (I = n/1000)
  7     2     Tpump, °C (T = n/100)
@@ -460,6 +462,10 @@ N=8: Ozonesonde (MSB)
 10     1     Vbat, (V = n/10)
 11     2     CRC (16-bit)
 packet size = 12 bytes
+//
+ID=0x05: OIF411
+ID=0x08: CFH (Cryogenic Frost-Point Hygrometer)
+ID=0x19: COBALD (Compact Optical Backscatter Aerosol Detector)
 */
 
 int print_xdata(int pos, ui8_t N) {
@@ -494,14 +500,13 @@ int print_xdata(int pos, ui8_t N) {
     }
 
     if (crc_val == crc && (gpx.paux-gpx.xdata)+2*(N+1) < 2*LEN_BYTEFRAME) {
-        // hex(xdata[2:3+N]) , strip [0103]..[CRC16] , '#'-separated
+        // hex(xdata[2:3+N]) , strip [0103NN]..[CRC16] , '#'-separated
         int j;
         if (gpx.paux > gpx.xdata) {
             *(gpx.paux) = '#';
             gpx.paux += 1;
         }
-        sprintf(gpx.paux, "%02X", (byteframe+pos)[2]); // (byteframe+pos)[2] = N
-        gpx.paux += 2;
+        //exclude length (byteframe+pos)[2]=N (sprintf(gpx.paux, "%02X", (byteframe+pos)[2]); gpx.paux += 2;)
         for (j = 0; j < N; j++) {
             sprintf(gpx.paux, "%02X", (byteframe+pos)[3+j]);
             gpx.paux += 2;
@@ -518,6 +523,7 @@ int print_xdata(int pos, ui8_t N) {
     else {
         fprintf(stdout, "[NO]");
     }
+    fprintf(stdout, "\n");
 
     return (crc_val != crc);
 }
@@ -568,7 +574,6 @@ int print_frame(int len) {
                 {
                     int posGPSCRC =  (PKT_ID == PKT_GPS) ? pos_GPScrc : pos_eGPScrc;
                     crc_err1 = print_eGPS(ofs, PKT_ID);  // packet offset in byteframe
-                    fprintf(stdout, "\n");
                     ofs += posGPSCRC+2;
                     out |= 1;
                 }
@@ -576,7 +581,6 @@ int print_frame(int len) {
                 {
                     int posPTUCRC =  (PKT_ID == PKT_ePTU) ? pos_ePTUcrc : pos_PTUcrc;
                     crc_err2 = print_ePTU(ofs, PKT_ID);  // packet offset in byteframe
-                    fprintf(stdout, "\n");
                     ofs += posPTUCRC+2;
                     out |= 2;
                 }
@@ -586,7 +590,6 @@ int print_frame(int len) {
                     if (N > 0 && ofs+2+N+2 < framelen)
                     {
                         crc_err3 = print_xdata(ofs, N);  // packet offset in byteframe
-                        fprintf(stdout, "\n");
                         ofs += N+3+2;
                         out |= 4;
                     }
