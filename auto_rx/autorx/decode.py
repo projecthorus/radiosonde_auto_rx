@@ -209,6 +209,12 @@ class SondeDecoder(object):
         # This should hopefully handle a few iMets on the same frequency in a graceful manner.
         self.imet_max_ids = 4
         self.imet_id = []
+        # iMet-1 and iMet-4 sondes behave differently.
+        # iMet-1 sondes increment the frame counter *twice* each second, imet-4 only once per second.
+        # We need to detect this to be able to calculate a start time, and hence generate a serial number.
+        self.imet_type = None
+        self.imet_prev_time = None
+        self.imet_prev_frame = None
 
         # This will become our decoder thread.
         self.decoder = None
@@ -1307,7 +1313,7 @@ class SondeDecoder(object):
             # We append -Ozone to the sonde type field to indicate this.
             # TODO: Decode device ID from aux field to indicate what the aux payload actually is?
             if "aux" in _telemetry:
-                _telemetry["type"] += "-Ozone"
+               _telemetry["type"] += "-Ozone"
 
             # iMet Specific actions
             if self.sonde_type == "IMET":
@@ -1321,9 +1327,44 @@ class SondeDecoder(object):
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
 
+
+                # An attempt at detecting iMet-1 vs iMet-4 sondes based on how the frame count increments
+                # compared to the time.
+                # Note that this is going to break horribly if an iMet-1 and an iMet-4 are on the same frequency,
+                # or if there are multiple iMet-4's in the air when this is performed. I don't have a nice
+                # solution to that second problem.
+                # This may also break when running in UDP mode for long periods.
+                if self.imet_type is None:
+                    if self.imet_prev_frame is None:
+                        self.imet_prev_frame = _telemetry['frame']
+                        self.imet_prev_time = _telemetry["datetime_dt"]
+                        self.log_info("Waiting for additional frames to determine iMet type (1 or 4)")
+                        return False
+                    else:
+                        # Calculate and compare frame vs time deltas.
+                        _time_delta = (_telemetry["datetime_dt"] - self.imet_prev_time).total_seconds()
+                        _frame_delta = _telemetry['frame'] - self.imet_prev_frame
+
+                        if _time_delta == _frame_delta//2:
+                            # Frame counter increments at twice the rate of the time counter = iMet-1
+                            self.log_info("iMet sonde is most likely an iMet-1")
+                            self.imet_type = "iMet-1"
+                        elif _time_delta == _frame_delta:
+                            # Frame counter increments at the same rate as the time counter = iMet-4
+                            self.log_info("iMet sonde is most likely an iMet-4")
+                            self.imet_type = "iMet-4"
+                        else:
+                            # Some other case (possibly 2 sondes on the same frequency?)
+                            # Assume iMet-4...
+                            self.log_info("iMet sonde is most likely an iMet-4 (less confidence)")
+                            self.imet_type = "iMet-4"
+                else:
+                    _telemetry['subtype'] = self.imet_type
+
+
                 # Generate a unique ID based on the power-on time and frequency, as iMet sonde telemetry is painful
                 # and doesn't send any ID. 
-                _new_imet_id = imet_unique_id(_telemetry)
+                _new_imet_id = imet_unique_id(_telemetry, imet1=(self.imet_type=="iMet-1"))
 
                 # If we have seen this ID before, keep using it.
                 if _new_imet_id in self.imet_id:
