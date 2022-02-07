@@ -82,4 +82,7 @@ cp ../demod/mod/meisei100mod .
 cp ../demod/mod/imet54mod .
 cp ../demod/mod/mp3h1mod .
 
+# Match user name in systemd service: no more need to use a text editor
+sed -i "s/pi/$(whoami)/g" auto_rx.service
+
 echo "Done!"
