@@ -172,6 +172,8 @@ class SondehubUploader(object):
             _output["type"] = "DFM"
             _output["subtype"] = telemetry["type"]
             _output["serial"] = telemetry["id"].split("-")[1]
+            if "dfmcode" in telemetry:
+                _output["dfmcode"] = telemetry["dfmcode"]
 
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
             _output["manufacturer"] = "Meteomodem"
