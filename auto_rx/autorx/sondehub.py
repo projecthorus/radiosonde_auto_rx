@@ -385,6 +385,14 @@ class SondehubUploader(object):
                 _retries += 1
                 continue
 
+            elif _req.status_code == 201:
+                self.log_debug(
+                    "Sondehub reported issue when adding packets to DB. Status Code: %d %s."
+                    % (_req.status_code, _req.text)
+                )
+                _upload_success = True
+                break
+
             else:
                 self.log_error(
                     "Error uploading to Sondehub. Status Code: %d %s."
