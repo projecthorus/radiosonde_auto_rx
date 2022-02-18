@@ -1298,6 +1298,7 @@ class SondeDecoder(object):
                         _telemetry["subtype"] = "DFM"
 
 
+
                     # Check frame ID here to ensure we are on dfm09mod version with the frame number fixes (2020-12).
                     if _telemetry["frame"] < 256:
                         self.log_error(
