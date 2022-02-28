@@ -176,7 +176,7 @@ aprs_pass = 00000
 # This has a lower limit of 30 seconds, to avoid flooding the APRS-IS network.
 # Please be respectful of other uses of the APRS-IS network, and do not attempt
 # to upload faster than this. 
-upload_rate = 30
+upload_rate = 60
 
 # APRS-IS server to upload to.
 # Default to radiosondy.info for now, to allow stats to show up on http://radiosondy.info

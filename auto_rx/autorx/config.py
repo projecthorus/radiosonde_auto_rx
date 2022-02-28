@@ -36,7 +36,7 @@ except ImportError:
 # Fixed minimum update rates for APRS & Habitat
 # These are set to avoid congestion on the APRS-IS network, and on the Habitat server
 # Please respect other users of these networks and leave these settings as they are.
-MINIMUM_APRS_UPDATE_RATE = 30
+MINIMUM_APRS_UPDATE_RATE = 60
 MINIMUM_HABITAT_UPDATE_RATE = 30
 
 
