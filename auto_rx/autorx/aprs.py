@@ -89,8 +89,8 @@ def telemetry_to_aprs_position(
 
     # TODO: RS41 Burst Timer
 
-    # Add on auto_rx version
-    _aprs_comment += " auto_rx v" + auto_rx_version
+    # Add on auto_rx at the end
+    _aprs_comment += " auto_rx"
 
     # Convert float latitude to APRS format (DDMM.MM)
     lat = float(sonde_data["lat"])
@@ -308,7 +308,7 @@ class APRSUploader(object):
         station_beacon_position=(0.0, 0.0, 0.0),
         station_beacon_comment="radiosonde_auto_rx SondeGate v<version>",
         station_beacon_icon="/r",
-        synchronous_upload_time=30,
+        upload_time=60,
         callsign_validity_threshold=5,
         upload_queue_size=16,
         upload_timeout=5,
@@ -339,9 +339,7 @@ class APRSUploader(object):
             station_beacon_comment (str): Comment field for the station beacon. <version> will be replaced with the current auto_rx version.
             station_beacon_icon (str): The APRS icon to be used, as the two characters (symbol table, symbol index), as per http://www.aprs.org/symbols.html
 
-            synchronous_upload_time (int): Upload the most recent telemetry when time.time()%synchronous_upload_time == 0
-                This is done in an attempt to get multiple stations uploading the same telemetry sentence simultaneously,
-                and also acts as decimation on the number of sentences uploaded to APRS-IS.
+            upload_time (int): Upload the most recent telemetry after this time is up.
 
             callsign_validity_threshold (int): Only upload telemetry data if the callsign has been observed more than N times. Default = 5
 
@@ -362,7 +360,8 @@ class APRSUploader(object):
         self.aprsis_reconnect = aprsis_reconnect
         self.upload_timeout = upload_timeout
         self.upload_queue_size = upload_queue_size
-        self.synchronous_upload_time = synchronous_upload_time
+        self.upload_time = upload_time
+        self.next_upload = datetime.datetime.now() + datetime.timedelta(seconds=upload_time)
         self.callsign_validity_threshold = callsign_validity_threshold
         self.inhibit = inhibit
 
@@ -653,7 +652,7 @@ class APRSUploader(object):
         """ Add packets to the aprs upload queue if it is time for us to upload. """
 
         while self.timer_thread_running:
-            if int(time.time()) % self.synchronous_upload_time == 0:
+            if datetime.datetime.now() > self.next_upload:
                 # Time to upload!
                 for _id in self.observed_payloads.keys():
                     # If no data, continue...
@@ -677,6 +676,9 @@ class APRSUploader(object):
 
                 # Flush APRS-IS RX buffer
                 self.flush_rx()
+
+                # Reset upload timer
+                self.next_upload = datetime.datetime.now() + datetime.timedelta(seconds=self.upload_time)
             else:
                 # Not yet time to upload, wait for a bit.
                 time.sleep(0.1)
