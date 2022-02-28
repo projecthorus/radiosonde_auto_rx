@@ -89,9 +89,6 @@ def telemetry_to_aprs_position(
 
     # TODO: RS41 Burst Timer
 
-    # Add on auto_rx at the end
-    _aprs_comment += " auto_rx"
-
     # Convert float latitude to APRS format (DDMM.MM)
     lat = float(sonde_data["lat"])
     lat_degree = abs(int(lat))
@@ -361,7 +358,7 @@ class APRSUploader(object):
         self.upload_timeout = upload_timeout
         self.upload_queue_size = upload_queue_size
         self.upload_time = upload_time
-        self.next_upload = datetime.datetime.now() + datetime.timedelta(seconds=upload_time)
+        self.next_upload = time.monotonic() + upload_time
         self.callsign_validity_threshold = callsign_validity_threshold
         self.inhibit = inhibit
 
@@ -652,7 +649,7 @@ class APRSUploader(object):
         """ Add packets to the aprs upload queue if it is time for us to upload. """
 
         while self.timer_thread_running:
-            if datetime.datetime.now() > self.next_upload:
+            if time.monotonic() > self.next_upload:
                 # Time to upload!
                 for _id in self.observed_payloads.keys():
                     # If no data, continue...
@@ -678,7 +675,7 @@ class APRSUploader(object):
                 self.flush_rx()
 
                 # Reset upload timer
-                self.next_upload = datetime.datetime.now() + datetime.timedelta(seconds=self.upload_time)
+                self.next_upload = time.monotonic() + self.upload_time
             else:
                 # Not yet time to upload, wait for a bit.
                 time.sleep(0.1)
