@@ -36,7 +36,7 @@ except ImportError:
 # Fixed minimum update rates for APRS & Habitat
 # These are set to avoid congestion on the APRS-IS network, and on the Habitat server
 # Please respect other users of these networks and leave these settings as they are.
-MINIMUM_APRS_UPDATE_RATE = 60
+MINIMUM_APRS_UPDATE_RATE = 30
 MINIMUM_HABITAT_UPDATE_RATE = 30
 
 
@@ -352,7 +352,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
         if auto_rx_config["aprs_upload_rate"] < MINIMUM_APRS_UPDATE_RATE:
             logging.warning(
-                "Config - APRS Update Rate clipped to minimum of %d seconds. Please be respectful of other users of APRS-IS."
+                "Config - APRS Update Rate clipped to minimum of %d seconds."
                 % MINIMUM_APRS_UPDATE_RATE
             )
             auto_rx_config["aprs_upload_rate"] = MINIMUM_APRS_UPDATE_RATE
@@ -517,7 +517,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["aprs_port"] = config.getint("aprs", "aprs_port")
         except:
             logging.warning(
-                "Config - Did not find aprs_port setting - using default of 14590. APRS packets might not be forwarded out to the wider APRS-IS network!"
+                "Config - Did not find aprs_port setting - using default of 14590."
             )
             auto_rx_config["aprs_port"] = 14590
 
@@ -651,6 +651,39 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find lms6-1680_experimental setting, using default (disabled)"
             )
             auto_rx_config["experimental_decoders"]["MK2LMS"] = False
+
+
+        # As of auto_rx version 1.5.10, we are limiting APRS output to only radiosondy.info,
+        # and only on the non-forwarding port. 
+        # This decision was not made lightly, and is a result of the considerable amount of
+        # non-amateur traffic that radiosonde flights are causing within the APRS-IS network.
+        # Until some form of common format can be agreed to amongst the developers of *all* 
+        # radiosonde tracking software to enable radiosonde telemetry to be de-duped, 
+        # I have decided to help reduce the impact on the wider APRS-IS network by restricting 
+        # the allowed servers and ports.
+        # If you are using another APRS-IS server that *does not* forward to the wider APRS-IS
+        # network and want it allowed, then please raise an issue at
+        # https://github.com/projecthorus/radiosonde_auto_rx/issues
+        #
+        # You are of course free to fork and modify this codebase as you wish, but please be aware
+        # that this goes against the wishes of the radiosonde_auto_rx developers to not be part
+        # of the bigger problem of APRS-IS congestion. 
+
+        ALLOWED_APRS_SERVERS = ["radiosondy.info"]
+        ALLOWED_APRS_PORTS = [14590]
+
+        if auto_rx_config["aprs_server"] not in ALLOWED_APRS_SERVERS:
+            logging.warning(
+                "Please do not upload to servers which forward to the wider APRS-IS network and cause network congestion. Switching to default server of radiosondy.info. If you believe this to be in error, please raise an issue at https://github.com/projecthorus/radiosonde_auto_rx/issues"
+            )
+            auto_rx_config["aprs_server"] = "radiosondy.info"
+        
+        if auto_rx_config["aprs_port"] not in ALLOWED_APRS_PORTS:
+            logging.warning(
+                "Please do not use APRS ports which forward data out to the wider APRS-IS network and cause network congestion. Switching to default port of 14590. If you believe this to be in error, please raise an issue at https://github.com/projecthorus/radiosonde_auto_rx/issues"
+            )
+            auto_rx_config["aprs_port"] = 14590
+
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
