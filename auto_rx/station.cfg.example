@@ -178,6 +178,13 @@ sondehub_contact_email = none@none.com
 # You are of course free to fork and modify this codebase as you wish, but please be aware
 # that this goes against the wishes of the radiosonde_auto_rx developers to not be part
 # of the bigger problem of APRS-IS congestion. 
+# As of 2022-03-01, radiosonde traffic has been filtered from aprs.fi, so even if you do
+# modify the code, you still won't see sondes on that map.
+# APRS-IS is a *shared resource*, intended for the use of all amateur radio operators, and 
+# for many years we have been treating it as a playground to dump large amounts of non-amateur
+# traffic into, so we can see weather balloons on a map. 
+# Instead of congesting this shared resource with this non-amateur traffic, we should instead
+# be moving to using databases and sites specialised for this purpose, for example sondehub.org
 
 [aprs]
 # Enable APRS upload (you will also need to change some options below!)
