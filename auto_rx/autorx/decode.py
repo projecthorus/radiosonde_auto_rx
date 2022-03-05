@@ -808,8 +808,12 @@ class SondeDecoder(object):
             )
 
             # DFM decoder
+            if len(self.raw_file_option)>0:
+                # Use raw ecc detailed raw output for DFM sondes.
+                self.raw_file_option = "--rawecc"
+
             decode_cmd = (
-                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option.upper()} 2>/dev/null"
+                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option} 2>/dev/null"
             )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
@@ -1282,8 +1286,18 @@ class SondeDecoder(object):
                     # in the subtype field, so we can use this directly.
                     _telemetry["type"] = _telemetry["subtype"]
                 elif self.sonde_type == "DFM":
-                    # For DFM sondes, we need to use a lookup to convert the subtype field into a model.
-                    _telemetry["type"] = decode_dfm_subtype(_telemetry["subtype"])
+                    # As of 2021-2, the decoder provides a guess of the DFM subtype, provided as
+                    # a subtype field of "0xX:GUESS", e.g. "0xD:DFM17P"
+                    if ":" in _telemetry["subtype"]:
+                        _subtype = _telemetry["subtype"].split(":")[1]
+                        _telemetry["dfmcode"] = _telemetry["subtype"].split(":")[0]
+                        _telemetry["type"] = _subtype
+                        _telemetry["subtype"] = _subtype
+                    else:
+                        _telemetry["type"] = "DFM"
+                        _telemetry["subtype"] = "DFM"
+
+
 
                     # Check frame ID here to ensure we are on dfm09mod version with the frame number fixes (2020-12).
                     if _telemetry["frame"] < 256:

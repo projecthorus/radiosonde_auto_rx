@@ -172,6 +172,8 @@ class SondehubUploader(object):
             _output["type"] = "DFM"
             _output["subtype"] = telemetry["type"]
             _output["serial"] = telemetry["id"].split("-")[1]
+            if "dfmcode" in telemetry:
+                _output["dfmcode"] = telemetry["dfmcode"]
 
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
             _output["manufacturer"] = "Meteomodem"
@@ -382,6 +384,14 @@ class SondehubUploader(object):
                 # Server Error, Retry.
                 _retries += 1
                 continue
+
+            elif _req.status_code == 201:
+                self.log_debug(
+                    "Sondehub reported issue when adding packets to DB. Status Code: %d %s."
+                    % (_req.status_code, _req.text)
+                )
+                _upload_success = True
+                break
 
             else:
                 self.log_error(
