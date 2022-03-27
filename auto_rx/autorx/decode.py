@@ -22,6 +22,7 @@ from .utils import AsynchronousFileReader, rtlsdr_test, position_info, generate_
 from .gps import get_ephemeris, get_almanac
 from .sonde_specific import *
 from .fsk_demod import FSKDemodStats
+from .sdr_wrappers import *
 
 # Global valid sonde types list.
 VALID_SONDE_TYPES = [
@@ -121,9 +122,12 @@ class SondeDecoder(object):
         self,
         sonde_type="None",
         sonde_freq=400000000.0,
+        sdr_type="RTLSDR",
+        sdr_hostname="localhost",
+        sdr_port=12345,
         rs_path="./",
-        sdr_fm="rtl_fm",
-        device_idx=0,
+        rtl_fm_path="rtl_fm",
+        rtl_device_idx=0,
         ppm=0,
         gain=-1,
         bias=False,
@@ -142,13 +146,23 @@ class SondeDecoder(object):
         Args:
             sonde_type (str): The radiosonde type, as returned by SondeScanner. Valid types listed in VALID_SONDE_TYPES
             sonde_freq (int/float): The radiosonde frequency, in Hz.
+
+            sdr_type (str): 'RTLSDR', 'Spyserver' or 'KA9Q'
+
+
+            Arguments for KA9Q SDR Server / SpyServer:
+            sdr_hostname (str): Hostname of KA9Q Server
+            sdr_port (int): Port number of KA9Q Server
             
-            rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
-            sdr_fm (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
-            device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
+
+            Arguments for RTLSDRs:
+            rtl_fm_path (str): Path to rtl_fm, or drop-in equivalent. Defaults to 'rtl_fm'
+            rtl_device_idx (int or str): Device index or serial number of the RTLSDR. Defaults to 0 (the first SDR found).
             ppm (int): SDR Frequency accuracy correction, in ppm.
             gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
             bias (bool): If True, enable the bias tee on the SDR.
+
+            rs_path (str): Path to the RS binaries (i.e rs_detect). Defaults to ./
 
             save_decode_audio (bool): If True, save the FM-demodulated audio to disk to decode_<device_idx>.wav.
                                       Note: This may use up a lot of disk space!
@@ -174,9 +188,14 @@ class SondeDecoder(object):
         self.sonde_type = sonde_type
         self.sonde_freq = sonde_freq
 
+        self.sdr_type = sdr_type
+
+        self.sdr_hostname = sdr_hostname
+        self.sdr_port = sdr_port
+
         self.rs_path = rs_path
-        self.sdr_fm = sdr_fm
-        self.device_idx = device_idx
+        self.rtl_fm_path = rtl_fm_path
+        self.rtl_device_idx = rtl_device_idx
         self.ppm = ppm
         self.gain = gain
         self.bias = bias
@@ -238,12 +257,16 @@ class SondeDecoder(object):
             self.decoder_running = False
             return
 
-        # Test if the supplied RTLSDR is working.
-        _rtlsdr_ok = rtlsdr_test(device_idx)
+        # Test if the supplied SDR is working.
+        _sdr_ok = test_sdr(
+            self.sdr_type, 
+            rtl_device_idx = self.rtl_device_idx, 
+            sdr_hostname = self.sdr_hostname, 
+            sdr_port = self.sdr_port
+            )
 
-        # TODO: How should this error be handled?
-        if not _rtlsdr_ok:
-            self.log_error("RTLSDR #%s non-functional - exiting." % device_idx)
+        if not _sdr_ok:
+            # test_sdr will provide an error message
             self.decoder_running = False
             self.exit_state = "FAILED SDR"
             return
@@ -338,10 +361,10 @@ class SondeDecoder(object):
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null | " % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -361,7 +384,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             decode_cmd += "./rs41mod --ptu2 --json 2>/dev/null"
 
@@ -410,10 +433,10 @@ class SondeDecoder(object):
             # Now construct the decoder command.
             # rtl_fm -p 0 -g 26.0 -M fm -F9 -s 12k -f 400500000 | sox -t raw -r 12k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - highpass 20 lowpass 2500 2>/dev/null | ./rs92ecc -vx -v --crc --ecc --vel -e ephemeris.dat
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _rx_bw,
                 self.sonde_freq,
@@ -425,7 +448,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             decode_cmd += (
                 "./rs92mod -vx -v --crc --ecc --vel --json %s %s 2>/dev/null"
@@ -440,10 +463,10 @@ class SondeDecoder(object):
 
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -451,7 +474,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # DFM decoder
             decode_cmd += "./dfm09mod -vv --ecc --json --dist --auto 2>/dev/null"
@@ -460,10 +483,10 @@ class SondeDecoder(object):
             # M10 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 22k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -471,7 +494,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # M10 decoder
             decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
@@ -480,10 +503,10 @@ class SondeDecoder(object):
             # iMet-4 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -491,7 +514,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # iMet-4 (IMET1RS) decoder
             decode_cmd += f"./imet1rs_dft --json {self.raw_file_option} 2>/dev/null"
@@ -500,17 +523,17 @@ class SondeDecoder(object):
             # iMet-54 Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s 48k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             # iMet-54 Decoder
             decode_cmd += (
@@ -521,10 +544,10 @@ class SondeDecoder(object):
             # Meteo-Radiy MRZ Sondes
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -532,7 +555,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # MRZ decoder
             decode_cmd += "./mp3h1mod --auto --json --ptu 2>/dev/null"
@@ -549,17 +572,17 @@ class SondeDecoder(object):
             # Update 2021-07-24: Updated version with speedups now taking 240 kHz BW and only using 50% of a core.
 
             decode_cmd = "%s %s-p %d -d %s %s-M raw -s 240k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             # LMS6-1680 decoder
             decode_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --decFM --dc --crc --json {self.raw_file_option} - 240000 16 2>/dev/null"
@@ -576,10 +599,10 @@ class SondeDecoder(object):
             # rtl_fm -p 0 -g -1 -M fm -F9 -s 15k -f 405500000 | sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - lowpass 2600 2>/dev/null | ./rs41ecc --crc --ecc --ptu
             # Note: Have removed a 'highpass 20' filter from the sox line, will need to re-evaluate if adding that is useful in the future.
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null | " % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -599,7 +622,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             decode_cmd += "./lms6Xmod --json 2>/dev/null"
 
@@ -608,10 +631,10 @@ class SondeDecoder(object):
             # Starting out with a 15 kHz bandwidth filter.
 
             decode_cmd = "%s %s-p %d -d %s %s-M fm -F9 -s 15k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
@@ -619,7 +642,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.device_idx)
+                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # Meisei IMS-100 decoder
             decode_cmd += f"./meisei100mod --json 2>/dev/null"
@@ -658,34 +681,34 @@ class SondeDecoder(object):
         _stats_rate = 5
 
         if self.sonde_type == "RS41":
-            # RS41 Decoder command.
-            _sdr_rate = 48000  # IQ rate. Lower rate = lower CPU usage, but less frequency tracking ability.
-            _baud_rate = 4800
-            _offset = 0.25  # Place the sonde frequency in the centre of the passband.
-            _lower = int(
-                0.025 * _sdr_rate
-            )  # Limit the frequency estimation window to not include the passband edges.
-            _upper = int(0.475 * _sdr_rate)
-            _freq = int(self.sonde_freq - _sdr_rate * _offset)
+            # RS41 Decoder
 
-            demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
-                bias_option,
-                int(self.ppm),
-                str(self.device_idx),
-                gain_param,
-                _sdr_rate,
-                _freq,
+            _sample_rate = 48000
+            _baud_rate = 4800
+            _lower = -1.0*(_sample_rate*0.20)
+            _upper = (_sample_rate*0.20)
+
+            demod_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
             )
+
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
-                _sdr_rate,
+                _sample_rate,
                 _baud_rate,
             )
 
@@ -743,10 +766,10 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
@@ -754,7 +777,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -786,10 +809,10 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
@@ -797,7 +820,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -834,10 +857,10 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
@@ -845,7 +868,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += (
                 "./fsk_demod --cs16 -b %d -u %d -s -p 5 --stats=%d 2 %d %d - -"
@@ -872,10 +895,10 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
@@ -883,7 +906,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += (
                 "./fsk_demod --cs16 -b %d -u %d -s -p 5 --stats=%d 2 %d %d - -"
@@ -910,17 +933,17 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
             )
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -949,17 +972,17 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
             )
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -988,10 +1011,10 @@ class SondeDecoder(object):
             _freq = int(self.sonde_freq - _sdr_rate * _offset)
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 _sdr_rate,
                 _freq,
@@ -999,7 +1022,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -1027,17 +1050,17 @@ class SondeDecoder(object):
             # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
 
             demod_cmd = "%s %s-p %d -d %s %s-M raw -s 220k -f %d 2>/dev/null |" % (
-                self.sdr_fm,
+                self.rtl_fm_path,
                 bias_option,
                 int(self.ppm),
-                str(self.device_idx),
+                str(self.rtl_device_idx),
                 gain_param,
                 self.sonde_freq,
             )
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             # LMS6-1680 decoder
             demod_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
@@ -1320,7 +1343,7 @@ class SondeDecoder(object):
             _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
 
             # Add in information about the SDR used.
-            _telemetry["sdr_device_idx"] = self.device_idx
+            _telemetry["sdr_device_idx"] = self.rtl_device_idx
 
             # Check for an 'aux' field, this indicates that the sonde has an auxilliary payload,
             # which is most likely an Ozone sensor (though could be something different!)
@@ -1488,7 +1511,7 @@ class SondeDecoder(object):
         """
         logging.debug(
             "Decoder #%s %s %.3f - %s"
-            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+            % (str(self.rtl_device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )
 
     def log_info(self, line):
@@ -1498,7 +1521,7 @@ class SondeDecoder(object):
         """
         logging.info(
             "Decoder #%s %s %.3f - %s"
-            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+            % (str(self.rtl_device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )
 
     def log_error(self, line):
@@ -1508,7 +1531,7 @@ class SondeDecoder(object):
         """
         logging.error(
             "Decoder #%s %s %.3f - %s"
-            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+            % (str(self.rtl_device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )
 
     def log_critical(self, line):
@@ -1518,7 +1541,7 @@ class SondeDecoder(object):
         """
         logging.critical(
             "Decoder #%s %s %.3f - %s"
-            % (str(self.device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
+            % (str(self.rtl_device_idx), self.sonde_type, self.sonde_freq / 1e6, line)
         )
 
     def stop(self, nowait=False):
@@ -1562,14 +1585,14 @@ if __name__ == "__main__":
             sonde_freq=401.5 * 1e6,
             sonde_type="RS41",
             timeout=50,
-            device_idx="00000002",
+            rtl_device_idx="00000002",
             exporter=[_habitat.add, _log.add],
         )
 
         # _decoder2 = SondeDecoder(sonde_freq = 405.5*1e6,
         #     sonde_type = "RS41",
         #     timeout = 50,
-        #     device_idx="00000001",
+        #     rtl_device_idx="00000001",
         #     exporter=[_habitat.add, _log.add])
 
         while True:

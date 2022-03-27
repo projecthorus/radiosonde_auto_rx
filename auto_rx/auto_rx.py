@@ -233,12 +233,18 @@ def start_decoder(freq, sonde_type):
         autorx.task_list[freq]["task"] = SondeDecoder(
             sonde_type=sonde_type,
             sonde_freq=freq,
+            sdr_type = "RTLSDR", # TODO! 
             rs_path=RS_PATH,
-            sdr_fm=config["sdr_fm"],
-            device_idx=_device_idx,
+            # Network SDR Options (TODO)
+            sdr_hostname="localhost",
+            sdr_port=12345,
+            # RTLSDR Options
+            rtl_fm_path=config["sdr_fm"],
+            rtl_device_idx=_device_idx,
             gain=autorx.sdr_list[_device_idx]["gain"],
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
+            # Other options
             save_decode_audio=config["save_decode_audio"],
             save_decode_iq=config["save_decode_iq"],
             exporter=exporter_functions,

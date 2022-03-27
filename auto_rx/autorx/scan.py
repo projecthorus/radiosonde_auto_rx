@@ -22,6 +22,7 @@ from .utils import (
     reset_all_rtlsdrs,
     peak_decimation,
 )
+from .sdr_wrappers import *
 
 try:
     # Python 2
