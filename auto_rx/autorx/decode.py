@@ -683,8 +683,10 @@ class SondeDecoder(object):
         if self.sonde_type == "RS41":
             # RS41 Decoder
 
-            _sample_rate = 48000
             _baud_rate = 4800
+            _sample_rate = _baud_rate*10 # 10x Oversampling
+
+            # Limit FSK estimator window to roughly +/- 10 kHz
             _lower = -1.0*(_sample_rate*0.20)
             _upper = (_sample_rate*0.20)
 
@@ -716,7 +718,7 @@ class SondeDecoder(object):
 
             # RS41s transmit pulsed beacons - average over the last 2 frames, and use a peak-hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
-            self.rx_frequency = _freq
+            self.rx_frequency = self.sonde_freq
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
