@@ -286,10 +286,17 @@ def detect_sonde(
 
     # Adjust the detection bandwidth based on the band the scanning is occuring in.
     if frequency < 1000e6:
-        # 400-406 MHz sondes - use a 22 kHz detection bandwidth.
+        # 400-406 MHz sondes - use a 20 kHz detection bandwidth.
         _mode = "IQ"
         _iq_bw = 48000
         _if_bw = 20
+
+        # Try and avoid the RTLSDR 403.2 MHz spur.
+        # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
+        if abs(403200000 - frequency) < 20000:
+            logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
+            _if_bw = 15
+        
     else:
         # 1680 MHz sondes
         # Both the RS92-NGP and 1680 MHz LMS6 have a much wider bandwidth than their 400 MHz counterparts.
