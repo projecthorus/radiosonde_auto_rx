@@ -343,11 +343,12 @@ def get_power_spectrum(
 
     # No support for getting spectrum data on any other SDR source right now.
     # Override sdr selection. 
-    sdr_type = "RTLSDR"
-    # Set device ID to 0
-    rtl_device_idx = "0"
-    # Use fixed gain.
-    gain = 30
+    if sdr_type == "SpyServer":
+        sdr_type = "RTLSDR"
+        # Set device ID to 0
+        rtl_device_idx = "0"
+        # Use fixed gain.
+        gain = 30
 
 
     if sdr_type == "RTLSDR":
