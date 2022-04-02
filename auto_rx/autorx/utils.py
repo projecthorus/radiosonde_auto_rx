@@ -37,7 +37,6 @@ REQUIRED_RS_UTILS = [
     "dft_detect",
     "dfm09mod",
     "m10mod",
-    "imet1rs_dft",
     "rs41mod",
     "rs92mod",
     "fsk_demod",
@@ -47,6 +46,7 @@ REQUIRED_RS_UTILS = [
     "imet54mod",
     "mp3h1mod",
     "m20mod",
+    "imet4iq"
 ]
 
 

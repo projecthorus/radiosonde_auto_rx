@@ -162,9 +162,13 @@ def start_scanner():
             detect_dwell_time=config["detect_dwell_time"],
             max_peaks=config["max_peaks"],
             rs_path=RS_PATH,
-            sdr_power=config["sdr_power"],
-            sdr_fm=config["sdr_fm"],
-            device_idx=_device_idx,
+            sdr_type=config["sdr_type"],
+            # Network SDR Options
+            sdr_hostname=config["sdr_hostname"],
+            sdr_port=config["sdr_port"],
+            rtl_power_path=config["sdr_power"],
+            rtl_fm_path=config["sdr_fm"],
+            rtl_device_idx=_device_idx,
             gain=autorx.sdr_list[_device_idx]["gain"],
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
@@ -233,11 +237,11 @@ def start_decoder(freq, sonde_type):
         autorx.task_list[freq]["task"] = SondeDecoder(
             sonde_type=sonde_type,
             sonde_freq=freq,
-            sdr_type = "RTLSDR", # TODO! 
             rs_path=RS_PATH,
-            # Network SDR Options (TODO)
-            sdr_hostname="localhost",
-            sdr_port=12345,
+            sdr_type=config["sdr_type"],
+            # Network SDR Options
+            sdr_hostname=config["sdr_hostname"],
+            sdr_port=config["sdr_port"],
             # RTLSDR Options
             rtl_fm_path=config["sdr_fm"],
             rtl_device_idx=_device_idx,

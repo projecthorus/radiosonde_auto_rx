@@ -54,6 +54,7 @@ echo "Building iMet-4 demod."
 cd ../imet/
 # Note -O3 flag removed from this demodulator until Bus Error bug can be resolved.
 gcc imet1rs_dft.c -lm -Ofast -o imet1rs_dft $VERS_FLAG
+gcc imet4iq.c -lm -Ofast -o imet4iq $VERS_FLAG
 
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
@@ -63,23 +64,26 @@ gcc fsk_demod.c fsk.c modem_stats.c kiss_fftr.c kiss_fft.c -lm -O3 -o fsk_demod
 #gcc tsrc.c -o tsrc -lm -lsamplerate
 # If running under OSX and using MacPorts, you may need to uncomment the following line to be able to find libsamplerate.
 #gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/local/include -L/opt/local/lib
+# ... and for homebrew users.
+#gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/homebrew/include -L/opt/homebrew/lib
 
 
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
 cd ../auto_rx/
-cp ../scan/dft_detect .
-cp ../utils/fsk_demod .
-cp ../imet/imet1rs_dft .
-cp ../mk2a/mk2mod .
-cp ../demod/mod/rs41mod .
-cp ../demod/mod/dfm09mod .
-cp ../demod/mod/m10mod .
-cp ../demod/mod/m20mod .
-cp ../demod/mod/rs92mod .
-cp ../demod/mod/lms6Xmod .
-cp ../demod/mod/meisei100mod .
-cp ../demod/mod/imet54mod .
-cp ../demod/mod/mp3h1mod .
+mv ../scan/dft_detect .
+mv ../utils/fsk_demod .
+mv ../imet/imet1rs_dft .
+mv ../imet/imet4iq .
+mv ../mk2a/mk2mod .
+mv ../demod/mod/rs41mod .
+mv ../demod/mod/dfm09mod .
+mv ../demod/mod/m10mod .
+mv ../demod/mod/m20mod .
+mv ../demod/mod/rs92mod .
+mv ../demod/mod/lms6Xmod .
+mv ../demod/mod/meisei100mod .
+mv ../demod/mod/imet54mod .
+mv ../demod/mod/mp3h1mod .
 
 echo "Done!"

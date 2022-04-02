@@ -9,20 +9,54 @@
 # - [search_params] -> min_freq, max_freq - Set these suitable for your location!
 #
 
-###################
-# RTLSDR SETTINGS #
-###################
+################
+# SDR SETTINGS #
+################
 [sdr]
 
-# Number of RTLSDRs to use.
+#
+# SDR Type
+#
+# RTLSDR - Use one or more RTLSDRs
+# 
+# EXPERIMENTAL / NOT IMPLEMENTED options:
+# KA9Q - Use a KA9Q SDR Server
+# SpyServer - Use a SpyServer
+#
+sdr_type = RTLSDR
+
+#
+# Number of SDRs or SDR Connection Threads to use
+#
+# If SDR type is either KA9Q or SpyServer, this defines the maximum number of parallel
+# decoding/scan tasks.
+# If SDR type is set to RTLSDR above, then this number is the number of individual RTLSDRs
+# that will be used, eith each RTLSDR allocated a scan or decode task.
 # If more than one RTLSDR is in use, multiple [sdr_X] sections must be populated below
+#
 sdr_quantity = 1
 
-# Individual SDR Settings. 
+
+#
+# Network SDR Connection Details
+#
+# If using either a KA9Q or SpyServer network server, the hostname and port
+# of the server needs to be defined below. Usually this will be running on the
+# same machine as auto_rx, so the defaults are usually fine.
+#
+sdr_hostname = localhost
+sdr_port = 5555
+
+#
+# Individual RTLSDR Settings
+#
+# Provide details of your RTLSDRs here, e.g. device numbers, gain settings, and PPM offsets.
+#
 [sdr_1]
 # Device Index / Serial
 #	If using a single RTLSDR, set this value to 0
 #	If using multiple SDRs, you MUST allocate each SDR a unique serial number using rtl_eeprom
+#   The serial number must NOT be 00000000 or 00000001, as this causes big confusion to the rtl utilities.
 #	i.e. to set the serial number of a (single) connected RTLSDR: rtl_eeprom -s 00000002
 #	Then set the device_idx below to 00000002, and repeat for the other [sdr_n] sections below
 #
@@ -68,6 +102,9 @@ bias = False
 #   In these areas I suggest using the only_scan feature below instead of using the peak-detect search.
 #	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
 #	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
+#
+# Note - when using either a KA9Q or SpyServer as the SDR backend, the frequency scan limits are set by the
+# Server.
 
 min_freq = 400.05
 max_freq = 403.0
