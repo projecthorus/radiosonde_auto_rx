@@ -67,7 +67,7 @@ def test_sdr(
             f"./ss_iq "
             f"-f 401500000 "
             f"-s 48000 "
-            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null"
+            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
         )
 
         logging.debug(f"SpyServer - Testing using command: {_cmd}")
@@ -204,7 +204,7 @@ def get_sdr_iq_cmd(
             f"./ss_iq "
             f"-f {frequency} "
             f"-s {int(sample_rate)} "
-            f"-r {sdr_hostname} -q {sdr_port} - |"
+            f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
         )
 
         return _cmd
