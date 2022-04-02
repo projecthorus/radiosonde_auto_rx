@@ -841,7 +841,7 @@ class SondeDecoder(object):
             _lower = -10000
             _upper = 10000
 
-            if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
+            if (abs(403200000 - self.sonde_freq) < 20000) and (sdr_type == "RTLSDR"):
                 # Narrow up the frequency estimator window if we are close to
                 # the 403.2 MHz RTLSDR Spur.
                 _lower = -8000
