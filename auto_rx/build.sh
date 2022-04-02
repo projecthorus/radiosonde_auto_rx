@@ -53,8 +53,7 @@ gcc mk2a1680mod.c -Ofast -lm -o mk2mod $VERS_FLAG
 echo "Building iMet-4 demod."
 cd ../imet/
 # Note -O3 flag removed from this demodulator until Bus Error bug can be resolved.
-gcc imet1rs_dft.c -lm -Ofast -o imet1rs_dft $VERS_FLAG
-gcc imet4iq.c -lm -Ofast -o imet4iq $VERS_FLAG
+gcc imet4iq.c -lm -O3 -o imet4iq $VERS_FLAG
 
 echo "Building fsk-demod utils from codec2"
 cd ../utils/
@@ -73,7 +72,6 @@ echo "Copying files into auto_rx directory."
 cd ../auto_rx/
 mv ../scan/dft_detect .
 mv ../utils/fsk_demod .
-mv ../imet/imet1rs_dft .
 mv ../imet/imet4iq .
 mv ../mk2a/mk2mod .
 mv ../demod/mod/rs41mod .
