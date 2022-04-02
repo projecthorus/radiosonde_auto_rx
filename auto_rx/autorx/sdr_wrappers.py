@@ -56,6 +56,12 @@ def test_sdr(
 
     elif sdr_type == "SpyServer":
         # Test connectivity to a SpyServer by trying to grab some samples.
+
+        if not os.path.isfile('ss_iq'):
+            logging.critical("Could not find ss_iq binary! This may need to be compiled.")
+            return False
+
+
         _cmd = (
             f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
             f"./ss_iq "
@@ -334,6 +340,15 @@ def get_power_spectrum(
     Returns (None, None, None) if an error occurs.
 
     """
+
+    # No support for getting spectrum data on any other SDR source right now.
+    # Override sdr selection. 
+    sdr_type = "RTLSDR"
+    # Set device ID to 0
+    rtl_device_idx = "0"
+    # Use fixed gain.
+    gain = 30
+
 
     if sdr_type == "RTLSDR":
         # Use rtl_power to obtain power spectral density data
