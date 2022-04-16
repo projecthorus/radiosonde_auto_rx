@@ -159,37 +159,61 @@ sondehub_contact_email = none@none.com
 ########################
 # APRS UPLOAD SETTINGS #
 ########################
-# Settings for uploading to APRS-IS
+# Settings for uploading to radiosondy.info
+#
+# IMPORTANT APRS NOTE
+#
+# As of auto_rx version 1.5.10, we are limiting APRS output to only radiosondy.info,
+# and only on the non-forwarding port. 
+# This decision was not made lightly, and is a result of the considerable amount of
+# non-amateur traffic that radiosonde flights are causing within the APRS-IS network.
+# Until some form of common format can be agreed to amongst the developers of *all* 
+# radiosonde tracking software to enable radiosonde telemetry to be de-duped, 
+# I have decided to help reduce the impact on the wider APRS-IS network by restricting 
+# the allowed servers and ports.
+# If you are using another APRS-IS server that *does not* forward to the wider APRS-IS
+# network and want it allowed, then please raise an issue at
+# https://github.com/projecthorus/radiosonde_auto_rx/issues
+#
+# You are of course free to fork and modify this codebase as you wish, but please be aware
+# that this goes against the wishes of the radiosonde_auto_rx developers to not be part
+# of the bigger problem of APRS-IS congestion. 
+# As of 2022-03-01, radiosonde traffic has been filtered from aprs.fi, so even if you do
+# modify the code, you still won't see sondes on that map.
+# APRS-IS is a *shared resource*, intended for the use of all amateur radio operators, and 
+# for many years we have been treating it as a playground to dump large amounts of non-amateur
+# traffic into, so we can see weather balloons on a map. 
+# Instead of congesting this shared resource with this non-amateur traffic, we should instead
+# be moving to using databases and sites specialised for this purpose, for example sondehub.org
+
 [aprs]
 # Enable APRS upload (you will also need to change some options below!)
 aprs_enabled = False
 
 # APRS-IS Login Information
 # The aprs_user field can have an SSID on the end if desired, i.e. N0CALL-4
-# If you are a licensed amateur radio operator, you may want to change the aprs_port number below 
-# to 14580, so that your uploaded telemetry makes its way out to the wider APRS network.
 aprs_user = N0CALL
 # APRS-IS Passcode. You can generate one for your callsign here: https://apps.magicbug.co.uk/passcode/
 aprs_pass = 00000
 
 # APRS Upload Rate - Upload a packet every X seconds.
-# This has a lower limit of 30 seconds, to avoid flooding the APRS-IS network.
-# Please be respectful of other uses of the APRS-IS network, and do not attempt
-# to upload faster than this. 
+# This has a lower limit of 30 seconds, to avoid flooding radiosondy.info
+# Please be respectful, and do not attempt to upload faster than this. 
 upload_rate = 30
 
 # APRS-IS server to upload to.
-# Default to radiosondy.info for now, to allow stats to show up on http://radiosondy.info
-# Packets are forwarded onto the rest of the APRS-IS network from radiosondy.info.
-# If you wish to inject packets directly into the APRS-IS network, use rotate.aprs2.net
+# Currently we only support uploading to radiosondy.info 
+# When using port 14580, packets are not forwarded to the wider APRS-IS network, and hence
+# are help reduce the huge amount of non-amateur traffic that ends up in APRS-IS from
+# radiosondes.
 aprs_server = radiosondy.info
 
 # APRS-IS Port Number to upload to.
-# When using radiosondy.info:
-#   Port 14590 - Packets stay within radiosondy.info. Non-licensed operators can use this.
-#   Port 14580 - Packets are forwarded out to the wider APRS-IS network. Only licensed amateur radio operators should use this!!
-# For all other APRS-IS servers (licensed amateur radio operators only!), use port 14580.
-aprs_port = 14590
+# 
+#   Port 14590 - Packets stay within radiosondy.info and do not congest the wider APRS-IS
+#                network.
+#
+aprs_port = 14580
 
 # APRS Station Location Beaconing
 # If enabled, you will show up on APRS using the aprs_user callsign set above.

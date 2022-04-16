@@ -497,7 +497,7 @@ def telemetry_filter(telemetry):
     if "sats" in telemetry:
         if telemetry["sats"] < 4:
             logging.warning(
-                "Sonde %s can only see %d SVs - discarding position as bad."
+                "Sonde %s can only see %d GNSS sats - discarding position as bad."
                 % (telemetry["id"], telemetry["sats"])
             )
             return False
@@ -877,7 +877,7 @@ def main():
             position_report=config["aprs_position_report"],
             aprsis_host=config["aprs_server"],
             aprsis_port=config["aprs_port"],
-            synchronous_upload_time=config["aprs_upload_rate"],
+            upload_time=config["aprs_upload_rate"],
             callsign_validity_threshold=config["payload_id_valid"],
             station_beacon=config["station_beacon_enabled"],
             station_beacon_rate=config["station_beacon_rate"],
