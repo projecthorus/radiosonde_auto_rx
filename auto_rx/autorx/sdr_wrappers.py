@@ -292,6 +292,63 @@ def get_sdr_fm_cmd(
         return "false |"
 
 
+def read_rtl_power_log(log_filename, sdr_name):
+    """
+    Read in a rtl_power compatible log output file.
+
+    Arguments:
+    log_filename (str): Filename to read
+    sdr_name (str): SDR name used for logging errors.
+    """
+
+    # OK, now try to read in the saved data.
+    # Output buffers.
+    freq = np.array([])
+    power = np.array([])
+
+    freq_step = 0
+
+    # Open file.
+    f = open(log_filename, "r")
+
+    # rtl_power log files are csv's, with the first 6 fields in each line describing the time and frequency scan parameters
+    # for the remaining fields, which contain the power samples.
+
+    for line in f:
+        # Split line into fields.
+        fields = line.split(",")
+
+        if len(fields) < 6:
+            logging.error(
+                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
+            )
+            raise Exception(
+                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
+            )
+
+        start_date = fields[0]
+        start_time = fields[1]
+        start_freq = float(fields[2])
+        stop_freq = float(fields[3])
+        freq_step = float(fields[4])
+        n_samples = int(fields[5])
+
+        # freq_range = np.arange(start_freq,stop_freq,freq_step)
+        samples = np.loadtxt(StringIO(",".join(fields[6:])), delimiter=",")
+        freq_range = np.linspace(start_freq, stop_freq, len(samples))
+
+        # Add frequency range and samples to output buffers.
+        freq = np.append(freq, freq_range)
+        power = np.append(power, samples)
+
+    f.close()
+
+    # Sanitize power values, to remove the nan's that rtl_power puts in there occasionally.
+    power = np.nan_to_num(power)
+
+    return (freq, power, freq_step)
+
+
 def get_power_spectrum(
     sdr_type: str,
     frequency_start: int = 400050000,
@@ -343,12 +400,6 @@ def get_power_spectrum(
 
     # No support for getting spectrum data on any other SDR source right now.
     # Override sdr selection. 
-    if sdr_type == "SpyServer":
-        sdr_type = "RTLSDR"
-        # Set device ID to 0
-        rtl_device_idx = "0"
-        # Use fixed gain.
-        gain = 30
 
 
     if sdr_type == "RTLSDR":
@@ -433,52 +484,76 @@ def get_power_spectrum(
 
             return (None, None, None)
 
-        # OK, now try to read in the saved data.
-        # Output buffers.
-        freq = np.array([])
-        power = np.array([])
+        return read_rtl_power_log(_log_filename, _sdr_name)
 
-        freq_step = 0
+    elif sdr_type == "SpyServer":
+        # Use a spyserver to obtain power spectral density data
 
-        # Open file.
-        f = open(_log_filename, "r")
+        # Create filename to output to.
+        _log_filename = f"log_power_spyserver.csv"
+        
+        # If the output log file exists, remove it.
+        if os.path.exists(_log_filename):
+            os.remove(_log_filename)
 
-        # rtl_power log files are csv's, with the first 6 fields in each line describing the time and frequency scan parameters
-        # for the remaining fields, which contain the power samples.
 
-        for line in f:
-            # Split line into fields.
-            fields = line.split(",")
+        # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
+        # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
+        # which is provided with OSX (Darwin).
+        _platform = platform.system()
+        if "Darwin" in _platform:
+            _timeout_kill = ""
+        else:
+            _timeout_kill = "-k 30 "
 
-            if len(fields) < 6:
-                logging.error(
-                   f"Scanner ({_sdr_name}) - Invalid number of samples in input file - corrupt?"
+        _timeout_cmd = f"timeout {_timeout_kill}{integration_time+10}"
+
+        _frequency_centre = int(frequency_start + (frequency_stop-frequency_start)/2.0)
+
+        _ss_power_cmd = (
+            f"{_timeout_cmd} ./ss_power "
+            f"-f {_frequency_centre} "
+            f"-i {integration_time} -1 "
+            f"-r {sdr_hostname} -q {sdr_port} "
+            f"{_log_filename}"
+        )
+
+        _sdr_name = get_sdr_name(
+            sdr_type=sdr_type,
+            rtl_device_idx=rtl_device_idx,
+            sdr_hostname=sdr_hostname,
+            sdr_port=sdr_port
+            )
+
+        logging.info(f"Scanner ({_sdr_name}) - Running frequency scan.")
+        logging.debug(
+            f"Scanner ({_sdr_name}) - Running command: {_ss_power_cmd}"
+        )
+
+        try:
+            _output = subprocess.check_output(
+                _ss_power_cmd, shell=True, stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError as e:
+            # Something went wrong...
+            logging.critical(
+                f"Scanner ({_sdr_name}) - ss_power call failed with return code {e.returncode}."
+            )
+            # Look at the error output in a bit more details.
+            _output = e.output.decode("ascii")
+
+            if "outside currently allowed range" in _output:
+                logging.critical(
+                    f"Scanner ({_sdr_name}) - Centre of scan range ({_frequency_centre} Hz) outside of allowed SpyServer tuning range."
                 )
-                raise Exception(
-                    f"Scanner ({_sdr_name}) - Invalid number of samples in input file - corrupt?"
+            else:
+                logging.critical(
+                    f"Scanner ({_sdr_name}) - Other Error: {_output}"
                 )
 
-            start_date = fields[0]
-            start_time = fields[1]
-            start_freq = float(fields[2])
-            stop_freq = float(fields[3])
-            freq_step = float(fields[4])
-            n_samples = int(fields[5])
+            return (None, None, None)
 
-            # freq_range = np.arange(start_freq,stop_freq,freq_step)
-            samples = np.loadtxt(StringIO(",".join(fields[6:])), delimiter=",")
-            freq_range = np.linspace(start_freq, stop_freq, len(samples))
-
-            # Add frequency range and samples to output buffers.
-            freq = np.append(freq, freq_range)
-            power = np.append(power, samples)
-
-        f.close()
-
-        # Sanitize power values, to remove the nan's that rtl_power puts in there occasionally.
-        power = np.nan_to_num(power)
-
-        return (freq, power, freq_step)
+        return read_rtl_power_log(_log_filename, _sdr_name)
 
     else:
         # Unsupported SDR Type
@@ -507,8 +582,16 @@ if __name__ == "__main__":
     print(f"RTLSDR FM (AGC): {get_sdr_fm_cmd(_sdr_type, _freq, _fm_bw, _sample_rate)}")
     print(f"RTLSDR FM (Fixed Gain): {get_sdr_fm_cmd(_sdr_type, _freq, _fm_bw, _sample_rate, gain=30.0, bias=True, highpass=20)}")
 
+    # (freq, power, step) = get_power_spectrum(
+    #     sdr_type="RTLSDR"
+    # )
+
     (freq, power, step) = get_power_spectrum(
-        sdr_type="RTLSDR"
+        sdr_type="SpyServer",
+        sdr_hostname="10.0.0.222",
+        sdr_port=5555,
+        frequency_start=400100000,
+        frequency_stop=404900000
     )
     print(freq)
     print(power)
