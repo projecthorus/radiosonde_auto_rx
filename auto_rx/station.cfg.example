@@ -43,6 +43,12 @@ gain = -1
 # Bias Tee - Enable the bias tee in the RTLSDR v3 Dongles.
 bias = False
 
+# Preference (integer)
+#   By default all the SDR's have preference of 0 for allocation of scanner and decode tasks.
+#   Apply an higher value to the SDRs preferred
+#   Use a negative value to avoid using them.
+preference = 1
+
 [sdr_2]
 # As above, for the next SDR, if used. Note the warning about serial numbers.
 device_idx = 00000002
