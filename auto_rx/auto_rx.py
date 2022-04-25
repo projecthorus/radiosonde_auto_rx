@@ -92,6 +92,20 @@ gpsd_adaptor = None
 # This contains frequncies that should be blocked for a short amount of time.
 temporary_block_list = {}
 
+def get_sdr_item_pref(sdr_item):
+    """A helper function for the purpose of sorting the list of SDR by preference.
+
+    Args:
+        sdr_item (tuple) : Single element resulting from sdr_list.items(). A pair of ID (str) and config (dict).
+
+    Returns:
+        (tuple) : A pair with the scanner preference value inverted and ID, for the purpose of sorting by highest
+                  values first and if equal then lowest to highest ID.
+    """
+    id = sdr_item[0]
+    cfg = sdr_item[1]
+    return (-cfg["preference"], id)
+
 
 def allocate_sdr(check_only=False, task_description=""):
     """Allocate an un-used SDR for a task.
@@ -102,8 +116,8 @@ def allocate_sdr(check_only=False, task_description=""):
     Returns:
         (str): The device index/serial number of the free/allocated SDR, if one is free, else None.
     """
-
-    for _idx in sorted(autorx.sdr_list.keys()):
+    
+    for _idx in [key for key, val in sorted(autorx.sdr_list.items(), key=get_sdr_item_pref)]:
         if autorx.sdr_list[_idx]["in_use"] == False:
             # Found a free SDR!
             if check_only:
