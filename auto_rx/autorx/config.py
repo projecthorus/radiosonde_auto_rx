@@ -699,6 +699,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 _ppm = round(config.getfloat(_section, "ppm"))
                 _gain = config.getfloat(_section, "gain")
                 _bias = config.getboolean(_section, "bias")
+                _preference = config.getint(_section, "preference", fallback=0)
 
                 if (auto_rx_config["sdr_quantity"] > 1) and (_device_idx == "0"):
                     logging.critical(
@@ -713,6 +714,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                         "ppm": _ppm,
                         "gain": _gain,
                         "bias": _bias,
+                        "preference": _preference,
                         "in_use": False,
                         "task": None,
                     }
