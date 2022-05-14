@@ -166,6 +166,8 @@ def start_scanner():
             # Network SDR Options
             sdr_hostname=config["sdr_hostname"],
             sdr_port=config["sdr_port"],
+            ss_iq_path=config["ss_iq_path"],
+            ss_power_path=config["ss_power_path"],
             rtl_power_path=config["sdr_power"],
             rtl_fm_path=config["sdr_fm"],
             rtl_device_idx=_device_idx,
@@ -242,6 +244,7 @@ def start_decoder(freq, sonde_type):
             # Network SDR Options
             sdr_hostname=config["sdr_hostname"],
             sdr_port=config["sdr_port"],
+            ss_iq_path=config["ss_iq_path"],
             # RTLSDR Options
             rtl_fm_path=config["sdr_fm"],
             rtl_device_idx=_device_idx,

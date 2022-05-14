@@ -125,6 +125,7 @@ class SondeDecoder(object):
         sdr_type="RTLSDR",
         sdr_hostname="localhost",
         sdr_port=12345,
+        ss_iq_path="./ss_iq",
         rs_path="./",
         rtl_fm_path="rtl_fm",
         rtl_device_idx=0,
@@ -190,6 +191,7 @@ class SondeDecoder(object):
 
         self.sdr_hostname = sdr_hostname
         self.sdr_port = sdr_port
+        self.ss_iq_path = ss_iq_path
 
         self.rs_path = rs_path
         self.rtl_fm_path = rtl_fm_path
@@ -260,7 +262,8 @@ class SondeDecoder(object):
             self.sdr_type, 
             rtl_device_idx = self.rtl_device_idx, 
             sdr_hostname = self.sdr_hostname, 
-            sdr_port = self.sdr_port
+            sdr_port = self.sdr_port,
+            ss_iq_path = self.ss_iq_path
             )
 
         if not _sdr_ok:
@@ -519,6 +522,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -543,6 +547,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -569,6 +574,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -604,6 +610,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -731,6 +738,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -804,6 +812,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -853,6 +862,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -903,6 +913,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -943,6 +954,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -981,6 +993,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -1021,6 +1034,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -1060,6 +1074,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
@@ -1104,6 +1119,7 @@ class SondeDecoder(object):
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,

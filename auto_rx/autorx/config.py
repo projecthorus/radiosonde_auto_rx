@@ -76,6 +76,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "sdr_port": 5555,
         "sdr_fm": "rtl_fm",
         "sdr_power": "rtl_power",
+        "ss_iq_path": "./ss_iq",
+        "ss_power_path": "./ss_power",
         "sdr_quantity": 1,
         # Search Parameters
         "min_freq": 400.4,
@@ -693,11 +695,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["sdr_type"] = config.get("sdr", "sdr_type")
             auto_rx_config["sdr_hostname"] = config.get("sdr", "sdr_hostname")
             auto_rx_config["sdr_port"] = config.getint("sdr", "sdr_port")
+            auto_rx_config["ss_iq_path"] = config.get("advanced", "ss_iq_path")
+            auto_rx_config["ss_power_path"] = config.get("advanced", "ss_power_path")
         except:
             # Switch this to warning on release...
             logging.debug(
-                "Config - Did not find sdr_type option, using defaults."
+                "Config - Did not find new sdr_type and associated options, defaulting to RTLSDR operation."
             )
+            auto_rx_config["sdr_type"] = "RTLSDR"
 
 
         # If we are being called as part of a unit test, just return the config now.
@@ -747,7 +752,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             _sdr_ok = test_sdr(
                 sdr_type=auto_rx_config["sdr_type"],
                 sdr_hostname=auto_rx_config["sdr_hostname"],
-                sdr_port=auto_rx_config["sdr_port"]
+                sdr_port=auto_rx_config["sdr_port"],
+                ss_iq_path=auto_rx_config["ss_iq_path"],
+                ss_power_path=auto_rx_config["ss_power_path"],
             )
 
             if not _sdr_ok:

@@ -19,7 +19,9 @@ def test_sdr(
     sdr_type: str,
     rtl_device_idx = "0",
     sdr_hostname = "",
-    sdr_port = 5555
+    sdr_port = 5555,
+    ss_iq_path = "./ss_iq",
+    ss_power_path = "./ss_power"
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -33,6 +35,9 @@ def test_sdr(
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
 
+    Arguments for SpyServer Client:
+    ss_iq_path (str): Path to spyserver IQ client utility.
+    ss_power_path (str): Path to spyserver power utility.
     """
 
     if sdr_type == "RTLSDR":
@@ -57,14 +62,13 @@ def test_sdr(
     elif sdr_type == "SpyServer":
         # Test connectivity to a SpyServer by trying to grab some samples.
 
-        if not os.path.isfile('ss_iq'):
+        if not os.path.isfile(ss_iq_path):
             logging.critical("Could not find ss_iq binary! This may need to be compiled.")
             return False
 
-
         _cmd = (
             f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
-            f"./ss_iq "
+            f"{ss_iq_path} "
             f"-f 401500000 "
             f"-s 48000 "
             f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
@@ -155,7 +159,8 @@ def get_sdr_iq_cmd(
     gain = None,
     bias = False,
     sdr_hostname = "",
-    sdr_port = 5555
+    sdr_port = 5555,
+    ss_iq_path = "./ss_iq"
 ):
     """
     Get a command-line argument to get IQ (signed 16-bit) from a SDR
@@ -176,6 +181,9 @@ def get_sdr_iq_cmd(
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
+
+    Arguments for SpyServer Client:
+    ss_iq_path (str): Path to spyserver IQ client utility.
 
     """
 
@@ -201,7 +209,7 @@ def get_sdr_iq_cmd(
 
     if sdr_type == "SpyServer":
         _cmd = (
-            f"./ss_iq "
+            f"{ss_iq_path} "
             f"-f {frequency} "
             f"-s {int(sample_rate)} "
             f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
@@ -361,7 +369,8 @@ def get_power_spectrum(
     gain = None,
     bias = False,
     sdr_hostname = "",
-    sdr_port = 5555
+    sdr_port = 5555,
+    ss_power_path = "./ss_power"
 ):
     """
     Get power spectral density data from a SDR.
@@ -376,8 +385,8 @@ def get_power_spectrum(
     integration_time (int): Integration time in seconds.
 
     Arguments for RTLSDRs:
-    rtl_device_idx (str) - Device ID for a RTLSDR
-    rtl_power_path (str) - Path to rtl_power. Defaults to just "rtl_power"
+    rtl_device_idx (str): Device ID for a RTLSDR
+    rtl_power_path (str): Path to rtl_power. Defaults to just "rtl_power"
     ppm (int): SDR Frequency accuracy correction, in ppm.
     gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
     bias (bool): If True, enable the bias tee on the SDR.
@@ -385,6 +394,10 @@ def get_power_spectrum(
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
+
+    Arguments for SpyServer Client:
+    ss_power_path (str): Path to spyserver power utility.
+    ss_iq_path (str): Path to spyserver IQ client utility.
 
 
     Returns:
@@ -511,7 +524,7 @@ def get_power_spectrum(
         _frequency_centre = int(frequency_start + (frequency_stop-frequency_start)/2.0)
 
         _ss_power_cmd = (
-            f"{_timeout_cmd} ./ss_power "
+            f"{_timeout_cmd} {ss_power_path} "
             f"-f {_frequency_centre} "
             f"-i {integration_time} -1 "
             f"-r {sdr_hostname} -q {sdr_port} "

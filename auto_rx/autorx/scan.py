@@ -236,6 +236,7 @@ def detect_sonde(
     sdr_type="RTLSDR",
     sdr_hostname="localhost",
     sdr_port=5555,
+    ss_iq_path = "./ss_iq",
     rtl_fm_path="rtl_fm",
     rtl_device_idx=0,
     ppm=0,
@@ -330,7 +331,8 @@ def detect_sonde(
             gain = gain,
             bias = bias,
             sdr_hostname = sdr_hostname,
-            sdr_port = sdr_port
+            sdr_port = sdr_port,
+            ss_iq_path = ss_iq_path
         )
 
         # rx_test_command = (
@@ -626,6 +628,8 @@ class SondeScanner(object):
         sdr_type="RTLSDR",
         sdr_hostname="localhost",
         sdr_port=5555,
+        ss_iq_path = "./ss_iq",
+        ss_power_path = "./ss_power",
 
         rtl_power_path="rtl_power",
         rtl_fm_path="rtl_fm",
@@ -713,6 +717,8 @@ class SondeScanner(object):
 
         self.sdr_hostname = sdr_hostname
         self.sdr_port = sdr_port
+        self.ss_iq_path = ss_iq_path
+        self.ss_power_path = ss_power_path
 
         self.rtl_power_path = rtl_power_path
         self.rtl_fm_path = rtl_fm_path
@@ -752,7 +758,8 @@ class SondeScanner(object):
             self.sdr_type, 
             rtl_device_idx = self.rtl_device_idx, 
             sdr_hostname = self.sdr_hostname, 
-            sdr_port = self.sdr_port
+            sdr_port = self.sdr_port,
+            ss_iq_path = self.ss_iq_path
             )
 
         if not _sdr_ok:
@@ -813,7 +820,8 @@ class SondeScanner(object):
                         self.sdr_type, 
                         rtl_device_idx = self.rtl_device_idx, 
                         sdr_hostname = self.sdr_hostname, 
-                        sdr_port = self.sdr_port
+                        sdr_port = self.sdr_port,
+                        ss_iq_path = self.ss_iq_path
                         )
 
                     if not _sdr_ok:
@@ -892,7 +900,8 @@ class SondeScanner(object):
                 gain=self.gain,
                 bias=self.bias,
                 sdr_hostname=self.sdr_hostname,
-                sdr_port=self.sdr_port
+                sdr_port=self.sdr_port,
+                ss_power_path = self.ss_power_path
             )
 
             # Exit opportunity.
@@ -1058,6 +1067,7 @@ class SondeScanner(object):
                 sdr_type=self.sdr_type,
                 sdr_hostname=self.sdr_hostname,
                 sdr_port=self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_fm_path=self.rtl_fm_path,
                 rtl_device_idx=self.rtl_device_idx,
                 ppm=self.ppm,

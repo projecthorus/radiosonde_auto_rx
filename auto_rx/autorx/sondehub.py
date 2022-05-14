@@ -61,6 +61,7 @@ class SondehubUploader(object):
         """
 
         self.upload_rate = upload_rate
+        self.actual_upload_rate = upload_rate  # Allow for the upload rate to be tweaked...
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
         self.user_callsign = user_callsign
@@ -68,6 +69,8 @@ class SondehubUploader(object):
         self.user_antenna = user_antenna
         self.contact_email = contact_email
         self.user_position_update_rate = user_position_update_rate
+
+        self.slower_uploads = False
 
         if self.user_position is None:
             self.inhibit_upload = True
@@ -174,6 +177,10 @@ class SondehubUploader(object):
             _output["serial"] = telemetry["id"].split("-")[1]
             if "dfmcode" in telemetry:
                 _output["dfmcode"] = telemetry["dfmcode"]
+
+            # We are handling DFM packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
 
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
             _output["manufacturer"] = "Meteomodem"
@@ -310,8 +317,13 @@ class SondehubUploader(object):
             ) > self.user_position_update_rate * 3600:
                 self.station_position_upload()
 
+            # If we are encounting DFM packets we need to upload at a slower rate so 
+            # that we have enough uploaded packets to pass z-check.
+            if self.slower_uploads:
+                self.actual_upload_rate = min(30,int(self.upload_rate*1.5))
+            
             # Sleep while waiting for some new data.
-            for i in range(self.upload_rate):
+            for i in range(self.actual_upload_rate):
                 time.sleep(1)
                 if self.input_processing_running == False:
                     break

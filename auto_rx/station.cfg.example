@@ -14,38 +14,9 @@
 ################
 [sdr]
 
-#
-# SDR Type
-#
-# RTLSDR - Use one or more RTLSDRs
-# 
-# EXPERIMENTAL / NOT IMPLEMENTED options:
-# KA9Q - Use a KA9Q SDR Server
-# SpyServer - Use a SpyServer
-#
-sdr_type = RTLSDR
-
-#
-# Number of SDRs or SDR Connection Threads to use
-#
-# If SDR type is either KA9Q or SpyServer, this defines the maximum number of parallel
-# decoding/scan tasks.
-# If SDR type is set to RTLSDR above, then this number is the number of individual RTLSDRs
-# that will be used, eith each RTLSDR allocated a scan or decode task.
+# Number of RTLSDRs to use.
 # If more than one RTLSDR is in use, multiple [sdr_X] sections must be populated below
-#
 sdr_quantity = 1
-
-
-#
-# Network SDR Connection Details
-#
-# If using either a KA9Q or SpyServer network server, the hostname and port
-# of the server needs to be defined below. Usually this will be running on the
-# same machine as auto_rx, so the defaults are usually fine.
-#
-sdr_hostname = localhost
-sdr_port = 5555
 
 #
 # Individual RTLSDR Settings
@@ -510,6 +481,11 @@ payload_id_valid = 3
 # Paths to the rtl_fm and rtl_power utilities. If these are on your system path, then you don't need to change these.
 sdr_fm_path = rtl_fm
 sdr_power_path = rtl_power
+
+# Paths to SpyServer client (https://github.com/miweber67/spyserver_client) utilities, for experimental SpyServer Client support
+# At the moment we assume these are in the auto_rx directory.
+ss_iq_path = ./ss_iq
+ss_power_path = ./ss_power
 
 
 ################################
