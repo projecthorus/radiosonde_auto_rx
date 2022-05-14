@@ -86,6 +86,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "only_scan": [],
         "never_scan": [],
         "always_scan": [],
+        "always_decode": [],
         # Location Settings
         "station_lat": 0.0,
         "station_lon": 0.0,
@@ -703,6 +704,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find new sdr_type and associated options, defaulting to RTLSDR operation."
             )
             auto_rx_config["sdr_type"] = "RTLSDR"
+
+
+        try:
+            auto_rx_config["always_decode"] = json.loads(
+                config.get("search_params", "always_decode")
+            )
+        except:
+            logging.debug(
+                "Config - No always_decode settings, defaulting to none."
+            )
+            auto_rx_config["always_decode"] = []
 
 
         # If we are being called as part of a unit test, just return the config now.
