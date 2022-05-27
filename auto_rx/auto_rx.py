@@ -479,7 +479,7 @@ def clean_task_list():
                 # Try and start up a decoder.
                 if (allocate_sdr(check_only=True) is not None):
                     logging.info(f"Task Manager - Starting Always-On Decoder: {_type}, {_freq_hz/1e6:.3f} MHz")
-                    start_decoder(_freq_hz, _type)
+                    start_decoder(_freq_hz, _type, continuous=True)
 
 
 
