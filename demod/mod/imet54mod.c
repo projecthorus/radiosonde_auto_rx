@@ -536,8 +536,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
     // prnGPS,prnTPU
     if (gpx->option.jsn && frm_ok && crc_ok && (gpx->status&0x30)==0x30) {
         char *ver_jsn = NULL;
-        //char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
-        char *subtype = (rs_type == 54) ? "iMet-54" : "iMet-50";
+        char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
@@ -553,8 +552,13 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
         }
         fprintf(stdout, ", \"subtype\": \"%s\"", subtype);  // "IMET54"/"IMET50"
         if (gpx->jsn_freq > 0) {
-            fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq);
+            fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq );
         }
+
+        // Reference time/position
+        fprintf(stdout, ", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+        fprintf(stdout, ", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
         #ifdef VER_JSN_STR
             ver_jsn = VER_JSN_STR;
         #endif
@@ -646,6 +650,7 @@ int main(int argc, char *argv[]) {
     int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_noLUT = 0;
     int option_softin = 0;
     int option_pcmraw = 0;
     int wavloaded = 0;
@@ -762,16 +767,18 @@ int main(int argc, char *argv[]) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
             option_iq = 5;
         }
-        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--lpIQ") == 0) { option_lp |= LP_IQ; }  // IQ/IF lowpass
         else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
             double bw = 0.0;
             ++argv;
             if (*argv) bw = atof(*argv);
             else return -1;
             if (bw > 4.6 && bw < 24.0) lpIQ_bw = bw*1e3;
-            option_lp = 1;
+            option_lp |= LP_IQ;
         }
+        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= LP_FM; }  // FM lowpass
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--noLUT") == 0) { option_noLUT = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
         }
@@ -814,6 +821,13 @@ int main(int argc, char *argv[]) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+    if (option_iq == 5 && option_dc) option_lp |= LP_FM;
+
+    // LUT faster for decM, however frequency correction after decimation
+    // LUT recommonded if decM > 2
+    //
+    if (option_noLUT && option_iq == 5) dsp.opt_nolut = 1; else dsp.opt_nolut = 0;
 
 
     if (gpx.option.raw && gpx.option.jsn) gpx.option.slt = 1;

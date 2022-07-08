@@ -74,6 +74,7 @@ Variante 2 (iMS-100 ?)
 0x11..0x12  31xx, xx=C1(ims100?),A2(rs11?)
 0x17..0x18  16 bit  1024-counter yyxx, +0x400=1024; rollover synchron zu ms-counter, nach rollover auch +0x300=768
 0x1B..0x1D  HEADER  0xFB6230
+0x20..0x21  16 bit  GPS-vV * 1.944e1 (knots)
 0x22..0x23  yy00..yy03 (yy00: GPS PRN?)
 
 
@@ -145,6 +146,9 @@ typedef struct {
     float sn; //  0 mod 16
     float fq; // 15 mod 64
     int jsn_freq;   // freq/kHz (SDR)
+    int frm0_count; int frm0_valid;
+    int frm1_count; int frm1_valid;
+    int vV_valid;
     RS_t RS;
 } gpx_t;
 
@@ -254,6 +258,7 @@ int main(int argc, char **argv) {
     int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_noLUT = 0;
     int option_softin = 0;
     int option_pcmraw = 0;
     int sel_wavch = 0;
@@ -304,6 +309,8 @@ int main(int argc, char **argv) {
 
     float thres = 0.7;
     float _mv = 0.0;
+
+    float lpIQ_bw = 16e3;
 
     int symlen = 1;
     int bitofs = 0; // 0..+1
@@ -389,8 +396,18 @@ int main(int argc, char **argv) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
             option_iq = 5;
         }
-        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
-        else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
+        else if   (strcmp(*argv, "--lpIQ") == 0) { option_lp |= LP_IQ; }  // IQ/IF lowpass
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            double bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6 && bw < 32.0) lpIQ_bw = bw*1e3;
+            option_lp |= LP_IQ;
+        }
+        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= LP_FM; }  // FM lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--noLUT") == 0) { option_noLUT = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
         }
@@ -434,6 +451,13 @@ int main(int argc, char **argv) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+    if (option_iq == 5 && option_dc) option_lp |= LP_FM;
+
+    // LUT faster for decM, however frequency correction after decimation
+    // LUT recommonded if decM > 2
+    //
+    if (option_noLUT && option_iq == 5) dsp.opt_nolut = 1; else dsp.opt_nolut = 0;
 
     if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
 
@@ -490,7 +514,7 @@ int main(int argc, char **argv) {
         dsp.opt_iq = option_iq;
         dsp.opt_iqdc = option_iqdc;
         dsp.opt_lp = option_lp;
-        dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
+        dsp.lpIQ_bw = lpIQ_bw; //16e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
         dsp.opt_dc = option_dc;
         dsp.opt_IFmin = option_min;
@@ -716,6 +740,11 @@ int main(int argc, char **argv) {
                                         if (gpx.fq > 0) { // include frequency derived from subframe information if available
                                             fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
                                         }
+
+                                        // Reference time/position
+                                        printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+                                        printf(", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
                                         #ifdef VER_JSN_STR
                                             ver_jsn = VER_JSN_STR;
                                         #endif
@@ -826,7 +855,7 @@ int main(int argc, char **argv) {
                             val = bits2val(subframe_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
 
-                            if (counter % 2 == 0) printf("[%d] ", counter);
+                            /*if (counter % 2 == 0)*/ printf("[%d] ", counter);
 
                             w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
                             w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
@@ -911,25 +940,52 @@ int main(int argc, char **argv) {
                                 printf(" (vH: %.1fm/s  D: %.2f)", gpx.vH, gpx.vD);
                                 printf("  ");
                             }
+                            if (counter % 2 == 1) {
+                                // cf. DF9DQ
+                                vU = bits2val(subframe_bits+HEADLEN+46*0+17, 16);
+                                velU = (double)vU/1.94384e1; // knots -> m/s
+                                gpx.vV = velU;
+                                gpx.vV_valid = (vU != 0);
+                                if (gpx.vV_valid) {
+                                    printf("  (vV: %.1fm/s)", gpx.vV);
+                                }
+                                else {
+                                    printf("  (vV: --- m/s)");
+                                }
+                                printf("  ");
+                            }
 
                             if (counter % 2 == 0) {
+                                gpx.frm0_count = counter;
                                 if (option_ecc) {
                                     if (gps_err) printf("(no)"); else printf("(ok)");
                                     if (err_frm) printf("[NO]"); else printf("[OK]");
+                                    gpx.frm0_valid = (err_frm==0 && gps_err==0);
                                 }
                                 if (option_verbose) {
-                                    if (sn > 0) {
+                                    if (sn > 0) { // cfg[0,16,32,48]=SN
                                         printf(" : sn %.0f", sn);
                                         sn = -1;
                                     }
-                                    if (freq > 0) {
+                                }
+                                printf("\n");
+                            }
+                            if (counter % 2 == 1) {
+                                gpx.frm1_count = counter;
+                                if (option_ecc) {
+                                    if (gps_err) printf("(no)"); else printf("(ok)");
+                                    if (err_frm) printf("[NO]"); else printf("[OK]");
+                                    gpx.frm1_valid = (err_frm==0 && gps_err==0);
+                                }
+                                if (option_verbose) {
+                                    if (freq > 0) { // cfg[15]=freq
                                         printf(" : fq %.0f", freq); // kHz
                                         freq = -1;
                                     }
                                 }
                                 printf("\n");
 
-                                if (option_jsn && err_frm==0 && gps_err==0) {
+                                if (option_jsn && gpx.frm0_valid) {
                                     char *ver_jsn = NULL;
                                     char id_str[] = "xxxxxx\0\0\0\0\0\0";
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
@@ -938,6 +994,9 @@ int main(int argc, char **argv) {
                                     printf("{ \"type\": \"%s\"", "MEISEI"); // alt: "IMS100"
                                     printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f",
                                            gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD );
+                                    if (gpx.frm1_valid && (gpx.frm1_count == gpx.frm0_count + 1)) {
+                                        if (gpx.vV_valid) printf(", \"vel_v\": %.5f", gpx.vV );
+                                    }
                                     printf(", \"subtype\": \"IMS100\"");
                                     if (gpx.jsn_freq > 0) { // not gpx.fq, because gpx.sn not in every frame
                                         printf(", \"freq\": %d", gpx.jsn_freq);
@@ -945,12 +1004,19 @@ int main(int argc, char **argv) {
                                     if (gpx.fq > 0) { // include frequency derived from subframe information if available
                                         fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
                                     }
+
+                                    // Reference time/position
+                                    printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+                                    printf(", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
                                     #ifdef VER_JSN_STR
                                         ver_jsn = VER_JSN_STR;
                                     #endif
                                     if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                                     printf(" }\n");
                                     printf("\n");
+
+                                    gpx.frm0_valid = 0;
                                 }
 
                             }

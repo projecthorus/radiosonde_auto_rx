@@ -47,6 +47,7 @@ from autorx.web import (
     WebExporter,
 )
 from autorx.gpsd import GPSDAdaptor
+from autorx.sdr_wrappers import shutdown_sdr
 
 try:
     # Python 2
@@ -162,9 +163,15 @@ def start_scanner():
             detect_dwell_time=config["detect_dwell_time"],
             max_peaks=config["max_peaks"],
             rs_path=RS_PATH,
-            sdr_power=config["sdr_power"],
-            sdr_fm=config["sdr_fm"],
-            device_idx=_device_idx,
+            sdr_type=config["sdr_type"],
+            # Network SDR Options
+            sdr_hostname=config["sdr_hostname"],
+            sdr_port=config["sdr_port"],
+            ss_iq_path=config["ss_iq_path"],
+            ss_power_path=config["ss_power_path"],
+            rtl_power_path=config["sdr_power"],
+            rtl_fm_path=config["sdr_fm"],
+            rtl_device_idx=_device_idx,
             gain=autorx.sdr_list[_device_idx]["gain"],
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
@@ -199,12 +206,13 @@ def stop_scanner():
         autorx.task_list.pop("SCAN")
 
 
-def start_decoder(freq, sonde_type):
+def start_decoder(freq, sonde_type, continuous=False):
     """Attempt to start a decoder thread for a given sonde.
 
     Args:
         freq (float): Radiosonde frequency in Hz.
         sonde_type (str): The radiosonde type ('RS41', 'RS92', 'DFM', 'M10, 'iMet')
+        continuous (bool): If true, don't use a decode timeout.
 
     """
     global config, RS_PATH, exporter_functions, rs92_ephemeris, temporary_block_list
@@ -229,20 +237,32 @@ def start_decoder(freq, sonde_type):
         else:
             _exp_sonde_type = sonde_type
 
+        if continuous:
+            _timeout = 0
+        else:
+            _timeout = config["rx_timeout"]
+
         # Initialise a decoder.
         autorx.task_list[freq]["task"] = SondeDecoder(
             sonde_type=sonde_type,
             sonde_freq=freq,
             rs_path=RS_PATH,
-            sdr_fm=config["sdr_fm"],
-            device_idx=_device_idx,
+            sdr_type=config["sdr_type"],
+            # Network SDR Options
+            sdr_hostname=config["sdr_hostname"],
+            sdr_port=config["sdr_port"],
+            ss_iq_path=config["ss_iq_path"],
+            # RTLSDR Options
+            rtl_fm_path=config["sdr_fm"],
+            rtl_device_idx=_device_idx,
             gain=autorx.sdr_list[_device_idx]["gain"],
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
+            # Other options
             save_decode_audio=config["save_decode_audio"],
             save_decode_iq=config["save_decode_iq"],
             exporter=exporter_functions,
-            timeout=config["rx_timeout"],
+            timeout=_timeout,
             telem_filter=telemetry_filter,
             rs92_ephemeris=rs92_ephemeris,
             rs41_drift_tweak=config["rs41_drift_tweak"],
@@ -412,6 +432,8 @@ def clean_task_list():
                 email_error(_error_msg)
 
             else:
+                # Shutdown the SDR, if required for the particular SDR type.
+                shutdown_sdr(config["sdr_type"], _task_sdr)
                 # Release its associated SDR.
                 autorx.sdr_list[_task_sdr]["in_use"] = False
                 autorx.sdr_list[_task_sdr]["task"] = None
@@ -442,6 +464,26 @@ def clean_task_list():
     ):
         # We have a SDR free, and we are not running a scan thread. Start one.
         start_scanner()
+
+    # Always-on decoders.
+    if len(config["always_decode"]) > 0:
+        for _entry in config["always_decode"]:
+            try:
+                _freq_hz = float(_entry[0])*1e6
+                _type = str(_entry[1])
+            except:
+                logging.warning(f"Task Manager - Invalid entry found in always_decode list, skipping.")
+                continue
+
+            if _freq_hz in autorx.task_list:
+                # Already running a decoder here.
+                continue
+            else:
+                # Try and start up a decoder.
+                if (allocate_sdr(check_only=True) is not None):
+                    logging.info(f"Task Manager - Starting Always-On Decoder: {_type}, {_freq_hz/1e6:.3f} MHz")
+                    start_decoder(_freq_hz, _type, continuous=True)
+
 
 
 def stop_all():
