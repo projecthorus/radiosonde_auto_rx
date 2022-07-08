@@ -47,6 +47,7 @@ from autorx.web import (
     WebExporter,
 )
 from autorx.gpsd import GPSDAdaptor
+from autorx.sdr_wrappers import shutdown_sdr
 
 try:
     # Python 2
