@@ -143,7 +143,7 @@
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
                     scan_chart_peaks.columns[0] = ['x_peaks'].concat(data.peak_freq);
                     scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
-
+                    scan_chart_threshold.columns[0] = ['x_thresh'].concat([data.freq[0],data.freq[data.freq.length-1]]);
                     scan_chart_threshold.columns[1] = ['Threshold'].concat([data.threshold+autorx_config.snr_threshold,data.threshold+autorx_config.snr_threshold]);
                     // Plot the updated data.
                     scan_chart_obj.load(scan_chart_spectra);

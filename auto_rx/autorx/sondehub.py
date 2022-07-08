@@ -278,6 +278,13 @@ class SondehubUploader(object):
         if "bt" in telemetry:
             _output["burst_timer"] = telemetry["bt"]
 
+        # Time / Position reference information (e.g. GPS or something else)
+        if "ref_position" in telemetry:
+            _output["ref_position"] = telemetry["ref_position"]
+
+        if "ref_datetime" in telemetry:
+            _output["ref_datetime"] = telemetry["ref_datetime"]
+
         # Handle the additional SNR and frequency estimation if we have it
         if "snr" in telemetry:
             _output["snr"] = telemetry["snr"]

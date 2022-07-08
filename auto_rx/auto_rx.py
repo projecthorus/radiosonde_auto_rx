@@ -431,6 +431,8 @@ def clean_task_list():
                 email_error(_error_msg)
 
             else:
+                # Shutdown the SDR, if required for the particular SDR type.
+                shutdown_sdr(config["sdr_type"], _task_sdr)
                 # Release its associated SDR.
                 autorx.sdr_list[_task_sdr]["in_use"] = False
                 autorx.sdr_list[_task_sdr]["task"] = None

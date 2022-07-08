@@ -133,6 +133,18 @@ def get_sdr_name(
     sdr_hostname = "",
     sdr_port = 5555
     ):
+    """
+    Get a human-readable name of the currenrt SDR
+
+    sdr_type (str): 'RTLSDR', 'Spyserver' or 'KA9Q'
+
+    Arguments for RTLSDRs:
+    rtl_device_id (str) - Device ID for a RTLSDR
+
+    Arguments for KA9Q SDR Server / SpyServer:
+    sdr_hostname (str): Hostname of KA9Q Server
+    sdr_port (int): Port number of KA9Q Server
+    """
 
     if sdr_type == "RTLSDR":
         return f"RTLSDR {rtl_device_idx}"
@@ -145,6 +157,28 @@ def get_sdr_name(
     
     else:
         return f"UNKNOWN {sdr_type}"
+
+
+def shutdown_sdr(
+    sdr_type: str,
+    sdr_id: str
+    ):
+    """
+    Function to trigger shutdown/cleanup of some SDR types.
+    Currently only required for the KA9Q server.
+
+    sdr_type (str): 'RTLSDR', 'Spyserver' or 'KA9Q'
+    sdr_id (str): The global ID of the SDR to be shut down.
+    """
+
+    if sdr_type == "KA9Q":
+        # TODO - KA9Q Server channel cleanup.
+        logging.debug(f"TODO - Cleanup for SDR type {sdr_type}")
+        pass
+    else:
+        logging.debug(f"No shutdown action required for SDR type {sdr_type}")
+
+    return
 
 
 
@@ -523,10 +557,13 @@ def get_power_spectrum(
 
         _frequency_centre = int(frequency_start + (frequency_stop-frequency_start)/2.0)
 
+        # Note we are using the '-o' option here, which allows us to still get
+        # spectrum data even if we have specified a frequency which is out of 
+        # the range of a locked spyserver.
         _ss_power_cmd = (
             f"{_timeout_cmd} {ss_power_path} "
             f"-f {_frequency_centre} "
-            f"-i {integration_time} -1 "
+            f"-i {integration_time} -1 -o "
             f"-r {sdr_hostname} -q {sdr_port} "
             f"{_log_filename}"
         )
