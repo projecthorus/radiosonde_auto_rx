@@ -11,6 +11,7 @@ RUN apt-get update && \
     cmake \
     git \
     libatlas-base-dev \
+    libsamplerate0-dev \
     libusb-1.0-0-dev \
     pkg-config \
     python3 \
@@ -41,9 +42,14 @@ RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
 # Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
 
-# Build the binaries.
+# Build the radiosonde_auto_rx binaries.
 WORKDIR /root/radiosonde_auto_rx/auto_rx
 RUN /bin/sh build.sh
+
+# Compile spyserver_client from source.
+RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_client && \
+  cd /root/spyserver_client && \
+  make
 
 # -------------------------
 # The application container
@@ -58,6 +64,7 @@ RUN apt-get update && \
   apt-get install -y --no-install-recommends \
   libatlas3-base \
   libatomic1 \
+  libsamplerate0 \
   python3 \
   rng-tools \
   sox \
@@ -75,6 +82,11 @@ COPY --from=build /root/.local /root/.local
 # Copy auto_rx from the build container to /opt.
 COPY --from=build /root/radiosonde_auto_rx/LICENSE /opt/auto_rx/
 COPY --from=build /root/radiosonde_auto_rx/auto_rx/ /opt/auto_rx/
+
+# Copy ss_client from the build container and create links
+COPY --from=build /root/spyserver_client/ss_client /opt/auto_rx/
+RUN ln -s ss_client /opt/auto_rx/ss_iq && \
+  ln -s ss_client /opt/auto_rx/ss_power
 
 # Set the working directory.
 WORKDIR /opt/auto_rx
