@@ -861,6 +861,7 @@ def main():
             mail_from=config["email_from"],
             mail_to=config["email_to"],
             mail_subject=config["email_subject"],
+            mail_nearby_landing_subject=config["email_nearby_landing_subject"],
             station_position=(
                 config["station_lat"],
                 config["station_lon"],

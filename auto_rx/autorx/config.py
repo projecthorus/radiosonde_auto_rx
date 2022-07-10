@@ -70,6 +70,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "email_from": "sonde@localhost",
         "email_to": None,
         "email_subject": "<type> Sonde launch detected on <freq>: <id>",
+        "email_nearby_landing_subject": "Nearby Radiosonde Landing Detected - <id>",
         # SDR Settings
         "sdr_type": "RTLSDR",
         "sdr_hostname": "localhost",
@@ -657,6 +658,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find lms6-1680_experimental setting, using default (disabled)"
             )
             auto_rx_config["experimental_decoders"]["MK2LMS"] = False
+
+        try:
+            auto_rx_config["email_nearby_landing_subject"] = config.get(
+                "email", "nearby_landing_subject"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find email_nearby_landing_subject setting, using default"
+            )
+            auto_rx_config["email_nearby_landing_subject"] = "Nearby Radiosonde Landing Detected - <id>"
 
 
         # As of auto_rx version 1.5.10, we are limiting APRS output to only radiosondy.info,

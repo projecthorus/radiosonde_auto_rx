@@ -357,6 +357,12 @@ to = someone@example.com
 # <id> - Sonde Serial Number (i.e. M1234567)
 subject = <type> Sonde launch detected on <freq>: <id>
 
+# Custom nearby landing subject field. The following fields can be included:
+# <freq> - Sonde Frequency, i.e. 401.520 MHz
+# <type> - Sonde Type (RS94/RS41)
+# <id> - Sonde Serial Number (i.e. M1234567)
+nearby_landing_subject = Nearby Radiosonde Landing Detected - <id>
+
 
 ###################
 # ROTATOR CONTROL #
