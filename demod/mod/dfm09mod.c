@@ -1101,7 +1101,7 @@ static void print_gpx(gpx_t *gpx) {
             printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
             if (gpx->posmode <= 2) { // mode 2
                 printf(", \"ref_position\": \"%s\"", "GPS" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
-                printf(", \"diff_GPS_MSL\": %+.2f", -gpx->gps.dMSL ); // MSL = GPS + gps.dMSL
+                printf(", \"diff_GPS_MSL\": %.2f", -gpx->gps.dMSL ); // MSL = GPS + gps.dMSL
             }
             else printf(", \"ref_position\": \"%s\"", "MSL" ); // mode 3,4
 
