@@ -51,6 +51,8 @@ sonde_types = {
 	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C5'},
 	'MRZ': {'csv':'mrz_fsk_demod_soft_centre.txt', 'packets': 105, 'color': 'C6'},
 	'iMet-54': {'csv':'imet54_fsk_demod_soft_centre.txt', 'packets': 240, 'color': 'C7'},
+	'M20': {'csv':'m20_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C8'},
+	'iMet-4': {'csv':'imet4_iq.txt', 'packets': 218, 'color': 'C9'},
 }
 
 

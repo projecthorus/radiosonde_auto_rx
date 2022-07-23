@@ -275,6 +275,16 @@ processing_type = {
         "post_process" : "| grep aprsid | wc -l",
         'files' : "./generated/m10*"
     },
+    'm20_fsk_demod_soft_centre': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr convert_f_s16 | ./tsrc - - 0.500 | ../fsk_demod --cs16 -p 5 -b -10000 -u 10000 -s --stats=5 2 48000 9600 - - 2>stats.txt |",
+
+        # Decode using rs41ecc
+        'decode': "../m20mod --json --ptu -vvv --softin -i 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : " | grep rawid | wc -l",
+        'files' : "./generated/m20*"
+    },
     'dfm_fsk_demod_soft': {
         # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
         #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
@@ -824,7 +834,7 @@ if __name__ == "__main__":
 
 
     #batch_modes = ['dfm_fsk_demod_soft', 'rs41_fsk_demod_soft', 'm10_fsk_demod_soft', 'rs92_fsk_demod_soft', 'rs92ngp_fsk_demod_soft', 'lms6-400_fsk_demod_soft', 'imet4_rtlfm', 'mrz_fsk_demod_soft', 'imet54_fsk_demod_soft']
-    batch_modes = ['dfm_fsk_demod_soft_centre', 'rs41_fsk_demod_soft_centre', 'm10_fsk_demod_soft_centre', 'rs92_fsk_demod_soft_centre', 'rs92ngp_fsk_demod_soft_centre', 'lms6-400_fsk_demod_soft_centre', 'imet4_iq', 'mrz_fsk_demod_soft_centre', 'imet54_fsk_demod_soft_centre']
+    batch_modes = ['dfm_fsk_demod_soft_centre', 'rs41_fsk_demod_soft_centre', 'm10_fsk_demod_soft_centre', 'rs92_fsk_demod_soft_centre', 'rs92ngp_fsk_demod_soft_centre', 'lms6-400_fsk_demod_soft_centre', 'imet4_iq', 'mrz_fsk_demod_soft_centre', 'imet54_fsk_demod_soft_centre', 'm20_fsk_demod_soft_centre']
 
     if args.batch:
         for _mode in batch_modes:

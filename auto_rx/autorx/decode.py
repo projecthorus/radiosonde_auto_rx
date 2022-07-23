@@ -687,7 +687,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
 
             # Meisei IMS-100 decoder
-            decode_cmd += f"./meisei100mod --json 2>/dev/null"
+            decode_cmd += f"./meisei100mod --json --ptu --ecc 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
