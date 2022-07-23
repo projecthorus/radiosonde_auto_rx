@@ -789,6 +789,7 @@ static void print_frame(gpx_t *gpx, int crc_err, int len) {
                     if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                     printf(" }\n");
                     printf("\n");
+                    fflush(stdout);
                 }
             }
 
@@ -919,7 +920,7 @@ static void proc_frame(gpx_t *gpx, int len) {
                     printf("\n");
                 }
 
-                if (gpx->option.raw == 0) print_frame(gpx, crc_err, len);
+                print_frame(gpx, crc_err, len);
 
                 gpx->frm_pos = 0;
                 gpx->sf6 = 0;
