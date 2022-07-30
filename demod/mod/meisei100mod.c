@@ -946,7 +946,7 @@ int main(int argc, char **argv) {
                                             if (f > 1.0f) {
                                                 // Use config coefficients to transform measured frequency to absolute resistance (kOhms)
                                                 f = 1.0f / (f - 1.0f);
-                                                float R = gpx.cfg[53] + gpx.cfg[54]*f + gpx.cfg[55]*f*f + gpx.cfg[56]*f*f*f;
+                                                float R = gpx.cfg[53] + gpx.cfg[54]*f + gpx.cfg[55]*f*f - gpx.cfg[56];
                                                 // iMS-100 sends known resistance (cfg[44:33]) for 12 temperature sampling points
                                                 // (cfg[28:17]). Actual temperature is found by interpolating in one of these
                                                 // 11 intervals.
