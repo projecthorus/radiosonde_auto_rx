@@ -52,12 +52,11 @@ a {
   height: 100px;
   width: 100%;
   position: absolute;
-  z-index: 10;
+  z-index: 100;
   text-align: center;
   bottom: 0;
   left: 0;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .settings {
@@ -78,7 +77,7 @@ a {
 }
 
 .settings form {
-  margin-left: 60px;
+  margin-left: 35px;
   color: white;
 }
 
@@ -121,7 +120,7 @@ a {
 .settings h2 {
   font-size: 1.2em;
   color: white;
-  text-align: center;
+/*  text-align: center; */
 }
 
 .settings p {
@@ -131,23 +130,35 @@ a {
 
 button {
   border: none;
-  color: white;
-  padding: 12px 24px;
-  text-align: center;
   text-decoration: none;
   display: inline-block;
   font-size: 16px;
   margin: 4px 2px;
   transition-duration: 0.4s;
   cursor: pointer;
-  background-color: white; 
-  color: black; 
-  border: 2px solid #2196F3;
+  font-weight: normal;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  -ms-touch-action: manipulation;
+  touch-action: manipulation;
+  padding: 5px 15px;
+  line-height: 1.42857143;
+  border-radius: 4px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  color: #fff;
+  background-color: #337ab7;
+  border-color: #2e6da4;
+  height: 31px;
 }
 
 button:hover {
-  background-color: #2196F3;
-  color: white;
+  color: #fff;
+  background-color: #286090;
+  border-color: #204d74;
 }
 
 button:disabled,
@@ -164,7 +175,8 @@ button[disabled]{
 }
 
 .sidenav table {
-  font-size: 20px;
+  font-size: 1.2rem;
+  font-size: calc(var(--vh, 1vh) * 2);
   color: white;
   text-align: center;
   table-layout: fixed;
@@ -177,6 +189,7 @@ button[disabled]{
 #main {
   transition: margin-left .5s;
   padding: 16px;
+  padding-top: 5px;
   flex: auto;
   display: flex;
   flex-direction: column;
@@ -247,8 +260,8 @@ table {
 .switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px;
+  width: 56px;
+  height: 28px;
 }
 
 .switch input { 
@@ -272,10 +285,10 @@ table {
 .slider:before {
   position: absolute;
   content: "";
-  height: 26px;
-  width: 26px;
+  height: 22px;
+  width: 22px;
   left: 4px;
-  bottom: 4px;
+  bottom: 3px;
   background-color: white;
   -webkit-transition: .4s;
   transition: .4s;
@@ -506,4 +519,8 @@ select[disabled]{
   height: 35px; /* Slider handle height */
   background: #04AA6D; /* Green background */
   cursor: pointer; /* Cursor on hover */
+}
+
+button.tabulator-page {
+    color: #000;
 }
