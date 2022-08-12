@@ -727,6 +727,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["always_decode"] = []
 
+        try:
+            auto_rx_config["experimental_decoders"]["MEISEI"] = config.getboolean(
+                "advanced", "meisei_experimental"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find meisei_experimental setting, using default (disabled)"
+            )
+            auto_rx_config["experimental_decoders"]["MEISEI"] = False
+
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
