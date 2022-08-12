@@ -1143,6 +1143,35 @@ class SondeDecoder(object):
             #     decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
             # else:
             #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
+
+        elif self.sonde_type == "MEISEI":
+            # Meisei Sondes
+
+            _sample_rate = 48000
+
+            demod_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+
+            # Meisei Decoder, in IQ input mode
+            demod_cmd += f"./meisei100mod --IQ 0.0 --lpIQ --dc  - {_sample_rate} 16 --json --ptu --ecc 2>/dev/null"
+            decode_cmd = None
+            demod_stats = None
+            self.rx_frequency = self.sonde_freq
+
         else:
             return None
 

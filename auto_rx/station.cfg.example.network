@@ -560,6 +560,10 @@ lms6-1680_experimental = False
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
 
+# Meisei Sondes
+# If enabled, uses IQ input to the decoder. Untested.
+meisei_experimental = False
+
 # Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
