@@ -663,31 +663,28 @@ class SondeDecoder(object):
 
         elif self.sonde_type == "MEISEI":
             # Meisei IMS-100 Sondes
-            # Starting out with a 15 kHz bandwidth filter.
 
             _sample_rate = 48000
-            _filter_bandwidth = 15000
 
-            decode_cmd = get_sdr_fm_cmd(
+            decode_cmd = get_sdr_iq_cmd(
                 sdr_type = self.sdr_type,
                 frequency = self.sonde_freq,
-                filter_bandwidth=_filter_bandwidth,
                 sample_rate = _sample_rate,
                 sdr_hostname = self.sdr_hostname,
                 sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias,
-                highpass = 20
+                bias = self.bias
             )
 
             # Add in tee command to save audio to disk if debugging is enabled.
-            if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
 
-            # Meisei IMS-100 decoder
-            decode_cmd += f"./meisei100mod --json --ptu --ecc 2>/dev/null"
+            # Meisei Decoder, in IQ input mode
+            decode_cmd += f"./meisei100mod --IQ 0.0 --lpIQ --dc  - {_sample_rate} 16 --json --ptu --ecc 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
@@ -1145,9 +1142,14 @@ class SondeDecoder(object):
             #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
 
         elif self.sonde_type == "MEISEI":
-            # Meisei Sondes
+            # Meisei iMS100 Sondes.
 
+            _baud_rate = 2400
             _sample_rate = 48000
+
+            # Limit FSK estimator window to roughly +/- 15 kHz
+            _lower = -15000
+            _upper = 15000
 
             demod_cmd = get_sdr_iq_cmd(
                 sdr_type = self.sdr_type,
@@ -1162,14 +1164,22 @@ class SondeDecoder(object):
                 bias = self.bias
             )
 
-            # Add in tee command to save audio to disk if debugging is enabled.
+            # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
-            # Meisei Decoder, in IQ input mode
-            demod_cmd += f"./meisei100mod --IQ 0.0 --lpIQ --dc  - {_sample_rate} 16 --json --ptu --ecc 2>/dev/null"
-            decode_cmd = None
-            demod_stats = None
+            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sample_rate,
+                _baud_rate,
+            )
+
+            decode_cmd = f"./meisei100mod --softin --json --ptu --ecc 2>/dev/null"
+
+            # Meisei sondes transmit continuously - average over the last frame, and use a peak hold
+            demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
         else:
