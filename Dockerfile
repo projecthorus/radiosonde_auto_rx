@@ -1,7 +1,7 @@
 # -------------------
 # The build container
 # -------------------
-FROM debian:buster-slim AS build
+FROM debian:bullseye-slim AS build
 
 # Upgrade base packages.
 RUN apt-get update && \
@@ -54,7 +54,7 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
 # -------------------------
 # The application container
 # -------------------------
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 EXPOSE 5000/tcp
 
