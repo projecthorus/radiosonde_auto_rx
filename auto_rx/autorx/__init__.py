@@ -17,7 +17,7 @@ except ImportError:
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.6.0-beta7"
+__version__ = "1.6.0-beta8"
 
 
 # Global Variables
