@@ -566,7 +566,7 @@ def flask_thread(host="0.0.0.0", port=5000):
         socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     except TypeError:
         # Catch old flask-socketio version.
-        logging.debug("Web - Detected older flask-socketio version (<5.3.0), not using allow_unsafe_werkzeug argument.")
+        logging.debug("Web - Not using allow_unsafe_werkzeug argument.")
         socketio.run(app, host=host, port=port)
 
 
