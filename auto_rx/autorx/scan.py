@@ -13,6 +13,7 @@ import platform
 import subprocess
 import time
 import traceback
+from io import StringIO
 from threading import Thread, Lock
 from types import FunctionType, MethodType
 from .utils import (
@@ -24,12 +25,6 @@ from .utils import (
 )
 from .sdr_wrappers import *
 
-try:
-    # Python 2
-    from StringIO import StringIO
-except ImportError:
-    # Python 3
-    from io import StringIO
 
 try:
     from .web import flask_emit_event

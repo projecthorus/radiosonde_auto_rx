@@ -11,6 +11,7 @@ import logging
 import os
 import traceback
 import json
+from configparser import RawConfigParser
 from .sdr_wrappers import test_sdr
 
 # Dummy initial config with some parameters we need to make the web interface happy.
@@ -25,13 +26,6 @@ global_config = {
 
 # Web interface credentials
 web_password = "none"
-
-try:
-    # Python 2
-    from ConfigParser import RawConfigParser
-except ImportError:
-    # Python 3
-    from configparser import RawConfigParser
 
 # Fixed minimum update rates for APRS & Habitat
 # These are set to avoid congestion on the APRS-IS network, and on the Habitat server

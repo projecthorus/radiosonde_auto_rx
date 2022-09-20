@@ -21,6 +21,7 @@ import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
 from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from queue import Queue
 from threading import Thread
 import flask
 from flask import request, abort, make_response, send_file
@@ -34,13 +35,6 @@ except ImportError:
         "Could not import simplekml! Try running: sudo pip3 install -r requirements.txt"
     )
     sys.exit(1)
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 # Inhibit Flask warning message about running a development server... (we know!)

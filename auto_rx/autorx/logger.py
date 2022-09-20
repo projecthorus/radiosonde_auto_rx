@@ -10,14 +10,8 @@ import glob
 import logging
 import os
 import time
+from queue import Queue
 from threading import Thread
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class TelemetryLogger(object):

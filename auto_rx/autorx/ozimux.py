@@ -10,14 +10,8 @@ import json
 import logging
 import socket
 import time
+from queue import Queue
 from threading import Thread
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class OziUploader(object):

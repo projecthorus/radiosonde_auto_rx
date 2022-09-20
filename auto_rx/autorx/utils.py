@@ -22,14 +22,8 @@ import semver
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
+from queue import Queue
 from . import __version__ as auto_rx_version
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 # List of binaries we check for on startup
@@ -723,8 +717,7 @@ def is_not_linux():
 
     # Second check for the existence of '-Microsoft' in the uname release field.
     # This is a good check that we are running in WSL.
-    # Note the use of indexing instead of the named field, for Python 2 & 3 compatability.
-    if "Microsoft" in platform.uname()[2]:
+    if "Microsoft" in platform.uname().release:
         return True
 
     # Else, we're probably in native Linux!
