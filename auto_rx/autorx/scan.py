@@ -81,7 +81,7 @@ def run_rtl_power(
         bool: True if rtl_power ran successfuly, False otherwise.
 
     """
-    # Example: rtl_power -f 400400000:403500000:800 -i20 -1 -c 20% -p 0 -d 0 -g 26.0 log_power.csv
+    # Example: rtl_power -f 400400000:403500000:800 -i20 -1 -c 25% -p 0 -d 0 -g 26.0 log_power.csv
 
     # Add a -T option if bias is enabled
     bias_option = "-T " if bias else ""
@@ -105,7 +105,7 @@ def run_rtl_power(
         timeout_kill = "-k 30 "
 
     rtl_power_cmd = (
-        "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 20%% -p %d -d %s %s%s"
+        "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 25%% -p %d -d %s %s%s"
         % (
             timeout_kill,
             dwell + 10,

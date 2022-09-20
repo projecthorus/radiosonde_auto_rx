@@ -483,7 +483,7 @@ def get_power_spectrum(
             #f"-d {str(rtl_device_idx)} "
             f"{_gain}"
             f"-f {frequency_start}:{frequency_stop}:{step} "
-            f"-i {integration_time} -1 -c 20% "
+            f"-i {integration_time} -1 -c 25% "
             f"{_log_filename}"
         )
 
