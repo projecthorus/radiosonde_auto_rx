@@ -8,11 +8,13 @@ AUTO_RX_VERSION := $(shell PYTHONPATH=../auto_rx python -m autorx.version)
 CFLAGS = -Ofast -Wall -Wno-unused-variable -DVER_JSN_STR=\"$(AUTO_RX_VERSION)\"
 LDLIBS = -lm
 
-PROGRAMS := imet1rs_dft
+PROGRAMS := imet1rs_dft imet4iq
 
 all: $(PROGRAMS)
 
 imet1rs_dft: imet1rs_dft.o
+
+imet4iq: imet4iq.o
 
 clean:
 	$(RM) $(PROGRAMS) $(PROGRAMS:=.o)

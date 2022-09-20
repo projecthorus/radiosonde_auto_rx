@@ -8,7 +8,7 @@ AUTO_RX_VERSION := $(shell PYTHONPATH=../../auto_rx python -m autorx.version)
 CFLAGS = -O3 -Wall -Wno-unused-variable -DVER_JSN_STR=\"$(AUTO_RX_VERSION)\"
 LDLIBS = -lm
 
-PROGRAMS := rs41mod dfm09mod rs92mod lms6mod lms6Xmod meisei100mod m10mod m20mod imet54mod
+PROGRAMS := rs41mod dfm09mod rs92mod lms6mod lms6Xmod meisei100mod m10mod m20mod imet54mod mp3h1mod
 
 all: $(PROGRAMS)
 
