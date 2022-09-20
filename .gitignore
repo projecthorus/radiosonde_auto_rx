@@ -44,7 +44,10 @@ auto_rx/imet1rs_dft
 auto_rx/lms6Xmod
 auto_rx/lms6mod
 auto_rx/m10mod
+auto_rx/m20mod
+auto_rx/mk2a1680mod
 auto_rx/rs_detect
+auto_rx/imet4iq
 auto_rx/imet54mod
 auto_rx/mXXmod
 auto_rx/mp3h1mod
