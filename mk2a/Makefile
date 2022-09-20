@@ -8,11 +8,13 @@ AUTO_RX_VERSION := $(shell PYTHONPATH=../auto_rx python -m autorx.version)
 CFLAGS = -O3 -Wall -Wno-unused-variable -DVER_JSN_STR=\"$(AUTO_RX_VERSION)\"
 LDLIBS = -lm
 
-PROGRAMS := mk2a_lms1680
+PROGRAMS := mk2a_lms1680 mk2a1680mod
 
 all: $(PROGRAMS)
 
 mk2a_lms1680: mk2a_lms1680.o
+
+mk2a1680mod: mk2a1680mod.o
 
 clean:
 	$(RM) $(PROGRAMS) $(PROGRAMS:=.o)

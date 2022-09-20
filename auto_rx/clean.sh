@@ -33,7 +33,7 @@ rm imet54mod
 echo "Cleaning LMS6-1680 Demodulator."
 cd ../../mk2a/
 
-rm mk2mod
+rm mk2a1680mod
 
 echo "Cleaning iMet Demodulator."
 cd ../imet/
@@ -55,7 +55,7 @@ rm fsk_demod
 rm imet1rs_dft
 rm imet4iq
 rm mk2a_lms1680
-rm mk2mod
+rm mk2a1680mod
 rm rs41mod
 rm rs92mod
 rm dfm09mod
