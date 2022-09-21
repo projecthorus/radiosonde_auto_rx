@@ -18,15 +18,9 @@ import logging
 import os
 import requests
 import time
+from queue import Queue
 from threading import Thread
 from email.utils import formatdate
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class SondehubUploader(object):
@@ -83,20 +77,10 @@ class SondehubUploader(object):
         # Record of when we last uploaded a user station position to Sondehub.
         self.last_user_position_upload = 0
 
-        try:
-            # Python 2 check. Python 2 doesnt have gzip.compress so this will throw an exception.
-            gzip.compress(b"\x00\x00")
-
-            # Start queue processing thread.
-            self.input_processing_running = True
-            self.input_process_thread = Thread(target=self.process_queue)
-            self.input_process_thread.start()
-
-        except:
-            logging.error(
-                "Detected Python 2.7, which does not support gzip.compress. Sondehub DB uploading will be disabled."
-            )
-            self.input_processing_running = False
+        # Start queue processing thread.
+        self.input_processing_running = True
+        self.input_process_thread = Thread(target=self.process_queue)
+        self.input_process_thread.start()
 
     def update_station_position(self, lat, lon, alt):
         """ Update the internal station position record. Used when determining the station position by GPSD """

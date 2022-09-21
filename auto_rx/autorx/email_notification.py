@@ -11,18 +11,11 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.utils import formatdate
+from queue import Queue
 from threading import Thread
 from .config import read_auto_rx_config
 from .utils import position_info, strip_sonde_serial
 from .geometry import GenericTrack
-
-try:
-    # Python 2
-    from Queue import Queue
-
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class EmailNotification(object):

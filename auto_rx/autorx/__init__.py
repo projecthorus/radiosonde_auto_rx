@@ -5,12 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
+from queue import Queue
 
 # Now using Semantic Versioning (https://semver.org/)  MAJOR.MINOR.PATCH
 # MAJOR - Only updated when something huge changes to the project (new decode chain, etc)

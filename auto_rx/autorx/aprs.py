@@ -11,16 +11,10 @@ import random
 import time
 import traceback
 import socket
+from queue import Queue
 from threading import Thread, Lock
 from . import __version__ as auto_rx_version
 from .utils import strip_sonde_serial
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 def telemetry_to_aprs_position(

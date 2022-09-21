@@ -13,12 +13,9 @@ import socket, json, sys, traceback
 from threading import Thread
 from dateutil.parser import parse
 from datetime import datetime, timedelta
+from io import StringIO
 import time
 
-try:
-    from StringIO import StringIO ## for Python 2
-except ImportError:
-    from io import StringIO ## for Python 3
 
 MAX_JSON_LEN = 32768
 

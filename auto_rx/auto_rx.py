@@ -17,6 +17,7 @@ import time
 import traceback
 import os
 from dateutil.parser import parse
+from queue import Queue
 
 if sys.version_info < (3, 6):
     print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
@@ -48,13 +49,6 @@ from autorx.web import (
 )
 from autorx.gpsd import GPSDAdaptor
 from autorx.sdr_wrappers import shutdown_sdr
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 # Logging level
