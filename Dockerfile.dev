@@ -24,6 +24,15 @@ RUN apt-get update && \
   usbutils && \
   rm -rf /var/lib/apt/lists/*
 
+# Copy in requirements.txt.
+COPY auto_rx/requirements.txt \
+  /tmp/requirements.txt
+
+# Install Python packages.
+RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
+  --no-warn-script-location --no-binary numpy \
+  -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
+
 # Compile rtl-sdr from source and install.
 RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
   mkdir -p /root/librtlsdr/build && \
@@ -33,15 +42,6 @@ RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
   make install && \
   rm -rf /root/librtlsdr && \
   ldconfig
-
-# Copy in requirements.txt.
-COPY auto_rx/requirements.txt \
-  /tmp/requirements.txt
-
-# Install Python packages.
-RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
-  --no-warn-script-location --no-binary numpy \
-  -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Run bash.
 WORKDIR /root
