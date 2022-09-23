@@ -21,15 +21,6 @@ RUN apt-get update && \
     python3-wheel && \
   rm -rf /var/lib/apt/lists/*
 
-# Compile rtl-sdr from source.
-RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
-  mkdir -p /root/librtlsdr/build && \
-  cd /root/librtlsdr/build && \
-  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
-  make && \
-  make install && \
-  rm -rf /root/librtlsdr
-
 # Copy in requirements.txt.
 COPY auto_rx/requirements.txt \
   /root/radiosonde_auto_rx/auto_rx/requirements.txt
@@ -39,17 +30,26 @@ RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
   --user --no-warn-script-location --ignore-installed --no-binary numpy \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
+# Compile rtl-sdr from source.
+RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
+  mkdir -p /root/librtlsdr/build && \
+  cd /root/librtlsdr/build && \
+  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
+  make && \
+  make install && \
+  rm -rf /root/librtlsdr
+
+# Compile spyserver_client from source.
+RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_client && \
+  cd /root/spyserver_client && \
+  make
+
 # Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
 
 # Build the radiosonde_auto_rx binaries.
 WORKDIR /root/radiosonde_auto_rx/auto_rx
 RUN /bin/sh build.sh
-
-# Compile spyserver_client from source.
-RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_client && \
-  cd /root/spyserver_client && \
-  make
 
 # -------------------------
 # The application container
