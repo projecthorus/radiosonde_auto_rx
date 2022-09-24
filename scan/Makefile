@@ -1,4 +1,4 @@
-CFLAGS = -O3 -w -Wno-unused-variable -DVER_JSN_STR=\"$(AUTO_RX_VERSION)\" -DNOC34C50
+CFLAGS = -O3 -w -Wno-unused-variable -DNOC34C50
 LDLIBS = -lm
 
 PROGRAMS := dft_detect
