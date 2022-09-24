@@ -1,4 +1,4 @@
-AUTO_RX_VERSION := $(shell PYTHONPATH=./auto_rx python -m autorx.version)
+AUTO_RX_VERSION := $(shell PYTHONPATH=./auto_rx python3 -m autorx.version 2>/dev/null || python -m autorx.version)
 
 CFLAGS = -O3 -w -Wno-unused-variable -DVER_JSN_STR=\"$(AUTO_RX_VERSION)\"
 export CFLAGS
