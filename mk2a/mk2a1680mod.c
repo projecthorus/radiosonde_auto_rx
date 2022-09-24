@@ -485,7 +485,7 @@ static int findstr(char *buff, char *str, int pos) {
 }
 
 static
-float read_wav_header(pcm_t *pcm, FILE *fp) {
+int read_wav_header(pcm_t *pcm, FILE *fp) {
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
     int byte, p=0;
@@ -2404,4 +2404,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-

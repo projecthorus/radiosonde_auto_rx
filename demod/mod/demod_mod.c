@@ -310,7 +310,7 @@ static int findstr(char *buff, char *str, int pos) {
     return i;
 }
 
-float read_wav_header(pcm_t *pcm, FILE *fp) {
+int read_wav_header(pcm_t *pcm, FILE *fp) {
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
     int byte, p=0;
@@ -625,6 +625,7 @@ static float complex lowpass0(float complex buffer[], ui32_t sample, ui32_t taps
     }
     return (float complex)w;
 }
+
 static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     ui32_t s = sample % taps;
@@ -1549,7 +1550,7 @@ int find_header(dsp_t *dsp, float thres, int hdmax, int bitofs, int opt_dc) {
 #else
 // external FSK demod: read float32 soft symbols
 
-float read_wav_header(pcm_t *pcm, FILE *fp) {}
+int read_wav_header(pcm_t *pcm, FILE *fp) {}
 int f32buf_sample(dsp_t *dsp, int inv) {}
 int read_slbit(dsp_t *dsp, int *bit, int inv, int ofs, int pos, float l, int spike) {}
 int read_softbit(dsp_t *dsp, hsbit_t *shb, int inv, int ofs, int pos, float l, int spike) {}
@@ -1684,4 +1685,3 @@ int find_softbinhead(FILE *fp, hdb_t *hdb, float *score) {
 
     return EOF;
 }
-
