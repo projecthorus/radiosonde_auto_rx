@@ -24,7 +24,10 @@ imet54mod: imet54mod.o demod_mod.o
 
 mp3h1mod: mp3h1mod.o demod_mod.o
 
-demod_mod.o : CFLAGS += -Ofast
+bch_ecc_mod.o: bch_ecc_mod.h
+
+demod_mod.o: CFLAGS += -Ofast
+demod_mod.o: demod_mod.h
 
 clean:
 	$(RM) $(PROGRAMS) $(PROGRAMS:=.o) demod_mod.o bch_ecc_mod.o
