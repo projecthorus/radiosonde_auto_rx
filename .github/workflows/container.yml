@@ -36,24 +36,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Images
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/amd64, linux/386, linux/arm64, linux/arm/v6, linux/arm/v7
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          
       - name: Build and Push Images
-        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/amd64, linux/386, linux/arm64, linux/arm/v6, linux/arm/v7
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
-          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
