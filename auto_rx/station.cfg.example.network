@@ -16,19 +16,6 @@
 [sdr]
 
 #
-# SDR Type
-#
-# RTLSDR - Use one or more RTLSDRs
-# 
-# EXPERIMENTAL / NOT IMPLEMENTED options:
-# SpyServer - Use an Airspy SpyServer
-# KA9Q - Use a KA9Q SDR Server (Not yet implemented)
-# WARNING: These are still under development and may not work.
-#
-sdr_type = RTLSDR
-
-
-#
 # Number of SDRs or SDR Connection Threads to use
 #
 # If SDR type is set to RTLSDR above, then this number is the number of individual RTLSDRs
@@ -40,23 +27,26 @@ sdr_type = RTLSDR
 #
 sdr_quantity = 1
 
-
-#
-# Network SDR Connection Details
-#
-# If using either a KA9Q or SpyServer network server, the hostname and port
-# of the server needs to be defined below. Usually this will be running on the
-# same machine as auto_rx, so the defaults are usually fine.
-#
-sdr_hostname = localhost
-sdr_port = 5555
-
 #
 # Individual RTLSDR Settings
 #
 # Provide details of your RTLSDRs here, e.g. device numbers, gain settings, and PPM offsets.
 #
 [sdr_1]
+#
+# SDR Type
+#
+# RTLSDR - For classical RTL-SDR dongle.
+# 
+# EXPERIMENTAL / NOT IMPLEMENTED options:
+# SpyServer - Use an Airspy SpyServer
+# KA9Q - Use a KA9Q SDR Server (Not yet implemented)
+# WARNING: These are still under development and may not work.
+#
+sdr_type = RTLSDR
+
+# Sample config for RTLSDR, see bellow for other sdr_type options.
+
 # Device Index / Serial
 #	If using a single RTLSDR, set this value to 0
 #	If using multiple SDRs, you MUST allocate each SDR a unique serial number using rtl_eeprom
@@ -82,13 +72,30 @@ gain = -1
 bias = False
 
 [sdr_2]
-# As above, for the next SDR, if used. Note the warning about serial numbers.
-device_idx = 00000002
-ppm = 0
-gain = -1
-bias = False
+sdr_type = SpyServer
+#
+# Network SDR Connection Details
+#
+# If using either a KA9Q or SpyServer network server, the hostname and port
+# of the server needs to be defined below. Usually this will be running on the
+# same machine as auto_rx, so the defaults are usually fine.
+#
+sdr_hostname = localhost
+sdr_port = 5555
 
-# Add more SDR definitions here if needed. ([sdr_3], [sdr_4])
+[sdr_3]
+sdr_type = KA9Q
+#
+# Network SDR Connection Details
+#
+# If using either a KA9Q or SpyServer network server, the hostname and port
+# of the server needs to be defined below. Usually this will be running on the
+# same machine as auto_rx, so the defaults are usually fine.
+#
+sdr_hostname = localhost
+sdr_port = 5555
+
+# Add more SDR definitions here if needed. ([sdr_4], [sdr_5])
 
 
 ##############################

@@ -17,11 +17,7 @@ from .utils import rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
 
 def test_sdr(
     sdr_type: str,
-    rtl_device_idx = "0",
-    sdr_hostname = "",
-    sdr_port = 5555,
-    ss_iq_path = "./ss_iq",
-    ss_power_path = "./ss_power"
+    **kwargs
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -41,59 +37,71 @@ def test_sdr(
     """
 
     if sdr_type == "RTLSDR":
-        # Use the existing rtlsdr_test code, which tries to read some samples
-        # from the specified RTLSDR
-        _ok = rtlsdr_test(rtl_device_idx)
-        if not _ok:
-            logging.error(f"RTLSDR #{rtl_device_idx} non-functional.")
+        return _test_sdr_rtl_sdr(**kwargs)
 
-        return _ok
-
-    
     elif sdr_type == "KA9Q":
-        # To be implemented
-        _ok = False
-
-        if not _ok:
-            logging.error(f"KA9Q Server {sdr_hostname}:{sdr_port} non-functional.")
-
-        return _ok
+        return _test_sdr_ka9q(**kwargs)
 
     elif sdr_type == "SpyServer":
-        # Test connectivity to a SpyServer by trying to grab some samples.
-
-        if not os.path.isfile(ss_iq_path):
-            logging.critical("Could not find ss_iq binary! This may need to be compiled.")
-            return False
-
-        _cmd = (
-            f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
-            f"{ss_iq_path} "
-            f"-f 401500000 "
-            f"-s 48000 "
-            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
-        )
-
-        logging.debug(f"SpyServer - Testing using command: {_cmd}")
-
-        try:
-            _output = subprocess.check_output(
-                _cmd, shell=True, stderr=subprocess.STDOUT
-            )
-        except subprocess.CalledProcessError as e:
-            # Something went wrong...
-            logging.critical(
-                f"SpyServer ({sdr_hostname}:{sdr_port}) - ss_iq call failed with return code {e.returncode}."
-            )
-            return False
-
-        return True
+        return _test_sdr_spyserver(**kwargs)
 
     else:
         logging.error(f"Test SDR: Unknown SDR Type {sdr_type}")
         return False
 
 
+def _test_sdr_rtl_sdr(rtl_device_idx = "0"):
+    _ok = rtlsdr_test(rtl_device_idx)
+    if not _ok:
+        logging.error(f"RTLSDR #{rtl_device_idx} non-functional.")
+
+    return _ok
+
+def _test_sdr_ka9q(
+    sdr_hostname = "",
+    sdr_port = 5555,
+):
+    # To be implemented
+    _ok = False
+
+    if not _ok:
+        # logging.error(f"KA9Q Server {sdr_hostname}:{sdr_port} non-functional.")
+        logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
+
+    return _ok
+
+def _test_sdr_spyserver(
+    sdr_hostname = "",
+    sdr_port = 5555,
+    ss_iq_path = "./ss_iq",
+    ss_power_path = "./ss_power"
+):
+    if not os.path.isfile(ss_iq_path):
+        logging.critical("Could not find ss_iq binary! This may need to be compiled.")
+        return False
+
+    _cmd = (
+        f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
+        f"{ss_iq_path} "
+        f"-f 401500000 "
+        f"-s 48000 "
+        f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
+    )
+
+    logging.debug(f"SpyServer - Testing using command: {_cmd}")
+
+    try:
+        _output = subprocess.check_output(
+            _cmd, shell=True, stderr=subprocess.STDOUT
+        )
+    except subprocess.CalledProcessError as e:
+        # Something went wrong...
+        logging.critical(
+            f"SpyServer ({sdr_hostname}:{sdr_port}) - ss_iq call failed with return code {e.returncode}."
+        )
+        return False
+
+    return True
 
 def reset_sdr(
     sdr_type: str,

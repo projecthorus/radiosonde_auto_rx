@@ -284,7 +284,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         if auto_rx_config["station_lat"] > 90.0 or auto_rx_config["station_lat"] < -90.0:
             logging.critical("Config - Invalid Station Latitude! (Outside +/- 90 degrees!)")
             return None
-        
+
         if auto_rx_config["station_lon"] > 180.0 or auto_rx_config["station_lon"] < -180.0:
             logging.critical("Config - Invalid Station Longitude! (Outside +/- 180 degrees!)")
             return None
@@ -632,7 +632,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["web_control"] = False
             auto_rx_config["web_password"] = "none"
-        
+
         try:
             auto_rx_config["save_raw_hex"] = config.getboolean(
                 "debugging", "save_raw_hex"
@@ -642,7 +642,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find save_raw_hex setting, using default (disabled)"
             )
             auto_rx_config["save_raw_hex"] = False
-        
+
         try:
             auto_rx_config["experimental_decoders"]["MK2LMS"] = config.getboolean(
                 "advanced", "lms6-1680_experimental"
@@ -695,22 +695,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["aprs_port"] = 14590
 
-
-        # 1.6.0 - New SDR options
-        try:
-            auto_rx_config["sdr_type"] = config.get("sdr", "sdr_type")
-            auto_rx_config["sdr_hostname"] = config.get("sdr", "sdr_hostname")
-            auto_rx_config["sdr_port"] = config.getint("sdr", "sdr_port")
-            auto_rx_config["ss_iq_path"] = config.get("advanced", "ss_iq_path")
-            auto_rx_config["ss_power_path"] = config.get("advanced", "ss_power_path")
-        except:
-            # Switch this to warning on release...
-            logging.debug(
-                "Config - Did not find new sdr_type and associated options, defaulting to RTLSDR operation."
-            )
-            auto_rx_config["sdr_type"] = "RTLSDR"
-
-
         try:
             auto_rx_config["always_decode"] = json.loads(
                 config.get("search_params", "always_decode")
@@ -739,89 +723,58 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # Now we enumerate our SDRs.
         auto_rx_config["sdr_settings"] = {}
 
-        if auto_rx_config["sdr_type"] == "RTLSDR":
-            # Multiple RTLSDRs in use - we need to read in each SDRs settings.
-            for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
-                _section = "sdr_%d" % _n
-                try:
-                    _device_idx = config.get(_section, "device_idx")
-                    _ppm = round(config.getfloat(_section, "ppm"))
-                    _gain = config.getfloat(_section, "gain")
-                    _bias = config.getboolean(_section, "bias")
+        # 1.6.0 - New SDR options
+        try:
+            auto_rx_config["sdr_type"] = config.get("sdr", "sdr_type")
+            auto_rx_config["sdr_hostname"] = config.get("sdr", "sdr_hostname")
+            auto_rx_config["sdr_port"] = config.getint("sdr", "sdr_port")
+            auto_rx_config["ss_iq_path"] = config.get("advanced", "ss_iq_path")
+            auto_rx_config["ss_power_path"] = config.get("advanced", "ss_power_path")
+        except:
+            # Switch this to warning on release...
+            logging.debug(
+                "Config - Did not find new sdr_type and associated options, defaulting to RTLSDR operation."
+            )
+            auto_rx_config["sdr_type"] = "RTLSDR"
 
-                    if (auto_rx_config["sdr_quantity"] > 1) and (_device_idx == "0"):
-                        logging.critical(
-                            "Config - RTLSDR Device ID of 0 used with a multi-SDR configuration. Go read the warning in the config file!"
-                        )
-                        return None
 
-                    # See if the SDR exists.
-                    _sdr_valid = test_sdr(sdr_type = "RTLSDR", rtl_device_idx = _device_idx)
-                    if _sdr_valid:
-                        auto_rx_config["sdr_settings"][_device_idx] = {
-                            "ppm": _ppm,
-                            "gain": _gain,
-                            "bias": _bias,
-                            "in_use": False,
-                            "task": None,
-                        }
-                        logging.info("Config - Tested RTLSDR #%s OK" % _device_idx)
-                    else:
-                        logging.warning("Config - RTLSDR #%s invalid." % _device_idx)
-                except Exception as e:
-                    logging.error(
-                        "Config - Error parsing RTLSDR %d config - %s" % (_n, str(e))
+
+        # Multiple RTLSDRs in use - we need to read in each SDRs settings.
+        for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
+            _section = "sdr_%d" % _n
+            try:
+                kwargs = config.items(_section)
+                _sdr_type = kwargs.pop("sdr_type")
+
+                _device_idx = config.get(_section, "device_idx")
+                _ppm = round(config.getfloat(_section, "ppm"))
+                _gain = config.getfloat(_section, "gain")
+                _bias = config.getboolean(_section, "bias")
+
+                if (_sdr_type == "RTLSDR") and (auto_rx_config["sdr_quantity"] > 1) and (_device_idx == "0"):
+                    logging.critical(
+                        "Config - RTLSDR Device ID of 0 used with a multi-SDR configuration. Go read the warning in the config file!"
                     )
-                    continue
+                    return None
 
-        elif auto_rx_config["sdr_type"] == "SpyServer":
-            # Test access to the SpyServer
-            _sdr_ok = test_sdr(
-                sdr_type=auto_rx_config["sdr_type"],
-                sdr_hostname=auto_rx_config["sdr_hostname"],
-                sdr_port=auto_rx_config["sdr_port"],
-                ss_iq_path=auto_rx_config["ss_iq_path"],
-                ss_power_path=auto_rx_config["ss_power_path"],
-            )
 
-            if not _sdr_ok:
-                logging.critical(f"Config - Could not contact SpyServer {auto_rx_config['sdr_hostname']}:{auto_rx_config['sdr_port']}. Exiting.")
-                return None
-
-            for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
-                _sdr_name = f"SPY{_n:02d}"
-                auto_rx_config["sdr_settings"][_sdr_name] = {
-                    "ppm": 0,
-                    "gain": 0,
-                    "bias": 0,
-                    "in_use": False,
-                    "task": None,
-                }
-
-        elif auto_rx_config["sdr_type"] == "KA9Q":
-            # Test access to the SpyServer
-            _sdr_ok = test_sdr(
-                sdr_type=auto_rx_config["sdr_type"],
-                sdr_hostname=auto_rx_config["sdr_hostname"],
-                sdr_port=auto_rx_config["sdr_port"]
-            )
-
-            if not _sdr_ok:
-                logging.critical(f"Config - Could not contact KA9Q Server {auto_rx_config['sdr_hostname']}:{auto_rx_config['sdr_port']}. Exiting.")
-                return None
-
-            for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
-                _sdr_name = f"KA9Q{_n:02d}"
-                auto_rx_config["sdr_settings"][_sdr_name] = {
-                    "ppm": 0,
-                    "gain": 0,
-                    "bias": 0,
-                    "in_use": False,
-                    "task": None,
-                }
-            
-            logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
-            return None
+                # See if the SDR exists.
+                _sdr_valid = test_sdr(sdr_type = sdr_type, **kwargs)
+                if _sdr_valid:
+                    _sdr_name = f"{sdr_type}{_n:02d}"
+                    auto_rx_config["sdr_settings"][_sdr_name] = {
+                        "in_use": False,
+                        "task": None,
+                    }
+                    auto_rx_config["sdr_settings"][_sdr_name].update(kwargs)
+                    logging.info("Config - Tested #%s OK" % _section)
+                else:
+                    logging.warning("Config #%s invalid." % _section)
+            except Exception as e:
+                logging.error(
+                    "Config - Error parsing SDR config %s - %s" % (_section, str(e))
+                )
+                continue
         
         else:
             logging.critical(f"Config - Unknown SDR Type {auto_rx_config['sdr_type']} - exiting.")
