@@ -34,7 +34,7 @@ REQUIRED_RS_UTILS = [
     "rs41mod",
     "rs92mod",
     "fsk_demod",
-    "mk2mod",
+    "mk2a1680mod",
     "lms6Xmod",
     "meisei100mod",
     "imet54mod",

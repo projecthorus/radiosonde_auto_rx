@@ -597,7 +597,7 @@ class SondeDecoder(object):
             # Notes:
             # - Have dropped the low-leakage FIR filter (-F9) to save a bit of CPU
             # Have scaled back sample rate to 220 kHz to again save CPU.
-            # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
+            # mk2a1680mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
             # Update 2021-07-24: Updated version with speedups now taking 240 kHz BW and only using 50% of a core.
 
 
@@ -623,7 +623,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             # LMS6-1680 decoder
-            decode_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --decFM --dc --crc --json {self.raw_file_option} - 240000 16 2>/dev/null"
+            decode_cmd += f"./mk2a1680mod --iq 0.0 --lpIQ --lpbw 160 --decFM --dc --crc --json {self.raw_file_option} - 240000 16 2>/dev/null"
             # Settings for old decoder, which cares about FM inversion.
             # if self.inverted:
             #     self.log_debug("Using inverted MK2A decoder.")
@@ -1105,7 +1105,7 @@ class SondeDecoder(object):
             # Notes:
             # - Have dropped the low-leakage FIR filter (-F9) to save a bit of CPU
             # Have scaled back sample rate to 220 kHz to again save CPU.
-            # mk2mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
+            # mk2a1680mod runs at ~90% CPU on a RPi 3, with rtl_fm using ~50% of another core.
 
             _baud_rate = 4800
             _sample_rate = 220000
@@ -1129,7 +1129,7 @@ class SondeDecoder(object):
                 demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             # LMS6-1680 decoder
-            demod_cmd += f"./mk2mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
+            demod_cmd += f"./mk2a1680mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
             decode_cmd = None
             demod_stats = None
             self.rx_frequency = self.sonde_freq
