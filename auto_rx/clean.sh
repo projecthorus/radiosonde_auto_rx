@@ -3,49 +3,9 @@
 # Auto Sonde Decoder clean script.
 #
 
-# TODO: Convert this to a makefile! Any takers?
-
-# rs_detect.
-echo "Cleaning dft_detect"
-cd ../scan/
-rm dft_detect
-
-echo "Cleaning RS92/RS41/DFM/LMS6/iMS Demodulators"
-
-
-# New demodulators
-cd ../demod/mod/
-
-rm *.o
-rm rs41mod
-rm dfm09mod
-rm rs92mod
-rm lms6mod
-rm lms6Xmod
-rm meisei100mod
-rm m10mod
-rm m20mod
-rm mXXmod
-rm mp3h1mod
-rm imet54mod
-
-# LMS6-1680 Decoder
-echo "Cleaning LMS6-1680 Demodulator."
-cd ../../mk2a/
-
-rm mk2a1680mod
-
-echo "Cleaning iMet Demodulator."
-cd ../imet/
-
-rm imet1rs_dft
-rm imet4iq
-
-
-echo "Cleaning fsk_demod"
-cd ../utils/
-
-rm fsk_demod
+# Clean all binaries
+echo "Cleaning all binaries."
+make -C .. clean
 
 
 echo "Removing binaries in the auto_rx directory."
