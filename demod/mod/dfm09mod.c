@@ -1707,7 +1707,7 @@ int main(int argc, char **argv) {
         int pos = 0;
         float _frmcnt = -1.0f;
 
-        memset(buffer_rawhex, BUFLEN+1, 0);
+        memset(buffer_rawhex, 0, BUFLEN+1);
 
         while ( (ch=fgetc(fp)) != EOF)
         {
