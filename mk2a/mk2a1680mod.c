@@ -44,6 +44,7 @@
 #ifndef M_PI
     #define M_PI  (3.1415926535897932384626433832795)
 #endif
+#define _2PI  (6.2831853071795864769252867665590)
 
 #define LP_IQ    1
 #define LP_FM    2
@@ -111,6 +112,9 @@ typedef struct {
     float complex *rot_iqbuf;
     float complex F1sum;
     float complex F2sum;
+    //
+    double complex iw1;
+    double complex iw2;
 
     //
     char *rawbits;
@@ -138,8 +142,9 @@ typedef struct {
     int decM;
     ui32_t sr_base;
     ui32_t dectaps;
-    ui32_t sample_dec;
+    ui32_t sample_decX;
     ui32_t lut_len;
+    ui32_t sample_decM;
     float complex *decXbuffer;
     float complex *decMbuf;
     float complex *ex; // exp_lut
@@ -303,14 +308,14 @@ static int dft_window(dft_t *dft, int w) {
                     dft->win[n] = 1.0;
                     break;
             case 1: // Hann
-                    dft->win[n] = 0.5 * ( 1.0 - cos(2*M_PI*n/(float)(dft->N2-1)) );
+                    dft->win[n] = 0.5 * ( 1.0 - cos(_2PI*n/(float)(dft->N2-1)) );
                     break ;
             case 2: // Hamming
-                    dft->win[n] = 25/46.0 - (1.0 - 25/46.0)*cos(2*M_PI*n / (float)(dft->N2-1));
+                    dft->win[n] = 25/46.0 - (1.0 - 25/46.0)*cos(_2PI*n / (float)(dft->N2-1));
                     break ;
             case 3: // Blackmann
                     dft->win[n] =  7938/18608.0
-                                 - 9240/18608.0*cos(2*M_PI*n / (float)(dft->N2-1))
+                                 - 9240/18608.0*cos(_2PI*n / (float)(dft->N2-1))
                                  + 1430/18608.0*cos(4*M_PI*n / (float)(dft->N2-1));
                     break ;
         }
@@ -708,7 +713,7 @@ static int lowpass_init(float f, int taps, float **pws) {
     ws = (float*)calloc( 2*taps+1, sizeof(float)); if (ws == NULL) return -1;
 
     for (n = 0; n < taps; n++) {
-        w[n] = 7938/18608.0 - 9240/18608.0*cos(2*M_PI*n/(taps-1)) + 1430/18608.0*cos(4*M_PI*n/(taps-1)); // Blackmann
+        w[n] = 7938/18608.0 - 9240/18608.0*cos(_2PI*n/(taps-1)) + 1430/18608.0*cos(4*M_PI*n/(taps-1)); // Blackmann
         h[n] = 2*f*sinc(2*f*(n-(taps-1)/2));
         ws[n] = w[n]*h[n];
         norm += ws[n]; // 1-norm
@@ -728,7 +733,7 @@ static int lowpass_init(float f, int taps, float **pws) {
 }
 
 
-static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+static float complex lowpass1(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     ui32_t n;
     ui32_t s = sample % taps;
     double complex w = 0;
@@ -736,6 +741,22 @@ static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps,
         w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
     return (float complex)w;
+// symmetry: ws[n] == ws[taps-1-n]
+}
+static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+    float complex w = 0;     // -Ofast
+    int n;
+    int s = sample % taps; // lpIQ
+    int S1 = s+1;
+    int S1N = S1-taps;
+    int n0 = taps-1-s;
+    for (n = 0; n < n0; n++) {
+        w += buffer[S1+n]*ws[n];
+    }
+    for (n = n0; n < taps; n++) {
+        w += buffer[S1N+n]*ws[n];
+    }
+    return w;
 // symmetry: ws[n] == ws[taps-1-n]
 }
 
@@ -774,31 +795,30 @@ int f32buf_sample(dsp_t *dsp, int inv) {
         if (dsp->opt_iq)
         {
             if (dsp->opt_iq >= 5) {
-                ui32_t s_reset = dsp->dectaps*dsp->lut_len;
                 int j;
                 if ( f32read_cblock(dsp) < dsp->decM ) return EOF;
                 for (j = 0; j < dsp->decM; j++) {
                     if (dsp->opt_nolut) {
                         double _s_base = (double)(_sample*dsp->decM+j); // dsp->sample_dec
                         double f0 = dsp->xlt_fq*_s_base - dsp->Df*_s_base/(double)dsp->sr_base;
-                        z = dsp->decMbuf[j] * cexp(f0*2*M_PI*I);
+                        z = dsp->decMbuf[j] * cexp(f0*_2PI*I);
                     }
                     else {
-                        z = dsp->decMbuf[j] * dsp->ex[dsp->sample_dec % dsp->lut_len];
+                        z = dsp->decMbuf[j] * dsp->ex[dsp->sample_decM];
                     }
-                    dsp->decXbuffer[dsp->sample_dec % dsp->dectaps] = z;
-                    dsp->sample_dec += 1;
-                    if (dsp->sample_dec == s_reset) dsp->sample_dec = 0;
+                    dsp->sample_decM += 1; if (dsp->sample_decM >= dsp->lut_len) dsp->sample_decM = 0;
+                    dsp->decXbuffer[dsp->sample_decX] = z;
+                    dsp->sample_decX += 1; if (dsp->sample_decX >= dsp->dectaps) dsp->sample_decX = 0;
                 }
                 if (dsp->decM > 1)
                 {
-                    z = lowpass(dsp->decXbuffer, dsp->sample_dec, dsp->dectaps, ws_dec);
+                    z = lowpass(dsp->decXbuffer, dsp->sample_decX, dsp->dectaps, ws_dec);
                 }
             }
             else if ( f32read_csample(dsp, &z) == EOF ) return EOF;
 
             if (dsp->opt_dc && !dsp->opt_nolut) {
-                z *= cexp(-t*2*M_PI*dsp->Df*I);
+                z *= cexp(-t*_2PI*dsp->Df*I);
             }
 
 
@@ -821,8 +841,8 @@ int f32buf_sample(dsp_t *dsp, int inv) {
                 if (0) { // not L band
                     double xbit = 0.0;
                     //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
-                    double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
-                    double f2 = -f1;
+                    //double f1 = -dsp->h*dsp->sr/(2*dsp->sps);
+                    //double f2 = -f1;
 
                     float complex X0 = 0;
                     float complex X  = 0;
@@ -834,13 +854,13 @@ int f32buf_sample(dsp_t *dsp, int inv) {
                     z0 = dsp->rot_iqbuf[(_sample-n + dsp->N_IQBUF) % dsp->N_IQBUF];
 
                     // f1
-                    X0 = z0 * cexp(-tn*2*M_PI*f1*I); // alt
-                    X  = z  * cexp(-t *2*M_PI*f1*I); // neu
+                    X0 = z0 * cexp(-tn*dsp->iw1); // alt
+                    X  = z  * cexp(-t *dsp->iw1); // neu
                     dsp->F1sum +=  X - X0;
 
                     // f2
-                    X0 = z0 * cexp(-tn*2*M_PI*f2*I); // alt
-                    X  = z  * cexp(-t *2*M_PI*f2*I); // neu
+                    X0 = z0 * cexp(-tn*dsp->iw2); // alt
+                    X  = z  * cexp(-t *dsp->iw2); // neu
                     dsp->F2sum +=  X - X0;
 
                     xbit = cabs(dsp->F2sum) - cabs(dsp->F1sum);
@@ -851,8 +871,8 @@ int f32buf_sample(dsp_t *dsp, int inv) {
                     double xbit = 0.0;
                     float _sps = dsp->sps * decFM;
                     //float complex xi = cexp(+I*M_PI*dsp->h/dsp->sps);
-                    double f1 = -dsp->h*dsp->sr/(2*_sps);
-                    double f2 = -f1;
+                    //double f1 = -dsp->h*dsp->sr/(2*_sps);
+                    //double f2 = -f1;
 
                     float complex X1 = 0;
                     float complex X2 = 0;
@@ -866,8 +886,8 @@ int f32buf_sample(dsp_t *dsp, int inv) {
                         {
                             t = -n / (double)dsp->sr;
                             z = dsp->rot_iqbuf[(_sample - n + dsp->N_IQBUF) % dsp->N_IQBUF];
-                            X1 += z*cexp(-t*2*M_PI*f1*I);
-                            X2 += z*cexp(-t*2*M_PI*f2*I);
+                            X1 += z*cexp(-t*dsp->iw1);
+                            X2 += z*cexp(-t*dsp->iw2);
                         }
                     }
 
@@ -1115,7 +1135,7 @@ int init_buffers_Lband(dsp_t *dsp) {
     float b0, b1, b2, b;
     float normMatch;
     double t;
-    double sigma = sqrt(log(2)) / (2*M_PI*dsp->BT);
+    double sigma = sqrt(log(2)) / (_2PI*dsp->BT);
 
     int p2 = 1;
     int K, L, M;
@@ -1196,7 +1216,7 @@ int init_buffers_Lband(dsp_t *dsp) {
             if (dsp->ex == NULL) return -1;
             for (n = 0; n < dsp->lut_len; n++) {
                 t = f0*(double)n;
-                dsp->ex[n] = cexp(t*2*M_PI*I);
+                dsp->ex[n] = cexp(t*_2PI*I);
             }
         }
 
@@ -1399,6 +1419,14 @@ int init_buffers_Lband(dsp_t *dsp) {
 
     dsp->fm_buffer = (float *)calloc( M+1, sizeof(float));  if (dsp->fm_buffer == NULL) return -1; // dsp->bufs[]
 
+
+    if (dsp->opt_iq)
+    {
+        double f1 = -dsp->h*dsp->sr/(2.0*dsp->sps);
+        double f2 = -f1;
+        dsp->iw1 = _2PI*I*f1;
+        dsp->iw2 = _2PI*I*f2;
+    }
 
     return K;
 }
@@ -1937,7 +1965,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
         }
         printf("\n");
     }
-    //else  // - Print raw *and* JSON data if enabled.
+    //else // - Print raw *and* JSON data if enabled.
     {
         if (gpx->frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
             if ( !crc_err ) {
@@ -2023,7 +2051,6 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
                         if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                         printf(" }\n");
                         printf("\n");
-                        fflush(stdout);
                         gpx->prev_frnr = gpx->frnr;
                     }
                 }
@@ -2404,3 +2431,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
