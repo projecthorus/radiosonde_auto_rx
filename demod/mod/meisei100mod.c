@@ -702,7 +702,7 @@ int main(int argc, char **argv) {
                     if (!option2 && !option_raw) {
             jmpRS11:
                         if (reset_gpx) {
-                            memset(&gpx, sizeof(gpx), 0);
+                            memset(&gpx, 0, sizeof(gpx));
                             sn = -1;
                             freq = -1;
                             reset_gpx = 0;
@@ -867,7 +867,7 @@ int main(int argc, char **argv) {
                     else if (option2 && !option_raw) { // iMS-100
             jmpIMS:
                         if (reset_gpx) {
-                            memset(&gpx, sizeof(gpx), 0);
+                            memset(&gpx, 0, sizeof(gpx));
                             gpx.RH = NAN;
                             gpx.T = NAN;
                             sn = -1;

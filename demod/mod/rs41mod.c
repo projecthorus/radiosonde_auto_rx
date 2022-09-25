@@ -2122,7 +2122,10 @@ static int print_position(gpx_t *gpx, int ec) {
         if (gpx->option.ptu) out_mask |= crc_PTU;
 
         err = get_FrameConf(gpx, 0);
-        if (out && !err) prn_frm(gpx);
+        if (out && !err) {
+            prn_frm(gpx);
+            output = 1;
+        }
 
         pck = (gpx->frame[pos_PTU]<<8) | gpx->frame[pos_PTU+1];
         ofs = 0;

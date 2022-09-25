@@ -1,9 +1,13 @@
+
+
 #include <math.h>
 #include <complex.h>
 
 #ifndef M_PI
     #define M_PI  (3.1415926535897932384626433832795)
 #endif
+#define _2PI  (6.2831853071795864769252867665590)
+
 
 #define LP_IQ    1
 #define LP_FM    2
@@ -81,6 +85,10 @@ typedef struct {
     float complex *rot_iqbuf;
     float complex F1sum;
     float complex F2sum;
+    //
+    double complex iw1;
+    double complex iw2;
+
 
     //
     char *rawbits;
@@ -115,8 +123,9 @@ typedef struct {
     int decM;
     ui32_t sr_base;
     ui32_t dectaps;
-    ui32_t sample_dec;
+    ui32_t sample_decX;
     ui32_t lut_len;
+    ui32_t sample_decM;
     float complex *decXbuffer;
     float complex *decMbuf;
     float complex *ex; // exp_lut
@@ -181,3 +190,5 @@ int find_header(dsp_t *, float, int, int, int);
 int f32soft_read(FILE *fp, float *s);
 int find_binhead(FILE *fp, hdb_t *hdb, float *score);
 int find_softbinhead(FILE *fp, hdb_t *hdb, float *score);
+
+

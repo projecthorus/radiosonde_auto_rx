@@ -1522,7 +1522,7 @@ int main(int argc, char **argv) {
 
         while (1 > 0) {
 
-            memset(buffer_rawhex, 2*(FRAME_LEN+AUX_LEN)+12, 0);
+            memset(buffer_rawhex, 0, 2*(FRAME_LEN+AUX_LEN)+12);
             pbuf = fgets(buffer_rawhex, 2*(FRAME_LEN+AUX_LEN)+12, fp);
             if (pbuf == NULL) break;
             buffer_rawhex[2*(FRAME_LEN+AUX_LEN)] = '\0';
