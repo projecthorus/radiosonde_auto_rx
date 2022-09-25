@@ -1965,7 +1965,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
         }
         printf("\n");
     }
-    else  //
+    //else // - Print raw *and* JSON data if enabled.
     {
         if (gpx->frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
             if ( !crc_err ) {
