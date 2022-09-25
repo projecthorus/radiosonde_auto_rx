@@ -4,10 +4,7 @@
 #
 # TODO: Convert this to a makefile! Any takers?
 
-# Auto_RX version number - needs to match the contents of autorx/__init__.py
-# This can probably be done automatically.
-#AUTO_RX_VERSION="\"1.4.1-beta8\""
-
+# Get the auto-rx version.
 AUTO_RX_VERSION="\"$(python3 -m autorx.version 2>/dev/null || python -m autorx.version)\""
 
 echo "Building for radiosonde_auto_rx version: $AUTO_RX_VERSION"
@@ -20,7 +17,8 @@ echo "Building for radiosonde_auto_rx version: $AUTO_RX_VERSION"
 # ... and for homebrew users.
 #gcc tsrc.c -o tsrc -lm -lsamplerate -I/opt/homebrew/include -L/opt/homebrew/lib
 
-make -C .. all
+# Clean before build to ensure the auto_rx version is updated.
+make -C .. clean all
 
 # Copy all necessary files into this directory.
 echo "Copying files into auto_rx directory."
