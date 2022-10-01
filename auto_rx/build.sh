@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # Auto Sonde Decoder build script.
-#
-# TODO: Convert this to a makefile! Any takers?
 
 # Get the auto-rx version.
 AUTO_RX_VERSION="\"$(python3 -m autorx.version 2>/dev/null || python -m autorx.version)\""
 
 echo "Building for radiosonde_auto_rx version: $AUTO_RX_VERSION"
+
+cd $(dirname $0)
 
 #cd ../utils/
 # Build tsrc - this is only required for the test/test_demod.py script, so is not included in the standard build.
