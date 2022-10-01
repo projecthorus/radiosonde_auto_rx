@@ -645,7 +645,7 @@ static int f32read_cblock(dsp_t *dsp) {
     int n;
     int len;
     float x, y;
-    ui8_t s[4*2*dsp->decM]; //uin8,int16,flot32
+    ui8_t s[4*2*dsp->decM]; //uin8,int16,float32
     ui8_t *u = (ui8_t*)s;
     short *b = (short*)s;
     float *f = (float*)s;
@@ -732,21 +732,31 @@ static int lowpass_init(float f, int taps, float **pws) {
     return taps;
 }
 
-
-static float complex lowpass1(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
-    ui32_t n;
-    ui32_t s = sample % taps;
+static float complex lowpass1a(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     double complex w = 0;
+    ui32_t n;
+    ui32_t S = taps + (sample % taps);
     for (n = 0; n < taps; n++) {
-        w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
+        w += buffer[n]*ws[S-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
     return (float complex)w;
 // symmetry: ws[n] == ws[taps-1-n]
 }
+//static __attribute__((optimize("-ffast-math"))) float complex lowpass()
 static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
-    float complex w = 0;     // -Ofast
+    float complex w = 0;
+    int n; // -Ofast
+    int S = taps-1 - (sample % taps);
+    for (n = 0; n < taps; n++) {
+        w += buffer[n]*ws[S+n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
+    }
+    return w;
+// symmetry: ws[n] == ws[taps-1-n]
+}
+static float complex lowpass2(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
+    float complex w = 0;
     int n;
-    int s = sample % taps; // lpIQ
+    int s = sample % taps;
     int S1 = s+1;
     int S1N = S1-taps;
     int n0 = taps-1-s;
@@ -1965,7 +1975,7 @@ static void print_frame(gpx_t *gpx, int len, dsp_t *dsp) {
         }
         printf("\n");
     }
-    //else // - Print raw *and* JSON data if enabled.
+    //else  // - Print raw *and* JSON data if enabled.
     {
         if (gpx->frame_bytes[OFS] == 0x4D  &&  len/BITS > pos_FullID+4) {
             if ( !crc_err ) {

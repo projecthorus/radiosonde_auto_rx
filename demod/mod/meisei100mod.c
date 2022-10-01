@@ -23,7 +23,7 @@
 PCM-FM, 1200 baud biphase-S
 1200 bit pro Sekunde: zwei Frames, die wiederum in zwei Subframes unterteilt werden koennen, d.h. 4 mal 300 bit.
 
-Variante 1 (RS-11G ?)
+Variante 1 (RS-11G)
 <option -1>
 049DCE1C667FDD8F537C8100004F20764630A20000000010040436 FB623080801F395FFE08A76540000FE01D0C2C1E75025006DE0A07
 049DCE1C67008C73D7168200004F0F764B31A2FFFF000010270B14 FB6230000000000000000000000000000000000000000000001D59
@@ -49,7 +49,7 @@ Variante 1 (RS-11G ?)
 0x049DCE ^ 0xFB6230 = 0xFFFFFE
 
 
-Variante 2 (iMS-100 ?)
+Variante 2 (iMS-100)
 <option -2>
 049DCE3E228023DBF53FA700003C74628430C100000000ABE00B3B FB62302390031EECCC00E656E42327562B2436C4C01CDB0F18B09A
 049DCE3E23516AF62B3FC700003C7390D131C100000000AB090000 FB62300000000000032423222422202014211B13220000000067C4
@@ -277,6 +277,30 @@ static int sanity_check_ims100_config_temperature(gpx_t *gpx) {
 
 /* -------------------------------------------------------------------------- */
 
+static int reset_gpx(gpx_t *gpx) {
+    int j;
+    for (j = 0; j < 64; j++) gpx->cfg[j] = 0.0f;
+    // DON'T RESET frame_(raw)bits and Reed-Solomon RS !
+    gpx->sn = -1;
+    gpx->frnr = gpx->frnr1 = 0;
+    gpx->jahr = gpx->monat = gpx->tag = 0;
+    gpx->std = gpx->min = 0; gpx->sek = 0.0f;
+    gpx->lat = gpx->lon = gpx->alt = 0.0;
+    gpx->vH = gpx->vD = gpx->vV = 0.0;
+    gpx->vV_valid = 0;
+    gpx->f_ref = 0;
+    gpx->RH = NAN;
+    gpx->T = NAN;
+    gpx->cfg_valid = 0;
+    gpx->_sn = 0;
+    gpx->fq = 0.0f;
+    gpx->frm0_count = 0; gpx->frm0_valid = 0;
+    gpx->frm1_count = 0; gpx->frm1_valid = 0;
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+
 
 int main(int argc, char **argv) {
 
@@ -298,8 +322,8 @@ int main(int argc, char **argv) {
     int wavloaded = 0;
     int cfreq = -1;
 
-    int option1 = 0,
-        option2 = 0;
+    int option_rs11g = 0,
+        option_ims100 = 0;
 
     float baudrate = -1;
 
@@ -349,7 +373,7 @@ int main(int argc, char **argv) {
     int bitofs = 0; // 0..+1
     int shift = 0;
 
-    int reset_gpx = 0;
+    int rst_gpx = 0;
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
@@ -381,11 +405,11 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
-        else if ( (strcmp(*argv, "-2") == 0) ) {
-            option2 = 1;
+        else if ( (strcmp(*argv, "--ims100") == 0) ) {
+            option_ims100 = 1;
         }
-        else if ( (strcmp(*argv, "-1") == 0) ) {
-            option1 = 1;
+        else if ( (strcmp(*argv, "--rs11g") == 0) ) {
+            option_rs11g = 1;
         }
         else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
         else if (strcmp(*argv, "--ptu") == 0) {
@@ -475,8 +499,8 @@ int main(int argc, char **argv) {
             option_pcmraw = 1;
         }
         else {
-            if (option1 == 1 && option2 == 1) goto help_out;
-            if (!option_raw && option1 == 0 && option2 == 0) option2 = 1;
+            if (option_rs11g == 1 && option_ims100 == 1) goto help_out;
+            if (!option_raw && option_rs11g == 0 && option_ims100 == 0) option_ims100 = 1;
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
                 fprintf(stderr, "error: open %s\n", *argv);
@@ -651,7 +675,7 @@ int main(int argc, char **argv) {
                 err_blks = 0;
 
                 for (subframe = 0; subframe < 2; subframe++)
-                {                                                       // option2:
+                {                                                       // option_ims100:
                     subframe_bits = gpx.frame_bits;                     // subframe 0: 049DCE
                     if (subframe > 0) subframe_bits += BITFRAME_LEN/4;  // subframe 1: FB6230
 
@@ -699,13 +723,13 @@ int main(int argc, char **argv) {
                         }
                     }
 
-                    if (!option2 && !option_raw) {
+                    if (!option_ims100 && !option_raw) {
             jmpRS11:
-                        if (reset_gpx) {
-                            memset(&gpx, 0, sizeof(gpx));
+                        if (rst_gpx) {
+                            reset_gpx(&gpx);
                             sn = -1;
                             freq = -1;
-                            reset_gpx = 0;
+                            rst_gpx = 0;
                         }
                         if (header_found % 2 == 1)
                         {
@@ -721,9 +745,9 @@ int main(int argc, char **argv) {
                             // 0x30yy, 0x31yy
                             val = bits2val(subframe_bits+HEADLEN+46*3+17, 16);
                             if ( (val & 0xFF) >= 0xC0 && err_frm == 0) {
-                                option2 = 1;
+                                option_ims100 = 1;
                                 printf("\n");
-                                reset_gpx = 1;
+                                rst_gpx = 1;
                                 goto jmpIMS;
                             }
 
@@ -864,15 +888,13 @@ int main(int argc, char **argv) {
                         }
 
                     }
-                    else if (option2 && !option_raw) { // iMS-100
+                    else if (option_ims100 && !option_raw) { // iMS-100
             jmpIMS:
-                        if (reset_gpx) {
-                            memset(&gpx, 0, sizeof(gpx));
-                            gpx.RH = NAN;
-                            gpx.T = NAN;
+                        if (rst_gpx) {
+                            reset_gpx(&gpx);
                             sn = -1;
                             freq = -1;
-                            reset_gpx = 0;
+                            rst_gpx = 0;
                         }
                         if (header_found % 2 == 1) { // 049DCE
                             ui16_t w16[2];
@@ -885,9 +907,9 @@ int main(int argc, char **argv) {
                             // 0x30C1, 0x31C1
                             val = bits2val(subframe_bits+HEADLEN+46*3+17, 16);
                             if ( (val & 0xFF) < 0xC0 && err_frm == 0) {
-                                option2 = 0;
+                                option_ims100 = 0;
                                 printf("\n");
-                                reset_gpx = 1;
+                                rst_gpx = 1;
                                 goto jmpRS11;
                             }
 
@@ -969,7 +991,7 @@ int main(int argc, char **argv) {
                                                     }
                                                 }
                                             }
-                                            if (!isnan(gpx.T)) printf("T=%.1fC ", gpx.T);
+                                            if (!isnan(gpx.T)) printf("T=%.1fC ", gpx.T); // better don't use -ffast-math here
                                             else T_cfg = 0;
                                         }
                                         if (U_cfg) {
@@ -1098,10 +1120,10 @@ int main(int argc, char **argv) {
                                         if (gpx.vV_valid) printf(", \"vel_v\": %.5f", gpx.vV );
                                     }
                                     if (option_ptu) {
-                                        if (!isnan(gpx.T)) {
+                                        if (!isnan(gpx.T)) { // don't use -ffast-math here
                                             fprintf(stdout, ", \"temp\": %.1f",  gpx.T );
                                         }
-                                        if (!isnan(gpx.RH)) {
+                                        if (!isnan(gpx.RH)) { // don't use -ffast-math here
                                             fprintf(stdout, ", \"humidity\": %.1f",  gpx.RH );
                                         }
                                     }
