@@ -666,7 +666,7 @@
                             var _look_angles = calculate_lookangles(_station, _bal);
 
                             sonde_id_data.azimuth = _look_angles.azimuth.toFixed(1);
-		            if (sonde_id_data.elevation >= 10){
+			    if (_look_angles.elevation >= 10){
                                 sonde_id_data.elevation = _look_angles.elevation.toFixed(1);
 			    }else{
                                 sonde_id_data.elevation = _look_angles.elevation.toFixed(2);
