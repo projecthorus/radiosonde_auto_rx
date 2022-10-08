@@ -397,7 +397,7 @@ static int lowpass_init(float f, int taps, float **pws) {
 static float complex lowpass1a(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     double complex w = 0;
     ui32_t n;
-    ui32_t S = taps + (sample % taps);
+    ui32_t S = taps-1 + (sample % taps);
     for (n = 0; n < taps; n++) {
         w += buffer[n]*ws[S-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
@@ -408,7 +408,7 @@ static float complex lowpass1a(float complex buffer[], ui32_t sample, ui32_t tap
 static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     float complex w = 0;
     int n; // -Ofast
-    int S = taps-1 - (sample % taps);
+    int S = taps - (sample % taps);
     for (n = 0; n < taps; n++) {
         w += buffer[n]*ws[S+n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
@@ -419,9 +419,9 @@ static float complex lowpass2(float complex buffer[], ui32_t sample, ui32_t taps
     float complex w = 0;     // -Ofast
     int n;
     int s = sample % taps; // lpIQ
-    int S1 = s+1;
+    int S1 = s;
     int S1N = S1-taps;
-    int n0 = taps-1-s;
+    int n0 = taps-s;
     for (n = 0; n < n0; n++) {
         w += buffer[S1+n]*ws[n];
     }
@@ -433,13 +433,13 @@ static float complex lowpass2(float complex buffer[], ui32_t sample, ui32_t taps
 }
 
 static float re_lowpass(float buffer[], ui32_t sample, ui32_t taps, float *ws) {
-    ui32_t n;
-    ui32_t s = sample % taps;
-    double w = 0;
+    float w = 0;
+    int n;
+    int S = taps - (sample % taps);
     for (n = 0; n < taps; n++) {
-        w += buffer[n]*ws[taps+s-n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
+        w += buffer[n]*ws[S+n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
-    return (float)w;
+    return w;
 }
 
 static
@@ -498,7 +498,7 @@ int f32_sample(dsp_t *dsp, float *out) {
             // IF-lowpass
             if (dsp->opt_lp & LP_IQ) {
                 dsp->lpIQ_buf[_sample % dsp->lpIQtaps] = z;
-                z = lowpass(dsp->lpIQ_buf, _sample, dsp->lpIQtaps, dsp->ws_lpIQ);
+                z = lowpass(dsp->lpIQ_buf, _sample+1, dsp->lpIQtaps, dsp->ws_lpIQ);
             }
 
 
@@ -520,7 +520,7 @@ int f32_sample(dsp_t *dsp, float *out) {
         if (dsp->opt_lp & LP_FM) {
             dsp->lpFM_buf[_sample % dsp->lpFMtaps] = s_fm;
             if (m+1 == decFM) {
-                s_fm = re_lowpass(dsp->lpFM_buf, _sample, dsp->lpFMtaps, dsp->ws_lpFM);
+                s_fm = re_lowpass(dsp->lpFM_buf, _sample+1, dsp->lpFMtaps, dsp->ws_lpFM);
                 if (dsp->opt_iq < 2 || dsp->opt_iq > 5) s = s_fm; //opt_iq==0,1,6
             }
         }
