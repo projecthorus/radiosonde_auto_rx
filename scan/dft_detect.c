@@ -646,7 +646,7 @@ static float complex lowpass0(float complex buffer[], ui32_t sample, ui32_t taps
     ui32_t n;
     double complex w = 0;
     for (n = 0; n < taps; n++) {
-        w += buffer[(sample+n+1)%taps]*ws[taps-1-n];
+        w += buffer[(sample+n)%taps]*ws[taps-1-n];
     }
     return (float complex)w;
 }
@@ -654,7 +654,7 @@ static float complex lowpass0(float complex buffer[], ui32_t sample, ui32_t taps
 static float complex lowpass(float complex buffer[], ui32_t sample, ui32_t taps, float *ws) {
     float complex w = 0;
     int n; // -Ofast
-    int S = taps-1 - (sample % taps);
+    int S = taps - (sample % taps);
     for (n = 0; n < taps; n++) {
         w += buffer[n]*ws[S+n]; // ws[taps+s-n] = ws[(taps+sample-n)%taps]
     }
@@ -665,9 +665,9 @@ static float complex lowpass2(float complex buffer[], ui32_t sample, ui32_t taps
     float complex w = 0;
     int n;
     int s = sample % taps;
-    int S1 = s+1;
+    int S1 = s;
     int S1N = S1-taps;
-    int n0 = taps-1-s;
+    int n0 = taps-s;
     for (n = 0; n < n0; n++) {
         w += buffer[S1+n]*ws[n];
     }
@@ -711,8 +711,8 @@ static int f32buf_sample(FILE *fp, int inv) {
         // b) 3 FM-streams
         //
         lpIQ_buf[sample_in % dsp__lpIQtaps] = z;
-        z_fm0 = lowpass(lpIQ_buf, sample_in, dsp__lpIQtaps, ws_lpIQ[0]);
-        z_fm1 = lowpass(lpIQ_buf, sample_in, dsp__lpIQtaps, ws_lpIQ[1]);
+        z_fm0 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[0]);
+        z_fm1 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[1]);
 
         // IQ: different modulation indices h=h(rs) -> FM-demod
         w = z_fm0 * conj(z0_fm0);
