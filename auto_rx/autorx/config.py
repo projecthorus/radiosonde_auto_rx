@@ -163,6 +163,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "save_decode_audio": False,
         "save_decode_iq": False,
         "save_raw_hex": False,
+        "save_system_log": False,
+        "enable_debug_logging": False,
         # URL for the Habitat DB Server.
         # As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
         # from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
@@ -730,6 +732,18 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find meisei_experimental setting, using default (disabled)"
             )
             auto_rx_config["experimental_decoders"]["MEISEI"] = False
+
+        try:
+            auto_rx_config["save_system_log"] = config.getboolean(
+                "logging", "save_system_log"
+            )
+            auto_rx_config["enable_debug_logging"] = config.getboolean(
+                "logging", "enable_debug_logging"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find system / debug logging options, using defaults (disabled, unless set as a command-line option.)"
+            )
 
 
         # If we are being called as part of a unit test, just return the config now.

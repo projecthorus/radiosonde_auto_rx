@@ -399,6 +399,17 @@ rotator_home_elevation = 0.0
 # If enabled, a log file will be written to ./log/ for each detected radiosonde.
 per_sonde_log = True
 
+# Enable logging of system-level logs to disk. 
+# This is the equivalent of starting auto_rx with the --systemlog option, but only takes effect after the config file is read.
+# These logs will end up in the log directory.
+save_system_log = False
+
+# Enable logging of debug messages. 
+# This is the equivalent of starting auto_rx with the -v option, but only takes effect after the config file is read.
+# This setting, in combination with save_system_log (above), can help provide detailed information when debugging
+# auto_rx operational issues.
+enable_debug_logging = False
+
 
 ###########################
 # WEB INTERFACE SETTINNGS #
@@ -452,6 +463,7 @@ save_decode_iq = False
 # Raw hex data is saved to the logging directory with a filename of format YYYYMMDD-HHMMSS_<type>_<freq>.raw
 # Saving raw data is currently only supported for: RS41, LMS6-1680, LMS6-400, M10, M20, IMET-4
 save_raw_hex = False
+
 
 #####################
 # ADVANCED SETTINGS #
