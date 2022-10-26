@@ -3,7 +3,7 @@
 #   Radiosonde Log Plotter
 #
 #   Copyright (C) 2019  Mark Jessop <vk5qi@rfhead.net>
-#   Released under GNU GPL v3 or later 
+#   Released under GNU GPL v3 or later
 #
 #   Note: This script is very much a first pass, and doesn't have much error checking of data.
 #
@@ -17,7 +17,7 @@
 #
 #
 #   There are two general usage scenarios, plotting a single file, and plotting an entire directory.
-#   
+#
 #   Single file plotting:
 #   $ python plot_sonde_log.py --singlefile 20190424-105731_P4750324_RS41_401500_sonde.log
 #
@@ -39,7 +39,7 @@
 #
 #   This can be called from a bash script, run by a cron-job. For example, create a file ~/generate_soundings.sh
 #   containing the following:
-#   
+#
 #    #!/bin/bash
 #    # Generate Soundings
 #    python plot_sonde_log.py --log-dir=/home/pi/radiosonde_auto_rx/auto_rx/log/ --output-dir=/home/pi/soundings/
@@ -473,7 +473,7 @@ if __name__ == "__main__":
             plt.ylabel("SNR (dB)")
             plt.title("SNR vs Sample")
             plt.grid()
-        
+
         if args.ferror:
             plt.figure()
             plt.plot(ferror)
@@ -487,6 +487,3 @@ if __name__ == "__main__":
     else:
         # do a batch process run.
         process_directory(args.log_dir, args.output_dir, args.plot_status_file)
-
-
-

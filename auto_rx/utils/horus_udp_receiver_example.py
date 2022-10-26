@@ -16,7 +16,7 @@
 #
 #   In this example I use a UDPListener object (ripped from the horus_utils repository) to listen for UDP packets in a thread,
 #   and pass packets that have a 'PAYLOAD_SUMMARY' type field to a callback, where they are printed.
-#   
+#
 
 import datetime
 import json
@@ -28,7 +28,7 @@ from threading import Thread
 
 
 class UDPListener(object):
-    ''' UDP Broadcast Packet Listener 
+    ''' UDP Broadcast Packet Listener
     Listens for Horus UDP broadcast packets, and passes them onto a callback function
     '''
 
@@ -89,11 +89,11 @@ class UDPListener(object):
             except:
                 # If we don't timeout then something has broken with the socket.
                 traceback.print_exc()
-            
+
             # If we hae packet data, handle it.
             if m != None:
                 self.handle_udp_packet(m[0])
-        
+
         print("Closing UDP Listener")
         self.s.close()
 
@@ -134,7 +134,7 @@ def handle_payload_summary(packet):
 
 
 if __name__ == '__main__':
-    
+
     # Instantiate the UDP listener.
     udp_rx = UDPListener(
         port=55673,

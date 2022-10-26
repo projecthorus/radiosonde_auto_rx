@@ -43,7 +43,7 @@ void modem_probe_samp_i_int(char * tracename,int samp[],size_t cnt);
 void modem_probe_samp_f_int(char * tracename,float samp[],size_t cnt);
 void modem_probe_samp_c_int(char * tracename,COMP samp[],size_t cnt);
 
-/* 
+/*
  * Init the probe library.
  * char *modname - Name of the modem under test
  * char *runname - Name/path of the file data is dumped to
@@ -77,7 +77,7 @@ static inline void modem_probe_samp_i(char *tracename,int samp[],size_t cnt){
  */
 static inline void modem_probe_samp_f(char *tracename,float samp[],size_t cnt){
         modem_probe_samp_f_int(tracename,samp,cnt);
-}       
+}
 
 /*
  * Save some number of complex samples to a named trace

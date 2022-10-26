@@ -43,7 +43,7 @@ def calculate_per_thrshold(snrs, packets, expected_packets, threshold=0.5):
 
 	# Convert packet count to PER.
 	_per = 1.0 - packets/float(expected_packets)
-	
+
 	# Interpolate the incoming SNR vs packet data out to 0.05 dB steps.
 	_snr_range = np.arange(snrs[0], snrs[-1], 0.05)
 	_per_interp = np.interp(_snr_range, snrs, _per) - 0.5

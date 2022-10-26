@@ -52,7 +52,7 @@ class TelemetryLogger(object):
 
     def __init__(self, log_directory="./log"):
         """ Initialise and start a sonde logger.
-        
+
         Args:
             log_directory (str): Directory in which to save log files.
 
@@ -75,7 +75,7 @@ class TelemetryLogger(object):
         self.log_process_thread.start()
 
     def add(self, telemetry):
-        """ Add a dictionary of telemetry to the input queue. 
+        """ Add a dictionary of telemetry to the input queue.
 
         Args:
             telemetry (dict): Telemetry dictionary to add to the input queue.
@@ -264,7 +264,7 @@ class TelemetryLogger(object):
         self.input_processing_running = False
 
     def running(self):
-        """ Check if the logging thread is running. 
+        """ Check if the logging thread is running.
 
         Returns:
             bool: True if the logging thread is running.
@@ -272,21 +272,21 @@ class TelemetryLogger(object):
         return self.input_processing_running
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("Telemetry Logger - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("Telemetry Logger - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

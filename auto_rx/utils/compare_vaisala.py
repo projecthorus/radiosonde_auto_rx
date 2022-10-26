@@ -3,7 +3,7 @@
 #   Vaisala vs Auto_rx Comparisons
 #
 #   Copyright (C) 2019  Mark Jessop <vk5qi@rfhead.net>
-#   Released under GNU GPL v3 or later 
+#   Released under GNU GPL v3 or later
 #
 #   Compares the auto_rx calcuated temperature & humidity values with
 #   truth data produced by a Vaisala ground station.
@@ -13,7 +13,7 @@
 #   Run with:
 #       python3 compare_vaisala.py originalmetdata_20190521_0418_R0230900.txt 20190521-042102_R0230900_RS41_402200_sonde.log
 #
-#   TODO: 
+#   TODO:
 #       [ ] Calculate temp/rh error vs altitude
 #       [ ] Calculate rh error vs temperature
 #

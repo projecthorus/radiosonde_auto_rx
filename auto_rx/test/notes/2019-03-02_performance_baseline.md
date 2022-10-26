@@ -3,10 +3,10 @@
 Mark Jessop - 2019-03-02
 
 
-The scripts in the `auto_rx/test` directory provide the ability to measure the various decoders performance with a set of radiosonde signal samples, with calibrated [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit) values. 
+The scripts in the `auto_rx/test` directory provide the ability to measure the various decoders performance with a set of radiosonde signal samples, with calibrated [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit) values.
 
 A few notes:
-* All measurements have been performed using the demodulator (rtl_fm, filtering) settings as per the 2019-02-27 auto_rx release. 
+* All measurements have been performed using the demodulator (rtl_fm, filtering) settings as per the 2019-02-27 auto_rx release.
 * All decoders (rs41, rs92, etc...) have any available error-correction options enabled.
 * Packet Error Rates have been calculated based on a comparison with the known number of packets in the high-SNR source file.
 

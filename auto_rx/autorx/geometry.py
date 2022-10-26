@@ -13,7 +13,7 @@ from .utils import position_info
 
 
 def getDensity(altitude, get_pressure=False):
-    """ 
+    """
     Calculate the atmospheric density for a given altitude in metres.
     This is a direct port of the oziplotter Atmosphere class
     """
@@ -146,8 +146,8 @@ class GenericTrack(object):
         self.track_history = []
 
     def add_telemetry(self, data_dict):
-        """ 
-        Accept telemetry data as a dictionary with fields 
+        """
+        Accept telemetry data as a dictionary with fields
         datetime, lat, lon, alt, comment
         """
 

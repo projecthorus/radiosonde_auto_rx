@@ -4,7 +4,7 @@ Mark Jessop - 2019-03-02
 
 
 ## History
-Up until now, the radiosonde detection functions of auto_rx have been performed by [rs_detect](https://github.com/rs1729/RS/blob/master/scan/rs_detect.c). This takes fm-demodulated input (48 kHz, unsigned 8-bit samples) and looks for the presence of known radiosonde headers. 
+Up until now, the radiosonde detection functions of auto_rx have been performed by [rs_detect](https://github.com/rs1729/RS/blob/master/scan/rs_detect.c). This takes fm-demodulated input (48 kHz, unsigned 8-bit samples) and looks for the presence of known radiosonde headers.
 
 rs1729 has recently developed the improved [dft_detect](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c), which uses correlation techniques to perform the same function. dft_detect also adds support for the iMet-4 and LMS6 radiosonde types, which is important for the radiosonde_auto_rx goal of tracking ALL the radiosondes!
 
@@ -15,15 +15,15 @@ rs_detect and dft_detect require a FM-demodulated signal as input. To provide th
 $ rtl_fm -T -p 0 -M fm -g 26.0 -s 22k -f 401500000 | sox -t raw -r 22k -e s -b 16 -c 1 - -r 48000 -t wav - highpass 20 | ./rs_detect -z -t 8
 ```
 This performs the following actions:
-* rtl_fm takes samples from the RTLSDR, and performs FM demodulation. Samples are output at 22 kHz sample rate, in signed-int16 format. 
+* rtl_fm takes samples from the RTLSDR, and performs FM demodulation. Samples are output at 22 kHz sample rate, in signed-int16 format.
   * The FM channel bandwidth used for demodulation is still a bit unclear. Based on performance tests with an alternate FM demodulator, I suspect it's a bit less than half the output sample rate, so about a 11 kHz bandwidth.
 * The samples from rtl_fm are resampled up to 48 kHz sample rate, converted to signed 16-bit int samples. A 20 Hz highpass filter is applied to compensate for some degree of DC offset.
 
 
 ### Previous Changes
-When [Meteomodem M10 support](https://github.com/projecthorus/radiosonde_auto_rx/pull/101) was added, the rtl_fm output sample rate was changed from 15 kHz to 22 kHz, to better handle the wider-bandwidth M10 telemetry. 
+When [Meteomodem M10 support](https://github.com/projecthorus/radiosonde_auto_rx/pull/101) was added, the rtl_fm output sample rate was changed from 15 kHz to 22 kHz, to better handle the wider-bandwidth M10 telemetry.
 
-At the time, there was no repeatable performance testing ability in auto_rx, and so detection performance was evaluated on observation of 'real-world' radiosonde signals. After some testing on a few stations, the change was deemed suitable for use and released. 
+At the time, there was no repeatable performance testing ability in auto_rx, and so detection performance was evaluated on observation of 'real-world' radiosonde signals. After some testing on a few stations, the change was deemed suitable for use and released.
 
 Now there is the ability to do controlled, repeatable performance tests, the change from 15 kHz to 22 kHz has been re-visited. Below is the detection performance of the above-mentioned decode chain (using rs_detect), with a 15 kHz and 22 kHz receive sample rate:
 
@@ -126,7 +126,7 @@ We can clearly see an improvement in detection performance on all radiosonde typ
 ### Increased CPU Load
 The CPU load of dft_detect is about 4x higher than that of rs_detect. However, with rs1729's latest updates it runs faster than realtime on a RPi2, so is considered to be fit for purpose.
 
-Some analysis 
+Some analysis
 
 ### Performance with Frequency Offsets
 As with any FM-demod based, data-slicer decode system, frequency offsets in the signal will result in a DC offset that, with added noise, will impact performance.

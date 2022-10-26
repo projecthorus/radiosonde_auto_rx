@@ -1,10 +1,10 @@
 /**
  * SkewT v1.1.0
  * 2016 David Félix - dfelix@live.com.pt
- * 
+ *
  * Dependency:
  * d3.v3.min.js from https://d3js.org/
- * 
+ *
  */
 var SkewT = function(div) {
 	//properties used in calculations
@@ -31,27 +31,27 @@ var SkewT = function(div) {
 
 	//containers
 	var svg = wrapper.append("svg").attr("id", "svg");	 //main svg
-	var container = svg.append("g").attr("id", "container"); //container 
+	var container = svg.append("g").attr("id", "container"); //container
 	var skewtbg = container.append("g").attr("id", "skewtbg").attr("class", "skewtbg");//background
 	var skewtgroup = container.append("g").attr("class", "skewt"); // put skewt lines in this group
-	var barbgroup  = container.append("g").attr("class", "windbarb"); // put barbs in this group	
-	
-	//local functions	
+	var barbgroup  = container.append("g").attr("class", "windbarb"); // put barbs in this group
+
+	//local functions
 	function setVariables() {
 		// These width and height values get calculated when the plot is updated
 		width = parseInt(wrapper.style('width'), 10) - 50; // tofix: using -10 to prevent x overflow
 		height = width; //to fix
 		w = width - margin.left - margin.right;
-		h = width - margin.top - margin.bottom;		
+		h = width - margin.top - margin.bottom;
 		x = d3.scale.linear().range([0, w]).domain([-45,50]);
 		y = d3.scale.log().range([0, h]).domain([topp, basep]);
 		xAxis = d3.svg.axis().scale(x).tickSize(0,0).ticks(10).orient("bottom").tickFormat(function(e) {
-			return e.toFixed(0) + "°C" 
+			return e.toFixed(0) + "°C"
 		});
 		yAxis = d3.svg.axis().scale(y).tickSize(0,0).tickValues(plines).tickFormat(d3.format(".0d")).orient("left");
 		yAxis2 = d3.svg.axis().scale(y).tickSize(5,0).tickValues(pticks).orient("right");
 	}
-	
+
 	function convert(msvalue, unit)
 	{
 		switch(unit) {
@@ -63,22 +63,22 @@ var SkewT = function(div) {
 			break;
 			default:
 				return msvalue;
-		}		
+		}
 	}
 
 	//assigns d3 events
-	d3.select(window).on('resize', resize);	
+	d3.select(window).on('resize', resize);
 
 	function resize() {
-		skewtbg.selectAll("*").remove(); 
+		skewtbg.selectAll("*").remove();
 		setVariables();
-		svg.attr("width", w + margin.right + margin.left).attr("height", h + margin.top + margin.bottom);				
-		container.attr("transform", "translate(" + margin.left + "," + margin.top + ")");		
+		svg.attr("width", w + margin.right + margin.left).attr("height", h + margin.top + margin.bottom);
+		container.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 		drawBackground();
 		makeBarbTemplates();
 		plot(data);
 	}
-	
+
 	var drawBackground = function() {
 		// Add clipping path
 		skewtbg.append("clipPath")
@@ -100,7 +100,7 @@ var SkewT = function(div) {
 		.attr("class", function(d) { if (d == 0) { return "tempzero"; } else { return "gridline"}})
 		.attr("clip-path", "url(#clipper)");
 		//.attr("transform", "translate(0," + h + ") skewX(-30)");
-		
+
 		// Logarithmic pressure lines
 		skewtbg.selectAll("pressureline")
 		.data(plines)
@@ -115,7 +115,7 @@ var SkewT = function(div) {
 		var pp = d3.range(topp,basep+1,10);
 		var dryad = d3.range(-30,240,20);
 		var all = [];
-		for (var i=0; i<dryad.length; i++) { 
+		for (var i=0; i<dryad.length; i++) {
 			var z = [];
 			for (var j=0; j<pp.length; j++) { z.push(dryad[i]); }
 				all.push(z);
@@ -124,8 +124,8 @@ var SkewT = function(div) {
 		var dryline = d3.svg.line()
 			.interpolate("linear")
 			.x(function(d,i) { return x( ( 273.15 + d ) / Math.pow( (1000/pp[i]), 0.286) -273.15) + (y(basep)-y(pp[i]))/tan;})
-			.y(function(d,i) { return y(pp[i])} );		
-		
+			.y(function(d,i) { return y(pp[i])} );
+
 		// Draw dry adiabats
 		skewtbg.selectAll("dryadiabatline")
 		.data(all)
@@ -145,10 +145,10 @@ var SkewT = function(div) {
 		// Add axes
 		skewtbg.append("g").attr("class", "x axis").attr("transform", "translate(0," + (h-0.5) + ")").call(xAxis);
 		skewtbg.append("g").attr("class", "y axis").attr("transform", "translate(-0.5,0)").call(yAxis);
-		skewtbg.append("g").attr("class", "y axis ticks").attr("transform", "translate(-0.5,0)").call(yAxis2);		
+		skewtbg.append("g").attr("class", "y axis ticks").attr("transform", "translate(-0.5,0)").call(yAxis2);
 
 	}
-	
+
 	var makeBarbTemplates = function(){
 		var speeds = d3.range(5,155,5);
 		var barbdef = container.append('defs')
@@ -185,16 +185,16 @@ var SkewT = function(div) {
 					.attr("y2", px+2)
 				px -= 3;
 			}
-		});		
+		});
 	}
-	
+
 	var drawToolTips = function(skewtlines) {
 		var lines = skewtlines.reverse();
 		// Draw tooltips
 		var tmpcfocus = skewtgroup.append("g").attr("class", "focus tmpc").style("display", "none");
 		tmpcfocus.append("circle").attr("r", 4);
 		tmpcfocus.append("text").attr("x", 9).attr("dy", ".35em");
-		  
+
 		var dwpcfocus = skewtgroup.append("g").attr("class", "focus dwpc").style("display", "none");
 		dwpcfocus.append("circle").attr("r", 4);
 		dwpcfocus.append("text").attr("x", -9).attr("text-anchor", "end").attr("dy", ".35em");
@@ -203,15 +203,15 @@ var SkewT = function(div) {
 		hghtfocus.append("text").attr("x", 0).attr("text-anchor", "start").attr("dy", ".35em");
 
 		var wspdfocus = skewtgroup.append("g").attr("class", "focus windspeed").style("display", "none");
-		wspdfocus.append("text").attr("x", 0).attr("text-anchor", "end").attr("dy", ".35em");	  
-	
+		wspdfocus.append("text").attr("x", 0).attr("text-anchor", "end").attr("dy", ".35em");
+
 		container.append("rect")
 			.attr("class", "overlay")
 			.attr("width", w)
 			.attr("height", h)
 			.on("mouseover", function() { tmpcfocus.style("display", null); dwpcfocus.style("display", null); hghtfocus.style("display", null); wspdfocus.style("display", null);})
 			.on("mouseout", function() { tmpcfocus.style("display", "none"); dwpcfocus.style("display", "none"); hghtfocus.style("display", "none"); wspdfocus.style("display", "none");})
-			.on("mousemove", function () {		  
+			.on("mousemove", function () {
 				var y0 = y.invert(d3.mouse(this)[1]); // get y value of mouse pointer in pressure space
 				var i = bisectTemp(lines, y0, 1, lines.length-1);
 				var d0 = lines[i - 1];
@@ -227,12 +227,12 @@ var SkewT = function(div) {
 				wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit + ", " + Math.round(d.wdir) + "˚ ");
 			});
 	}
-	
-	var plot = function(s){		
+
+	var plot = function(s){
 		data = s;
 		skewtgroup.selectAll("path").remove(); //clear previous paths from skew
 		barbgroup.selectAll("use").remove(); //clear previous paths from barbs
-		
+
 		if(data.length==0) return;
 
 		//skew-t stuff
@@ -243,7 +243,7 @@ var SkewT = function(div) {
 		var skewtlines_dewp = [];
 		skewtlines.push(skewtline);
 		skewtlines_dewp.push(skewtline_dewp);
-		
+
 		var templine = d3.svg.line().interpolate("linear").x(function(d,i) { return x(d.temp) + (y(basep)-y(d.press))/tan; }).y(function(d,i) { return y(d.press); });
 		var tempLines = skewtgroup.selectAll("templines")
 			.data(skewtlines).enter().append("path")
@@ -263,7 +263,7 @@ var SkewT = function(div) {
 		var allbarbs = barbgroup.selectAll("barbs")
 			.data(barbs).enter().append("use")
 			.attr("xlink:href", function (d) { return "#barb"+Math.round(convert(d.wspd, "kt")/5)*5; }) // 0,5,10,15,... always in kt
-			.attr("transform", function(d,i) { return "translate("+w+","+y(d.press)+") rotate("+(d.wdir+180)+")"; });			
+			.attr("transform", function(d,i) { return "translate("+w+","+y(d.press)+") rotate("+(d.wdir+180)+")"; });
 
 		//mouse over
 		drawToolTips(skewtlines[0]);
@@ -281,14 +281,13 @@ var SkewT = function(div) {
 			.on("mouseout", function() { return false;})
 			.on("mousemove",function() { return false;});
 	}
-	
+
 	//assings functions as public methods
 	this.drawBackground = drawBackground;
 	this.plot = plot;
 	this.clear = clear;
-	
-	//init 
+
+	//init
 	setVariables();
 	resize();
 };
-

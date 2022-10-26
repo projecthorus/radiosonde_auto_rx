@@ -1015,4 +1015,3 @@ int rs_decode_bch_gf2t2(ui8_t cw[], ui8_t *err_pos, ui8_t *err_val) {
 
     return errors;
 }
-

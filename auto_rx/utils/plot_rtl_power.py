@@ -25,7 +25,7 @@ def read_rtl_power(filename):
     f = open(filename,'r')
 
     # rtl_power log files are csv's, with the first 6 fields in each line describing the time and frequency scan parameters
-    # for the remaining fields, which contain the power samples. 
+    # for the remaining fields, which contain the power samples.
 
     for line in f:
         # Split line into fields.
@@ -68,4 +68,3 @@ if __name__ == '__main__':
 	plt.ylabel("Power (dB?)")
 	plt.title("rtl_power output: %s" % filename)
 	plt.show()
-

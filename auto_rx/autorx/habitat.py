@@ -45,7 +45,7 @@ def crc16_ccitt(data):
 
 def sonde_telemetry_to_sentence(telemetry, payload_callsign=None, comment=None):
     """ Convert a telemetry data dictionary into a UKHAS-compliant telemetry sentence.
-    
+
     Args:
         telemetry (dict): A sonde telemetry dictionary. Refer to the description in the autorx.decode.SondeDecoder docs.
         payload_callsign (str): If supplied, override the callsign field with this string.
@@ -127,7 +127,7 @@ uuids = []
 
 def check_callsign(callsign, timeout=10):
     """
-    Check if a payload document exists for a given callsign. 
+    Check if a payload document exists for a given callsign.
 
     This is done in a bit of a hack-ish way at the moment. We just check to see if there have
     been any reported packets for the payload callsign on the tracker.
@@ -367,7 +367,7 @@ def uploadListenerPosition(callsign, lat, lon, version="", antenna=""):
 
 
 class HabitatUploader(object):
-    """ 
+    """
     Queued Habitat Telemetry Uploader class
     This performs uploads to the Habitat servers, and also handles generation of flight documents.
 
@@ -733,7 +733,7 @@ class HabitatUploader(object):
         """ Process packets from the input queue.
 
         This thread handles packets from the input queue (provided by the decoders)
-        Packets are sorted by ID, and a dictionary entry is created. 
+        Packets are sorted by ID, and a dictionary entry is created.
 
         """
 
@@ -794,7 +794,7 @@ class HabitatUploader(object):
             time.sleep(0.1)
 
     def add(self, telemetry):
-        """ Add a dictionary of telemetry to the input queue. 
+        """ Add a dictionary of telemetry to the input queue.
 
         Args:
             telemetry (dict): Telemetry dictionary to add to the input queue.
@@ -840,28 +840,28 @@ class HabitatUploader(object):
             self.input_thread.join()
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("Habitat - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("Habitat - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.error("Habitat - %s" % line)
 
     def log_warning(self, line):
-        """ Helper function to log a warning message with a descriptive heading. 
+        """ Helper function to log a warning message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

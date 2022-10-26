@@ -135,14 +135,14 @@ class Rotator(object):
         rotator_homing_delay=10,
         rotator_home_position=[0.0, 0.0],
     ):
-        """ Start a new Rotator Control object. 
+        """ Start a new Rotator Control object.
 
         Args:
             station_position (tuple): The location of the receiving station, as a (lat, lon, alt) tuple.
-            
+
             rotctld_host (str): The hostname where a rotctld instance is running.
             rotctld_port (int): The (TCP) port where a rotctld instance is running.
-            
+
             rotator_update_rate (int): Update the current rotator position to the latest telemetry position every X seconds.
             rotator_update_threshold (float): Only update the rotator position if the new position is at least X degrees
                 away from the current position in azimuth or elevation.
@@ -333,21 +333,21 @@ class Rotator(object):
         return self.rotator_thread_running
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("Rotator - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("Rotator - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

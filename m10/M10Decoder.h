@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Decoder.h
  * Author: Viproz
  * Used code from rs1729
@@ -31,7 +31,7 @@ public:
     virtual int startDecode(std::string fname);
     virtual double findFrameStart();
     virtual int decodeMessage(double initialPos);
-    
+
     void setRaw(bool b);
     void setDispResult(bool b) {dispResult = b;}
     void setChannel(int c) {targetedChannel = c;}
@@ -39,7 +39,7 @@ public:
     void setTryMethodRepair(bool b) {tryRepair = b;}
     void setTryStats(bool b) {tryStats = b;}
     void setVerboseLevel(int level) {verboseLevel = level;}
-    
+
 protected:
     int decodeMethodCompare(double initialPos);
     int decodeMethodSign(double initialPos);
@@ -51,9 +51,9 @@ protected:
     M10GeneralParser *m10Parser;
     M10GeneralParser *m10Gtop;
     M10GeneralParser *m10Trimble;
-    
+
     AudioFile *audioFile;
-    
+
     bool dispResult = false;
     bool dispRaw = false;
     bool trySign = false;
@@ -65,18 +65,17 @@ protected:
     double baudRate = 9615;
     static char header[];
     std::string filename;
-    
+
     std::vector<int> *frameSamples;
     int curIndex = 0;
     int samplesBufLength = 0;
     int correctFrames = 0;
     int totalFrames = 0;
     int frameLength = 0;
-    
+
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
     std::array<unsigned char, (DATA_LENGTH)*8> frame_bits;
     std::array<unsigned char, DATA_LENGTH> lastGoodFrame;
 };
 
 #endif /* M10DECODER_H */
-

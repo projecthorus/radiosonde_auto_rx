@@ -133,7 +133,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) ret = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -192,7 +192,7 @@ int read_afsk_bits1(FILE *fp, int *len) {
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
-        sample_count++;     
+        sample_count++;
     }
     n = 0;
     while (sample < 0) {
@@ -202,7 +202,7 @@ int read_afsk_bits1(FILE *fp, int *len) {
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
-        sample_count++;     
+        sample_count++;
     }
     while (sample >= 0) {
         n++;
@@ -211,7 +211,7 @@ int read_afsk_bits1(FILE *fp, int *len) {
         sample = read_signed_sample(fp);
         if (sample == EOF_INT) return EOF;
         if (option_inv) sample = -sample;
-        sample_count++;     
+        sample_count++;
     }
 
     l = (float)n / (samples_per_bit/2.0);
@@ -616,7 +616,7 @@ int bitl1 = 0,
             if (bitl1 < 2) continue;
         }
         if (len == 2) bitl2++;
-        if (len == 4) { 
+        if (len == 4) {
             bitl4++;
             inout = 1;
             bitl1 = 0;
@@ -634,7 +634,7 @@ int bitl1 = 0,
         if (len > 0 && len < 3) {
             bitl4 = 0;
             inout = 0;
-            if (head > 0) { 
+            if (head > 0) {
                 head = 0;
                 if (bytepos > pos_GPSalt+4) print_frame(FRAMELEN);
                 bitpos = 0;
@@ -656,7 +656,7 @@ int bitl1 = 0,
                         bytepos++;                                  // <DLE><id><data_bytes><DLE><ETX>,
                     }                                               // wobei <DLE>=0x10, <ETX>=0x03.
                 }                                                   // wenn 0x10 in data, dann doppelt.
-                
+
             }
             bitpos = 0;
         }
@@ -671,4 +671,3 @@ int bitl1 = 0,
 
     return 0;
 }
-

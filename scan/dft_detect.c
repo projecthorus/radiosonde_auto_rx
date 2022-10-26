@@ -1537,4 +1537,3 @@ ende:
 
     return (header_found * rs_hdr[j_max].tn);
 }
-

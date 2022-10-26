@@ -28,10 +28,10 @@ args = parser.parse_args()
 # Sonde types to show on the plot.
 # Lines are shown as dashed when below their threshold value.
 TYPES = {
-	'RS41':{'color':'C0', 'threshold':0.53}, 
-	'RS92':{'color':'C1','threshold':0.54}, 
-	'DFM9':{'color':'C2','threshold':0.62}, 
-	'M10':{'color':'C3','threshold':0.75}, 
+	'RS41':{'color':'C0', 'threshold':0.53},
+	'RS92':{'color':'C1','threshold':0.54},
+	'DFM9':{'color':'C2','threshold':0.62},
+	'M10':{'color':'C3','threshold':0.75},
 	'LMS6':{'color':'C4','threshold':0.70}
 }
 
@@ -42,7 +42,7 @@ data = np.genfromtxt(args.filename,dtype=float, delimiter=',', names=True,usecol
 plt.figure(figsize=(10,5))
 
 for _type in TYPES:
-	# Plot 
+	# Plot
 	plt.plot(data['snr'], data[_type], color=TYPES[_type]['color'])
 	plt.scatter(data['snr'][ data[_type]>=TYPES[_type]['threshold'] ], data[_type][ data[_type]>=TYPES[_type]['threshold'] ], label=_type, color=TYPES[_type]['color'])
 

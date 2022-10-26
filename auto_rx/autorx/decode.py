@@ -58,7 +58,7 @@ class SondeDecoder(object):
         "frame" (int):  Frame counter. Usually provided by the radiosonde, and increments per telemetry frame.
         "id" (str):     Unique identifier for the radiosonde, usually some kind of serial number.
         "datetime" (str): UTC Date/Time string, which indicates the time applicable to the telemetry sentence.
-            Must be parseable with dateutil. 
+            Must be parseable with dateutil.
         "lat" (float):  Radiosonde Latitude (decmial degrees)
         "lon" (float):  Radiosonde Longitude (decimal degrees)
         "alt" (float):  Radiosonde Altitude (metres)
@@ -170,8 +170,8 @@ class SondeDecoder(object):
 
             exporter (function, list): Either a function, or a list of functions, which accept a single dictionary. Fields described above.
             timeout (int): Timeout after X seconds of no valid data received from the decoder. Defaults to 180.
-            telem_filter (function): An optional filter function, which determines if a telemetry frame is valid. 
-                This can be used to allow the decoder to timeout based on telemetry contents (i.e. no lock, too far away, etc), 
+            telem_filter (function): An optional filter function, which determines if a telemetry frame is valid.
+                This can be used to allow the decoder to timeout based on telemetry contents (i.e. no lock, too far away, etc),
                 not just lack-of-telemetry. This function is passed the telemetry dict, and must return a boolean based on the telemetry validity.
 
             rs92_ephemeris (str): OPTIONAL - A fixed ephemeris file to use if decoding a RS92. If not supplied, one will be downloaded.
@@ -259,9 +259,9 @@ class SondeDecoder(object):
 
         # Test if the supplied SDR is working.
         _sdr_ok = test_sdr(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port,
             ss_iq_path = self.ss_iq_path
             )
@@ -627,7 +627,7 @@ class SondeDecoder(object):
             # Settings for old decoder, which cares about FM inversion.
             # if self.inverted:
             #     self.log_debug("Using inverted MK2A decoder.")
-                
+
             #     decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
             # else:
             #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
@@ -790,7 +790,7 @@ class SondeDecoder(object):
                 _rs92_gps_data = "-e %s" % self.rs92_ephemeris
 
             _baud_rate = 4800
-            
+
             if self.sonde_freq > 1000e6:
                 _sample_rate = 96000
                 _ptu_ops = "--ngp --ptu"
@@ -1136,7 +1136,7 @@ class SondeDecoder(object):
             # Settings for old decoder, which cares about FM inversion.
             # if self.inverted:
             #     self.log_debug("Using inverted MK2A decoder.")
-                
+
             #     decode_cmd += f"./mk2a_lms1680 -i --json {self.raw_file_option} 2>/dev/null"
             # else:
             #     decode_cmd += f"./mk2a_lms1680 --json {self.raw_file_option} 2>/dev/null"
@@ -1509,7 +1509,7 @@ class SondeDecoder(object):
 
 
                 # Generate a unique ID based on the power-on time and frequency, as iMet sonde telemetry is painful
-                # and doesn't send any ID. 
+                # and doesn't send any ID.
                 _new_imet_id = imet_unique_id(_telemetry, imet1=(self.imet_type=="iMet-1"))
 
                 # If we have seen this ID before, keep using it.
@@ -1614,14 +1614,14 @@ class SondeDecoder(object):
             return _telem_ok
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.debug(
@@ -1629,14 +1629,14 @@ class SondeDecoder(object):
         )
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.info(
@@ -1644,14 +1644,14 @@ class SondeDecoder(object):
         )
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.error(
@@ -1659,14 +1659,14 @@ class SondeDecoder(object):
         )
 
     def log_critical(self, line):
-        """ Helper function to log an critical error message with a descriptive heading. 
+        """ Helper function to log an critical error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.critical(
@@ -1679,12 +1679,12 @@ class SondeDecoder(object):
 
         if self.decoder is not None and (not nowait):
             self.decoder.join()
-        
+
         if self.raw_file:
             self.raw_file.close()
 
     def running(self):
-        """ Check if the decoder subprocess is running. 
+        """ Check if the decoder subprocess is running.
 
         Returns:
             bool: True if the decoder subprocess is running.

@@ -38,6 +38,3 @@ Frame: <DLE><id><data_bytes><DLE><ETX>,
 xorsum(<DLE><id><data_bytes><DLE><ETX>),
 wobei 0x10 innerhalb <DLE> doppelt gesendet werden,
 zweimal zaehlen, wobei 0x10^0x10=0x00
-
-
-

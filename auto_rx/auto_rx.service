@@ -12,5 +12,3 @@ SyslogIdentifier=auto_rx
 
 [Install]
 WantedBy=multi-user.target
-
-

@@ -206,7 +206,7 @@ class OziUploader(object):
         """ Process packets from the input queue.
 
         This thread handles packets from the input queue (provided by the decoders)
-        Packets are sorted by ID, and a dictionary entry is created. 
+        Packets are sorted by ID, and a dictionary entry is created.
 
         """
 
@@ -227,7 +227,7 @@ class OziUploader(object):
             time.sleep(self.update_rate)
 
     def add(self, telemetry):
-        """ Add a dictionary of telemetry to the input queue. 
+        """ Add a dictionary of telemetry to the input queue.
 
         Args:
             telemetry (dict): Telemetry dictionary to add to the input queue.
@@ -255,21 +255,21 @@ class OziUploader(object):
             self.input_thread.join()
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("OziMux - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("OziMux - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

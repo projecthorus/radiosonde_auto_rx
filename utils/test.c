@@ -37,13 +37,13 @@ int main(int argc, char *argv[]) {
 	exit(1);
     }
 
-    if (strcmp(argv[1], "-") == 0) 
+    if (strcmp(argv[1], "-") == 0)
         fin = stdin;
     else
         fin = fopen(argv[1], "rb");
     assert(fin != NULL);
 
-    if (strcmp(argv[2], "-") == 0) 
+    if (strcmp(argv[2], "-") == 0)
         fout = stdout;
     else
         fout = fopen(argv[2], "wb");

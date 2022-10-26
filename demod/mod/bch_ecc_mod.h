@@ -94,4 +94,3 @@ int rs_decode_ErrEra(RS_t *RS, ui8_t cw[], int nera, ui8_t era_pos[], ui8_t *err
 int rs_decode_bch_gf2t2(RS_t *RS, ui8_t cw[], ui8_t *err_pos, ui8_t *err_val);
 
 #endif
-

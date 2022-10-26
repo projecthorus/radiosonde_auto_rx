@@ -110,4 +110,3 @@ void fdmdv_simulate_channel(float *sig_pwr_av, COMP samples[], int nin, float ta
 #endif
 
 #endif
-

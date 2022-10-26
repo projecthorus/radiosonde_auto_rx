@@ -28,10 +28,10 @@ function update_task_list(){
                     .attr("value","0")
                     .text("No Decoders"));
         }
-        
+
         // Update page with latest task.
         $('#task_status').text(task_info);
-        
+
         setTimeout(resume_web_controls,2000);
     });
 }
@@ -45,7 +45,7 @@ function disable_web_controls(){
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
     $("#sonde-type-select").prop('disabled', true);
-    $("#stop-frequency-select").prop('disabled', true);   
+    $("#stop-frequency-select").prop('disabled', true);
     $("#open-controls").prop('disabled', true);
     $("#open-controls").text("DISABLED");
 }
@@ -58,7 +58,7 @@ function pause_web_controls() {
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
     $("#sonde-type-select").prop('disabled', true);
-    $("#stop-frequency-select").prop('disabled', true);   
+    $("#stop-frequency-select").prop('disabled', true);
 }
 
 function resume_web_controls() {
@@ -69,7 +69,7 @@ function resume_web_controls() {
     $("#disable-scanner").prop('disabled', false);
     $("#frequency-input").prop('disabled', false);
     $("#sonde-type-select").prop('disabled', false);
-    $("#stop-frequency-select").prop('disabled', false);   
+    $("#stop-frequency-select").prop('disabled', false);
 }
 
 
@@ -80,7 +80,7 @@ function verify_password(){
         alert("Web Control not enabled!");
         $("#password-header").html("<h2>Web Control Disabled</h2>");
     }
-    
+
     // Grab the password
     if ($('#password-input').val() == "") {
         if (getCookie("password") === null) {
@@ -91,12 +91,12 @@ function verify_password(){
     } else {
         _api_password = $('#password-input').val();
     }
-    
+
     setCookie("password", _api_password);
 
     // Do the request
     $.post(
-        "/check_password", 
+        "/check_password",
         {"password": _api_password},
         function(data){
             // If OK, update the header to indicate the password was OK.
@@ -118,14 +118,14 @@ function disable_scanner(){
 
     // Re-verify the password. This will occur async, so wont stop the main request from going ahead,
     // but will at least present an error for the user.
-    verify_password();        
+    verify_password();
 
     // Grab the password
     _api_password = getCookie("password");
 
     // Do the request
     $.post(
-        "/disable_scanner", 
+        "/disable_scanner",
         {"password": _api_password},
         function(data){
             //console.log(data);
@@ -133,7 +133,7 @@ function disable_scanner(){
             //alert("Scanner disable request received - please wait until SDR is shown as Not Tasked before issuing further requests.")
             pause_web_controls();
             setTimeout(resume_web_controls,10000);
-            
+
         }
     ).fail(function(xhr, status, error){
         console.log(error);
@@ -162,7 +162,7 @@ function enable_scanner(){
 
     // Do the request
     $.post(
-        "/enable_scanner", 
+        "/enable_scanner",
         {"password": _api_password},
         function(data){
             //console.log(data);
@@ -194,7 +194,7 @@ function stop_decoder(){
 
     // Do the request
     $.post(
-        "/stop_decoder", 
+        "/stop_decoder",
         {password: _api_password, freq: _decoder},
         function(data){
             //console.log(data);
@@ -245,7 +245,7 @@ function start_decoder(){
 
     // Do the request
     $.post(
-        "/start_decoder", 
+        "/start_decoder",
         {password: _api_password, freq: _freq_hz, type: _type},
         function(data){
             alert("Added requested decoder to results queue.")

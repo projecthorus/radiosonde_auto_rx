@@ -39,7 +39,7 @@ void modem_stats_open(struct MODEM_STATS *f)
     memset(f, 0, sizeof(struct MODEM_STATS));
 
     /* init the FFT */
-    
+
 #ifndef __EMBEDDED__
     for(i=0; i<2*MODEM_STATS_NSPEC; i++)
 	f->fft_buf[i] = 0.0;

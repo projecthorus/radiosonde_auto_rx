@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10GeneralParser.cpp
  * Author: Viproz
  * Used code from rs1729
@@ -100,9 +100,9 @@ void M10GeneralParser::printStatsFrame() {
         }
         frame_bytes[i] = posMax;
     }
-    
+
     changeData(frame_bytes, false);
-    
+
     printf("Stats frame:\n");
     printFrame();
 }

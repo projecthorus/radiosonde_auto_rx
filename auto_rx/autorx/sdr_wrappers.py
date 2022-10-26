@@ -49,7 +49,7 @@ def test_sdr(
 
         return _ok
 
-    
+
     elif sdr_type == "KA9Q":
         # To be implemented
         _ok = False
@@ -151,10 +151,10 @@ def get_sdr_name(
 
     elif sdr_type == "KA9Q":
         return f"KA9Q {sdr_hostname}:{sdr_port}"
-    
+
     elif sdr_type == "SpyServer":
         return f"SpyServer {sdr_hostname}:{sdr_port}"
-    
+
     else:
         return f"UNKNOWN {sdr_type}"
 
@@ -321,7 +321,7 @@ def get_sdr_fm_cmd(
 
         if highpass:
             _cmd += f"highpass {int(highpass)} "
-        
+
         if lowpass:
             _cmd += f"lowpass {int(lowpass)} "
 
@@ -411,7 +411,7 @@ def get_power_spectrum(
 
     Arguments:
 
-    sdr_type (str): 'RTLSDR', 'Spyserver' or 'KA9Q' 
+    sdr_type (str): 'RTLSDR', 'Spyserver' or 'KA9Q'
 
     frequency_start (int): Start frequency for the PSD, Hz
     frequency_stop (int): Stop frequency for the PSD, Hz
@@ -446,7 +446,7 @@ def get_power_spectrum(
     """
 
     # No support for getting spectrum data on any other SDR source right now.
-    # Override sdr selection. 
+    # Override sdr selection.
 
 
     if sdr_type == "RTLSDR":
@@ -454,7 +454,7 @@ def get_power_spectrum(
 
         # Create filename to output to.
         _log_filename = f"log_power_{rtl_device_idx}.csv"
-        
+
         # If the output log file exists, remove it.
         if os.path.exists(_log_filename):
             os.remove(_log_filename)
@@ -538,7 +538,7 @@ def get_power_spectrum(
 
         # Create filename to output to.
         _log_filename = f"log_power_spyserver.csv"
-        
+
         # If the output log file exists, remove it.
         if os.path.exists(_log_filename):
             os.remove(_log_filename)
@@ -558,7 +558,7 @@ def get_power_spectrum(
         _frequency_centre = int(frequency_start + (frequency_stop-frequency_start)/2.0)
 
         # Note we are using the '-o' option here, which allows us to still get
-        # spectrum data even if we have specified a frequency which is out of 
+        # spectrum data even if we have specified a frequency which is out of
         # the range of a locked spyserver.
         _ss_power_cmd = (
             f"{_timeout_cmd} {ss_power_path} "

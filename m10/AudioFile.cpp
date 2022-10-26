@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   AudioFile.cpp
  * Author: Viproz
  * Used code from rs1729
@@ -167,5 +167,3 @@ int AudioFile::averageNormalizeSample(int sample) {
 void AudioFile::resetActiveSum() {
     activeSum = 0;
 }
-
-

@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10GeneralParser.h
  * Author: Viproz
  * Used code from rs1729
@@ -33,11 +33,11 @@ public:
     virtual double getDirection();
     virtual std::string getSerialNumber();
     std::array<unsigned char, DATA_LENGTH> getFrameBytes() {return frame_bytes;}
-    
+
     virtual std::array<unsigned char, DATA_LENGTH> replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data);
     virtual void addToStats();
     virtual void printStatsFrame();
-    
+
     virtual void printFrame() = 0;
 protected:
     std::array<unsigned char, DATA_LENGTH> frame_bytes;
@@ -48,4 +48,3 @@ protected:
 };
 
 #endif /* M10GENERALDECODER_H */
-

@@ -25,7 +25,7 @@ GENERATED_DIR = "./generated"
 # 10-20 dB seems to be the range where the demodulators fall over.
 EBNO_RANGE = np.arange(5,20.5,0.5)
 
-# Normalise the samples to +/- 1.0! 
+# Normalise the samples to +/- 1.0!
 # If we don't do this, bad things can happen later down the track...
 NORMALISE = True
 
@@ -37,7 +37,7 @@ NORMALISE = True
 # sample_rate = input file sample rate.
 
 SAMPLES = [
-    ['rs41_96k_float.bin', 4800, -20.0, 96000], 
+    ['rs41_96k_float.bin', 4800, -20.0, 96000],
     ['rs92_96k_float.bin', 4800, -100, 96000], # No threshold set, as signal is continuous.
     ['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
     ['m10_96k_float.bin', 9616, -10.0, 96000],  # Really weird baud rate.
@@ -67,7 +67,7 @@ def save_sample(data, filename):
 
 def calculate_variance(data, threshold=-100.0):
     # Calculate the variance of a set of radiosonde samples.
-    # Optionally use a threshold to limit the sample the variance 
+    # Optionally use a threshold to limit the sample the variance
     # is calculated over to ones that actually have sonde packets in them.
 
     _data_log = 20*np.log10(np.abs(data))
@@ -125,9 +125,3 @@ if __name__ == '__main__':
 
             save_sample(_data_noise, _out_file)
             print("Saved file: %s" % _out_file)
-
-
-
-
-
-

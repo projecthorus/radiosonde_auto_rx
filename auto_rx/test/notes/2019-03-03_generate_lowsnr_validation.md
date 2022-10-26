@@ -2,7 +2,7 @@
 
 All of the performance testing scripts in use rely on samples with 'calibrated' Signal-to-noise ratio (SNR) - we add noise to a 'golden' sample to produce a sample with a known SNR.
 
-However, instead of using SNR in the signal bandwidth, we use [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit). This normalises the SNR, and allows comparison between modems operating at different baud rates. Eventually, this will also allow comparison of the modems with the theoretical acheivable performance of a FSK modem. 
+However, instead of using SNR in the signal bandwidth, we use [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit). This normalises the SNR, and allows comparison between modems operating at different baud rates. Eventually, this will also allow comparison of the modems with the theoretical acheivable performance of a FSK modem.
 
 The calibrated SNR samples are generated using [generate_lowsnr.py](../generate_lowsnr.py). A set of [golden samples](http://rfhead.net/sondes/sonde_samples.tar.gz) (one per radiosonde type) have very high SNRs, usually about 40dB or so - enough such that all packets are easily decoded. For each sample, we measure the signal power in the sample. Then, using a calculation based on the baud rate, the sample rate, the number of bits-per-symbol, and the desired SNR, we can generate white noise with a given noise power. This is added to the sample, which is then normalised (to +/-1.0) and saved. These samples can then be run through the various demodulation chains to measure their performance.
 
@@ -46,7 +46,7 @@ cat test_bits.bin | csdr convert_s16_f > test_bits_f.bin
 ```
 SAMPLES = [
     ['../test_bits_f.bin', 4800, -100.0, 96000],
-    #['rs41_96k_float.bin', 4800, -20.0, 96000], 
+    #['rs41_96k_float.bin', 4800, -20.0, 96000],
     #['rs92_96k_float.bin', 2400, -100, 96000], # No threshold set, as signal is continuous.
     #['dfm09_96k_float.bin', 2500, -100, 96000], # Weird baud rate. No threshold set, as signal is continuous.
     #['m10_96k_float.bin', 9616, -10.0, 96000]  # Really weird baud rate.
@@ -56,7 +56,7 @@ The parameters in the list are:
 * The source sample filename.
 * The baud rate of the source file
 * A threshold, which is used to identify sections of the file containing packets, so as to accurately calculate the signal power. As this file contains a continuous FSK signal, the threshold is set very low, so the entire file is used for calculations.
-* The sample rate of the file. 
+* The sample rate of the file.
 
 The script is then run, and produces a set of files named `test_bits_f_16.0dB.bin` or similar. These can then be run back through the demodulator code using:
 ```

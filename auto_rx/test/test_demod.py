@@ -101,7 +101,7 @@ processing_type = {
     #     'files' : "./generated/*.bin"
     # },
     #   dft_detect - Sonde detection using DFT correlation
-    #   
+    #
     # 'dft_detect_csdr': {
     #     # Use a CSDR processing chain to do FM demodulation
     #     # Filter to 22 khz channel bandwidth, then demodulate.
@@ -149,9 +149,9 @@ processing_type = {
         'files' : "./generated/m10*"
     },
     'dfm_fsk_demod': {
-        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
-        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
-        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 |
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null |
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null|
         #../dfm09ecc -vv --json --dist --auto
 
         'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b 1250 -u 23750 --stats=5 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
@@ -194,7 +194,7 @@ processing_type = {
         'decode': "../mk2a_lms1680 -i --json 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : " | grep frame | wc -l",
-        # No low-SNR samples for this sonde available yet. 
+        # No low-SNR samples for this sonde available yet.
         'files' : "./generated/lms6-1680*"
     },
     'rs41_fsk_demod_soft': {
@@ -286,9 +286,9 @@ processing_type = {
         'files' : "./generated/m20*"
     },
     'dfm_fsk_demod_soft': {
-        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
-        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
-        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 |
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null |
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null|
         #../dfm09ecc -vv --json --dist --auto
 
         'demod': '| csdr shift_addition_cc 0.125000 2>/dev/null | csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b 1250 -u 23750 -s --stats=5 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
@@ -298,9 +298,9 @@ processing_type = {
         'files' : "./generated/dfm*.bin"
     },
     'dfm_fsk_demod_soft_centre': {
-        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
-        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
-        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 |
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null |
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null|
         #../dfm09ecc -vv --json --dist --auto
 
         'demod': '| csdr convert_f_s16 | ../tsrc - - 0.5208| ../fsk_demod --cs16 -b -10000 -u 10000 -s --stats=5 2 50000 2500 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
@@ -454,7 +454,7 @@ processing_type['rs92_rtlfm'] = {
     # Count the number of telemetry lines.
     "post_process" : " | grep M2513116 | wc -l",
     #"post_process" : " | grep \"errors: 0\" | wc -l",
-    'files' : "./generated/rs92*.bin" 
+    'files' : "./generated/rs92*.bin"
 }
 
 
@@ -486,7 +486,7 @@ processing_type['rs92ngp_rtlfm'] = {
     # Count the number of telemetry lines.
     "post_process" : "| grep P3213708 | wc -l",
     #"post_process" : " | grep \"errors: 0\" | wc -l",
-    'files' : "./generated/rsngp*.bin" 
+    'files' : "./generated/rsngp*.bin"
 }
 
 # # DFM
@@ -629,7 +629,7 @@ processing_type['lms6-400_rtlfm'] = {
     # Count the number of telemetry lines.
     "post_process" : " | wc -l",
     #"post_process" : " | grep \"errors: 0\" | wc -l",
-    'files' : "./generated/lms6-400*.bin" 
+    'files' : "./generated/lms6-400*.bin"
 }
 
 
@@ -766,15 +766,15 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
     for _file in _file_list:
 
         # Generate the command to run.
-        _cmd = "cat %s "%_file 
+        _cmd = "cat %s "%_file
 
         # Add in an optional frequency error if supplied.
         if shift != 0.0:
             _cmd += _shiftcmd
 
         # Add on the rest of the demodulation and decoding commands.
-        _cmd += _mode['demod'] + _mode['decode'] 
-        
+        _cmd += _mode['demod'] + _mode['decode']
+
         if args.show:
             _cmd += " | head -n 10"
         else:

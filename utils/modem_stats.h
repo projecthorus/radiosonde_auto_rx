@@ -38,11 +38,11 @@
 #define MODEM_STATS_NC_MAX      50
 #define MODEM_STATS_NR_MAX      8
 #define MODEM_STATS_ET_MAX      8
-#define MODEM_STATS_EYE_IND_MAX 160     
+#define MODEM_STATS_EYE_IND_MAX 160
 #define MODEM_STATS_NSPEC       512
 #define MODEM_STATS_MAX_F_HZ    4000
 #define MODEM_STATS_MAX_F_EST   4
-      
+
 struct MODEM_STATS {
     int    Nc;
     float  snr_est;                          /* estimated SNR of rx signal in dB (3 kHz noise BW)  */
@@ -56,7 +56,7 @@ struct MODEM_STATS {
     float  rx_timing;                        /* estimated optimum timing offset in samples         */
     float  clock_offset;                     /* Estimated tx/rx sample clock offset in ppm         */
     float  sync_metric;                      /* number between 0 and 1 indicating quality of sync  */
-    
+
     /* eye diagram traces */
     /* Eye diagram plot -- first dim is trace number, second is the trace idx */
 #ifndef __EMBEDDED__
@@ -68,7 +68,7 @@ struct MODEM_STATS {
 
     float f_est[MODEM_STATS_MAX_F_EST];
 #endif
-    
+
     /* Buf for FFT/waterfall */
 
 #ifndef __EMBEDDED__
@@ -86,4 +86,3 @@ void modem_stats_get_rx_spectrum(struct MODEM_STATS *f, float mag_spec_dB[], COM
 #endif
 
 #endif
-

@@ -35,7 +35,7 @@ def fix_datetime(datetime_str, local_dt_str = None):
         _outside_window = False
     else:
         _outside_window = True
-    
+
     # Append on a timezone indicator if the time doesn't have one.
     if datetime_str.endswith('Z') or datetime_str.endswith('+00:00'):
         pass
@@ -44,7 +44,7 @@ def fix_datetime(datetime_str, local_dt_str = None):
 
 
     # Parsing just a HH:MM:SS will return a datetime object with the year, month and day replaced by values in the 'default'
-    # argument. 
+    # argument.
     _telem_dt = parse(datetime_str, default=_now)
 
     if _outside_window:
@@ -94,7 +94,7 @@ def udp_listener_nmea_callback(info):
 
     bufGPRMC = StringIO()
     bufGPRMC.write('GPRMC,%010.3f,A,%08.3f,%s,%09.3f,%s,%.2f,%.2f,%06d,,' % (hms, lat, ns, lon, ew, speed, course, dateNMEA))
-    
+
     gprmc = bufGPRMC.getvalue()
 
     cs_grpmc = 0
@@ -103,15 +103,15 @@ def udp_listener_nmea_callback(info):
     bufGPRMC.write('*%02X' % (cs_grpmc))
 
     bufLine=bufGPRMC.getvalue()
-    
+
     sys.stdout.write('$')
     sys.stdout.write(bufLine)
     sys.stdout.write('\r\n')
 
     bufGPGGA = StringIO()
-    
+
     bufGPGGA.write('GPGGA,%010.3f,%08.3f,%s,%09.3f,%s,1,04,0.0,%.3f,M,%.1f,M,,' % (hms, lat, ns, lon, ew, alt - geoid, geoid))
-    
+
     gpgga = bufGPGGA.getvalue()
     cs_gpgga = 0
     for d in gpgga:
@@ -127,7 +127,7 @@ def udp_listener_nmea_callback(info):
 
 
 class UDPListenerNMEA(object):
-    ''' UDP Broadcast Packet Listener 
+    ''' UDP Broadcast Packet Listener
     Listens for Horuslib UDP broadcast packets, and passes them onto a callback function
     '''
 
@@ -188,10 +188,10 @@ class UDPListenerNMEA(object):
                 m = None
             except:
                 traceback.print_exc()
-            
+
             if m != None:
                 self.handle_udp_packet(m[0])
-        
+
         #print("Closing UDP Listener")
         self.s.close()
 
@@ -207,14 +207,14 @@ class UDPListenerNMEA(object):
         self.listener_thread.join()
 
 if __name__ == '__main__':
-    
+
     try:
         _telem_horus_udp_listener = UDPListenerNMEA(summary_callback=udp_listener_nmea_callback,
                                                     gps_callback=None,
                                                     bearing_callback=None,
                                                     port=55673)
         _telem_horus_udp_listener.start()
-        
+
         while True:
             time.sleep(0.1)
 

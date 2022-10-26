@@ -29,7 +29,7 @@ class FSKDemodStats(object):
             averaging_time (float): Use the last X seconds of data in calculations.
             peak_hold (bool): If true, use a peak-hold SNR metric instead of a mean.
             decoder_id (str): A unique ID for this object (suggest use of the SDR device ID)
-            
+
         """
 
         self.averaging_time = float(averaging_time)
@@ -105,21 +105,21 @@ class FSKDemodStats(object):
             self.snr = np.mean(self.in_snr)
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("FSK Demod Stats #%s - %s" % (str(self.decoder_id), line))
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("FSK Demod Stats #%s - %s" % (str(self.decoder_id), line))
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

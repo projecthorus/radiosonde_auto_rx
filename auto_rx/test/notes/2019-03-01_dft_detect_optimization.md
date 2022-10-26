@@ -6,7 +6,7 @@ Mark Jessop - 2019-03-02
 
 auto_rx uses the [dft_detect](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c) utility, developed by rs1729. This utility accepts fm-demodulated samples (fs=48kHz, unsigned 8-bit) and correlates the incoming samples against a set of known radiosonde packet headers.
 
-The incoming sample stream is considered to contain a radiosonde signal when the correlation score for a particular radiosonde type header exceeds a threshold, defined in the code [here](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c#L92). 
+The incoming sample stream is considered to contain a radiosonde signal when the correlation score for a particular radiosonde type header exceeds a threshold, defined in the code [here](https://github.com/rs1729/RS/blob/master/scan/dft_detect.c#L92).
 These threshold values need to be selected such that detection occurs at the lowest signal SNR as possible, though without producing false positive, or mis-detections.
 
 To assist with selection of these thresholds, an investigation was performed where dft_detect was run over a set of radiosonde samples, with calibrated SNRs (Eb/N0) between 5dB and 20 dB (using generate_lowsnr.py). dft_detect was also run over noise samples.
@@ -68,7 +68,7 @@ We can now re-generate the above plots, with the new threshold values:
 ![M10](http://rfhead.net/sondes/plots/dft_detect_thresholds/m10_newthresh.png)
 
 Much improvement! From the plots, we can now determine the minimum SNR at which detection is possible:
-* RS41: 8.5 dB 
+* RS41: 8.5 dB
 * RS92: 10.5 dB
 * DFM: 10.5 dB
 * M10: 5.0 dB (There may be a SNR miscalibration issue with the M10 samples)

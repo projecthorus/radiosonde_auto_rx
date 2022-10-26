@@ -47,7 +47,7 @@ class SondehubUploader(object):
         user_position_update_rate=6,
     ):
         """ Initialise and start a Sondehub uploader
-        
+
         Args:
             upload_rate (int): How often to upload batches of data.
             upload_timeout (int): Upload timeout.
@@ -91,7 +91,7 @@ class SondehubUploader(object):
             self.user_position = (lat, lon, alt)
 
     def add(self, telemetry):
-        """ Add a dictionary of telemetry to the input queue. 
+        """ Add a dictionary of telemetry to the input queue.
 
         Args:
             telemetry (dict): Telemetry dictionary to add to the input queue.
@@ -276,7 +276,7 @@ class SondehubUploader(object):
         if "f_centre" in telemetry:
             _freq = round(telemetry["f_centre"] / 1e3) # Hz -> kHz
             _output["frequency"] = _freq / 1e3 # kHz -> MHz
-        
+
         if "tx_frequency" in telemetry:
             _output["tx_frequency"] = telemetry["tx_frequency"] / 1e3 # kHz -> MHz
 
@@ -308,11 +308,11 @@ class SondehubUploader(object):
             ) > self.user_position_update_rate * 3600:
                 self.station_position_upload()
 
-            # If we are encounting DFM packets we need to upload at a slower rate so 
+            # If we are encounting DFM packets we need to upload at a slower rate so
             # that we have enough uploaded packets to pass z-check.
             if self.slower_uploads:
                 self.actual_upload_rate = min(30,int(self.upload_rate*1.5))
-            
+
             # Sleep while waiting for some new data.
             for i in range(self.actual_upload_rate):
                 time.sleep(1)
@@ -407,12 +407,12 @@ class SondehubUploader(object):
             self.log_error("Upload failed after %d retries" % (_retries))
 
     def station_position_upload(self):
-        """ 
+        """
         Upload a station position packet to SondeHub.
 
         This uses the PUT /listeners API described here:
         https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)
-        
+
         """
 
         if self.inhibit_upload:
@@ -486,7 +486,7 @@ class SondehubUploader(object):
         self.input_processing_running = False
 
     def running(self):
-        """ Check if the uploader thread is running. 
+        """ Check if the uploader thread is running.
 
         Returns:
             bool: True if the uploader thread is running.
@@ -494,21 +494,21 @@ class SondehubUploader(object):
         return self.input_processing_running
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("Sondehub Uploader - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("Sondehub Uploader - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

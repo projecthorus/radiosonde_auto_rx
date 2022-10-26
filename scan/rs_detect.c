@@ -146,7 +146,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) ret = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -200,7 +200,7 @@ void inc_buf(int *bufpos) {
 
 int compare(char buf[], char header[], int bufpos) {
     int i, j;
-    
+
     i = 0;
     j = bufpos;
     while (i < HEADLEN) {
@@ -342,4 +342,3 @@ ende:
 
     return header_found;
 }
-

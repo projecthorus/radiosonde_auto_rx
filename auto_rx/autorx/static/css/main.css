@@ -6,10 +6,10 @@ body {
 }
 
 p {
-  margin-top: 0.3vh;   
-  margin-top: calc(var(--vh, 1vh) * 0.3); 
+  margin-top: 0.3vh;
+  margin-top: calc(var(--vh, 1vh) * 0.3);
   margin-bottom: 0.3vh;
-  margin-bottom: calc(var(--vh, 1vh) * 0.3); 
+  margin-bottom: calc(var(--vh, 1vh) * 0.3);
 }
 
 body {
@@ -105,7 +105,7 @@ a {
 
 .sidenav img {
   height: 10vh;
-  height: calc(var(--vh, 1vh) * 10); 
+  height: calc(var(--vh, 1vh) * 10);
   display: block;
   margin-left: auto;
   margin-right: auto;
@@ -195,7 +195,7 @@ button[disabled]{
   flex-direction: column;
 }
 
-#mapid { 
+#mapid {
   flex: auto;
   z-index: 0;
 }
@@ -220,7 +220,7 @@ table {
 }
 
 .maintable {
-  border-collapse:separate; 
+  border-collapse:separate;
   border-spacing: 0 1em
 }
 
@@ -264,7 +264,7 @@ table {
   height: 28px;
 }
 
-.switch input { 
+.switch input {
   opacity: 0;
   width: 0;
   height: 0;
@@ -388,7 +388,7 @@ input:checked + .slider:before {
 
 /* Add Animation */
 @-webkit-keyframes animatetop {
-  from {top:-300px; opacity:0} 
+  from {top:-300px; opacity:0}
   to {top:0; opacity:1}
 }
 

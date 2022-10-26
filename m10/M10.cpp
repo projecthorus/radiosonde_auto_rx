@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   main.cpp
  * Author: Viproz
  * Used code from rs1729
@@ -11,7 +11,7 @@
 using namespace std;
 
 /*
- * 
+ *
  */
 int main(int argc, char** argv) {
     M10Decoder decoder;
@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
             fprintf(stderr, "       -b2 Try to repair data with the previous line\n");
             fprintf(stderr, "       -s Try to repair data with stats if no data has been correctly decoded\n");
             fprintf(stderr, "       --ch2 Decode the second channel\n");
-            
+
             return 0;
         } else if ((strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0)) {
             decoder.setRaw(true);
@@ -56,4 +56,3 @@ int main(int argc, char** argv) {
 
     return decoder.startDecode(filename);
 }
-

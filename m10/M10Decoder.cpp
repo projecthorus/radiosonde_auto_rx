@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Decoder.cpp
  * Author: Viproz
  * Used code from rs1729
@@ -15,7 +15,7 @@ M10Decoder::M10Decoder() {
     m10Gtop = new M10GtopParser();
     m10Trimble = new M10TrimbleParser();
     m10Parser = m10Gtop;
-    
+
     frameSamples = NULL;
     audioFile = NULL;
 }

@@ -26,7 +26,7 @@ def read_telemetry_csv(filename,
     longitude_field = 4,
     altitude_field = 5,
     delimiter=','):
-    ''' 
+    '''
     Read in a radiosonde_auto_rx generated telemetry CSV file.
     Fields to use can be set as arguments to this function.
     These have output like the following:
@@ -104,8 +104,8 @@ def new_placemark(lat, lon, alt,
         _alt_mode = 'clampToGround'
 
     flight_icon_style = fastkml.styles.IconStyle(
-        ns=ns, 
-        icon_href=icon, 
+        ns=ns,
+        icon_href=icon,
         scale=scale)
 
     flight_style = fastkml.styles.Style(
@@ -113,7 +113,7 @@ def new_placemark(lat, lon, alt,
         styles=[flight_icon_style])
 
     flight_placemark = fastkml.kml.Placemark(
-        ns=ns, 
+        ns=ns,
         id=placemark_id,
         name=name,
         description="",
@@ -238,7 +238,7 @@ def convert_single_file(filename, absolute=True, tessellate=True, last_only=Fals
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", type=str, default="../log/*_sonde.log", 
+    parser.add_argument("-i", "--input", type=str, default="../log/*_sonde.log",
         help="Path to log file. May include wildcards, though the path must be wrapped in quotes. Default=../log/*_sonde.log")
     parser.add_argument("-o", "--output", type=str, default="sondes.kml", help="KML output file name. Default=sondes.kml")
     parser.add_argument('--clamp', action="store_false", default=True, help="Clamp tracks to ground instead of showing absolute altitudes.")
@@ -260,20 +260,3 @@ if __name__ == "__main__":
     write_kml(_placemarks, filename=args.output)
 
     print("Output saved to: %s" % args.output)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

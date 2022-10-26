@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   AudioFile.h
  * Author: Viproz
  * Used code from rs1729
@@ -33,17 +33,17 @@ public:
     int averageNormalizeSample(int sample);
 
     void resetActiveSum();
-    
+
     // Getters
     int getSampleRate() { return sample_rate; }
     double getSamplesPerBit() { return samplesPerBit; }
-    
+
     // Setters
     void setTargetedChannel(int channel) { targetedChannel = channel; }
     void setBaudRate(int baudv) { baudRate = baudv; }
 private:
     int findstr(char* buf, const char* str, int pos);
-    
+
     double activeSum = 0;
     int targetedChannel = 0;
     int sample_rate = 0;
@@ -56,4 +56,3 @@ private:
 };
 
 #endif /* AUDIOFILE_H */
-

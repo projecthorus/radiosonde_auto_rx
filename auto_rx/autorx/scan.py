@@ -295,7 +295,7 @@ def detect_sonde(
         if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
             logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
             _if_bw = 15
-        
+
     else:
         # 1680 MHz sondes
         # Both the RS92-NGP and 1680 MHz LMS6 have a much wider bandwidth than their 400 MHz counterparts.
@@ -408,9 +408,9 @@ def detect_sonde(
         )
 
     _sdr_name = get_sdr_name(
-        sdr_type, 
-        rtl_device_idx = rtl_device_idx, 
-        sdr_hostname = sdr_hostname, 
+        sdr_type,
+        rtl_device_idx = rtl_device_idx,
+        sdr_hostname = sdr_hostname,
         sdr_port = sdr_port
     )
 
@@ -750,9 +750,9 @@ class SondeScanner(object):
 
         # Test if the supplied SDR is working.
         _sdr_ok = test_sdr(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port,
             ss_iq_path = self.ss_iq_path
             )
@@ -812,9 +812,9 @@ class SondeScanner(object):
                     self.log_debug("Performing periodic check of SDR.")
 
                     _sdr_ok = test_sdr(
-                        self.sdr_type, 
-                        rtl_device_idx = self.rtl_device_idx, 
-                        sdr_hostname = self.sdr_hostname, 
+                        self.sdr_type,
+                        rtl_device_idx = self.rtl_device_idx,
+                        sdr_hostname = self.sdr_hostname,
                         sdr_port = self.sdr_port,
                         ss_iq_path = self.ss_iq_path
                         )
@@ -835,9 +835,9 @@ class SondeScanner(object):
                 self.error_retries += 1
                 # Attempt to reset the SDR, if possible.
                 reset_sdr(
-                    self.sdr_type, 
-                    rtl_device_idx = self.rtl_device_idx, 
-                    sdr_hostname = self.sdr_hostname, 
+                    self.sdr_type,
+                    rtl_device_idx = self.rtl_device_idx,
+                    sdr_hostname = self.sdr_hostname,
                     sdr_port = self.sdr_port
                 )
 
@@ -1150,9 +1150,9 @@ class SondeScanner(object):
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.debug(f"Scanner ({_sdr_name}) - {line}")
@@ -1163,9 +1163,9 @@ class SondeScanner(object):
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.info(f"Scanner ({_sdr_name}) - {line}")
@@ -1176,9 +1176,9 @@ class SondeScanner(object):
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.error(f"Scanner ({_sdr_name}) - {line}")
@@ -1189,9 +1189,9 @@ class SondeScanner(object):
             line (str): Message to be logged.
         """
         _sdr_name = get_sdr_name(
-            self.sdr_type, 
-            rtl_device_idx = self.rtl_device_idx, 
-            sdr_hostname = self.sdr_hostname, 
+            self.sdr_type,
+            rtl_device_idx = self.rtl_device_idx,
+            sdr_hostname = self.sdr_hostname,
             sdr_port = self.sdr_port
         )
         logging.warning(f"Scanner ({_sdr_name}) - {line}")

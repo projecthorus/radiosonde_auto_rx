@@ -17,11 +17,11 @@
 #### Examples
   Running from file :
   * `./m10 -b -R 20181227.wav`
-  
+
   Running with sox on live audio
   * `sox -t oss /dev/dsp -t wav - 2>/dev/null | ./m10 -b`
-  
+
   It can also run on windows, use Cygwin Terminal if you want to use sox.
-  
+
 <br />
 This software is a C++ adaptation of https://github.com/rs1729/RS/blob/master/m10 with improvement to the decoding performances.

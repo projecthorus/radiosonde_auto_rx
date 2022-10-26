@@ -119,7 +119,7 @@ while ($line = <$fh>) {
                 }
             }
         }
-            
+
     }
 }
 close $fh;
@@ -130,7 +130,7 @@ if ($num_lines == 0) {
 }
 else {
     $num_peaks = scalar(@peakarray);
-    for ($j = 0; $j < $num_peaks-1; $j++) {    
+    for ($j = 0; $j < $num_peaks-1; $j++) {
         if ($peakarray[$j+1]-$peakarray[$j] < 10e3) {  # DFM peak-to-peak: 6kHz
             push @peakarray, $peakarray[$j]+($peakarray[$j+1]-$peakarray[$j])/2;
         }
@@ -148,14 +148,14 @@ else {
         eval {
             local $SIG{ALRM} = sub {die "alarm\n"};
             alarm 30; # beide Bandbreiten
-            print "\n$freq Hz: ";  # detect ohne highpass 20 
-            system("timeout 12s rtl_fm -p $ppm -M fm -s 15k -f $freq 2>/dev/null |\ 
-                    sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null |\ 
+            print "\n$freq Hz: ";  # detect ohne highpass 20
+            system("timeout 12s rtl_fm -p $ppm -M fm -s 15k -f $freq 2>/dev/null |\
+                    sox -t raw -r 15k -e s -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null |\
                     ./rs_detect -s -z -t 8 2>/dev/null");
             $ret = $? >> 8;
             if (!$ret) {  # mehr Bandbreite bei iMet
-                system("timeout 12s rtl_fm -p $ppm -M fm -s 36k -o 4 -f $freq 2>/dev/null |\ 
-                        sox -t raw -r 36k -e s -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null |\ 
+                system("timeout 12s rtl_fm -p $ppm -M fm -s 36k -o 4 -f $freq 2>/dev/null |\
+                        sox -t raw -r 36k -e s -b 16 -c 1 - -r 48000 -t wav - 2>/dev/null |\
                         ./rs_detect -s -z -t 8 2>/dev/null");
                 $ret = $? >> 8;
             }
@@ -184,8 +184,8 @@ else {
             $utc = strftime('%Y%m%d_%H%M%S', gmtime);
             $wavfile = $rs."-".$utc."Z-".$freq."Hz.wav";
             if ($rs) {
-                system("timeout 30s rtl_fm -p $ppm -M fm $WFM -s $breite -f $freq 2>/dev/null |\ 
-                        sox -t raw -r $breite -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - $filter 2>/dev/null |\ 
+                system("timeout 30s rtl_fm -p $ppm -M fm $WFM -s $breite -f $freq 2>/dev/null |\
+                        sox -t raw -r $breite -e s -b 16 -c 1 - -r 48000 -b 8 -t wav - $filter 2>/dev/null |\
                         tee $log_dir/$wavfile | $dec $inv 2>/dev/null");
             }
         }
@@ -224,4 +224,3 @@ sub reset_dvbt {
         }
     }
 }
-

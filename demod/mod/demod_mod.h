@@ -190,5 +190,3 @@ int find_header(dsp_t *, float, int, int, int);
 int f32soft_read(FILE *fp, float *s);
 int find_binhead(FILE *fp, hdb_t *hdb, float *score);
 int find_softbinhead(FILE *fp, hdb_t *hdb, float *score);
-
-

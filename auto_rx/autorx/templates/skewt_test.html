@@ -16,14 +16,14 @@
   <body>
     <div class="container">
 		<h2>auto_rx SkewT Plot Testing</h2>
-		<div class="row">			
+		<div class="row">
 			<div class="col-md-12">
 				<div class="row">
 						<input type="text" id="serial-input" placeholder="Serial" >
 						<input type="text" id="decimation-input" placeholder="Decimation" value=25 >
 						<button class="btn btn-primary" onClick="download();">load</button>
 						<button class="btn btn-primary" onClick="skewt.clear();">clear</button>
-				</div>				
+				</div>
 				<div class="row">
 					<div class="col-md-12 panel panel-default">
 						<div id="skewt"></div>
@@ -47,7 +47,7 @@
 		catch(err) {
 		    console.log(err);
 		    alert(err);
-		}		
+		}
 	}
 
 	var skewt = new SkewT('#skewt');
@@ -59,7 +59,7 @@
 		_decim = $('#decimation-input').val();
 
 		$.post(
-		"/get_log_detail", 
+		"/get_log_detail",
         {serial: _serial, decimation:_decim},
         function(data){
 			console.log(data);
@@ -71,6 +71,6 @@
 		});
 	}
 
-	</script>	
+	</script>
   </body>
 </html>

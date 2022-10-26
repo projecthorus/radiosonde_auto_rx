@@ -254,7 +254,7 @@ def generate_station_object(
 
 
 class APRSUploader(object):
-    """ 
+    """
     Queued APRS Telemetry Uploader class
     This performs uploads to an APRS-IS server.
 
@@ -678,7 +678,7 @@ class APRSUploader(object):
         """ Process packets from the input queue.
 
         This thread handles packets from the input queue (provided by the decoders)
-        Packets are sorted by ID, and a dictionary entry is created. 
+        Packets are sorted by ID, and a dictionary entry is created.
 
         """
 
@@ -724,7 +724,7 @@ class APRSUploader(object):
             time.sleep(0.1)
 
     def add(self, telemetry):
-        """ Add a dictionary of telemetry to the input queue. 
+        """ Add a dictionary of telemetry to the input queue.
 
         Args:
             telemetry (dict): Telemetry dictionary to add to the input queue.
@@ -768,28 +768,28 @@ class APRSUploader(object):
             self.input_thread.join()
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("APRS-IS - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("APRS-IS - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.error("APRS-IS - %s" % line)
 
     def log_warning(self, line):
-        """ Helper function to log a warning message with a descriptive heading. 
+        """ Helper function to log a warning message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

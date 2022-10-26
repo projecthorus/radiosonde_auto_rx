@@ -284,7 +284,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         if auto_rx_config["station_lat"] > 90.0 or auto_rx_config["station_lat"] < -90.0:
             logging.critical("Config - Invalid Station Latitude! (Outside +/- 90 degrees!)")
             return None
-        
+
         if auto_rx_config["station_lon"] > 180.0 or auto_rx_config["station_lon"] < -180.0:
             logging.critical("Config - Invalid Station Longitude! (Outside +/- 180 degrees!)")
             return None
@@ -632,7 +632,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["web_control"] = False
             auto_rx_config["web_password"] = "none"
-        
+
         try:
             auto_rx_config["save_raw_hex"] = config.getboolean(
                 "debugging", "save_raw_hex"
@@ -642,7 +642,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find save_raw_hex setting, using default (disabled)"
             )
             auto_rx_config["save_raw_hex"] = False
-        
+
         try:
             auto_rx_config["experimental_decoders"]["MK2LMS"] = config.getboolean(
                 "advanced", "lms6-1680_experimental"
@@ -665,12 +665,12 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 
         # As of auto_rx version 1.5.10, we are limiting APRS output to only radiosondy.info,
-        # and only on the non-forwarding port. 
+        # and only on the non-forwarding port.
         # This decision was not made lightly, and is a result of the considerable amount of
         # non-amateur traffic that radiosonde flights are causing within the APRS-IS network.
-        # Until some form of common format can be agreed to amongst the developers of *all* 
-        # radiosonde tracking software to enable radiosonde telemetry to be de-duped, 
-        # I have decided to help reduce the impact on the wider APRS-IS network by restricting 
+        # Until some form of common format can be agreed to amongst the developers of *all*
+        # radiosonde tracking software to enable radiosonde telemetry to be de-duped,
+        # I have decided to help reduce the impact on the wider APRS-IS network by restricting
         # the allowed servers and ports.
         # If you are using another APRS-IS server that *does not* forward to the wider APRS-IS
         # network and want it allowed, then please raise an issue at
@@ -678,7 +678,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         #
         # You are of course free to fork and modify this codebase as you wish, but please be aware
         # that this goes against the wishes of the radiosonde_auto_rx developers to not be part
-        # of the bigger problem of APRS-IS congestion. 
+        # of the bigger problem of APRS-IS congestion.
 
         ALLOWED_APRS_SERVERS = ["radiosondy.info"]
         ALLOWED_APRS_PORTS = [14590]
@@ -688,7 +688,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Please do not upload to servers which forward to the wider APRS-IS network and cause network congestion. Switching to default server of radiosondy.info. If you believe this to be in error, please raise an issue at https://github.com/projecthorus/radiosonde_auto_rx/issues"
             )
             auto_rx_config["aprs_server"] = "radiosondy.info"
-        
+
         if auto_rx_config["aprs_port"] not in ALLOWED_APRS_PORTS:
             logging.warning(
                 "Please do not use APRS ports which forward data out to the wider APRS-IS network and cause network congestion. Switching to default port of 14590. If you believe this to be in error, please raise an issue at https://github.com/projecthorus/radiosonde_auto_rx/issues"
@@ -819,10 +819,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "in_use": False,
                     "task": None,
                 }
-            
+
             logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
             return None
-        
+
         else:
             logging.critical(f"Config - Unknown SDR Type {auto_rx_config['sdr_type']} - exiting.")
             return None

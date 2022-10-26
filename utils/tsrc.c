@@ -39,13 +39,13 @@ int main(int argc, char *argv[]) {
 	exit(1);
     }
 
-    if (strcmp(argv[1], "-") == 0) 
+    if (strcmp(argv[1], "-") == 0)
         fin = stdin;
     else
         fin = fopen(argv[1], "rb");
     assert(fin != NULL);
 
-    if (strcmp(argv[2], "-") == 0) 
+    if (strcmp(argv[2], "-") == 0)
         fout = stdout;
     else
         fout = fopen(argv[2], "wb");
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
         nremaining = data.input_frames - data.input_frames_used;
         nin = data.input_frames_used;
-	//fprintf(stderr, "input frames: %d output_frames %d nremaining: %d\n", 
+	//fprintf(stderr, "input frames: %d output_frames %d nremaining: %d\n",
         //        (int)data.input_frames_used, (int)data.output_frames_gen, nremaining);
         for(i=0; i<nremaining*channels; i++)
             in_short[i] = in_short[i+nin*channels];

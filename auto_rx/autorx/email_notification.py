@@ -56,7 +56,7 @@ class EmailNotification(object):
         self.mail_from = mail_from
         self.mail_to = mail_to
         self.mail_subject = mail_subject
-        self.mail_nearby_landing_subject = mail_nearby_landing_subject 
+        self.mail_nearby_landing_subject = mail_nearby_landing_subject
         self.station_position = station_position
         self.launch_notifications = launch_notifications
         self.landing_notifications = landing_notifications
@@ -358,21 +358,21 @@ class EmailNotification(object):
         return self.input_processing_running
 
     def log_debug(self, line):
-        """ Helper function to log a debug message with a descriptive heading. 
+        """ Helper function to log a debug message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.debug("E-Mail - %s" % line)
 
     def log_info(self, line):
-        """ Helper function to log an informational message with a descriptive heading. 
+        """ Helper function to log an informational message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """
         logging.info("E-Mail - %s" % line)
 
     def log_error(self, line):
-        """ Helper function to log an error message with a descriptive heading. 
+        """ Helper function to log an error message with a descriptive heading.
         Args:
             line (str): Message to be logged.
         """

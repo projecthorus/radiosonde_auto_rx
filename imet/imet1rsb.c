@@ -69,7 +69,7 @@ int read_wav_header(FILE *fp) {
         p++; if (p==4) p=0;
         if (findstr(buff, fmt_, p) == 4) break;
     }
-    
+
     if (fread(buff, 1, 4, fp) < 4) return -1;
     if (fread(buff, 1, 2, fp) < 2) return -1;
     if (fread(buff, 1, 2, fp) < 2) return -1;
@@ -115,7 +115,7 @@ int read_signed_sample(FILE *fp) {  // int = i32_t
         byte = fgetc(fp);
         if (byte == EOF) return EOF_INT;
         if (i == 0) ret = byte;
-    
+
         if (bits_sample == 16) {
             byte = fgetc(fp);
             if (byte == EOF) return EOF_INT;
@@ -160,7 +160,7 @@ int read_bits(FILE *fp, char *Bit, float *l) {
         else             *Bit = 'u';
     }
     else *l = 0;
-    
+
     //*len = (int)(l+0.5); // round(l)
 
     return 0;
@@ -457,4 +457,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-

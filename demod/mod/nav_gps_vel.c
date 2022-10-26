@@ -1889,4 +1889,3 @@ int NAV_LinV(int N, SAT_t satv[], double pos_ecef[3],
 
     return 0;
 }
-

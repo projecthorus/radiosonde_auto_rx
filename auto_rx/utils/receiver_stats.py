@@ -107,7 +107,7 @@ def read_last_position(filename):
     _f = open(filename, 'r')
     for line in _f:
         _last = line
-    
+
     return _last.split(',')
 
 
@@ -163,17 +163,10 @@ if __name__ == '__main__':
         statistics['furthest']['elev'],
         statistics['furthest']['bearing']))
     print("    Last Telemetry: %s" % str(",".join(statistics['furthest']['telem'])))
-    
+
 
     print("Lowest Elevation: %.1f degrees" % statistics['lowest']['elev'])
     print("    Detail: %.1f km range, %.1f deg bearing" % (
         statistics['lowest']['range'],
         statistics['lowest']['bearing']))
     print("    Last Telemetry: %s" % str(",".join(statistics['lowest']['telem'])))
-
-
-
-
-
-
-

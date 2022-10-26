@@ -1,7 +1,7 @@
 #
 # Radiosonde Auto RX v2 Station Configuration File
 #
-# Copy this file to station.cfg and modify as required. 
+# Copy this file to station.cfg and modify as required.
 #
 # If you only change a few settings, the important ones to change are:
 # - [habitat] -> uploader_callsign - Your station callsign!
@@ -66,12 +66,12 @@ bias = False
 # Australia: Use 400.05 - 403 MHz
 # New Zealand: Use 400.05 - 404 MHz
 # Europe: Use 400.05 - 406 MHz
-# US: 
+# US:
 #   Some areas have transitioned to the 400.05 - 406 MHz band, so try 400.05 - 406
 #   Some areas are still using ~1680 MHz sondes, which use channels of 1676, 1678, 1680 and 1682 MHz (Thanks Tory!)
 #   Example only_scan for these sondes: [1676.0, 1678.0, 1680.0, 1682.0]
 #   In these areas I suggest using the only_scan feature below instead of using the peak-detect search.
-#	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as 
+#	You may also need to apply a small offset to the frequency for decoding reliability (i.e. 1676.025 MHz) as
 #	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
 #
 # Note - when using either a KA9Q or SpyServer as the SDR backend, the frequency scan limits are set by the
@@ -156,7 +156,7 @@ uploader_antenna = 1/4 wave monopole
 sondehub_enabled = True
 
 # How often to push data to the SondeHub Database. (seconds)
-# All received positions are cached and uploaded every X seconds. 
+# All received positions are cached and uploaded every X seconds.
 # Uploads are gzip compressed, so don't require much data transfer.
 sondehub_upload_rate = 15
 
@@ -177,12 +177,12 @@ sondehub_contact_email = none@none.com
 # IMPORTANT APRS NOTE
 #
 # As of auto_rx version 1.5.10, we are limiting APRS output to only radiosondy.info,
-# and only on the non-forwarding port. 
+# and only on the non-forwarding port.
 # This decision was not made lightly, and is a result of the considerable amount of
 # non-amateur traffic that radiosonde flights are causing within the APRS-IS network.
-# Until some form of common format can be agreed to amongst the developers of *all* 
-# radiosonde tracking software to enable radiosonde telemetry to be de-duped, 
-# I have decided to help reduce the impact on the wider APRS-IS network by restricting 
+# Until some form of common format can be agreed to amongst the developers of *all*
+# radiosonde tracking software to enable radiosonde telemetry to be de-duped,
+# I have decided to help reduce the impact on the wider APRS-IS network by restricting
 # the allowed servers and ports.
 # If you are using another APRS-IS server that *does not* forward to the wider APRS-IS
 # network and want it allowed, then please raise an issue at
@@ -190,12 +190,12 @@ sondehub_contact_email = none@none.com
 #
 # You are of course free to fork and modify this codebase as you wish, but please be aware
 # that this goes against the wishes of the radiosonde_auto_rx developers to not be part
-# of the bigger problem of APRS-IS congestion. 
+# of the bigger problem of APRS-IS congestion.
 # As of 2022-03-01, radiosonde traffic has been filtered from aprs.fi, so even if you do
 # modify the code, you still won't see sondes on that map.
-# APRS-IS is a *shared resource*, intended for the use of all amateur radio operators, and 
+# APRS-IS is a *shared resource*, intended for the use of all amateur radio operators, and
 # for many years we have been treating it as a playground to dump large amounts of non-amateur
-# traffic into, so we can see weather balloons on a map. 
+# traffic into, so we can see weather balloons on a map.
 # Instead of congesting this shared resource with this non-amateur traffic, we should instead
 # be moving to using databases and sites specialised for this purpose, for example sondehub.org
 
@@ -211,18 +211,18 @@ aprs_pass = 00000
 
 # APRS Upload Rate - Upload a packet every X seconds.
 # This has a lower limit of 30 seconds, to avoid flooding radiosondy.info
-# Please be respectful, and do not attempt to upload faster than this. 
+# Please be respectful, and do not attempt to upload faster than this.
 upload_rate = 30
 
 # APRS-IS server to upload to.
-# Currently we only support uploading to radiosondy.info 
+# Currently we only support uploading to radiosondy.info
 # When using port 14580, packets are not forwarded to the wider APRS-IS network, and hence
 # are help reduce the huge amount of non-amateur traffic that ends up in APRS-IS from
 # radiosondes.
 aprs_server = radiosondy.info
 
 # APRS-IS Port Number to upload to.
-# 
+#
 #   Port 14590 - Packets stay within radiosondy.info and do not congest the wider APRS-IS
 #                network.
 #
@@ -273,7 +273,7 @@ aprs_use_custom_object_id = False
 # <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)
 # <id> - Sonde Serial Number (i.e. M1234567)
 # <vel_v> - Sonde Vertical Velocity (i.e. -5.1m/s)
-# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC. 
+# <temp> - Sonde reported temperature. If no temp data available, this will report -273 degC.
 # <humidity> - Sonde reported humidity.
 # <pressure> - Sonde reported pressure
 # <batt> - Battery Voltage (e.g. 3.1V)
@@ -512,7 +512,7 @@ ss_power_path = ./ss_power
 # They have much better drift handling performance, and so may be better suited for
 # 1680 MHz sondes, but use considerably more CPU. Recommend use of a Pi 3 or better.
 # The experimental decoders can be enabled/disabled independently for each radiosonde type.
-# It is recommended that these are always left enabled. 
+# It is recommended that these are always left enabled.
 rs41_experimental = True
 rs92_experimental = True
 dfm_experimental = True
@@ -550,7 +550,7 @@ ngp_tweak = False
 #   Users can also decide to temporary block sondes which are outside of a radius range.
 #
 [filtering]
-# Discard positions with an altitude greater than 50000 metres. 
+# Discard positions with an altitude greater than 50000 metres.
 max_altitude = 50000
 
 # Discard positions from sondes which are outside the following min/max radius limits.

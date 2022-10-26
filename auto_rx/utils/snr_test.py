@@ -84,7 +84,7 @@ def run_demod(filename, demod='RS92'):
 
 
 if __name__ == '__main__':
-	# Command line arguments. 
+	# Command line arguments.
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-f", "--filename", type=str, help="Input file. Assumed to be unsigned 8-bit, 48 kHz file.")
 	parser.add_argument("-d", "--demod", type=str, help="Demodulator to test, either RS92 or RS41.")
@@ -101,8 +101,3 @@ if __name__ == '__main__':
 
 		frame_count = run_demod(TEMP_FILENAME, args.demod)
 		print("%f dB: Frames Recovered: %d" % (noise_lvl,frame_count))
-
-
-
-
-

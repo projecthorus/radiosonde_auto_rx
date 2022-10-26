@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Gtop.h
  * Author: Viproz
  * Used code from rs1729
@@ -36,14 +36,13 @@ public:
     virtual double getDp();
     virtual std::string getSerialNumber();
     virtual std::string getdxlSerialNumber();
-    
+
     void printFrame();
 private:
     int getNumberOfDays(int month, int year);
     int time;
     int date;
-    
+
 };
 
 #endif /* M10GTOP_H */
-

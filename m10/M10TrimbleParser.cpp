@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Gtop.cpp
  * Author: Viproz
  * Used code from rs1729
@@ -306,9 +306,9 @@ double M10TrimbleParser::getDp() {
 
 double M10TrimbleParser::getBatteryLevel() {
     unsigned short batLvl;
-    
+
     batLvl = (frame_bytes[70] << 8) | frame_bytes[69];
-    
+
     // Thanks F5MVO for the formula !
     return (double)batLvl/1000.*6.62;
 }
@@ -339,7 +339,7 @@ std::string M10TrimbleParser::getSerialNumber() {
 
      NOTE: Removed -T from callsign. 2019-09-21
      */
-    
+
     byte = sn_bytes[2];
     sprintf(SN, "M10-%1X%02u", (byte >> 4)&0xF, byte & 0xF);
     byte = sn_bytes[3] | (sn_bytes[4] << 8);
@@ -467,7 +467,7 @@ void M10TrimbleParser::printFrame() {
                 "\"battery\": %.2f, "
                 "\"crc\": %d "
                 "}\n",
-                "Trimble", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(), 
+                "Trimble", frame, getSerialNumber().c_str(), getdxlSerialNumber().c_str(), getYear(), getMonth(), getDay(), getHours(), getMinutes(), getSeconds(),
                 auxstr.c_str(), getSatellites(), getLatitude(), getLongitude(),
                 getAltitude(), getHorizontalSpeed(), getDirection(), getVerticalSpeed(), getTemperature(), getBatteryLevel(), correctCRC);
     }

@@ -1755,4 +1755,3 @@ int find_softbinhead(FILE *fp, hdb_t *hdb, float *score) {
 
     return EOF;
 }
-

@@ -82,7 +82,7 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
     for _file in _file_list:
     	print("Processing: %s" % _file)
         # Generate the command to run.
-        _cmd = "cat %s "%_file 
+        _cmd = "cat %s "%_file
 
         # Add in an optional frequency error if supplied.
         if shift != 0.0:
@@ -163,4 +163,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     run_analysis(args.mode, args.files, shift=args.shift, verbose=args.verbose)
-

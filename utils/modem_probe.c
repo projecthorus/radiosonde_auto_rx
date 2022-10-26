@@ -67,7 +67,7 @@ void modem_probe_init_int(char *modname, char *runname){
 	strcpy(mod,modname);
 }
 
-/* 
+/*
  * Gather the data stored in the linked list into a single blob,
  * freeing links and buffers as it goes
  */
@@ -82,7 +82,7 @@ void * gather_data(datlink * d,size_t * len){
 	cur = d;
 	size_t i = 0;
 	void * newbuf = malloc(size);
-	
+
 	while(cur!=NULL){
 		memcpy(newbuf+i,cur->data,cur->len);
 		i += cur->len;
@@ -99,13 +99,13 @@ void * gather_data(datlink * d,size_t * len){
 void modem_probe_close_int(){
 	if(run==NULL)
 		return;
-	
+
 	probe_trace_info *cur,*next;
 	cur = first_trace;
 	FILE * dumpfile = fopen(run,"w");
 	void * dbuf;
 	size_t len;
-	
+
 	while(cur != NULL){
 		dbuf = gather_data(cur->data,&len);
 		switch(cur->type){
@@ -124,7 +124,7 @@ void modem_probe_close_int(){
 		free(dbuf);
 		cur = next;
 	}
-	
+
 	fclose(dumpfile);
 	free(run);
 	free(mod);
@@ -133,11 +133,11 @@ void modem_probe_close_int(){
 /* Look up or create a trace by name */
 probe_trace_info * modem_probe_get_trace(char * tracename){
 	probe_trace_info *cur,*npti;
-	
+
 	/* Make sure probe session is open */
 	if(run==NULL)
 		return NULL;
-	
+
 	cur = first_trace;
 	/* Walk through list, find trace with matching name */
 	while(cur != NULL){
@@ -148,36 +148,36 @@ probe_trace_info * modem_probe_get_trace(char * tracename){
 		cur = cur->next;
 	}
 	/* None found, open a new trace */
-	
+
 	npti = (probe_trace_info *) malloc(sizeof(probe_trace_info));
 	npti->next = first_trace;
 	npti->data = NULL;
 	npti->last = NULL;
 	strcpy(npti->name,tracename);
 	first_trace = npti;
-	
+
 	return npti;
-	
+
 }
 
 
 void modem_probe_samp_i_int(char * tracename,int32_t samp[],size_t cnt){
 	probe_trace_info *pti;
 	datlink *ndat;
-	
+
 	pti = modem_probe_get_trace(tracename);
 	if(pti == NULL)
 		return;
-	
+
 	pti->type = TRACE_I;
-	
+
 	ndat = (datlink*) malloc(sizeof(datlink));
 	ndat->data = malloc(sizeof(int32_t)*cnt);
-	
+
 	ndat->len = cnt*sizeof(int32_t);
 	ndat->next = NULL;
 	memcpy(ndat->data,(void*)&(samp[0]),sizeof(int32_t)*cnt);
-	
+
 	if(pti->last!=NULL){
 		pti->last->next = ndat;
 		pti->last = ndat;
@@ -185,26 +185,26 @@ void modem_probe_samp_i_int(char * tracename,int32_t samp[],size_t cnt){
 		pti->data = ndat;
 		pti->last = ndat;
 	}
-	
+
 }
 
 void modem_probe_samp_f_int(char * tracename,float samp[],size_t cnt){
 	probe_trace_info *pti;
 	datlink *ndat;
-	
+
 	pti = modem_probe_get_trace(tracename);
 	if(pti == NULL)
 		return;
-	
+
 	pti->type = TRACE_F;
-	
+
 	ndat = (datlink*) malloc(sizeof(datlink));
 	ndat->data = malloc(sizeof(float)*cnt);
-	
+
 	ndat->len = cnt*sizeof(float);
 	ndat->next = NULL;
 	memcpy(ndat->data,(void*)&(samp[0]),sizeof(float)*cnt);
-	
+
 	if(pti->last!=NULL){
 		pti->last->next = ndat;
 		pti->last = ndat;
@@ -213,24 +213,24 @@ void modem_probe_samp_f_int(char * tracename,float samp[],size_t cnt){
 		pti->last = ndat;
 	}
 }
-	
+
 void modem_probe_samp_c_int(char * tracename,COMP samp[],size_t cnt){
 	probe_trace_info *pti;
 	datlink *ndat;
-	
+
 	pti = modem_probe_get_trace(tracename);
 	if(pti == NULL)
 		return;
-	
+
 	pti->type = TRACE_C;
-	
+
 	ndat = (datlink*) malloc(sizeof(datlink));
 	ndat->data = malloc(sizeof(COMP)*cnt);
-	
+
 	ndat->len = cnt*sizeof(COMP);
 	ndat->next = NULL;
 	memcpy(ndat->data,(void*)&(samp[0]),sizeof(COMP)*cnt);
-	
+
 	if(pti->last!=NULL){
 		pti->last->next = ndat;
 		pti->last = ndat;

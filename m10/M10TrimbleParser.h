@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Gtop.h
  * Author: Viproz
  * Used code from rs1729
@@ -38,9 +38,9 @@ public:
     virtual double getBatteryLevel();
     virtual std::string getSerialNumber();
     virtual std::string getdxlSerialNumber();
-    
+
     virtual std::array<unsigned char, DATA_LENGTH> replaceWithPrevious(std::array<unsigned char, DATA_LENGTH> data);
-    
+
     void printFrame();
 private:
     void gps2Date(long GpsWeek, long GpsSeconds, int *Year, int *Month, int *Day);
@@ -50,10 +50,9 @@ private:
     int year;
     int month;
     int day;
-    
+
     static char similarData[];
     static char insertSpaces[];
 };
 
 #endif /* M10GTOP_H */
-

@@ -47,7 +47,7 @@ Notes:
 
 
 ## test_demod.py
-This script run the generated samples above through different demodulation chains. 
+This script run the generated samples above through different demodulation chains.
 
 Check the processing_type dict in the script for the differnet demodulation options.
 
@@ -133,5 +133,3 @@ $ gcc imet1rs_dft.c -lm -o imet1rs_dft
 
 #### Using csdr as a FM demodulator:
 $ cat imet4_96k_float.bin | csdr fir_decimate_cc 2 0.005 HAMMING | csdr bandpass_fir_fft_cc -0.18 0.18 0.05 | csdr fmdemod_quadri_cf | csdr limit_ff | csdr convert_f_s16 | sox -t raw -r 48k -e signed-integer -b 16 -c 1 - -r 48000 -b 8 -t wav - | ../imet1rs_dft
-
-

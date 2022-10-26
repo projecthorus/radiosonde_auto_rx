@@ -5,10 +5,10 @@
 #
 #   Note: Requires matplotlib be available. May be very slow on a RPi.
 #
-#   Plot Radio Horizon: 
+#   Plot Radio Horizon:
 #       python3 -m autorx.stats --horizon
 #
-#   Plot SNR Map: 
+#   Plot SNR Map:
 #       python3 -m autorx.stats --snrmap
 #
 #   Copyright (C) 2021  Mark Jessop <vk5qi@rfhead.net>
@@ -97,7 +97,7 @@ def normalised_snr(log_files, min_range_km=10, max_range_km=1000, maxsnr=False, 
         if 'has_snr' in _log:
             if _log['has_snr'] == False:
                 continue
-        
+
         # Read in the file.
         _data = read_log_by_serial(_log['serial'])
 
@@ -125,7 +125,7 @@ def normalised_snr(log_files, min_range_km=10, max_range_km=1000, maxsnr=False, 
             # Limit elevation data to 0-90
             if _elevation < 0:
                 _elevation = 0
-            
+
             if normalise:
                 _snr =  _snr + 20*np.log10(_range/_norm_range)
 
@@ -149,7 +149,7 @@ def normalised_snr(log_files, min_range_km=10, max_range_km=1000, maxsnr=False, 
     plt.xlabel("Bearing (degrees true)")
     plt.ylabel("Elevation (degrees)")
     plt.title(_title)
-    
+
     if normalise:
         plt.colorbar(label="Normalised SNR (dB)", shrink=0.5)
     elif maxsnr:
@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     if args.snrmap:
         normalised_snr(log_list)
-    
+
     if args.snrmapmax:
         normalised_snr(log_list, meansnr=False, maxsnr=True, normalise=False)
 
@@ -237,4 +237,3 @@ if __name__ == "__main__":
         normalised_snr(log_list, meansnr=False, maxsnr=True, normalise=True)
 
     plt.show()
-

@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   M10Gtop.cpp
  * Author: Viproz
  * Used code from rs1729

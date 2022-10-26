@@ -298,9 +298,9 @@ def flask_get_log_by_serial(serial):
 
 @app.route("/get_log_detail", methods=["POST"])
 def flask_get_log_by_serial_detail():
-    """ 
+    """
     A more customizable version of the above, with the ability
-    to set a decimation for the skewt data. 
+    to set a decimation for the skewt data.
     """
 
     if request.method == "POST":
@@ -319,7 +319,7 @@ def flask_get_log_by_serial_detail():
 
 @app.route("/export_log_files/<serialb64>")
 def flask_export_selected_log_files(serialb64):
-    """ 
+    """
     Zip and download a set of log files.
     The list of log files is provided in the URL as a base64-encoded JSON list.
     """
@@ -353,7 +353,7 @@ def flask_export_selected_log_files(serialb64):
 
 @app.route("/export_all_log_files")
 def flask_export_all_log_files():
-    """ 
+    """
     Zip and download all log files. This may take some time.
     """
 
@@ -388,7 +388,7 @@ def flask_export_all_log_files():
 
 @app.route("/check_password", methods=["POST"])
 def flask_check_password():
-    """ Check a supplied password 
+    """ Check a supplied password
     Example:
     curl -d "password=foobar" -X POST http://localhost:5000/check_password
     """
@@ -410,7 +410,7 @@ def flask_check_password():
 @app.route("/start_decoder", methods=["POST"])
 def flask_start_decoder():
     """ Inject a scan result, which will cause a decoder to be started if there
-    are enough resources (SDRs) to do so. 
+    are enough resources (SDRs) to do so.
     Example:
     curl -d "type=DFM&freq=403240000&password=foobar" -X POST http://localhost:5000/start_decoder
     """
@@ -444,7 +444,7 @@ def flask_start_decoder():
 
 @app.route("/stop_decoder", methods=["POST"])
 def flask_stop_decoder():
-    """ Request that a decoder process be halted. 
+    """ Request that a decoder process be halted.
     Example:
     curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
     """
