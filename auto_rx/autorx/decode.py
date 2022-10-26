@@ -20,9 +20,9 @@ from threading import Thread
 from types import FunctionType, MethodType
 from .utils import AsynchronousFileReader, rtlsdr_test, position_info, generate_aprs_id
 from .gps import get_ephemeris, get_almanac
-from .sonde_specific import *
+from .sonde_specific import fix_datetime, imet_unique_id
 from .fsk_demod import FSKDemodStats
-from .sdr_wrappers import *
+from .sdr_wrappers import test_sdr, get_sdr_iq_cmd, get_sdr_fm_cmd
 
 # Global valid sonde types list.
 VALID_SONDE_TYPES = [

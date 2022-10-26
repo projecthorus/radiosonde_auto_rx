@@ -23,7 +23,7 @@ from .utils import (
     reset_all_rtlsdrs,
     peak_decimation,
 )
-from .sdr_wrappers import *
+from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum
 
 
 try:
