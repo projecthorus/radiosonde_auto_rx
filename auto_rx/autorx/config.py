@@ -699,19 +699,21 @@ def read_auto_rx_config(filename, no_sdr_test=False):
 
 
         # 1.6.0 - New SDR options
-        try:
+        if not config.has_option("sdr", "sdr_type"):
+            logging.warning(
+                "Config - Missing sdr_type configuration option, defaulting to RTLSDR."
+            )
+            auto_rx_config["sdr_type"] = "RTLSDR"
+        else:
             auto_rx_config["sdr_type"] = config.get("sdr", "sdr_type")
+
+        try:
             auto_rx_config["sdr_hostname"] = config.get("sdr", "sdr_hostname")
             auto_rx_config["sdr_port"] = config.getint("sdr", "sdr_port")
             auto_rx_config["ss_iq_path"] = config.get("advanced", "ss_iq_path")
             auto_rx_config["ss_power_path"] = config.get("advanced", "ss_power_path")
         except:
-            # Switch this to warning on release...
-            logging.debug(
-                "Config - Did not find new sdr_type and associated options, defaulting to RTLSDR operation."
-            )
-            auto_rx_config["sdr_type"] = "RTLSDR"
-
+            logging.debug("Config - Did not find new sdr_type associated options.")
 
         try:
             auto_rx_config["always_decode"] = json.loads(

@@ -10,7 +10,6 @@ import os.path
 import platform
 import subprocess
 import numpy as np
-from io import StringIO
 
 from .utils import rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
 
@@ -358,7 +357,7 @@ def read_rtl_power_log(log_filename, sdr_name):
 
     for line in f:
         # Split line into fields.
-        fields = line.split(",")
+        fields = line.split(",", 6)
 
         if len(fields) < 6:
             logging.error(
@@ -374,9 +373,8 @@ def read_rtl_power_log(log_filename, sdr_name):
         stop_freq = float(fields[3])
         freq_step = float(fields[4])
         n_samples = int(fields[5])
-
         # freq_range = np.arange(start_freq,stop_freq,freq_step)
-        samples = np.loadtxt(StringIO(",".join(fields[6:])), delimiter=",")
+        samples = np.fromstring(fields[6], sep=",")
         freq_range = np.linspace(start_freq, stop_freq, len(samples))
 
         # Add frequency range and samples to output buffers.
