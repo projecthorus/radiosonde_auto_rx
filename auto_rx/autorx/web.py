@@ -630,7 +630,7 @@ class WebExporter(object):
         """ Initialise a WebExporter object.
 
         Args:
-            max_age: Store telemetry data up to X hours old
+            max_age: Store telemetry data up to X minutes old
         """
 
         self.max_age = max_age * 60
