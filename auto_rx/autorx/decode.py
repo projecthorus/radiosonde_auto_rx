@@ -22,7 +22,7 @@ from .utils import AsynchronousFileReader, rtlsdr_test, position_info, generate_
 from .gps import get_ephemeris, get_almanac
 from .sonde_specific import fix_datetime, imet_unique_id
 from .fsk_demod import FSKDemodStats
-from .sdr_wrappers import test_sdr, get_sdr_iq_cmd, get_sdr_fm_cmd
+from .sdr_wrappers import test_sdr, get_sdr_iq_cmd, get_sdr_fm_cmd, get_sdr_name
 
 # Global valid sonde types list.
 VALID_SONDE_TYPES = [
