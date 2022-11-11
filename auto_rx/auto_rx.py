@@ -624,7 +624,7 @@ def telemetry_filter(telemetry):
     else:
         mrz_callsign_valid = False
 
-    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through - we get callsigns immediately and reliably from these.
+    # If Vaisala or DFMs, check the callsigns are valid. If M10/M20, iMet, MTS01 or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
@@ -634,6 +634,7 @@ def telemetry_filter(telemetry):
         or ("M20" in telemetry["type"])
         or ("LMS" in telemetry["type"])
         or ("IMET" in telemetry["type"])
+        or ("MTS01" in telemetry["type"])
     ):
         return "OK"
     else:
@@ -767,6 +768,8 @@ def main():
     _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)
 
+    system_log_enabled = False
+
     if args.systemlog:
         # Only write out a logs to a system log file if we have been asked to.
         # Systemd will capture and logrotate our logs anyway, so writing to our own log file is less useful.
@@ -781,6 +784,7 @@ def main():
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(stdout_format)
         logging.getLogger().addHandler(stdout_handler)
+        system_log_enabled = True
     else:
         # Otherwise, we only need the stdout logger, which if we don't specify a filename to logging.basicConfig,
         # is the default...
@@ -809,6 +813,31 @@ def main():
     else:
         config = _temp_cfg
         autorx.sdr_list = config["sdr_settings"]
+
+    # Apply any logging changes based on configuration file settings.
+    if config["save_system_log"]:
+        # Enable system logging.
+        if system_log_enabled == False:
+            # Clear all existing handlers, and add new ones.
+            logging.basicConfig(
+                format="%(asctime)s %(levelname)s:%(message)s",
+                filename=_log_path,
+                level=logging_level,
+                force=True # This removes all existing handlers before adding new ones.
+            )
+            # Also add a separate stdout logger.
+            stdout_format = logging.Formatter("%(asctime)s %(levelname)s:%(message)s")
+            stdout_handler = logging.StreamHandler(sys.stdout)
+            stdout_handler.setFormatter(stdout_format)
+            logging.getLogger().addHandler(stdout_handler)
+            system_log_enabled = True
+            logging.info("Opened new system log file: %s" % _log_path)
+
+    if config["enable_debug_logging"]:
+        # Set log level to logging.DEBUG
+        logging.getLogger().setLevel(logging.DEBUG)
+        logging.debug("Log level set to DEBUG based on configuration file setting.")
+
 
     # Check all the RS utilities exist.
     if not check_rs_utils():

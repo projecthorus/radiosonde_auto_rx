@@ -583,6 +583,18 @@ def detect_sonde(
             _sonde_type = "-MEISEI"
         else:
             _sonde_type = "MEISEI"
+
+    elif "MTS01" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Meteosis MTS01 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        # Not currently sure if we expect to see inverted Meteosis sondes.
+        if _score < 0:
+            _sonde_type = "-MTS01"
+        else:
+            _sonde_type = "MTS01"
+
     else:
         _sonde_type = None
 

@@ -40,7 +40,8 @@ REQUIRED_RS_UTILS = [
     "imet54mod",
     "mp3h1mod",
     "m20mod",
-    "imet4iq"
+    "imet4iq",
+    "meteosis_mod"
 ]
 
 
@@ -290,6 +291,18 @@ def generate_aprs_id(sonde_data):
             if len(_id_hex) > 6:
                 _id_hex = _id_hex[-6:]
             _object_name = "MRZ" + _id_hex.upper()
+
+        elif "MTS01" in sonde_data["type"]:
+            # Split out just the serial number part of the ID, and cast it to an int
+            # This acts as another check that we have been provided with a numeric serial.
+            _mts_id = int(sonde_data["id"].split("-")[-1])
+
+            # Convert to upper-case hex, and take the last 6 nibbles.
+            _id_suffix = hex(_mts_id).upper()[-6:]
+
+            # Create the object name
+            _object_name = "MTS" + _id_suffix
+
 
         # New Sonde types will be added in here.
         else:

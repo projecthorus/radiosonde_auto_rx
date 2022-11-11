@@ -37,6 +37,7 @@ VALID_SONDE_TYPES = [
     "LMS6",
     "MEISEI",
     "MRZ",
+    "MTS01",
     "UDP",
 ]
 
@@ -115,6 +116,7 @@ class SondeDecoder(object):
         "LMS6",
         "MEISEI",
         "MRZ",
+        "MTS01",
         "UDP",
     ]
 
@@ -679,12 +681,37 @@ class SondeDecoder(object):
                 bias = self.bias
             )
 
-            # Add in tee command to save audio to disk if debugging is enabled.
+            # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
                 decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
 
             # Meisei Decoder, in IQ input mode
             decode_cmd += f"./meisei100mod --IQ 0.0 --lpIQ --dc  - {_sample_rate} 16 --json --ptu --ecc 2>/dev/null"
+
+        elif self.sonde_type == "MTS01":
+            # Meteosis MTS-01
+            
+            _sample_rate = 48000
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+
+            # Meteosis MTS01 decoder
+            decode_cmd += f"./meteosis_mod --json --IQ 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
