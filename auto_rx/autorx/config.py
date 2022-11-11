@@ -453,6 +453,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "LMS6": True,
             "MK2LMS": False,
             "MEISEI": False,
+            "MTS01": False, # Until we test it
             "MRZ": False,  # .... except for the MRZ, until we know it works.
             "UDP": False,
         }

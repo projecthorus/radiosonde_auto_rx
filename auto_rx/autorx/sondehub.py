@@ -209,6 +209,11 @@ class SondehubUploader(object):
             _output["type"] = "MRZ"
             _output["serial"] = telemetry["id"][4:]
 
+        elif telemetry["type"] == "MTS01":
+            _output["manufacturer"] = "Meteosis"
+            _output["type"] = "MTS01"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
             return None

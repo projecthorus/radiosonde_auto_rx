@@ -624,7 +624,7 @@ def telemetry_filter(telemetry):
     else:
         mrz_callsign_valid = False
 
-    # If Vaisala or DFMs, check the callsigns are valid. If M10, iMet or LMS6, just pass it through - we get callsigns immediately and reliably from these.
+    # If Vaisala or DFMs, check the callsigns are valid. If M10/M20, iMet, MTS01 or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
@@ -634,6 +634,7 @@ def telemetry_filter(telemetry):
         or ("M20" in telemetry["type"])
         or ("LMS" in telemetry["type"])
         or ("IMET" in telemetry["type"])
+        or ("MTS01" in telemetry["type"])
     ):
         return "OK"
     else:
