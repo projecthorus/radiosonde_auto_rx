@@ -1,9 +1,8 @@
 LDLIBS = -lm
 
 PROGRAMS := rs41mod dfm09mod rs92mod lms6mod lms6Xmod meisei100mod m10mod m20mod imet54mod mp3h1mod meteosis_mod
-SRC=$(PROGRAMS:=.c) bch_ecc_mod.c demod_mod.c
 
-all: depend $(PROGRAMS)
+all: $(PROGRAMS)
 
 rs41mod: rs41mod.o demod_mod.o bch_ecc_mod.o
 
@@ -27,16 +26,10 @@ mp3h1mod: mp3h1mod.o demod_mod.o
 
 meteosis_mod: meteosis_mod.o demod_mod.o
 
+bch_ecc_mod.o: bch_ecc_mod.h
+
 demod_mod.o: CFLAGS += -Ofast
-
-depend: .depend
-
-.depend: $(SRC)
-	$(CC) $(CFLAGS) -MM $^ > .depend
-
--include .depend
+demod_mod.o: demod_mod.h
 
 clean:
-	$(RM) $(PROGRAMS) $(SRC:=.o)
-
-.PHONY: all clean depend
+	$(RM) $(PROGRAMS) $(PROGRAMS:=.o) demod_mod.o bch_ecc_mod.o
