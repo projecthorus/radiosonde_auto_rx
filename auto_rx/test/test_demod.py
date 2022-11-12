@@ -377,7 +377,7 @@ processing_type = {
         #../dfm09ecc -vv --json --dist --auto
 
         'demod': '| csdr convert_f_s16 | ../tsrc - - 0.500|', # ../fsk_demod --cs16 -b -10000 -u 10000 -s --stats=5 2 48000 1200 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
-        'decode': '../meteosis_mod --json --IQ 0.0 --lpIQ --dc - 48000 16 2>/dev/null',
+        'decode': '../mts01mod --json --IQ 0.0 --lpIQ --dc - 48000 16 2>/dev/null',
         "post_process" : " | grep frame |  wc -l", # ECC
         #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
         'files' : "./generated/mts01*.bin"

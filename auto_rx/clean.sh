@@ -23,7 +23,7 @@ rm lms6Xmod
 rm meisei100mod
 rm mp3h1mod
 rm imet54mod
-rm meteosis_mod
+rm mts01mod
 
 
 echo "Done!"
