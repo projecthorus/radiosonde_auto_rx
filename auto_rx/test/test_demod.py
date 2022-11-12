@@ -370,7 +370,18 @@ processing_type = {
         "post_process" : "| grep -F [OK] |  wc -l", # ECC
         'files' : "./generated/imet4*.bin"
     },
+    'mts01_fsk_demod_soft_centre': {
+        # cat ./generated/dfm09_96k_float_15.0dB.bin | csdr shift_addition_cc 0.25000 2>/dev/null | csdr convert_f_s16 | 
+        #./tsrc - - 1.041666 | ../fsk_demod --cs16 -b 1 -u 45000 2 100000 2500 - - 2>/dev/null | 
+        #python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| 
+        #../dfm09ecc -vv --json --dist --auto
 
+        'demod': '| csdr convert_f_s16 | ../tsrc - - 0.500|', # ../fsk_demod --cs16 -b -10000 -u 10000 -s --stats=5 2 48000 1200 - - 2>stats.txt |',#' python ./bit_to_samples.py 50000 2500 | sox -t raw -r 50k -e unsigned-integer -b 8 -c 1 - -r 50000 -b 8 -t wav - 2>/dev/null| ',
+        'decode': '../mts01mod --json --IQ 0.0 --lpIQ --dc - 48000 16 2>/dev/null',
+        "post_process" : " | grep frame |  wc -l", # ECC
+        #"post_process" : "| grep -o '\[OK\]' | wc -l", # No ECC
+        'files' : "./generated/mts01*.bin"
+    },
 }
 
 
@@ -705,7 +716,7 @@ _demod_command = "| csdr convert_f_s16 | ./tsrc - - %.4f |" % (_resample)
 
 processing_type['dft_detect_iq'] = {
     'demod': _demod_command,
-    'decode': "../dft_detect -t 5 --iq --bw 32 --dc - 48000 16 2>/dev/null",
+    'decode': "../dft_detect -t 5 --iq --bw 20 --dc - 48000 16 2>/dev/null",
     # Grep out the line containing the detected sonde type.
     "post_process" : " | grep \:",
     'files' : "./generated/*.bin"
@@ -799,7 +810,7 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
 
         _runtime = time.time() - _start
 
-        _result = "%s, %s, %.1f" % (os.path.basename(_file), _output.strip(), _runtime)
+        _result = "%s, %s, %.3f" % (os.path.basename(_file), _output.strip(), _runtime)
 
         print(_result)
         if log_output is not None:

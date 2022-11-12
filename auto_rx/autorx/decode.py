@@ -711,7 +711,7 @@ class SondeDecoder(object):
                 decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
 
             # Meteosis MTS01 decoder
-            decode_cmd += f"./meteosis_mod --json --IQ 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
+            decode_cmd += f"./mts01mod --json --IQ 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.

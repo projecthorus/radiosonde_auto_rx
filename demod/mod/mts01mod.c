@@ -2,9 +2,9 @@
 /*
     Meteosis MTS01 ?
 
-    files: demod_mod.c, demod_mod.h, meteosis_mod.c
+    files: demod_mod.c, demod_mod.h, mts01mod.c
     gcc -O3 -c demod_mod.c
-    gcc meteosis_mod.c demod_mod.o -lm -o meteosis_mod
+    gcc mts01mod.c demod_mod.o -lm -o mts01mod
  */
 
 #include <stdio.h>
@@ -225,8 +225,8 @@ static int print_frame(gpx_t *gpx, int pos) {
                 }
 
                 // Reference time/position
-                //printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec ?
-                //printf(", \"ref_position\": \"%s\"", "GPS" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid ?
+                printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec ?
+                printf(", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid ?
 
                 #ifdef VER_JSN_STR
                     ver_jsn = VER_JSN_STR;
