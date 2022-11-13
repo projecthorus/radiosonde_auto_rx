@@ -33,6 +33,7 @@ static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_silent = 0,
            option_cont = 0,
            option_pcmraw = 0,
+           option_singleLpIQ = 0,
            wavloaded = 0;
 static int wav_channel = 0;     // audio channel: left
 
@@ -160,7 +161,7 @@ static rsheader_t rs_hdr[Nrs] = {
     { 4800, 0, 0, rs92_header,    0.5, 0.0, 0.70, 3, NULL, "RS92",     tn_RS92,    0, 1, 0.0, 0.0}, // RS92NGP: 1680/400=4.2
     { 4800, 0, 0, lms6_header,    1.0, 0.0, 0.60, 8, NULL, "LMS6",     tn_LMS6,    0, 1, 0.0, 0.0}, // lmsX: 7?
     { 4800, 0, 0, imet54_header,  0.5, 0.0, 0.80, 2, NULL, "IMET5",    tn_IMET5,   0, 1, 0.0, 0.0}, // (rs_hdr[idxI5])
-    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",   tn_MK2LMS,  1, 3, 0.0, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
+    { 9616, 0, 0, mk2a_header,    1.0, 0.0, 0.70, 2, NULL, "MK2LMS",   tn_MK2LMS,  1, 2, 0.0, 0.0}, // Mk2a/LMS6-1680 , --IQ: decimate > 170kHz ...
     { 9608, 0, 0, m10_header,     1.0, 0.0, 0.76, 2, NULL, "M10",      tn_M10,     1, 2, 0.0, 0.0}, // M10.tn=5 (baud=9616) , M20.tn=6 (baud=9600)
     { 2400, 0, 0, meisei_header,  1.0, 0.0, 0.70, 2, NULL, "MEISEI",   tn_MEISEI,  0, 2, 0.0, 0.0},
     { 2400, 0, 0, mrz_header,     1.5, 0.0, 0.80, 2, NULL, "MRZ",      tn_MRZ,     0, 1, 0.0, 0.0},
@@ -727,21 +728,32 @@ static int f32buf_sample(FILE *fp, int inv) {
         //
         lpIQ_buf[sample_in % dsp__lpIQtaps] = z;
         z_fm0 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[0]);
-        z_fm1 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[1]);
-        z_fm2 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[2]);
-
+        if (option_singleLpIQ) {
+            z_fm1 = z_fm0;
+            z_fm2 = z_fm0;
+        }
+        else {
+            z_fm1 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[1]);
+            z_fm2 = lowpass(lpIQ_buf, sample_in+1, dsp__lpIQtaps, ws_lpIQ[2]);
+        }
         // IQ: different modulation indices h=h(rs) -> FM-demod
         w = z_fm0 * conj(z0_fm0);
         s[0] = gain * carg(w)/M_PI;
         z0_fm0 = z_fm0;
 
-        w = z_fm1 * conj(z0_fm1);
-        s[1] = gain * carg(w)/M_PI;
-        z0_fm1 = z_fm1;
+        if (option_singleLpIQ) {
+            s[1] = s[0]; z0_fm1 = z_fm1;
+            s[2] = s[0]; z0_fm2 = z_fm2;
+        }
+        else {
+            w = z_fm1 * conj(z0_fm1);
+            s[1] = gain * carg(w)/M_PI;
+            z0_fm1 = z_fm1;
 
-        w = z_fm2 * conj(z0_fm2);
-        s[2] = gain * carg(w)/M_PI;
-        z0_fm2 = z_fm2;
+            w = z_fm2 * conj(z0_fm2);
+            s[2] = gain * carg(w)/M_PI;
+            z0_fm2 = z_fm2;
+        }
 
         w = z * conj(z0);
         s[3] = gain * carg(w)/M_PI;
@@ -1073,6 +1085,7 @@ static int init_buffers() {
             lpIQ_bw[0] = set_lpIQ;
             lpIQ_bw[1] = set_lpIQ;
             lpIQ_bw[2] = set_lpIQ;
+            option_singleLpIQ = 1;
         }
         //
         f_lp = lpIQ_bw[0]/(float)sample_rate/2.0;  // MTS01: 6kHz (IF/IQ)

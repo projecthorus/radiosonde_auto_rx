@@ -208,6 +208,8 @@ class SondehubUploader(object):
             _output["manufacturer"] = "Meteo-Radiy"
             _output["type"] = "MRZ"
             _output["serial"] = telemetry["id"][4:]
+            if "subtype" in telemetry:
+                _output["subtype"] = telemetry["subtype"]
 
         elif telemetry["type"] == "MTS01":
             _output["manufacturer"] = "Meteosis"
