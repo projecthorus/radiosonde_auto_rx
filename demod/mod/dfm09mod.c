@@ -38,6 +38,7 @@ enum dfmtyp_keys_t {
     UNDEF,
     UNKNW,
     DFM06,
+    DFM06P,
     PS15,
     DFM09,
     DFM09P,
@@ -49,6 +50,7 @@ static char *DFM_types[] = {
     [UNDEF]  = "",
     [UNKNW]  = "DFMxX",
     [DFM06]  = "DFM06",
+    [DFM06P] = "DFM06P",
     [PS15]   = "PS15",
     [DFM09]  = "DFM09",
     [DFM09P] = "DFM09P",
@@ -88,7 +90,8 @@ typedef struct {
 typedef struct {
     ui32_t prn; // SVs used (PRN)
     float dMSL; // Alt_MSL - Alt_ellipsoid = -N = - geoid_height =  ellipsoid - geoid
-    ui8_t nSV; // numSVs used
+    ui8_t nSV;  // numSVs used
+    ui8_t nPRN; // numSVs in in PRN list
 } gpsdat_t;
 
 #define BITFRAME_LEN  280
@@ -123,7 +126,7 @@ typedef struct {
     pcksts_t pck[9];
     option_t option;
     int ptu_out;
-    char sensortyp0xC;
+    char sensortyp;
     char *dfmtyp;
     int jsn_freq;   // freq/kHz (SDR)
     gpsdat_t gps;
@@ -389,7 +392,8 @@ static int dat_out(gpx_t *gpx, ui8_t *dat_bits, int ec) {
         }
         if (fr_id == 1) {
             // 00..31: GPS-Sats in solution (bitmap)
-            gpx->gps.prn = bits2val(dat_bits, 32); // SV/PRN used
+            gpx->gps.prn = bits2val(dat_bits, 32); // SV/PRN bitmask
+            gpx->gps.nPRN = 0; for (int j = 0; j < 32; j++)  { if ((gpx->gps.prn >> j)&1) gpx->gps.nPRN += 1; }
             msek = bits2val(dat_bits+32, 16);  // UTC (= GPS - 18sec  ab 1.1.2017)
             gpx->sek = msek/1000.0;
         }
@@ -564,7 +568,8 @@ static float get_Temp(gpx_t *gpx) { // meas[0..4]
     float f  = gpx->meas24[0],
           f1 = gpx->meas24[3],
           f2 = gpx->meas24[4];
-    if (gpx->sensortyp0xC == 'P') {  // 0xC: "P+" DFM-09P , "T-" DFM-17TU ; 0xD: "P-" DFM-17P ?
+    if (gpx->sensortyp == 'P') // 0xC: "P+" DFM-09P , "T-" DFM-17TU ; 0xD: "P-" DFM-17P ?
+    {                          // 0x8: "P-" (gpx->sonde_id[3] == '8') DFM-6/9P ?
         f  = gpx->meas24[0+1];
         f1 = gpx->meas24[3+2];
         f2 = gpx->meas24[4+2];
@@ -596,7 +601,7 @@ static float get_Temp2(gpx_t *gpx) { // meas[0..4]
     float f  = gpx->meas24[0],
           f1 = gpx->meas24[3],
           f2 = gpx->meas24[4];
-    if (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3) {
+    if (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3  || gpx->sonde_id[3] == '8') {
         f  = gpx->meas24[0+1];
         f1 = gpx->meas24[3+2];
         f2 = gpx->meas24[4+2];
@@ -661,7 +666,7 @@ static float get_Temp4(gpx_t *gpx) { // meas[0..4]
     float f  = gpx->meas24[0],
           f1 = gpx->meas24[3],
           f2 = gpx->meas24[4];
-    if (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3) {
+    if (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3  || gpx->sonde_id[3] == '8') {
         f  = gpx->meas24[0+1];
         f1 = gpx->meas24[3+2];
         f2 = gpx->meas24[4+2];
@@ -684,6 +689,7 @@ static int reset_cfgchk(gpx_t *gpx) {
     gpx->cfgchk = 0;
     gpx->ptu_out = 0;
     //gpx->gps.dMSL = 0;
+    gpx->SN6 = 0;
     return 0;
 }
 
@@ -728,12 +734,13 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         sn2_ch = bits2val(conf_bits, 8);
         sn_ch = ((sn2_ch>>4) & 0xF);  // sn_ch == config_id
 
-        if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B
-            SN6 = bits2val(conf_bits+4, 4*6);     // DFM-06: Kanal 6
+        if ( (gpx->snc.nul_ch & 0x58) == 0x58 ) { // 0x5A, 0x5B    or 0x7A, 0x7B
+            SN6 = bits2val(conf_bits+4, 4*6);     // DFM-06: Kanal 6  DFM-06P: Kanal 8 (DFM-6/9P)
             if (SN6 == gpx->SN6  &&  SN6 != 0) {  // nur Nibble-Werte 0..9
-                gpx->sonde_typ = SNbit | 6;
+                gpx->sonde_typ = SNbit | sn_ch; //6 or 8
                 gpx->ptu_out = 6; // <-> DFM-06
-                sprintf(gpx->sonde_id, "IDx%1X:%6X", gpx->sonde_typ & 0xF, gpx->SN6);
+                //sprintf(gpx->sonde_id, "IDx%1X:%6X", gpx->sonde_typ & 0xF, gpx->SN6);
+                sprintf(gpx->sonde_id, "IDx%1X:%6X", sn_ch & 0xF, gpx->SN6);
             }
             else { // reset
                 gpx->sonde_typ = 0;
@@ -772,7 +779,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                         if (sn_ch == 0xD) gpx->ptu_out = sn_ch; // <-> DFM-17P(?)
                         // PS-15 ? (sn2_ch & 0xF) == 0x0 :  gpx->ptu_out = 0 // <-> PS-15
 
-                        if ( (gpx->sonde_typ & 0xF) > 6) {
+                        if ( gpx->SN6 == 0 || (gpx->sonde_typ & 0xF) >= 0xA) {
                             sprintf(gpx->sonde_id, "IDx%1X:%6u", gpx->sonde_typ & 0xF, gpx->SN);
                         }
                     }
@@ -807,19 +814,23 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         if (gpx->ptu_out >= 0x8) gpx->cfgchk *= gpx->cfgchk24[8];
     }
 
-    gpx->sensortyp0xC = 'T';
+    gpx->sensortyp = 'T';
     gpx->Rf = 220e3;
     if (gpx->cfgchk)
     {                // 0xC: "P+" DFM-09P , "T-" DFM-17TU ; 0xD: "P-" DFM-17P ?
         if (gpx->ptu_out >= 0xD || (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3)) { // gpx->meas24[6] < 220e3 <=> gpx->meas24[0] > 1e6 ?
-            gpx->sensortyp0xC = 'P'; // gpx->meas24[0] > 1e6 ?
+            gpx->sensortyp = 'P'; // gpx->meas24[0] > 1e6 ?
         }
-        if ( ((gpx->ptu_out == 0xB || gpx->ptu_out == 0xC) && gpx->sensortyp0xC == 'T') || gpx->ptu_out >= 0xD) gpx->Rf = 332e3; // DFM-17 ?
+        if ( ((gpx->ptu_out == 0xB || gpx->ptu_out == 0xC) && gpx->sensortyp == 'T') || gpx->ptu_out >= 0xD) gpx->Rf = 332e3; // DFM-17 ?
+
+        if (gpx->ptu_out == 6 && (gpx->sonde_typ & 0xF) == 8) {
+            gpx->sensortyp = 'P';
+        }
 
         // STM32-status: Bat, MCU-Temp
         if (gpx->ptu_out >= 0xA) { // DFM>=09(P) (STM32)
             ui8_t ofs = 0;
-            if (gpx->sensortyp0xC == 'P') ofs = 2;
+            if (gpx->sensortyp == 'P') ofs = 2;
             //
             //  c0xxxx0 inner 16 bit
             if (conf_id == 0x5+ofs) { // voltage
@@ -855,14 +866,15 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         case 0x6: gpx->dfmtyp = DFM_types[DFM06];
                   break;
         case 0x7:
-        case 0x8: gpx->dfmtyp = DFM_types[PS15];
+        case 0x8: if (gpx->SN6)  gpx->dfmtyp = DFM_types[DFM06P]; //gpx->sensortyp == 'P'
+                  else           gpx->dfmtyp = DFM_types[PS15];
                   break;
         case 0xA: gpx->dfmtyp = DFM_types[DFM09];
                   break;
         case 0xB: gpx->dfmtyp = DFM_types[DFM17];
                   break;
-        case 0xC: if (gpx->sensortyp0xC == 'P')  gpx->dfmtyp = DFM_types[DFM09P];
-                  else                   /*'T'*/ gpx->dfmtyp = DFM_types[DFM17];
+        case 0xC: if (gpx->sensortyp == 'P')  gpx->dfmtyp = DFM_types[DFM09P];
+                  else                /*'T'*/ gpx->dfmtyp = DFM_types[DFM17];
                   break;
         case 0xD: gpx->dfmtyp = DFM_types[DFM17P];
                   break;
@@ -964,7 +976,7 @@ static void print_gpx(gpx_t *gpx) {
                     float t = get_Temp(gpx);
                     if (t > -270.0) {
                         printf("  T=%.1fC ", t);     // 0xC:P+ DFM-09P , 0xC:T- DFM-17TU , 0xD:P- DFM-17P ?
-                        if (gpx->option.vbs == 3) printf(" (0x%X:%c%c) ", gpx->sonde_typ & 0xF, gpx->sensortyp0xC, gpx->option.inv?'-':'+');
+                        if (gpx->option.vbs == 3) printf(" (0x%X:%c%c) ", gpx->sonde_typ & 0xF, gpx->sensortyp, gpx->option.inv?'-':'+');
                     }
                     if (gpx->option.dbg) {
                         float t2 = get_Temp2(gpx);
@@ -985,7 +997,7 @@ static void print_gpx(gpx_t *gpx) {
                 printf(" f2:%.1f", gpx->meas24[2]);
                 printf(" f3:%.1f", gpx->meas24[3]);
                 printf(" f4:%.1f", gpx->meas24[4]);
-                if (gpx->ptu_out >= 0xA /*0xC*/) {
+                if (gpx->ptu_out >= 0xA /*0xC*/        || gpx->sonde_id[3] == '8') {
                     printf(" f5:%.1f", gpx->meas24[5]);
                     printf(" f6:%.1f", gpx->meas24[6]);
                 }
@@ -1047,6 +1059,7 @@ static void print_gpx(gpx_t *gpx) {
                 printf("  sats: %d", gpx->gps.nSV);
                 printf("  (");
                 for (j = 0; j < 32; j++) { if ((gpx->gps.prn >> j)&1) printf(" %02d", j+1); }
+                printf("  nPRN: %d", gpx->gps.nPRN);
                 printf(" )");
                 printf("\n");
             }
@@ -1060,6 +1073,9 @@ static void print_gpx(gpx_t *gpx) {
             switch ( dfmXtyp ) {
                 case   0: sprintf(json_sonde_id, "DFM-xxxxxxxx"); break; //json_sonde_id[0] = '\0';
                 case   6: sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); break; // DFM-06
+                case   8: if (gpx->SN6) sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06P
+                          else          sprintf(json_sonde_id, "DFM-%6u", gpx->SN);  // Pilotsonde ?
+                          break;
                 case 0xA: sprintf(json_sonde_id, "DFM-%6u", gpx->SN); break;  // DFM-09
                 // 0x7:PS-15?, 0xB:DFM-17? 0xC:DFM-09P?DFM-17TU? 0xD:DFM-17P?
                 default : sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
@@ -1067,11 +1083,13 @@ static void print_gpx(gpx_t *gpx) {
 
             // JSON frame counter: gpx->sec_gps , seconds since GPS (ignoring leap seconds, DFM=UTC)
 
+            int _sats = gpx->gps.nSV;
+            if (_sats == 0 /*&& sonde_type == 6*/) _sats = gpx->gps.nPRN;
             // Print JSON blob     // valid sonde_ID?
             printf("{ \"type\": \"%s\"", "DFM");
             printf(", \"frame\": %u, ", gpx->sec_gps); // gpx->frnr
             printf("\"id\": \"%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f, \"sats\": %d",
-                   json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, gpx->gps.nSV);
+                   json_sonde_id, gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek, gpx->lat, gpx->lon, gpx->alt, gpx->horiV, gpx->dir, gpx->vertV, _sats);
             if (gpx->ptu_out >= 0xA && gpx->status[0] > 0) { // DFM>=09(P): Battery (STM32)
                 printf(", \"batt\": %.2f", gpx->status[0]);
             }
