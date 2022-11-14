@@ -653,6 +653,12 @@
                         if (sonde_id_age>(1000*autorx_config.rx_timeout)){
                             sonde_id_data.sdr_device_idx = "";
                             sonde_id_data.age = "old";
+                            // Remove the LOS line
+                            if(sonde_positions[sonde_id].hasOwnProperty("los_path")){
+                                sonde_positions[sonde_id].los_path.remove();
+                                delete sonde_positions[sonde_id].los_path;
+                            }
+
                         }else{
                             sonde_id_data.age = (sonde_id_age/1000.0).toFixed(0) + " s";
                         }
@@ -767,14 +773,14 @@
                             .bindTooltip('<div class="tooltip-container">' + sonde_id + '<div class="tooltip-container" style="color: #005ec1;">' + _alt +  _vel_v +  _vel_h + '</div></div>',{permanent:false, direction:'right', className: 'sondeTooltip', offset: [10,0], interactive: false, opacity: 0.7 })
                             .addTo(mymap);
 
-                        if(autorx_config.station_lat != 0.0){
-                            sonde_positions[sonde_id].los_path = L.polyline([],
-                                {
-                                    color:los_color,
-                                    opacity:los_opacity
-                                }
-                            ).addTo(mymap);
-                        }
+                        // if(autorx_config.station_lat != 0.0){
+                        //     sonde_positions[sonde_id].los_path = L.polyline([],
+                        //         {
+                        //             color:los_color,
+                        //             opacity:los_opacity
+                        //         }
+                        //     ).addTo(mymap);
+                        // }
 
                         if (telem.vel_v < 0){
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
@@ -885,7 +891,16 @@
                     }
 
                     if(autorx_config.station_lat != 0.0){
-                        sonde_positions[msg.id].los_path.setLatLngs([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]]);
+                        if(sonde_positions[msg.id].hasOwnProperty("los_path")){
+                            sonde_positions[msg.id].los_path.setLatLngs([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]]);
+                        } else {
+                            sonde_positions[msg.id].los_path = L.polyline([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]],
+                            {
+                                color:los_color,
+                                opacity:los_opacity
+                            }
+                            ).addTo(mymap);
+                        }
                     }
                 }
 
