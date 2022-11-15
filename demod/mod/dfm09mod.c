@@ -1068,17 +1068,18 @@ static void print_gpx(gpx_t *gpx) {
         if (gpx->option.jsn && jsonout && gpx->sek < 60.0)
         {
             char *ver_jsn = NULL;
-            char json_sonde_id[] = "DFM-xxxxxxxx\0\0";
+            char json_sonde_id[] = "DFM-xxxxxxxx\0\0"; // default (dfmXtyp==0)
             ui8_t dfmXtyp = (gpx->sonde_typ & 0xF);
             switch ( dfmXtyp ) {
-                case   0: sprintf(json_sonde_id, "DFM-xxxxxxxx"); break; //json_sonde_id[0] = '\0';
-                case   6: sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); break; // DFM-06
-                case   8: if (gpx->SN6) sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06P
-                          else          sprintf(json_sonde_id, "DFM-%6u", gpx->SN);  // Pilotsonde ?
-                          break;
-                case 0xA: sprintf(json_sonde_id, "DFM-%6u", gpx->SN); break;  // DFM-09
-                // 0x7:PS-15?, 0xB:DFM-17? 0xC:DFM-09P?DFM-17TU? 0xD:DFM-17P?
-                default : sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
+                case  6:
+                case  8: if (gpx->SN6)     sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06(P)
+                         else if (gpx->SN) sprintf(json_sonde_id, "DFM-%6u", gpx->SN);  // Pilotsonde 0x8 ?
+                         break;
+                         // 0x7:PS-15 0xA:DFM-09 0xB:DFM-17 0xC:DFM-09P?DFM-17TU 0xD:DFM-17P
+                default: if (gpx->SN)       sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
+                         else if (gpx->SN6) sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06 (incorrect sn_ch decode?)
+                         break;
+                // otherwise: "DFM-xxxxxxxx"
             }
 
             // JSON frame counter: gpx->sec_gps , seconds since GPS (ignoring leap seconds, DFM=UTC)
