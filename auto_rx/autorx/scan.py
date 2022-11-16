@@ -345,7 +345,7 @@ def detect_sonde(
         # )
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.raw | " % str(device_idx)
+            rx_test_command += "tee detect_%s.raw | " % str(rtl_device_idx)
 
         rx_test_command += os.path.join(
             rs_path, "dft_detect"
@@ -399,7 +399,7 @@ def detect_sonde(
 
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.wav | " % str(device_idx)
+            rx_test_command += "tee detect_%s.wav | " % str(rtl_device_idx)
 
         # Sample decoding / detection
         # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
