@@ -478,7 +478,7 @@ def get_power_spectrum(
             f"{_timeout_cmd} {rtl_power_path} "
             f"{'-T ' if bias else ''}"
             f"-p {int(ppm)} "
-            #f"-d {str(rtl_device_idx)} "
+            f"-d {str(rtl_device_idx)} "
             f"{_gain}"
             f"-f {frequency_start}:{frequency_stop}:{step} "
             f"-i {integration_time} -1 -c 25% "
