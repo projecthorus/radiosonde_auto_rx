@@ -102,6 +102,7 @@ typedef struct {
     int sonde_typ;
     ui32_t SN6;
     ui32_t SN;
+    char SN_out[10];
     int week; int tow; ui32_t sec_gps;
     int jahr; int monat; int tag;
     int std; int min; float sek;
@@ -689,7 +690,7 @@ static int reset_cfgchk(gpx_t *gpx) {
     gpx->cfgchk = 0;
     gpx->ptu_out = 0;
     //gpx->gps.dMSL = 0;
-    gpx->SN6 = 0;
+    *gpx->SN_out = '\0';
     return 0;
 }
 
@@ -739,8 +740,10 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
             if (SN6 == gpx->SN6  &&  SN6 != 0) {  // nur Nibble-Werte 0..9
                 gpx->sonde_typ = SNbit | sn_ch; //6 or 8
                 gpx->ptu_out = 6; // <-> DFM-06
+                // (test SN6 for BCD (binary coded decimal) ?)
                 //sprintf(gpx->sonde_id, "IDx%1X:%6X", gpx->sonde_typ & 0xF, gpx->SN6);
                 sprintf(gpx->sonde_id, "IDx%1X:%6X", sn_ch & 0xF, gpx->SN6);
+                sprintf(gpx->SN_out, "%6X", gpx->SN6);
             }
             else { // reset
                 gpx->sonde_typ = 0;
@@ -781,6 +784,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
 
                         if ( gpx->SN6 == 0 || (gpx->sonde_typ & 0xF) >= 0xA) {
                             sprintf(gpx->sonde_id, "IDx%1X:%6u", gpx->sonde_typ & 0xF, gpx->SN);
+                            sprintf(gpx->SN_out, "%6u", gpx->SN);
                         }
                     }
                     else { // reset
@@ -1070,17 +1074,7 @@ static void print_gpx(gpx_t *gpx) {
             char *ver_jsn = NULL;
             char json_sonde_id[] = "DFM-xxxxxxxx\0\0"; // default (dfmXtyp==0)
             ui8_t dfmXtyp = (gpx->sonde_typ & 0xF);
-            switch ( dfmXtyp ) {
-                case  6:
-                case  8: if (gpx->SN6)     sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06(P)
-                         else if (gpx->SN) sprintf(json_sonde_id, "DFM-%6u", gpx->SN);  // Pilotsonde 0x8 ?
-                         break;
-                         // 0x7:PS-15 0xA:DFM-09 0xB:DFM-17 0xC:DFM-09P?DFM-17TU 0xD:DFM-17P
-                default: if (gpx->SN)       sprintf(json_sonde_id, "DFM-%6u", gpx->SN);
-                         else if (gpx->SN6) sprintf(json_sonde_id, "DFM-%6X", gpx->SN6); // DFM-06 (incorrect sn_ch decode?)
-                         break;
-                // otherwise: "DFM-xxxxxxxx"
-            }
+            if (*gpx->SN_out) strncpy(json_sonde_id+4, gpx->SN_out, 9);
 
             // JSON frame counter: gpx->sec_gps , seconds since GPS (ignoring leap seconds, DFM=UTC)
 
