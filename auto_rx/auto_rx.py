@@ -291,6 +291,28 @@ def handle_scan_results():
                 continue
             else:
 
+                # Handle an inverted sonde detection.
+                if _type.startswith("-"):
+                    _inverted = " (Inverted)"
+                    _check_type = _type[1:]
+                else:
+                    _check_type = _type
+                    _inverted = ""
+
+                # Note: We don't indicate if it's been detected as inverted here.
+                logging.info(
+                    "Task Manager - Detected new %s sonde on %.3f MHz!"
+                    % (_check_type, _freq / 1e6)
+                )
+
+                # Break if we don't support this sonde type.
+                if _check_type not in VALID_SONDE_TYPES:
+                    logging.warning(
+                        "Task Manager - Unsupported sonde type: %s" % _check_type
+                    )
+                    # TODO - Potentially add the frequency of the unsupported sonde to the temporary block list?
+                    continue
+
                 # Check that we are not attempting to start a decoder too close to an existing decoder for known 'drifty' radiosonde types.
                 # 'Too close' is defined by the 'decoder_spacing_limit' advanced coniguration option.
                 _too_close = False
@@ -300,10 +322,14 @@ def handle_scan_results():
                     if (type(_key) == int) or (type(_key) == float):
                         # Extract the currently decoded sonde type from the currently running decoder.
                         _decoding_sonde_type = autorx.task_list[_key]["task"].sonde_type
+                        
+                        # Remove any inverted decoder information for the comparison.
+                        if _decoding_sonde_type.startswith("-"):
+                            _decoding_sonde_type = _decoding_sonde_type[1:]
 
                         # Only check the frequency spacing if we have a known 'drifty' sonde type, *and* the new sonde type is of the same type.
                         if (_decoding_sonde_type in DRIFTY_SONDE_TYPES) and (
-                            _decoding_sonde_type == _type
+                            _decoding_sonde_type == _check_type
                         ):
                             if abs(_key - _freq) < config["decoder_spacing_limit"]:
                                 # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
@@ -342,27 +368,6 @@ def handle_scan_results():
                         )
                         temporary_block_list.pop(_freq)
 
-                # Handle an inverted sonde detection.
-                if _type.startswith("-"):
-                    _inverted = " (Inverted)"
-                    _check_type = _type[1:]
-                else:
-                    _check_type = _type
-                    _inverted = ""
-
-                # Note: We don't indicate if it's been detected as inverted here.
-                logging.info(
-                    "Task Manager - Detected new %s sonde on %.3f MHz!"
-                    % (_check_type, _freq / 1e6)
-                )
-
-                # Break if we don't support this sonde type.
-                if _check_type not in VALID_SONDE_TYPES:
-                    logging.warning(
-                        "Task Manager - Unsupported sonde type: %s" % _check_type
-                    )
-                    # TODO - Potentially add the frequency of the unsupported sonde to the temporary block list?
-                    continue
 
                 if allocate_sdr(check_only=True) is not None:
                     # There is a SDR free! Start the decoder on that SDR
