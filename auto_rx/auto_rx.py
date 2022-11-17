@@ -792,9 +792,6 @@ def main():
             format="%(asctime)s %(levelname)s:%(message)s", level=logging_level
         )
 
-    # Add the web interface logging handler.
-    web_handler = WebHandler()
-    logging.getLogger().addHandler(web_handler)
 
     # Set the requests/socketio loggers (and related) to only display critical log messages.
     logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -838,6 +835,9 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         logging.debug("Log level set to DEBUG based on configuration file setting.")
 
+    # Add the web interface logging handler.
+    web_handler = WebHandler()
+    logging.getLogger().addHandler(web_handler)
 
     # Check all the RS utilities exist.
     if not check_rs_utils():
