@@ -531,6 +531,8 @@ dfm_experimental = True
 m10_experimental = True
 lms6-400_experimental = True
 imet54_experimental = True
+meisei_experimental = True
+
 # LMS6-1680 Decoder options:
 # False = Less CPU, possibly worse weak-signal performance.
 # True = Higher CPU (Pushing a RPi 3 to its limits), possibly better weak-signal performance.
@@ -540,9 +542,7 @@ lms6-1680_experimental = False
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
 
-# Meisei Sondes
-# If enabled, uses IQ input to the decoder. Untested.
-meisei_experimental = False
+
 
 # Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
