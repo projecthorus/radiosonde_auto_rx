@@ -336,7 +336,7 @@ def flask_export_selected_log_files(serialb64):
                 _zip,
                 mimetype="application/zip",
                 as_attachment=True,
-                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
             )
         )
 
@@ -367,7 +367,7 @@ def flask_export_all_log_files():
                 _zip,
                 mimetype="application/zip",
                 as_attachment=True,
-                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
             )
         )
 
