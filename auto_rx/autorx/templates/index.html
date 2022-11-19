@@ -105,11 +105,12 @@
                 // Check if time is UTC mode.
                 if (getCookie('UTC') == 'false') {
                     // Check if entry is important.
+                    var log_time_converted = log_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
                     if (msg.level == "INFO") {
-                        var log_entry = "<tr><td>" + log_time.toLocaleString("en-AU") + " – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
+                        var log_entry = "<tr><td>" + log_time_converted + " – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
                     } else {
                         // If entry is important colour text red.
-                        var log_entry = "<tr><td>" + log_time.toLocaleString("en-AU") + " – " + msg.level + "<br><em style='font-size: 15px; color:red;'>" + msg.msg + "</em></td></tr>"
+                        var log_entry = "<tr><td>" + log_time_converted + " – " + msg.level + "<br><em style='font-size: 15px; color:red;'>" + msg.msg + "</em></td></tr>"
                         if (msg.level == "ERROR" || msg.level == "CRITICAL") {
                             if (document.getElementById("mySidenav").offsetWidth == 0) {
                                 $('#log-tray').css('color', 'red');
@@ -168,7 +169,8 @@
                         temp_date = temp_date.slice(0, -3);
                         temp_date += "Z";
                         var date = new Date(temp_date);
-                        $('#scan_results').html('<b>Latest Scan:</b> ' + date.toLocaleString("en-AU"));
+                        var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
                     } else {
                         $('#scan_results').html('<b>Latest Scan:</b> ' + (data.timestamp.slice(0, -3) + 'Z').replace("T", " ").replace("Z", "").slice(0, -4) + ' UTC');
                     }
@@ -501,11 +503,12 @@
                     {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
-                            if (temp_time.toLocaleString("en-AU") == "Invalid Date") {
+                            var temp_converted = temp_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                            if (temp_converted == "Invalid Date") {                    
                                 return;
                             } else {
-                                return temp_time.toLocaleString("en-AU");
-                            }
+                                return temp_converted;
+                            }                            
                         } else {
                             return cell.getValue();
                         }
