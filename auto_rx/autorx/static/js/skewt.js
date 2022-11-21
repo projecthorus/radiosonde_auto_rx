@@ -229,6 +229,9 @@ var SkewT = function(div) {
 	}
 
 	var drawToolTipsTest = function(skewtlines) {
+		var lines = skewtlines.reverse();
+
+		// Draw tooltips
 		lines.forEach(function(d) {
 			// Draw tooltips
 			var tmpcfocus = skewtgroup.append("g").attr("class", "focus tmpc").style("display", "none");
