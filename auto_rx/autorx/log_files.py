@@ -92,7 +92,8 @@ def log_filename_to_stats(filename, quicklook=False):
                     _output["has_snr"] = _quick["has_snr"]
                     _output["max_range"] = int(max(_output["first"]["range_km"],_output["last"]["range_km"]))
                     _output["last_range"] = int(_output["last"]["range_km"])
-                    _output["min_height"] = int(_output["last"]["alt"])
+                    _output["min_height"] = int(_output["first"]["alt"])
+                    _output["max_height"] = int(_quick["max_height"])
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 
@@ -216,7 +217,7 @@ def log_quick_look(filename):
                 for num in range(_remainder_num):
                     max_alt2 = max(max_alt2,float(_remainder[num+1].split(",")[5]))
 
-                _output['burst_alt']=max(max_alt1,max_alt2)    
+                _output['max_height']=max(max_alt1,max_alt2)    
                 break
             _seek_point-=5000
             start_check = False
