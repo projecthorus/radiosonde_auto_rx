@@ -885,9 +885,9 @@
                                 } else {
                                     burst_time = data['burst_time'];
                                 }
-                                $('#skewt-header1').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: "+burst_time + ' at '+Math.floor(parseFloat(data['burst'][2])) + 'm');
+                                $('#skewt-header-sub').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: "+burst_time + ' at '+Math.floor(parseFloat(data['burst'][2])) + 'm');
                             } else {
-                                $('#skewt-header1').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: --");
+                                $('#skewt-header-sub').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: --");
                             }
 
                             try {
@@ -1249,7 +1249,8 @@
     <!-- Wrapper for settings sidebar -->   
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
+        <h2 id="skewt-header" style="width:100%;text-align:center;margin-bottom: 0px;">Skew-T Plot</h2>
+        <div id="skewt-header-sub" style="width:100%;text-align:center;margin-top: 0px;margin-bottom: 0px;">Burst: --</div>
         <div id="skewt" style="width:90%;margin:3px auto"></div>
         <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
             Decimation:
