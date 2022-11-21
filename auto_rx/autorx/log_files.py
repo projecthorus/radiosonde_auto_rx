@@ -204,7 +204,7 @@ def log_quick_look(filename):
                 # find bumping before burst
                 _remainder_num = len(_remainder)-2
                 max_alt1 = 0
-                for num in range(_remainder_num)
+                for num in range(_remainder_num):
                     max_alt1 = max(max_alt1,float(_remainder[num+1].split(",")[5]))
 
                 _seek_point+=5000
@@ -213,7 +213,7 @@ def log_quick_look(filename):
 
                 _remainder_num = len(_remainder)-2
                 max_alt2 = 0
-                for num in range(_remainder_num)
+                for num in range(_remainder_num):
                     max_alt2 = max(max_alt2,float(_remainder[num+1].split(",")[5]))
 
                 _output['burst_alt']=max(max_alt1,max_alt2)    
