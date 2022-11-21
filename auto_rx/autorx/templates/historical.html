@@ -30,6 +30,8 @@
     <script src="{{ url_for('static', filename='js/skewt.js') }}"></script>
     
     <script>
+        timezone = new Date().toLocaleDateString(undefined, {day:'2-digit',timeZoneName: 'short' }).substring(4);
+
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
@@ -256,7 +258,8 @@
                         landing_alt = parseFloat(value['last']['alt']);
                     }
                     if (getCookie('UTC') == 'false') {
-                        landing_time = new Date(value['last']['datetime']).toLocaleString("en-AU");
+                        landing_time = new Date(value['last']['datetime']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
+
                     } else {
                         landing_time = value['last']['datetime'];
                     }
@@ -359,7 +362,7 @@
                         launch_alt = parseFloat(value['first']['alt']);
                     }
                     if (getCookie('UTC') == 'false') {
-                        launch_time = new Date(value['first']['datetime']).toLocaleString("en-AU");
+                        launch_time = new Date(value['first']['datetime']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                     } else {
                         launch_time = value['first']['datetime'];
                     }
@@ -490,7 +493,7 @@
                                             launch_alt = parseFloat(data['first'][2]);
                                         }
                                         if (getCookie('UTC') == 'false') {
-                                            launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                            launch_time = new Date(data['first_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                         } else {
                                             launch_time = data['first_time'];
                                         }
@@ -575,7 +578,7 @@
                                             landing_alt = parseFloat(data['last'][2]);
                                         }
                                         if (getCookie('UTC') == 'false') {
-                                            landing_time = new Date(data['last_time']).toLocaleString("en-AU");
+                                            landing_time = new Date(data['last_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                         } else {
                                             landing_time = data['last_time']
                                         }
@@ -658,7 +661,7 @@
                                         burst_alt = parseFloat(data['burst'][2]);
                                     }
                                     if (getCookie('UTC') == 'false') {
-                                        burst_time = new Date(data['burst_time']).toLocaleString("en-AU");
+                                        burst_time = new Date(data['burst_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                     } else {
                                         burst_time = data['burst_time'];
                                     }
@@ -870,7 +873,7 @@
                             }
                                 
                             if (getCookie('UTC') == 'false') {
-                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                launch_time = new Date(data['first_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                             } else {
                                 launch_time = data['first_time'];
                             }
