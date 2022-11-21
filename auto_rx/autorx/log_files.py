@@ -188,6 +188,39 @@ def log_quick_look(filename):
             "bearing": _pos_info["bearing"],
             "elevation": _pos_info["elevation"],
         }
+
+        # find Max H
+        _seek_point = _filesize - 5000
+        start_check = True
+        while _seek_point>0:
+            _file.seek(_seek_point)
+            _remainder = _file.read(5000).split("\n")
+            alt1 = float(_remainder[1].split(",")[5])
+            alt2 = float(_remainder[-2].split(",")[5])
+            if alt2>alt1 and start_check==True:
+                # bumping...
+                break
+            if alt2>alt1:
+                # find bumping before burst
+                _remainder_num = len(_remainder)-2
+                max_alt1 = 0
+                for num in range(_remainder_num)
+                    max_alt1 = max(max_alt1,float(_remainder[num+1].split(",")[5]))
+
+                _seek_point+=5000
+                _file.seek(_seek_point)
+                _remainder = _file.read(5000).split("\n")
+
+                _remainder_num = len(_remainder)-2
+                max_alt2 = 0
+                for num in range(_remainder_num)
+                    max_alt2 = max(max_alt2,float(_remainder[num+1].split(",")[5]))
+
+                _output['burst_alt']=max(max_alt1,max_alt2)    
+                break
+            _seek_point-=5000
+            start_check = False
+        
         return _output
     except Exception as e:
         # Couldn't read in the last line for some reason.
