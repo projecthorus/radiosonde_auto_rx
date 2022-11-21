@@ -879,6 +879,17 @@
                             }
                             $('#skewt-header').html("Skew-T - "+_type + " " + _serial + " " + launch_time);
 
+                            if(data['burst_time']!=data['last_time']){
+                                if (getCookie('UTC') == 'false') {
+                                    burst_time =  new Date(data['burst_time']).toLocaleString(window.navigator.language,{year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
+                                } else {
+                                    burst_time = data['burst_time'];
+                                }
+                                $('#skewt-header1').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: "+burst_time + ' at '+Math.floor(parseFloat(data['burst'][2])) + 'm');
+                            } else {
+                                $('#skewt-header1').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: --");
+                            }
+
                             try {
                                 skewt.plot(data.skewt);
                                 $("#skewt-buttons").css('visibility', 'visible');
