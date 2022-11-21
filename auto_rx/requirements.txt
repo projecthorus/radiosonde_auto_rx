@@ -1,7 +1,7 @@
 crcmod
 python-dateutil
-flask
-flask-socketio
+flask==2.2.2
+flask-socketio==5.2.0
 numpy
 requests
 semver
