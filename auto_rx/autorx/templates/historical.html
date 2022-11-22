@@ -116,6 +116,13 @@
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                        formatter:function(cell, formatterParams, onRendered){
+                            value = cell.getValue();
+                            if(len(value)>9){
+                                value = value.slice(-9);
+                            }
+                            return value;
+                        }},
                     {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue().toFixed(3);
