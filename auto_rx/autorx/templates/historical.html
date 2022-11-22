@@ -116,12 +116,20 @@
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                    {title:"Freq", field:"freq", width:75, resizable:false, headerTooltip:"Frequency (MHz)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue();
+                        }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
-                    {title:"Min H", field:"min_height", width:75, resizable:false, headerTooltip:"Fiest Observed Height (m)",
+                    {title:"Min H", field:"first_height", width:75, resizable:false, headerTooltip:"Fiest Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " m"; //return the contents of the cell;
                         }},
                     {title:"Max H", field:"max_height", width:75, resizable:false, headerTooltip:"Max Observed Height (m)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " m"; //return the contents of the cell;
+                        }},
+                    {title:"Last H", field:"last_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " m"; //return the contents of the cell;
                         }},

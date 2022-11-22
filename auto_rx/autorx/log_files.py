@@ -92,8 +92,10 @@ def log_filename_to_stats(filename, quicklook=False):
                     _output["has_snr"] = _quick["has_snr"]
                     _output["max_range"] = int(max(_output["first"]["range_km"],_output["last"]["range_km"]))
                     _output["last_range"] = int(_output["last"]["range_km"])
-                    _output["min_height"] = int(_output["first"]["alt"])
+                    _output["first_height"] = int(_output["first"]["alt"])
+                    _output["last_height"] = int(_output["last"]["alt"])
                     _output["max_height"] = int(_quick["max_height"])
+                    _output["freq"] = _quick["first"]["freq"]
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 
@@ -133,6 +135,7 @@ def log_quick_look(filename):
         _first_lat = float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
+        _first_freq = float(_fields[13])
         _pos_info = position_info(
             (
                 autorx.config.global_config["station_lat"],
@@ -149,6 +152,7 @@ def log_quick_look(filename):
             "range_km": _pos_info["straight_distance"] / 1000.0,
             "bearing": _pos_info["bearing"],
             "elevation": _pos_info["elevation"],
+            "freq": _first_freq,
         }
     except Exception as e:
         # Couldn't read the first line, so likely no data.
@@ -191,6 +195,7 @@ def log_quick_look(filename):
         }
 
         # find Max H
+        _output['max_height']=_output["last"]["alt"]
         _seek_point = _filesize - 5000
         start_check = True
         while _seek_point>0:
@@ -221,7 +226,7 @@ def log_quick_look(filename):
                 break
             _seek_point-=5000
             start_check = False
-        
+
         return _output
     except Exception as e:
         # Couldn't read in the last line for some reason.
