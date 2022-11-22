@@ -115,7 +115,7 @@
                         headerTooltip:"First Observed Date/Time"
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
-                    {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                    {title:"Serial", field:"serial", width:90, resizable:false, // 105
                         formatter:function(cell, formatterParams, onRendered){
                             value = cell.getValue();
                             if(len(value)>9){
