@@ -118,7 +118,7 @@
                     {title:"Serial", field:"serial", width:90, resizable:false, // 105
                         formatter:function(cell, formatterParams, onRendered){
                             value = cell.getValue();
-                            if(len(value)>9){
+                            if(value.length>9){
                                 value = value.slice(-9);
                             }
                             return value;
