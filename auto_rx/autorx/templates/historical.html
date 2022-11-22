@@ -117,7 +117,7 @@
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false, // 105
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue().replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100)-/,"");
+                            return cell.getValue().replace(/^(IMS100)-/,"");
                         }},
                     {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
                         formatter:function(cell, formatterParams, onRendered){
