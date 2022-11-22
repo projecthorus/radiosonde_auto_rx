@@ -732,9 +732,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
         except:
             logging.warning(
-                "Config - Did not find meisei_experimental setting, using default (disabled)"
+                "Config - Did not find meisei_experimental setting, using default (enabled)"
             )
-            auto_rx_config["experimental_decoders"]["MEISEI"] = False
+            auto_rx_config["experimental_decoders"]["MEISEI"] = True
 
         try:
             auto_rx_config["save_system_log"] = config.getboolean(
