@@ -127,7 +127,7 @@
                         }},
                     {title:"Max H", field:"max_height", width:75, resizable:false, headerTooltip:"Max Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
-                            if(cell.getValue()!='undefined'){
+                            if(cell.getValue()!=undefined){
                                 return cell.getValue() + " m"; //return the contents of the cell;
                             } else {
                                 return '--'
