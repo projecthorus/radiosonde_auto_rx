@@ -928,7 +928,7 @@
                                 enableMenu();
                                 if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "100vh";
+                                        document.getElementById("mySettings").style.width = "90vh";
                                     } else {
                                         document.getElementById("mySettings").style.width = "100%";
                                     }
@@ -1201,7 +1201,7 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     y.style.display = "block";
                     document.getElementById("mySettings").style.width = "90vh";
-                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("main").style.marginRight = "90vh";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -1274,7 +1274,7 @@
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
         <h2 id="skewt-header" style="width:100%;text-align:center;margin-bottom: 0px;">Skew-T Plot</h2>
         <div id="skewt-header-sub" style="width:100%;text-align:center;margin-top: 0px;margin-bottom: 0px;">Burst: --</div>
-        <div id="skewt" style="width:90%;margin:3px auto"></div>
+        <div id="skewt" style="width:90%;margin:3px auto;padding-left: 4%;"></div>
         <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
             Decimation:
             <input style="vertical-align:middle;" type="range" min="1" max="100" value="25" class="slider" id="skewt-decimation" list="my-detents">
