@@ -119,7 +119,7 @@
                         formatter:function(cell, formatterParams, onRendered){
                             value = cell.getValue();
                             if(value.length>9){
-                                value = value.slice(-9);
+                                value = '...'+value.slice(-9);
                             }
                             return value;
                         }},
