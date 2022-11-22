@@ -73,8 +73,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "665px";
-                            document.getElementById("main").style.marginLeft = "665px";
+                            document.getElementById("mySidenav").style.width = "880px";
+                            document.getElementById("main").style.marginLeft = "880px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -116,9 +116,9 @@
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false}, // 105
-                    {title:"Freq", field:"freq", width:75, resizable:false, headerTooltip:"Frequency (MHz)",
+                    {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue();
+                            return cell.getValue().toFixed(3);
                         }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
                     {title:"Min H", field:"first_height", width:75, resizable:false, headerTooltip:"Fiest Observed Height (m)",
@@ -1163,8 +1163,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "665px";
-                    document.getElementById("main").style.marginLeft = "665px";
+                    document.getElementById("mySidenav").style.width = "880px";
+                    document.getElementById("main").style.marginLeft = "880px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
