@@ -127,7 +127,11 @@
                         }},
                     {title:"Max H", field:"max_height", width:75, resizable:false, headerTooltip:"Max Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " m"; //return the contents of the cell;
+                            if(cell.getValue()!='undefined'){
+                                return cell.getValue() + " m"; //return the contents of the cell;
+                            } else {
+                                return '--'
+                            }
                         }},
                     {title:"Last H", field:"last_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){

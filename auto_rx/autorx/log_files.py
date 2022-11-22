@@ -195,7 +195,6 @@ def log_quick_look(filename):
         }
 
         # find Max H
-        _output['max_height']=_output["last"]["alt"]
         _seek_point = _filesize - 5000
         start_check = True
         while _seek_point>0:
