@@ -117,11 +117,7 @@
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false, // 105
                         formatter:function(cell, formatterParams, onRendered){
-                            value = cell.getValue();
-                            if(value.length>9){
-                                value = '...'+value.slice(-9);
-                            }
-                            return value;
+                            return strip_sonde_serial(value);
                         }},
                     {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
                         formatter:function(cell, formatterParams, onRendered){
