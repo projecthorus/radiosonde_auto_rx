@@ -928,7 +928,7 @@
                                 enableMenu();
                                 if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "90vh";
+                                        document.getElementById("mySettings").style.width = "100vh";
                                     } else {
                                         document.getElementById("mySettings").style.width = "100%";
                                     }
@@ -1200,7 +1200,7 @@
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     y.style.display = "block";
-                    document.getElementById("mySettings").style.width = "100vh";
+                    document.getElementById("mySettings").style.width = "90vh";
                     document.getElementById("main").style.marginRight = "100vh";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
