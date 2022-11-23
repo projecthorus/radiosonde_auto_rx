@@ -61,6 +61,8 @@ typedef struct {
     int year; int month; int day;
     int hrs; int min; int sec;
     double lat; double lon; double alt;
+    double vH; double vD;
+    float T; float RH;
     char ID[8+4];
     ui8_t frame_bytes[FRAMELEN+4];
     char frame_bits[BITFRAMELEN+8];
@@ -133,6 +135,18 @@ static int fn(gpx_t *gpx, int n) {
     return pos;
 }
 
+static float get_Temp(float R) {
+// Thermistor approximation
+// 1/T = 1/To + 1/B log(r) , r=R/Ro
+    float B0 = 3000.0;       // B/Kelvin
+    float T0 = 0.0 + 273.15;
+    float R0 = 15.0;
+    float T = 0;             // T/Kelvin
+    if (R > 0)  T = 1.0/(1.0/T0 + 1.0/B0 * log(R/R0));
+    return  T - 273.15;      // Celsius
+}
+
+
 static int print_frame(gpx_t *gpx, int pos) {
     int i, j;
     int crcdat, crcval, crc_ok;
@@ -204,12 +218,27 @@ static int print_frame(gpx_t *gpx, int pos) {
         int pos_ALT = fn(gpx, 7);
         gpx->alt = atof(gpx->frm_str+pos_ALT);
 
+        int pos_VD = fn(gpx, 8);  // 0..360 Heading
+        gpx->vD = atof(gpx->frm_str+pos_VD);
+
+        int pos_VH = fn(gpx, 9); // m/s vH
+        gpx->vH = atof(gpx->frm_str+pos_VH);
+
+        int pos_rawT1 = fn(gpx, 11);
+        int pos_rawT2 = fn(gpx, 12);
+        int pos_rawRH = fn(gpx, 13);
+
+        gpx->T = get_Temp(atof(gpx->frm_str+pos_rawT1)); // rawT1==rawT2
+
+
         if (gpx->option.vbs) {
             printf(" [%4d] ", gpx->frnr);
             printf(" (%s) ", gpx->ID);
             printf(" %4d-%02d-%02d ", gpx->year, gpx->month, gpx->day);
             printf("%02d:%02d:%02d ", gpx->hrs, gpx->min, gpx->sec);
             printf(" lat: %.6f  lon: %.6f  alt: %.0f ", gpx->lat, gpx->lon, gpx->alt);
+            printf("  vH: %4.1f  D: %5.1f ", gpx->vH, gpx->vD);
+            if (gpx->T > -270.0f) printf("  T=%.1fC ", gpx->T);
             printf("\n");
         }
 
@@ -218,8 +247,9 @@ static int print_frame(gpx_t *gpx, int pos) {
                 // UTC oder GPS?
                 char *ver_jsn = NULL;
                 printf("{ \"type\": \"%s\"", "MTS01");
-                printf(", \"frame\": %d, \"id\": \"MTS01-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f",
-                       gpx->frnr, gpx->ID, gpx->year, gpx->month, gpx->day, gpx->hrs, gpx->min, (float)gpx->sec, gpx->lat, gpx->lon, gpx->alt );
+                printf(", \"frame\": %d, \"id\": \"MTS01-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f",
+                       gpx->frnr, gpx->ID, gpx->year, gpx->month, gpx->day, gpx->hrs, gpx->min, (float)gpx->sec, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD );
+                if (gpx->T > -270.0f) printf(", \"temp\": %.1f", gpx->T);
                 if (gpx->jsn_freq > 0) {
                     printf(", \"freq\": %d", gpx->jsn_freq);
                 }
