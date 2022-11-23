@@ -481,7 +481,18 @@
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
-                    {title:"Type", field:"type", headerSort:true},
+                    {title:"Type", field:"type", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        _cell_value = cell.getValue()
+                        if(_cell_value=="MEISEI"){
+                            _cell_data = cell.getData();
+                            _type = _cell_data.id.split('-')[0];
+                            if(_type=="IMS100"){
+                                _type = "iMS-100";
+                            }
+                            return _type;
+                        }
+                        return _cell_value;
+                    }},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
