@@ -63,6 +63,7 @@ typedef struct {
     double lat; double lon; double alt;
     double vH; double vD;
     float T; float RH;
+    int batt;
     char ID[8+4];
     ui8_t frame_bytes[FRAMELEN+4];
     char frame_bits[BITFRAMELEN+8];
@@ -209,6 +210,9 @@ static int print_frame(gpx_t *gpx, int pos) {
         gpx->month = atoi(datetime_str+ 2); datetime_str[ 2] = '\0';
         gpx->year  = atoi(datetime_str) + 2000;
 
+        int pos_BATT = fn(gpx, 4);
+        gpx->batt = atof(gpx->frm_str+pos_BATT);
+
         int pos_LAT = fn(gpx, 5);
         gpx->lat = atof(gpx->frm_str+pos_LAT);
 
@@ -238,6 +242,7 @@ static int print_frame(gpx_t *gpx, int pos) {
             printf("%02d:%02d:%02d ", gpx->hrs, gpx->min, gpx->sec);
             printf(" lat: %.6f  lon: %.6f  alt: %.0f ", gpx->lat, gpx->lon, gpx->alt);
             printf("  vH: %4.1f  D: %5.1f ", gpx->vH, gpx->vD);
+            printf(" Vbat:%.1fV ", gpx->batt/1000.0);
             if (gpx->T > -270.0f) printf("  T=%.1fC ", gpx->T);
             printf("\n");
         }
@@ -249,6 +254,7 @@ static int print_frame(gpx_t *gpx, int pos) {
                 printf("{ \"type\": \"%s\"", "MTS01");
                 printf(", \"frame\": %d, \"id\": \"MTS01-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f",
                        gpx->frnr, gpx->ID, gpx->year, gpx->month, gpx->day, gpx->hrs, gpx->min, (float)gpx->sec, gpx->lat, gpx->lon, gpx->alt, gpx->vH, gpx->vD );
+                printf(", \"batt\": %.2f", gpx->batt/1000.0);
                 if (gpx->T > -270.0f) printf(", \"temp\": %.1f", gpx->T);
                 if (gpx->jsn_freq > 0) {
                     printf(", \"freq\": %d", gpx->jsn_freq);

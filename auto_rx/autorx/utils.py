@@ -141,7 +141,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6|IMS100|MTS01)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6|IMS100|RS11G|MTS01)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
