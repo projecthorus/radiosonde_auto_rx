@@ -67,6 +67,10 @@ def log_filename_to_stats(filename, quicklook=False):
 
         # Third field is the sonde type, in 'shortform'
         _type = _fields[2]
+
+        if _type=="MEISEI":
+            _type = _fields[1].split("-")[0]
+
         _type_str = short_type_lookup(_type)
         _short_type = short_short_type_lookup(_type)
 
