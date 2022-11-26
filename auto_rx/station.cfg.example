@@ -143,6 +143,10 @@ always_decode = []
 # Lat/Lon in decimal degrees, altitude in metres.
 # Note: You do not need to specify your home station accurately if you don't want to!
 # Feel free to use a position somewhere near your general area, that doesn't identify your home location.
+#
+# If this is a mobile or portable station, it is recommended to leave this at 0.0, and disable
+# 'upload_listener_position' in the section below. Mobile station positions should be uploaded using
+# ChaseMapper.
 [location]
 station_lat = 0.0
 station_lon = 0.0
@@ -151,8 +155,9 @@ station_alt = 0.0
 # Station Position from GPSD
 # If your station is likely to move, then you may wish to have your station position updated from GPSD.
 # NOTE: This feature is intended to make life slightly easier when using an auto_rx station in a portable
-# capacity, in particular when using a rotator. For the web interface to start up correctly, a lat/lon still
-# needs to be entered above.
+# capacity, in particular when using a rotator. It is *not* intended for uploading positions of mobile
+# chase-cars.
+# For the web interface to start up correctly, a lat/lon still needs to be entered above.
 # If you are operating a stationary auto_rx station, please just set a fixed position above rather than using GPSD.
 #
 # If you are doing mobile balloon chasing, please use chasemapper ( https://github.com/projecthorus/chasemapper )
@@ -174,10 +179,14 @@ gpsd_port = 2947
 [habitat]
 
 # Uploader callsign. PLEASE CHANGE THIS TO SOMETHING UNIQUE.
-uploader_callsign = CHANGEME_AUTO_RX
+# If using ChaseMapper to upload mobile station positions, ensure this callsign
+# is set identically to that set in ChaseMapper.
+uploader_callsign = CHANGEME
 
 # Upload listener position to Sondehub? (So you show up on the map)
 # Note that if GPSD is used, this is overriden and enabled.
+# If this is a mobile or portable station, it is recommended to set this to False.
+# Mobile stations should use ChaseMapper or the SondeHub Tracker to upload positions.
 upload_listener_position = True
 
 # Uploader Antenna Description.

@@ -800,7 +800,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
     }
 
 
-    if (conf_id >= 0 && conf_id <= 8) {
+    if (conf_id >= 0 && conf_id <= 8 && ec == 0) {
         gpx->cfgchk24[conf_id] = 1;
         val = bits2val(conf_bits+4, 4*6);
         gpx->val24[conf_id] = val;
@@ -822,8 +822,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
     gpx->Rf = 220e3;
     if (gpx->cfgchk)
     {                // 0xC: "P+" DFM-09P , "T-" DFM-17TU ; 0xD: "P-" DFM-17P ?
-        if (gpx->ptu_out >= 0xD || (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3)) { // gpx->meas24[6] < 220e3 <=> gpx->meas24[0] > 1e6 ?
-            gpx->sensortyp = 'P'; // gpx->meas24[0] > 1e6 ?
+        if (gpx->ptu_out >= 0xD || (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3)) { // gpx->meas24[6] < 220e3 <=> gpx->meas24[0] > 2e5 ?
+            gpx->sensortyp = 'P'; // gpx->meas24[0] > 2e5 ?
         }
         if ( ((gpx->ptu_out == 0xB || gpx->ptu_out == 0xC) && gpx->sensortyp == 'T') || gpx->ptu_out >= 0xD) gpx->Rf = 332e3; // DFM-17 ?
 

@@ -26,7 +26,7 @@ Intermet Systems | iMet-54 | :heavy_check_mark: | :heavy_check_mark: | :heavy_ch
 Lockheed Martin | LMS6-400/1680 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
 Meisei | iMS-100 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
 Meteo-Radiy | MRZ-H1 (400 MHz) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
-Meteosis | MTS01 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
+Meteosis | MTS01 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | Not Sent
 
 Support for other radiosondes may be added as required - please send us sondes to test with! If you have any information about telemetry formats, we'd love to hear from you (see our contact details below).
 
