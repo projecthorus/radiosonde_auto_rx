@@ -98,8 +98,11 @@ def log_filename_to_stats(filename, quicklook=False):
                     _output["last_range"] = int(_output["last"]["range_km"])
                     _output["first_height"] = int(_output["first"]["alt"])
                     _output["last_height"] = int(_output["last"]["alt"])
-                    _output["max_height"] = int(_quick["max_height"])
                     _output["freq"] = _quick["first"]["freq"]
+                    try:
+                        _output["max_height"] = int(_quick["max_height"])
+                    except:
+                        pass
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 
