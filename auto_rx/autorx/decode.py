@@ -771,7 +771,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_RS41_' + datetime.datetime.now().isoformat(timespec='seconds').replace(':',''))
+                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_RS41_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -895,7 +895,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             #if self.save_decode_iq:
-            #    demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_DFM_' + datetime.datetime.now().isoformat(timespec='seconds').replace(':',''))
+            #    demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_DFM_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -1193,7 +1193,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq and self.sonde_freq > 405150000 :
-                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx)  + '_MEISEI_' + datetime.datetime.now().isoformat(timespec='seconds').replace(':',''))
+                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx)  + '_MEISEI_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
 
             demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
                 _lower,
