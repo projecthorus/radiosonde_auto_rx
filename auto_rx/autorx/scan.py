@@ -645,6 +645,7 @@ class SondeScanner(object):
         rtl_fm_path="rtl_fm",
         rtl_device_idx=0,
         gain=-1,
+        agc=0,
         ppm=0,
         bias=False,
 
@@ -734,6 +735,7 @@ class SondeScanner(object):
         self.rtl_fm_path = rtl_fm_path
         self.rtl_device_idx = rtl_device_idx
         self.gain = gain
+        self.agc = agc
         self.ppm = ppm
         self.bias = bias
 
@@ -1082,6 +1084,7 @@ class SondeScanner(object):
                 rtl_device_idx=self.rtl_device_idx,
                 ppm=self.ppm,
                 gain=self.gain,
+                agc=self.agc,
                 bias=self.bias,
                 dwell_time=self.detect_dwell_time,
                 save_detection_audio=self.save_detection_audio,
