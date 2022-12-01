@@ -764,7 +764,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     _device_idx = config.get(_section, "device_idx")
                     _ppm = round(config.getfloat(_section, "ppm"))
                     _gain = config.getfloat(_section, "gain")
-                    _agc  = config.get(_section, "agc")
+                    _agc  = config.getint(_section, "agc")
                     _bias = config.getboolean(_section, "bias")
 
                     if (auto_rx_config["sdr_quantity"] > 1) and (_device_idx == "0"):
