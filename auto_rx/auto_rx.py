@@ -251,6 +251,7 @@ def start_decoder(freq, sonde_type, continuous=False):
             rtl_fm_path=config["sdr_fm"],
             rtl_device_idx=_device_idx,
             gain=autorx.sdr_list[_device_idx]["gain"],
+            agc=autorx.sdr_list[_device_idx]["agc"],
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
             # Other options
