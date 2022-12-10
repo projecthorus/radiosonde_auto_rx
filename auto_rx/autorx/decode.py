@@ -265,7 +265,8 @@ class SondeDecoder(object):
             rtl_device_idx = self.rtl_device_idx, 
             sdr_hostname = self.sdr_hostname, 
             sdr_port = self.sdr_port,
-            ss_iq_path = self.ss_iq_path
+            ss_iq_path = self.ss_iq_path,
+            check_freq = self.sonde_freq
             )
 
         if not _sdr_ok:
