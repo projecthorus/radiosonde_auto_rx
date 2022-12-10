@@ -816,6 +816,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "bias": 0,
                     "in_use": False,
                     "task": None,
+                    "agc": 0,
                 }
 
         elif auto_rx_config["sdr_type"] == "KA9Q":
@@ -838,6 +839,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "bias": 0,
                     "in_use": False,
                     "task": None,
+                    "agc": 0,
                 }
             
             logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
