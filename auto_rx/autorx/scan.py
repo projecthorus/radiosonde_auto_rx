@@ -965,6 +965,13 @@ class SondeScanner(object):
             _, peak_idx = np.unique(peak_frequencies, return_index=True)
             peak_frequencies = peak_frequencies[np.sort(peak_idx)]
 
+            # Remove outside min_freq and max_freq.
+            _index = np.argwhere(
+                (peak_frequencies < (self.min_freq * 1e6 - (self.quantization / 2.0))) |
+                (peak_frequencies > (self.max_freq * 1e6 + (self.quantization / 2.0)))
+            )
+            peak_frequencies = np.delete(peak_frequencies, _index)
+
             # Never scan list & Temporary block list behaviour change as of v1.2.3
             # Was: peak_frequencies==_frequency   (This only matched an exact frequency in the never_scan list)
             # Now (1.2.3): Block if the peak frequency is within +/-quantization/2.0 of a never_scan or blocklist frequency.
