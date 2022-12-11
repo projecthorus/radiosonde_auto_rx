@@ -21,7 +21,7 @@ def test_sdr(
     sdr_port = 5555,
     ss_iq_path = "./ss_iq",
     ss_power_path = "./ss_power",
-    check_freq = 401.5
+    check_freq = 401500000
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -69,7 +69,7 @@ def test_sdr(
         _cmd = (
             f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
             f"{ss_iq_path} "
-            f"-f {int(check_freq * 1e6)} "
+            f"-f {check_freq} "
             f"-s 48000 "
             f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
         )
