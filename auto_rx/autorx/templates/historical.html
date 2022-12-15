@@ -30,6 +30,8 @@
     <script src="{{ url_for('static', filename='js/skewt.js') }}"></script>
     
     <script>
+        timezone = new Date().toLocaleDateString(undefined, {day:'2-digit',timeZoneName: 'short' }).substring(4);
+
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
@@ -71,8 +73,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "665px";
-                            document.getElementById("main").style.marginLeft = "665px";
+                            document.getElementById("mySidenav").style.width = "890px";
+                            document.getElementById("main").style.marginLeft = "890px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -113,9 +115,28 @@
                         headerTooltip:"First Observed Date/Time"
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
-                    {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                    {title:"Serial", field:"serial", width:90, resizable:false, // 105
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue().replace(/^(IMS100)-/,"");
+                        }},
+                    {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue().toFixed(3);
+                        }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
-                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
+                    {title:"1st H", field:"first_height", width:75, resizable:false, headerTooltip:"Fiest Observed Height (m)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue() + " m"; //return the contents of the cell;
+                        }},
+                    {title:"Max H", field:"max_height", width:75, resizable:false, headerTooltip:"Max Observed Height (m)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            if(cell.getValue()!=undefined){
+                                return cell.getValue() + " m"; //return the contents of the cell;
+                            } else {
+                                return '--'
+                            }
+                        }},
+                    {title:"Last H", field:"last_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " m"; //return the contents of the cell;
                         }},
@@ -256,7 +277,8 @@
                         landing_alt = parseFloat(value['last']['alt']);
                     }
                     if (getCookie('UTC') == 'false') {
-                        landing_time = new Date(value['last']['datetime']).toLocaleString("en-AU");
+                        landing_time = new Date(value['last']['datetime']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
+
                     } else {
                         landing_time = value['last']['datetime'];
                     }
@@ -359,7 +381,7 @@
                         launch_alt = parseFloat(value['first']['alt']);
                     }
                     if (getCookie('UTC') == 'false') {
-                        launch_time = new Date(value['first']['datetime']).toLocaleString("en-AU");
+                        launch_time = new Date(value['first']['datetime']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                     } else {
                         launch_time = value['first']['datetime'];
                     }
@@ -490,7 +512,7 @@
                                             launch_alt = parseFloat(data['first'][2]);
                                         }
                                         if (getCookie('UTC') == 'false') {
-                                            launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                            launch_time = new Date(data['first_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                         } else {
                                             launch_time = data['first_time'];
                                         }
@@ -575,7 +597,7 @@
                                             landing_alt = parseFloat(data['last'][2]);
                                         }
                                         if (getCookie('UTC') == 'false') {
-                                            landing_time = new Date(data['last_time']).toLocaleString("en-AU");
+                                            landing_time = new Date(data['last_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                         } else {
                                             landing_time = data['last_time']
                                         }
@@ -658,7 +680,7 @@
                                         burst_alt = parseFloat(data['burst'][2]);
                                     }
                                     if (getCookie('UTC') == 'false') {
-                                        burst_time = new Date(data['burst_time']).toLocaleString("en-AU");
+                                        burst_time = new Date(data['burst_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                                     } else {
                                         burst_time = data['burst_time'];
                                     }
@@ -860,7 +882,7 @@
                                 //sidebar needs to be open first time
                                 if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "100vh";
+                                        document.getElementById("mySettings").style.width = "90vh";
                                     } else {
                                         document.getElementById("mySettings").style.width = "100%";
                                     }
@@ -870,11 +892,22 @@
                             }
                                 
                             if (getCookie('UTC') == 'false') {
-                                launch_time = new Date(data['first_time']).toLocaleString("en-AU");
+                                launch_time = new Date(data['first_time']).toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                             } else {
                                 launch_time = data['first_time'];
                             }
                             $('#skewt-header').html("Skew-T - "+_type + " " + _serial + " " + launch_time);
+
+                            if(data['burst_time']!=data['last_time']){
+                                if (getCookie('UTC') == 'false') {
+                                    burst_time =  new Date(data['burst_time']).toLocaleString(window.navigator.language,{year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
+                                } else {
+                                    burst_time = data['burst_time'];
+                                }
+                                $('#skewt-header-sub').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: "+burst_time + ' at '+Math.floor(parseFloat(data['burst'][2])) + 'm');
+                            } else {
+                                $('#skewt-header-sub').html("First Lat/Lon/Alt: "+data['first'][0]+" "+data['first'][1]+" "+data['first'][2]+"m, Burst: --");
+                            }
 
                             try {
                                 skewt.plot(data.skewt);
@@ -891,7 +924,7 @@
                                 enableMenu();
                                 if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "100vh";
+                                        document.getElementById("mySettings").style.width = "90vh";
                                     } else {
                                         document.getElementById("mySettings").style.width = "100%";
                                     }
@@ -920,7 +953,11 @@
                 disableMenu();
                 showSkewT();
             });
-
+            $("#plotalllabel-skewt").click(function(){
+               disableMenu();
+               showSkewT();
+            });
+                
             function downloadLogs() {
                 // Download a set of log files.
                 selectedrows = table.getSelectedData();
@@ -1137,8 +1174,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "665px";
-                    document.getElementById("main").style.marginLeft = "665px";
+                    document.getElementById("mySidenav").style.width = "890px";
+                    document.getElementById("main").style.marginLeft = "890px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -1163,8 +1200,8 @@
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     y.style.display = "block";
-                    document.getElementById("mySettings").style.width = "100vh";
-                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("mySettings").style.width = "90vh";
+                    document.getElementById("main").style.marginRight = "90vh";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -1235,9 +1272,14 @@
     <!-- Wrapper for settings sidebar -->   
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
-        <div id="skewt" style="width:90%;margin:3px auto"></div>
+        <h2 id="skewt-header" style="width:100%;text-align:center;margin-bottom: 0px;">Skew-T Plot</h2>
+        <div id="skewt-header-sub" style="width:100%;text-align:center;margin-top: 0px;margin-bottom: 0px;">Burst: --</div>
+        <div id="skewt" style="width:100%;margin:3px auto;padding-left: 4%;"></div>
         <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
+           <span style="margin:10px;display:inline-block;">
+               <input type="checkbox" id="plotalllabel-skewt" name="plotalllabel">
+               <label for="plotalllabel">Plot All Label</label>
+            </span>
             Decimation:
             <input style="vertical-align:middle;" type="range" min="1" max="100" value="25" class="slider" id="skewt-decimation" list="my-detents">
             <datalist id="my-detents">

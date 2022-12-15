@@ -31,6 +31,8 @@
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
 
     <script>
+        timezone = new Date().toLocaleDateString(undefined, {day:'2-digit',timeZoneName: 'short' }).substring(4);
+
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
@@ -169,7 +171,7 @@
                         temp_date = temp_date.slice(0, -3);
                         temp_date += "Z";
                         var date = new Date(temp_date);
-                        var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                        var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'}) + ' ' + timezone;
                         $('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
                     } else {
                         $('#scan_results').html('<b>Latest Scan:</b> ' + (data.timestamp.slice(0, -3) + 'Z').replace("T", " ").replace("Z", "").slice(0, -4) + ' UTC');
@@ -479,12 +481,23 @@
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
                     {title:"Age", field:"age", headerSort:true},
-                    {title:"Type", field:"type", headerSort:true},
+                    {title:"Type", field:"type", headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                        _type = cell.getValue();
+                        if(_type=="MEISEI"){
+                            _subtype = cell.getData().id.split("-")[0];
+                            if(_subtype=="IMS100"){
+                                return "iMS-100";
+                            } else if(_subtype=="RS11G"){
+                                return "RS-11G";
+                            }
+                        }
+                        return _type;
+                    }},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
-                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
-                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
+                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G)-/,"");
+                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100)-/,"");
 
                         // Add Sondehub Link
                         _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";

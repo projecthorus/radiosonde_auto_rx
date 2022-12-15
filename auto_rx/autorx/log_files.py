@@ -67,6 +67,10 @@ def log_filename_to_stats(filename, quicklook=False):
 
         # Third field is the sonde type, in 'shortform'
         _type = _fields[2]
+
+        if _type=="MEISEI":
+            _type = _fields[1].split("-")[0]
+
         _type_str = short_type_lookup(_type)
         _short_type = short_short_type_lookup(_type)
 
@@ -92,7 +96,13 @@ def log_filename_to_stats(filename, quicklook=False):
                     _output["has_snr"] = _quick["has_snr"]
                     _output["max_range"] = int(max(_output["first"]["range_km"],_output["last"]["range_km"]))
                     _output["last_range"] = int(_output["last"]["range_km"])
-                    _output["min_height"] = int(_output["last"]["alt"])
+                    _output["first_height"] = int(_output["first"]["alt"])
+                    _output["last_height"] = int(_output["last"]["alt"])
+                    _output["freq"] = _quick["first"]["freq"]
+                    try:
+                        _output["max_height"] = int(_quick["max_height"])
+                    except:
+                        pass
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 
@@ -132,6 +142,7 @@ def log_quick_look(filename):
         _first_lat = float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
+        _first_freq = float(_fields[13])
         _pos_info = position_info(
             (
                 autorx.config.global_config["station_lat"],
@@ -148,6 +159,7 @@ def log_quick_look(filename):
             "range_km": _pos_info["straight_distance"] / 1000.0,
             "bearing": _pos_info["bearing"],
             "elevation": _pos_info["elevation"],
+            "freq": _first_freq,
         }
     except Exception as e:
         # Couldn't read the first line, so likely no data.
@@ -188,6 +200,39 @@ def log_quick_look(filename):
             "bearing": _pos_info["bearing"],
             "elevation": _pos_info["elevation"],
         }
+
+        # find Max H
+        _seek_point = _filesize - 5000
+        start_check = True
+        while _seek_point>0:
+            _file.seek(_seek_point)
+            _remainder = _file.read(5000).split("\n")
+            alt1 = float(_remainder[1].split(",")[5])
+            alt2 = float(_remainder[-2].split(",")[5])
+            if alt2>alt1 and start_check==True:
+                # bumping...
+                break
+            if alt2>alt1:
+                # find bumping before burst
+                _remainder_num = len(_remainder)-2
+                max_alt1 = 0
+                for num in range(_remainder_num):
+                    max_alt1 = max(max_alt1,float(_remainder[num+1].split(",")[5]))
+
+                _seek_point+=5000
+                _file.seek(_seek_point)
+                _remainder = _file.read(5000).split("\n")
+
+                _remainder_num = len(_remainder)-2
+                max_alt2 = 0
+                for num in range(_remainder_num):
+                    max_alt2 = max(max_alt2,float(_remainder[num+1].split(",")[5]))
+
+                _output['max_height']=max(max_alt1,max_alt2)    
+                break
+            _seek_point-=5000
+            start_check = False
+
         return _output
     except Exception as e:
         # Couldn't read in the last line for some reason.

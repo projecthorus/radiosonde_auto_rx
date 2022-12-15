@@ -191,6 +191,7 @@ def get_sdr_iq_cmd(
     fast_filter: bool = False,
     ppm = 0,
     gain = None,
+    agc  = None,
     bias = False,
     sdr_hostname = "",
     sdr_port = 5555,
@@ -227,6 +228,11 @@ def get_sdr_iq_cmd(
             if gain >= 0:
                 _gain = f"-g {gain:.1f} "
 
+        _agc = ""
+        if agc:
+            if agc >= 1:
+                _agc = f"-E agc "
+
         _cmd = (
             f"{rtl_fm_path} -M raw "
             f"{'' if fast_filter else '-F9 '}"
@@ -234,6 +240,7 @@ def get_sdr_iq_cmd(
             f"-p {int(ppm)} "
             f"-d {str(rtl_device_idx)} "
             f"{_gain}"
+            f"{_agc}"
             f"-s {int(sample_rate)} "
             f"-f {int(frequency)} "
             f"- 2>/dev/null | "
@@ -305,12 +312,18 @@ def get_sdr_fm_cmd(
             if gain >= 0:
                 _gain = f"-g {gain:.1f} "
 
+        _agc = ""
+        if agc:
+            if agc >= 1:
+                _agc = f"-E agc "
+
         _cmd = (
             f"{rtl_fm_path} -M fm -F9 "
             f"{'-T ' if bias else ''}"
             f"-p {int(ppm)} "
             f"-d {str(rtl_device_idx)} "
             f"{_gain}"
+            f"{_agc}"
             f"-s {int(filter_bandwidth)} "
             f"-f {int(frequency)} "
             f"2>/dev/null | "

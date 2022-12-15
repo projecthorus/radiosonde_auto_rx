@@ -17,7 +17,7 @@ var SkewT = function(div) {
 	var tan = Math.tan(55*deg2rad);
 	var basep = 1050;
 	var topp = 100; // Note: If we want to increase this to 50 hPa we need to fix generation of the temp grid.
-	var plines = [1000,850,700,500,300,200,100];
+	var plines = [1000,900,800,700,600,500,400,300,200,100];
 	var pticks = [950,900,800,750,650,600,550,450,400,350,250,150];
 	var barbsize = 25;
 	// functions for Scales and axes. Note the inverted domain for the y-scale: bigger is up!
@@ -43,7 +43,7 @@ var SkewT = function(div) {
 		height = width; //to fix
 		w = width - margin.left - margin.right;
 		h = width - margin.top - margin.bottom;		
-		x = d3.scale.linear().range([0, w]).domain([-45,50]);
+		x = d3.scale.linear().range([0, w]).domain([-50,50]);
 		y = d3.scale.log().range([0, h]).domain([topp, basep]);
 		xAxis = d3.svg.axis().scale(x).tickSize(0,0).ticks(10).orient("bottom").tickFormat(function(e) {
 			return e.toFixed(0) + "°C" 
@@ -227,7 +227,44 @@ var SkewT = function(div) {
 				wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit + ", " + Math.round(d.wdir) + "˚ ");
 			});
 	}
-	
+
+	var drawToolTipsTest = function(skewtlines) {
+		var lines = skewtlines.reverse();
+
+		// Draw tooltips
+		lines.forEach(function(d) {
+			// Draw tooltips
+			var tmpcfocus = skewtgroup.append("g").attr("class", "focus tmpc").style("display", "none");
+			tmpcfocus.append("circle").attr("r", 4);
+			tmpcfocus.append("text").attr("x", 9).attr("dy", ".35em");
+
+			var dwpcfocus = skewtgroup.append("g").attr("class", "focus dwpc").style("display", "none");
+			dwpcfocus.append("circle").attr("r", 4);
+			dwpcfocus.append("text").attr("x", -9).attr("text-anchor", "end").attr("dy", ".35em");
+
+			var hghtfocus = skewtgroup.append("g").attr("class", "focus").style("display", "none");
+			hghtfocus.append("text").attr("x", 0).attr("text-anchor", "start").attr("dy", ".35em");
+
+			var wspdfocus = skewtgroup.append("g").attr("class", "focus windspeed").style("display", "none");
+			wspdfocus.append("text").attr("x", 0).attr("text-anchor", "end").attr("dy", ".35em");
+
+			tmpcfocus.style("display", null);
+			dwpcfocus.style("display", null);
+			hghtfocus.style("display", null);
+			wspdfocus.style("display", null);
+
+			tmpcfocus.attr("transform", "translate(" + (x(d.temp) + (y(basep)-y(d.press))/tan)+ "," + y(d.press) + ")");
+			dwpcfocus.attr("transform", "translate(" + (x(d.dwpt) + (y(basep)-y(d.press))/tan)+ "," + y(d.press) + ")");
+			hghtfocus.attr("transform", "translate(0," + y(d.press) + ")");
+			tmpcfocus.select("text").text(Math.round(d.temp)+"°C");
+			dwpcfocus.select("text").text(Math.round(d.dwpt)+"°C");
+			hghtfocus.select("text").text("-- "+Math.round(d.hght)+" m");   //hgt or hghtagl ???
+			wspdfocus.attr("transform", "translate(" + (w-65)  + "," + y(d.press) + ")");
+			wspdfocus.select("text").text(Math.round(convert(d.wspd, unit)*10)/10 + " " + unit + ", " + Math.round(d.wdir) + "˚ ");
+
+		});
+	}
+
 	var plot = function(s){		
 		data = s;
 		skewtgroup.selectAll("path").remove(); //clear previous paths from skew
@@ -266,7 +303,8 @@ var SkewT = function(div) {
 			.attr("transform", function(d,i) { return "translate("+w+","+y(d.press)+") rotate("+(d.wdir+180)+")"; });			
 
 		//mouse over
-		drawToolTips(skewtlines[0]);
+		//drawToolTips(skewtlines[0]);
+		drawToolTipsTest(skewtlines[0]);
 	}
 
 	var clear = function(s){
