@@ -133,7 +133,6 @@ class SondeDecoder(object):
         rtl_device_idx=0,
         ppm=0,
         gain=-1,
-        agc=0,
         bias=False,
         save_decode_audio=False,
         save_decode_iq=False,
@@ -201,7 +200,6 @@ class SondeDecoder(object):
         self.rtl_device_idx = rtl_device_idx
         self.ppm = ppm
         self.gain = gain
-        self.agc = agc
         self.bias = bias
         self.save_decode_audio = save_decode_audio
         self.save_decode_iq = save_decode_iq
@@ -378,7 +376,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2600
@@ -445,7 +442,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2500
@@ -479,7 +475,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2000
@@ -508,7 +503,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20
             )
@@ -535,7 +529,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -561,7 +554,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -589,7 +581,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -626,7 +617,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 fast_filter = True
             )
@@ -663,7 +653,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2600
@@ -690,7 +679,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -716,7 +704,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -780,13 +767,12 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_RS41_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -855,7 +841,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -906,13 +891,12 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
-            #if self.save_decode_iq:
-            #    demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx) + '_DFM_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -958,7 +942,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -1000,7 +983,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -1040,7 +1022,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -1082,7 +1063,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -1123,7 +1103,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -1169,7 +1148,6 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias,
                 fast_filter = True # Don't use -F9
             )
@@ -1211,13 +1189,12 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                agc  = self.agc,
                 bias = self.bias
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
-            if self.save_decode_iq and self.sonde_freq > 405150000 :
-                demod_cmd += " tee decode_IQ_%s.bin |" % (str(self.rtl_device_idx)  + '_MEISEI_' + datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z').replace(':',''))
+            if self.save_decode_iq:
+                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
 
             demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
                 _lower,

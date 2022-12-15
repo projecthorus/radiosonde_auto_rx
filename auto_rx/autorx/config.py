@@ -764,7 +764,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     _device_idx = config.get(_section, "device_idx")
                     _ppm = round(config.getfloat(_section, "ppm"))
                     _gain = config.getfloat(_section, "gain")
-                    _agc  = config.getint(_section, "agc")
                     _bias = config.getboolean(_section, "bias")
 
                     if (auto_rx_config["sdr_quantity"] > 1) and (_device_idx == "0"):
@@ -779,7 +778,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                         auto_rx_config["sdr_settings"][_device_idx] = {
                             "ppm": _ppm,
                             "gain": _gain,
-                            "agc" : _agc,
                             "bias": _bias,
                             "in_use": False,
                             "task": None,
@@ -816,7 +814,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "bias": 0,
                     "in_use": False,
                     "task": None,
-                    "agc": 0,
                 }
 
         elif auto_rx_config["sdr_type"] == "KA9Q":
@@ -839,7 +836,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "bias": 0,
                     "in_use": False,
                     "task": None,
-                    "agc": 0,
                 }
             
             logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
