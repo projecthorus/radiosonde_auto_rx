@@ -767,7 +767,7 @@ class SondeScanner(object):
             sdr_hostname = self.sdr_hostname, 
             sdr_port = self.sdr_port,
             ss_iq_path = self.ss_iq_path,
-            check_freq = (self.min_freq + (self.max_freq-self.min_freq)/2.0) * 1e6
+            check_freq = 1e6*(self.max_freq+self.min_freq)/2.0
             )
 
         if not _sdr_ok:
@@ -830,7 +830,7 @@ class SondeScanner(object):
                         sdr_hostname = self.sdr_hostname, 
                         sdr_port = self.sdr_port,
                         ss_iq_path = self.ss_iq_path,
-                        check_freq = (self.min_freq + (self.max_freq-self.min_freq)/2.0) * 1e6
+                        check_freq = 1e6*(self.max_freq+self.min_freq)/2.0
                         )
 
                     if not _sdr_ok:
