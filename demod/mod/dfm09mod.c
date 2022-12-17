@@ -110,7 +110,7 @@ typedef struct {
     double dir; double horiV; double vertV;
     double lat2; double lon2; double alt2;
     double dir2; double horiV2; double vertV2;
-    //float T;
+    float T;
     float Rf;
     float _frmcnt;
     float meas24[9];
@@ -691,6 +691,7 @@ static int reset_cfgchk(gpx_t *gpx) {
     gpx->ptu_out = 0;
     //gpx->gps.dMSL = 0;
     *gpx->SN_out = '\0';
+    gpx->T = -273.15f;
     return 0;
 }
 
@@ -946,6 +947,18 @@ static void print_gpx(gpx_t *gpx) {
             gpx->prev_cntsec_diff = cntsec_diff;
             gpx->prev_manpol = gpx->option.inv;
         }
+
+        gpx->T = -273.15f;
+        if (gpx->cfgchk && gpx->ptu_out)
+        {
+            gpx->T = get_Temp(gpx);
+            if (gpx->T < -270.0f && gpx->dfmtyp != DFM_types[UNDEF]) {
+                if ((gpx->sonde_typ & 0xF) == 0x8 || (gpx->sonde_typ & 0xF) == 0xC)
+                {
+                    gpx->dfmtyp = DFM_types[UNKNW];
+                }
+            }
+        }
     }
 
     if (output & 0xF000) {
@@ -977,16 +990,16 @@ static void print_gpx(gpx_t *gpx) {
             if (gpx->cfgchk)
             {
                 if (gpx->option.ptu  &&  gpx->ptu_out) {
-                    float t = get_Temp(gpx);
-                    if (t > -270.0) {
-                        printf("  T=%.1fC ", t);     // 0xC:P+ DFM-09P , 0xC:T- DFM-17TU , 0xD:P- DFM-17P ?
+                    //float t = get_Temp(gpx);
+                    if (gpx->T > -270.0f) {
+                        printf("  T=%.1fC ", gpx->T);     // 0xC:P+ DFM-09P , 0xC:T- DFM-17TU , 0xD:P- DFM-17P ?
                         if (gpx->option.vbs == 3) printf(" (0x%X:%c%c) ", gpx->sonde_typ & 0xF, gpx->sensortyp, gpx->option.inv?'-':'+');
                     }
                     if (gpx->option.dbg) {
                         float t2 = get_Temp2(gpx);
                         float t4 = get_Temp4(gpx);
-                        if (t2 > -270.0) printf("  T2=%.1fC ", t2);
-                        if (t4 > -270.0) printf(" T4=%.1fC  ", t4);
+                        if (t2 > -270.0f) printf("  T2=%.1fC ", t2);
+                        if (t4 > -270.0f) printf(" T4=%.1fC  ", t4);
                     }
                 }
                 if (gpx->option.vbs == 3  &&  gpx->ptu_out >= 0xA) {
@@ -1089,8 +1102,8 @@ static void print_gpx(gpx_t *gpx) {
                 printf(", \"batt\": %.2f", gpx->status[0]);
             }
             if (gpx->ptu_out) { // get temperature
-                float t = get_Temp(gpx); // ecc-valid temperature?
-                if (t > -270.0) printf(", \"temp\": %.1f", t);
+                //float t = get_Temp(gpx); // ecc-valid temperature?
+                if (gpx->T > -270.0f) printf(", \"temp\": %.1f", gpx->T);
             }
             if (gpx->posmode == 4 && contaux && gpx->xdata[0]) {
                 char xdata_str[2*XDATA_LEN+1];
