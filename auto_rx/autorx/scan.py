@@ -766,7 +766,8 @@ class SondeScanner(object):
             rtl_device_idx = self.rtl_device_idx, 
             sdr_hostname = self.sdr_hostname, 
             sdr_port = self.sdr_port,
-            ss_iq_path = self.ss_iq_path
+            ss_iq_path = self.ss_iq_path,
+            check_freq = 1e6*(self.max_freq+self.min_freq)/2.0
             )
 
         if not _sdr_ok:
@@ -828,7 +829,8 @@ class SondeScanner(object):
                         rtl_device_idx = self.rtl_device_idx, 
                         sdr_hostname = self.sdr_hostname, 
                         sdr_port = self.sdr_port,
-                        ss_iq_path = self.ss_iq_path
+                        ss_iq_path = self.ss_iq_path,
+                        check_freq = 1e6*(self.max_freq+self.min_freq)/2.0
                         )
 
                     if not _sdr_ok:
@@ -964,6 +966,13 @@ class SondeScanner(object):
             # Remove any duplicate entries after quantization, but preserve order.
             _, peak_idx = np.unique(peak_frequencies, return_index=True)
             peak_frequencies = peak_frequencies[np.sort(peak_idx)]
+
+            # Remove outside min_freq and max_freq.
+            _index = np.argwhere(
+                (peak_frequencies < (self.min_freq * 1e6 - (self.quantization / 2.0))) |
+                (peak_frequencies > (self.max_freq * 1e6 + (self.quantization / 2.0)))
+            )
+            peak_frequencies = np.delete(peak_frequencies, _index)
 
             # Never scan list & Temporary block list behaviour change as of v1.2.3
             # Was: peak_frequencies==_frequency   (This only matched an exact frequency in the never_scan list)

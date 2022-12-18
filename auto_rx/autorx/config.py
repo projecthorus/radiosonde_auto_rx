@@ -799,6 +799,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 sdr_port=auto_rx_config["sdr_port"],
                 ss_iq_path=auto_rx_config["ss_iq_path"],
                 ss_power_path=auto_rx_config["ss_power_path"],
+                check_freq=1e6*(auto_rx_config["max_freq"]+auto_rx_config["min_freq"])/2.0,
             )
 
             if not _sdr_ok:
