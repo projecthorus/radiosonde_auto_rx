@@ -211,7 +211,7 @@ class SondehubUploader(object):
 
         elif telemetry["type"] == "RS11G":
             _output["manufacturer"] = "Meisei"
-            _output["type"] = "RS11G"
+            _output["type"] = "RS-11G"
             _output["serial"] = telemetry["id"].split("-")[1]
 
         elif telemetry["type"] == "MRZ":
