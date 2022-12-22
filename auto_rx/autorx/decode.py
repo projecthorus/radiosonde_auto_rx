@@ -1457,14 +1457,16 @@ class SondeDecoder(object):
                         _telemetry["type"] = "DFM"
                         _telemetry["subtype"] = "DFM"
 
-
-
                     # Check frame ID here to ensure we are on dfm09mod version with the frame number fixes (2020-12).
                     if _telemetry["frame"] < 256:
                         self.log_error(
                             "DFM Frame ID is <256, have you run build.sh recently?"
                         )
                         return False
+
+                elif self.sonde_type == "MEISEI":
+                    # For meisei sondes, we are provided a subtype that distinguishes iMS-100 and RS11G sondes.
+                    _telemetry["type"] = _telemetry["subtype"]
 
                 else:
                     # For other sonde types, we leave the type field as it is, even if we are provided
