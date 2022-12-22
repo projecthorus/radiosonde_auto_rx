@@ -204,6 +204,16 @@ class SondehubUploader(object):
             _output["type"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
+        elif telemetry["type"] == "IMS100":
+            _output["manufacturer"] = "Meisei"
+            _output["type"] = "iMS-100"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
+        elif telemetry["type"] == "RS11G":
+            _output["manufacturer"] = "Meisei"
+            _output["type"] = "RS-11G"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
         elif telemetry["type"] == "MRZ":
             _output["manufacturer"] = "Meteo-Radiy"
             _output["type"] = "MRZ"
