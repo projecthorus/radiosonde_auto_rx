@@ -41,7 +41,8 @@ REQUIRED_RS_UTILS = [
     "mp3h1mod",
     "m20mod",
     "imet4iq",
-    "mts01mod"
+    "mts01mod",
+    "iq_dec"
 ]
 
 
