@@ -767,7 +767,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -841,7 +842,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -891,7 +893,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -942,7 +945,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -983,7 +987,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -1022,7 +1027,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -1063,7 +1069,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
@@ -1103,7 +1110,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -1189,7 +1197,8 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
-                bias = self.bias
+                bias = self.bias,
+                dc_block = True
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.

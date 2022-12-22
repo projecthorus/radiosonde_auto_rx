@@ -189,6 +189,7 @@ def get_sdr_iq_cmd(
     rtl_device_idx = "0",
     rtl_fm_path = "rtl_fm",
     fast_filter: bool = False,
+    dc_block: bool = False,
     ppm = 0,
     gain = None,
     bias = False,
@@ -211,6 +212,7 @@ def get_sdr_iq_cmd(
     gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
     bias (bool): If True, enable the bias tee on the SDR.
     fast_filter (bool): If true, drop the -F9 higher quality filter for rtl_fm
+    dc_block (bool): If true, enable a DC block step.
 
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
@@ -246,7 +248,7 @@ def get_sdr_iq_cmd(
             f"- 2>/dev/null | "
         )
 
-        if sample_rate < _dc_remove_limit:
+        if dc_block and (sample_rate < _dc_remove_limit):
             _cmd += _dc_remove
 
         return _cmd
@@ -259,7 +261,7 @@ def get_sdr_iq_cmd(
             f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
         )
 
-        if sample_rate < _dc_remove_limit:
+        if dc_block and (sample_rate < _dc_remove_limit):
             _cmd += _dc_remove
 
         return _cmd
