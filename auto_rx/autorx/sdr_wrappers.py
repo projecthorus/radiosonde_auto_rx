@@ -227,8 +227,11 @@ def get_sdr_iq_cmd(
     # This helps remove the residual DC offset in the 16-bit outputs from
     # both rtl_fm and ss_iq. 
     # We currently only use this on narrowband sondes.
-    _dc_remove = f"./iq_dec --bo 16 - {int(sample_rate)} 16 2>/dev/null |"
-    _dc_remove_limit = 80000
+    if sample_rate > 80000:
+        _dc_ifbw = f"--IFbw {int(sample_rate/1000)} "
+    else:
+        _dc_ifbw = ""
+    _dc_remove = f"./iq_dec --bo 16 {_dc_ifbw}- {int(sample_rate)} 16 2>/dev/null |"
 
     if sdr_type == "RTLSDR":
         _gain = ""
@@ -248,7 +251,7 @@ def get_sdr_iq_cmd(
             f"- 2>/dev/null | "
         )
 
-        if dc_block and (sample_rate < _dc_remove_limit):
+        if dc_block:
             _cmd += _dc_remove
 
         return _cmd
@@ -261,7 +264,7 @@ def get_sdr_iq_cmd(
             f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
         )
 
-        if dc_block and (sample_rate < _dc_remove_limit):
+        if dc_block:
             _cmd += _dc_remove
 
         return _cmd
