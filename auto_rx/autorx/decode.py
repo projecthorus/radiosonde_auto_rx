@@ -133,6 +133,7 @@ class SondeDecoder(object):
         rtl_device_idx=0,
         ppm=0,
         gain=-1,
+        agc=0,
         bias=False,
         save_decode_audio=False,
         save_decode_iq=False,
@@ -200,6 +201,7 @@ class SondeDecoder(object):
         self.rtl_device_idx = rtl_device_idx
         self.ppm = ppm
         self.gain = gain
+        self.agc = agc
         self.bias = bias
         self.save_decode_audio = save_decode_audio
         self.save_decode_iq = save_decode_iq
@@ -376,6 +378,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2600
@@ -442,6 +445,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2500
@@ -475,6 +479,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2000
@@ -503,6 +508,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20
             )
@@ -529,6 +535,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -554,6 +561,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -581,6 +589,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -617,6 +626,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 fast_filter = True
             )
@@ -653,6 +663,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 highpass = 20,
                 lowpass = 2600
@@ -679,6 +690,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -704,6 +716,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias
             )
 
@@ -767,6 +780,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -842,6 +856,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -893,6 +908,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -945,6 +961,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -987,6 +1004,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -1027,6 +1045,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -1069,6 +1088,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -1110,6 +1130,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
@@ -1156,6 +1177,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 fast_filter = True # Don't use -F9
             )
@@ -1197,6 +1219,7 @@ class SondeDecoder(object):
                 rtl_device_idx = self.rtl_device_idx,
                 ppm = self.ppm,
                 gain = self.gain,
+                agc  = self.agc,
                 bias = self.bias,
                 dc_block = True
             )
