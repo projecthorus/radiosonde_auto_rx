@@ -41,7 +41,8 @@ REQUIRED_RS_UTILS = [
     "mp3h1mod",
     "m20mod",
     "imet4iq",
-    "mts01mod"
+    "mts01mod",
+    "iq_dec"
 ]
 
 
@@ -181,6 +182,10 @@ def short_type_lookup(type_name):
         return "Intermet Systems iMet-5x"
     elif type_name == "MEISEI":
         return "Meisei iMS-100/RS-11"
+    elif type_name == "IMS100":
+        return "Meisei iMS-100"
+    elif type_name == "RS11G":
+        return "Meisei RS-11G"
     elif type_name == "MRZ":
         return "Meteo-Radiy MRZ"
     elif type_name == "MTS01":
@@ -217,6 +222,10 @@ def short_short_type_lookup(type_name):
         return "iMet-5x"
     elif type_name == "MEISEI":
         return "iMS-100"
+    elif type_name == "IMS100":
+        return "iMS-100"
+    elif type_name == "RS11G":
+        return "RS-11G"
     elif type_name == "MRZ":
         return "MRZ"
     elif type_name == "MTS01":

@@ -24,6 +24,7 @@ rm meisei100mod
 rm mp3h1mod
 rm imet54mod
 rm mts01mod
+rm iq_dec
 
 
 echo "Done!"

@@ -37,5 +37,6 @@ mv ../demod/mod/meisei100mod .
 mv ../demod/mod/imet54mod .
 mv ../demod/mod/mp3h1mod .
 mv ../demod/mod/mts01mod .
+mv ../demod/mod/iq_dec .
 
 echo "Done!"

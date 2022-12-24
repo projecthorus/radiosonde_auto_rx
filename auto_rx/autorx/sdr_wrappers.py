@@ -189,6 +189,7 @@ def get_sdr_iq_cmd(
     rtl_device_idx = "0",
     rtl_fm_path = "rtl_fm",
     fast_filter: bool = False,
+    dc_block: bool = False,
     ppm = 0,
     gain = None,
     agc  = None,
@@ -212,6 +213,7 @@ def get_sdr_iq_cmd(
     gain (int): SDR Gain setting, in dB. A gain setting of -1 enables the RTLSDR AGC.
     bias (bool): If True, enable the bias tee on the SDR.
     fast_filter (bool): If true, drop the -F9 higher quality filter for rtl_fm
+    dc_block (bool): If true, enable a DC block step.
 
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
@@ -221,6 +223,16 @@ def get_sdr_iq_cmd(
     ss_iq_path (str): Path to spyserver IQ client utility.
 
     """
+
+    # DC removal commmand, using rs1729's IQ_dec utility.
+    # This helps remove the residual DC offset in the 16-bit outputs from
+    # both rtl_fm and ss_iq. 
+    # We currently only use this on narrowband sondes.
+    if sample_rate > 80000:
+        _dc_ifbw = f"--IFbw {int(sample_rate/1000)} "
+    else:
+        _dc_ifbw = ""
+    _dc_remove = f"./iq_dec --bo 16 {_dc_ifbw}- {int(sample_rate)} 16 2>/dev/null |"
 
     if sdr_type == "RTLSDR":
         _gain = ""
@@ -246,6 +258,9 @@ def get_sdr_iq_cmd(
             f"- 2>/dev/null | "
         )
 
+        if dc_block:
+            _cmd += _dc_remove
+
         return _cmd
 
     if sdr_type == "SpyServer":
@@ -255,6 +270,9 @@ def get_sdr_iq_cmd(
             f"-s {int(sample_rate)} "
             f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
         )
+
+        if dc_block:
+            _cmd += _dc_remove
 
         return _cmd
 
