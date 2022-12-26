@@ -621,7 +621,7 @@ def telemetry_filter(telemetry):
 
     # Check Meisei sonde callsigns for validity.
     # meisei_ims returns a callsign of IMS100-xxxxxx until it receives the serial number, so we filter based on the x's being present or not.
-    if "MEISEI" in telemetry["type"]:
+    if "MEISEI" in telemetry["type"] or "IMS100" in telemetry["type"] or "RS11G" in telemetry["type"]:
         meisei_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         meisei_callsign_valid = False
