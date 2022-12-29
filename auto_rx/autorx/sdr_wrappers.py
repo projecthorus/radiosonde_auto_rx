@@ -192,7 +192,6 @@ def get_sdr_iq_cmd(
     dc_block: bool = False,
     ppm = 0,
     gain = None,
-    agc  = None,
     bias = False,
     sdr_hostname = "",
     sdr_port = 5555,
@@ -236,13 +235,11 @@ def get_sdr_iq_cmd(
 
     if sdr_type == "RTLSDR":
         _gain = ""
+        _agc = ""
         if gain:
             if gain >= 0:
                 _gain = f"-g {gain:.1f} "
-
-        _agc = ""
-        if agc:
-            if agc >= 1:
+            elif gain == -2:
                 _agc = f"-E agc "
 
         _cmd = (
