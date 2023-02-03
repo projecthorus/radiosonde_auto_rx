@@ -250,6 +250,31 @@ static int get_w16(ui8_t *subframe_bits, int j) {
 
 /* -------------------------------------------------------------------------- */
 
+static int sanity_check_rs11g_config_temperature(gpx_t *gpx) {
+    int result = 1;
+    float R_old = 0;
+    float T_old = INFINITY;
+    int i;
+
+    // All resistance values in the R-T interpolation table must be positive and monotonically increasing
+    for (i = 0; i < 11; i++) {
+        if (gpx->cfg[37+i] <= R_old) {
+            result = 0;
+        }
+        R_old = gpx->cfg[37+i];
+    }
+
+    // All temperature values in the R-T interpolation table must be monotonically decreasing
+    for (i = 0; i < 11; i++) {
+        if (gpx->cfg[17+i] >= T_old) {
+            result = 0;
+        }
+        T_old = gpx->cfg[17+i];
+    }
+
+    return result;
+}
+
 static int sanity_check_ims100_config_temperature(gpx_t *gpx) {
     int result = 1;
     float R_old = 0;
@@ -760,10 +785,72 @@ int main(int argc, char **argv) {
 
                             if (err_blks == 0) // err_frm zu schwach
                             {
+                                gpx.cfg[counter%64] = fw32;
+                                gpx.cfg_valid |= 1uLL << (counter%64);
+
                                 // SN
-                                if (counter % 0x10 == 0) { sn = f32e2(w32); gpx.sn = f32e2(w32); gpx._sn = w32; }
+                                if (counter % 16 == 0) { sn = fw32; gpx.sn = fw32; gpx._sn = w32; }
                                 // freq
                                 if (counter % 64 == 15) { freq = 403700+fw32*100.0; gpx.fq = freq; }
+
+                                //PTU: Save reference frequency (sent in both even and odd frames)
+                                if (counter % 4 == 0) {
+                                    gpx.f_ref = bits2val(subframe_bits+HEADLEN+0*46+17, 16);
+                                }
+
+                                if (counter % 2 == 0) {
+                                    if (option_ptu) {
+                                        gpx.T = NAN;
+                                        gpx.RH = NAN;
+                                        if (gpx.f_ref != 0) {  // must know the reference frequency
+                                            int T_cfg = ((gpx.cfg_valid & 0x0000FFFE0FFE0000LL) == 0x0000FFFE0FFE0000LL); // cfg[47:33,27:17]
+                                            int U_cfg = ((gpx.cfg_valid & 0x001E000000000000LL) == 0x001E000000000000LL); // cfg[52:49]
+                                            // Necessary parameters must exist and their values must meet the requirements
+                                            if (T_cfg && sanity_check_rs11g_config_temperature(&gpx)) {
+                                                ui16_t t_raw = bits2val(subframe_bits+HEADLEN+2*46+17, 16);
+                                                float f = ((float)t_raw / (float)gpx.f_ref) * 4.0f;
+                                                if (f > 1.0f) {
+                                                    // Use config coefficients to transform measured frequency to absolute resistance (kOhms)
+                                                    f = 1.0f / (f - 1.0f);
+                                                    float R = gpx.cfg[33] + gpx.cfg[34]*f + gpx.cfg[35]*f*f - gpx.cfg[36];
+                                                    // iMS-100 sends known resistance (cfg[44:33]) for 12 temperature sampling points
+                                                    // (cfg[28:17]). Actual temperature is found by interpolating in one of these
+                                                    // 11 intervals.
+                                                    if (R <= gpx.cfg[37]) { // R below min value?
+                                                        gpx.T = gpx.cfg[17]; // --> Set T = highest temperature
+                                                    } else if (R >= gpx.cfg[47]) { // R above max value?
+                                                        gpx.T = gpx.cfg[27]; // --> Set T = lowest temperature
+                                                    } else {
+                                                        // We now know that R is inside the interpolation range. Sampling points are
+                                                        // ordered by increasing resistance (decreasing temperature).
+                                                        // (We have verified this in the sanity check above.)
+                                                        // Search for the interval that contains R, then interpolate linearly
+                                                        // (using log(R)).
+                                                        for (j = 0; j < 10; j++) {
+                                                            if (R < gpx.cfg[38+j]) {
+                                                                f = (logf(R) - logf(gpx.cfg[37+j])) / (logf(gpx.cfg[38+j]) - logf(gpx.cfg[37+j]));
+                                                                gpx.T = gpx.cfg[17+j] - f*(gpx.cfg[17+j] - gpx.cfg[18+j]);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                if (!isnan(gpx.T)) printf("T=%.1fC ", gpx.T); // better don't use -ffast-math here
+                                                else T_cfg = 0;
+                                            }
+                                            if (U_cfg) {
+                                                ui16_t u_raw = bits2val(subframe_bits+HEADLEN+3*46, 16);
+                                                float f = ((float)u_raw / (float)gpx.f_ref) * 4.0f;
+                                                gpx.RH = gpx.cfg[49] + gpx.cfg[50]*f + gpx.cfg[51]*f*f + gpx.cfg[52]*f*f*f;
+                                                // Limit to 0...100%
+                                                gpx.RH = fmaxf(gpx.RH, 0.0f);
+                                                gpx.RH = fminf(gpx.RH, 100.0f);
+                                                printf("RH=%.0f%% ", gpx.RH);
+                                            }
+                                            if (T_cfg || U_cfg) printf(" ");
+                                        }
+                                    }
+                                }
                             }
 
                             if (counter % 2 == 1) {
@@ -794,6 +881,14 @@ int main(int argc, char **argv) {
                                         printf("{ \"type\": \"%s\"", "MEISEI");
                                         printf(", \"frame\": %d, \"id\": \"RS11G-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                                gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
+                                        if (option_ptu) {
+                                            if (!isnan(gpx.T)) { // better don't use -ffast-math here
+                                                fprintf(stdout, ", \"temp\": %.1f",  gpx.T );
+                                            }
+                                            if (!isnan(gpx.RH)) { // better don't use -ffast-math here
+                                                fprintf(stdout, ", \"humidity\": %.1f",  gpx.RH );
+                                            }
+                                        }
                                         printf(", \"subtype\": \"RS11G\"");
                                         if (gpx.jsn_freq > 0) {
                                             printf(", \"freq\": %d", gpx.jsn_freq);
@@ -961,7 +1056,7 @@ int main(int argc, char **argv) {
                                     if (gpx.f_ref != 0) {  // must know the reference frequency
                                         int T_cfg = ((gpx.cfg_valid & 0x01E01FFE1FFE0000LL) == 0x01E01FFE1FFE0000LL); // cfg[56:53,44:33,28:17]
                                         int U_cfg = ((gpx.cfg_valid & 0x001E000000000000LL) == 0x001E000000000000LL); // cfg[52:49]
-                                        // Necessary parameters must exist and their values must ´meet the requirements
+                                        // Necessary parameters must exist and their values must meet the requirements
                                         if (T_cfg && sanity_check_ims100_config_temperature(&gpx)) {
                                             ui16_t t_raw = bits2val(subframe_bits+HEADLEN+2*46+17, 16);
                                             float f = ((float)t_raw / (float)gpx.f_ref) * 4.0f;
