@@ -15,15 +15,9 @@ import traceback
 import json
 from base64 import b64encode
 from hashlib import sha256
+from queue import Queue
 from threading import Thread, Lock
 from . import __version__ as auto_rx_version
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 # These get replaced out after init
 url_habitat_uuids = ""

@@ -3,10 +3,10 @@
 
 **Please refer to the [auto_rx wiki](https://github.com/projecthorus/radiosonde_auto_rx/wiki) for the latest information.**
 
-This fork of [rs1279's RS](https://github.com/rs1729/RS) codebase provides a set of utilities ('auto_rx') to allow automatic reception and uploading of [Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to multiple services, including:
+This project is built around [rs1279's RS](https://github.com/rs1729/RS) demodulators, and provides a set of utilities ('auto_rx') to allow automatic reception and uploading of [Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to multiple services, including:
 
 * The [SondeHub Radiosonde Tracker](https://tracker.sondehub.org) - a tracking website specifically designed for tracking radiosondes!
-* APRS-IS (for display on sites such as [radiosondy.info](https://radiosondy.info) and [aprs.fi](https://aprs.fi)
+* APRS-IS, for display on sites such as [radiosondy.info](https://radiosondy.info). (Note that aprs.fi now blocks radiosonde traffic.)
 * [ChaseMapper](https://github.com/projecthorus/chasemapper) for mobile
   radiosonde chasing.
 
@@ -18,15 +18,16 @@ Manufacturer | Model | Position | Temperature | Humidity | Pressure | XDATA
 -------------|-------|----------|-------------|----------|----------|------
 Vaisala | RS92-SGP/NGP | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:
 Vaisala | RS41-SG/SGP/SGM | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: (for -SGP) | :heavy_check_mark:
-Graw | DFM06/09/17 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | :x:
+Graw | DFM06/09/17 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | :heavy_check_mark:
 Meteomodem | M10 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent | :x:
 Meteomodem | M20 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: (For some models) | :x:
-Intermet Systems | iMet-1 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent | :heavy_check_mark:
-Intermet Systems | iMet-4 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent | :heavy_check_mark:
+Intermet Systems | iMet-4 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:
 Intermet Systems | iMet-54 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent | :x:
 Lockheed Martin | LMS6-400/1680 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
-Meisei | iMS-100 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
+Meisei | iMS-100 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
+Meisei | RS11G | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
 Meteo-Radiy | MRZ-H1 (400 MHz) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
+Meteosis | MTS01 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | Not Sent
 
 Support for other radiosondes may be added as required - please send us sondes to test with! If you have any information about telemetry formats, we'd love to hear from you (see our contact details below).
 
@@ -46,7 +47,6 @@ https://groups.google.com/forum/#!forum/radiosonde_auto_rx
 ## Contacts
 * [Mark Jessop](https://github.com/darksidelemm) - vk5qi@rfhead.net
 * [Michaela Wheeler](https://github.com/TheSkorm) - radiosonde@michaela.lgbt
-
 
 ## Licensing Information
 All software within this repository is licensed under the GNU General Public License v3. Refer this repositories LICENSE file for the full license text.

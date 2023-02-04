@@ -21,6 +21,7 @@ import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
 from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from queue import Queue
 from threading import Thread
 import flask
 from flask import request, abort, make_response, send_file
@@ -34,13 +35,6 @@ except ImportError:
         "Could not import simplekml! Try running: sudo pip3 install -r requirements.txt"
     )
     sys.exit(1)
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 # Inhibit Flask warning message about running a development server... (we know!)
@@ -342,7 +336,7 @@ def flask_export_selected_log_files(serialb64):
                 _zip,
                 mimetype="application/zip",
                 as_attachment=True,
-                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
             )
         )
 
@@ -373,7 +367,7 @@ def flask_export_all_log_files():
                 _zip,
                 mimetype="application/zip",
                 as_attachment=True,
-                attachment_filename=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
             )
         )
 
@@ -562,7 +556,12 @@ def refresh_client(arg1):
 
 def flask_thread(host="0.0.0.0", port=5000):
     """ Flask Server Thread"""
-    socketio.run(app, host=host, port=port)
+    try:
+        socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
+    except TypeError:
+        # Catch old flask-socketio version.
+        logging.debug("Web - Not using allow_unsafe_werkzeug argument.")
+        socketio.run(app, host=host, port=port)
 
 
 def start_flask(host="0.0.0.0", port=5000):
@@ -631,7 +630,7 @@ class WebExporter(object):
         """ Initialise a WebExporter object.
 
         Args:
-            max_age: Store telemetry data up to X hours old
+            max_age: Store telemetry data up to X minutes old
         """
 
         self.max_age = max_age * 60

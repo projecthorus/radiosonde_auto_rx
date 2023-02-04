@@ -56,9 +56,11 @@ typedef struct {
 
 
 #define BITS            (10)
-#define FRAME_LEN       (220)
+#define STDFRMLEN       (220)  // 108 byte
+#define FRAME_LEN       (220)  //(std=220, 108 byte) (full=440=2*std, 216 byte)
 #define BITFRAME_LEN    (FRAME_LEN*BITS)
-
+#define FRMBYTE_STD     (108)  //(FRAME_LEN-FRAMESTART)/2 = 108
+// FRAME_FULL = 2*FRAME_STD = 216 ?
 
 typedef struct {
     int out;
@@ -85,7 +87,7 @@ typedef struct {
 // shorter header correlation, such that, in mixed signal/noise,
 // signal samples have more weight: header = 0x00 0xAA 0x24 0x24
 // (in particular for soft bit input!)
-static char imet54_header[] = //"0000000001""0101010101""0000000001""0101010101"
+static char imet54_header[] = //"0000000001""0101010101""0000000001""0101010101"  // 20x 0x00AA
                               //"0000000001""0101010101""0000000001""0101010101"
                               //"0000000001""0101010101""0000000001""0101010101"
                               //"0000000001""0101010101""0000000001""0101010101"
@@ -227,8 +229,9 @@ static ui8_t hamming(int opt_ecc, ui8_t *cwb, ui8_t *sym) {
 static int crc32ok(ui8_t *bytes, int len) {
     ui32_t poly0 = 0x0EDB;
     ui32_t poly1 = 0x8260;
-    //[105 , 7, 0x8EDB, 0x8260],
+    //[105 , 7, 0x8EDB, 0x8260] // CRC32 802-3 (Ethernet) reversed reciprocal
     //[104 , 0, 0x48EB, 0x1ACA]
+    //[102 , 0, 0x1DB7, 0x04C1] // CRC32 802-3 (Ethernet) normal
     int n = 104;
     int b = 0;
     ui32_t c0 = 0x48EB;
@@ -242,7 +245,7 @@ static int crc32ok(ui8_t *bytes, int len) {
     ui32_t crc0 = 0;
     ui32_t crc1 = 0;
 
-    if (len < 108) return 0;
+    if (len < 108) return 0;  // FRMBYTE_STD=108
 
     while (n >= 0) {
 
@@ -453,7 +456,7 @@ static int reset_gpx(gpx_t *gpx) {
 
 /* ------------------------------------------------------------------------------------ */
 
-static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
+static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc_std) {
 
     int prnGPS = 0,
         prnPTU = 0,
@@ -462,7 +465,8 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
     int tp_err = 0;
     int pos_ok = 0,
         frm_ok = 0,
-        crc_ok = 0;
+        crc_ok = 0,
+        std_ok = 0;
     int rs_type = 54;
 
     crc_ok = crc32ok(gpx->frame, len);
@@ -515,8 +519,17 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
             if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%% ", gpx->RH);
         }
 
-        if (gpx->option.vbs) {
-            if ( crc_ok ) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+        if ( crc_ok ) fprintf(stdout, " [OK]");  // std frame: frame[104..105]==0x4000 ?
+        else {
+            if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");
+            else if ( ecc_std == 0 ) {    // full frame: pos_F8_full==pos_F8_std+11 ?
+                fprintf(stdout, " [ok]");
+                std_ok = 1;
+            }
+            else {
+                fprintf(stdout, " [no]");
+                std_ok = 0;
+            }
         }
 
         // (imet54:GPS+PTU) status: 003E , (imet50:GPS); 0030
@@ -534,10 +547,9 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
     }
 
     // prnGPS,prnTPU
-    if (gpx->option.jsn && frm_ok && crc_ok && (gpx->status&0x30)==0x30) {
+    if (gpx->option.jsn && frm_ok && (crc_ok || std_ok) && (gpx->status&0x30)==0x30) {
         char *ver_jsn = NULL;
-        //char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
-        char *subtype = (rs_type == 54) ? "iMet-54" : "iMet-50";
+        char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
@@ -553,8 +565,13 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
         }
         fprintf(stdout, ", \"subtype\": \"%s\"", subtype);  // "IMET54"/"IMET50"
         if (gpx->jsn_freq > 0) {
-            fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq);
+            fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq );
         }
+
+        // Reference time/position
+        fprintf(stdout, ", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+        fprintf(stdout, ", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
         #ifdef VER_JSN_STR
             ver_jsn = VER_JSN_STR;
         #endif
@@ -568,7 +585,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps) {
 
 static void print_frame(gpx_t *gpx, int len, int b2B) {
     int i, j;
-    int ecc_frm = 0, ecc_gps = 0;
+    int ecc_frm = 0, ecc_gps = 0, ecc_std = 0;
     ui8_t bits8n1[BITFRAME_LEN+10]; // (RAW)BITFRAME_LEN
     ui8_t bits[BITFRAME_LEN]; // 8/10 (RAW)BITFRAME_LEN
     ui8_t nib[FRAME_LEN];
@@ -596,12 +613,15 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
 
         ecc_frm = 0;
         ecc_gps = 0;
+        ecc_std = 0;
         for (j = 0; j < len/8; j++) { // alt. only GPS block
             ecc_frm += ec[j];
             if (ec[j] > 0x10) ecc_frm = -1;
             if (j < pos_GPSalt+4+8) ecc_gps = ecc_frm;
+            if (j < 2*FRMBYTE_STD)  ecc_std = ecc_frm;
             if (ecc_frm < 0) break;
         }
+        if (j < 2*FRMBYTE_STD) ecc_std = -1;
     }
     else {
         ecc_frm = -2; // TODO: parse ecc-info from raw file
@@ -610,6 +630,8 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
 
     if (gpx->option.raw)
     {
+        int crc_ok = crc32ok(gpx->frame, len);
+
         for (i = 0; i < len/16; i++) {
             fprintf(stdout, "%02X", gpx->frame[i]);
             if (gpx->option.raw > 1)
@@ -618,7 +640,13 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
                 if (gpx->option.raw == 4 && i % 4 == 3) fprintf(stdout, " ");
             }
         }
-        if ( crc32ok(gpx->frame, len) ) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
+
+        if ( crc_ok ) fprintf(stdout, " [OK]");  // std frame: frame[104..105]==0x4000 ?
+        else {
+            if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");  // full frame: pos_F8_full==pos_F8_std+11 ?
+            else if ( ecc_std == 0 ) fprintf(stdout, " [ok]");
+            else                     fprintf(stdout, " [no]");
+        }
         if (gpx->option.ecc && ecc_frm != 0) {
             fprintf(stdout, " # (%d)", ecc_frm);
             fprintf(stdout, " [%d]", ecc_gps);
@@ -626,12 +654,12 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
         fprintf(stdout, "\n");
 
         if (gpx->option.slt /*&& gpx->option.jsn*/) {
-            print_position(gpx, len/16, ecc_frm, ecc_gps);
+            print_position(gpx, len/16, ecc_frm, ecc_gps, ecc_std);
         }
     }
     else
     {
-        print_position(gpx, len/16, ecc_frm, ecc_gps);
+        print_position(gpx, len/16, ecc_frm, ecc_gps, ecc_std);
     }
 }
 
@@ -646,6 +674,7 @@ int main(int argc, char *argv[]) {
     int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_noLUT = 0;
     int option_softin = 0;
     int option_pcmraw = 0;
     int wavloaded = 0;
@@ -762,16 +791,18 @@ int main(int argc, char *argv[]) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
             option_iq = 5;
         }
-        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
+        else if   (strcmp(*argv, "--lpIQ") == 0) { option_lp |= LP_IQ; }  // IQ/IF lowpass
         else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
             double bw = 0.0;
             ++argv;
             if (*argv) bw = atof(*argv);
             else return -1;
             if (bw > 4.6 && bw < 24.0) lpIQ_bw = bw*1e3;
-            option_lp = 1;
+            option_lp |= LP_IQ;
         }
+        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= LP_FM; }  // FM lowpass
         else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--noLUT") == 0) { option_noLUT = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
         }
@@ -814,6 +845,13 @@ int main(int argc, char *argv[]) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+    if (option_iq == 5 && option_dc) option_lp |= LP_FM;
+
+    // LUT faster for decM, however frequency correction after decimation
+    // LUT recommonded if decM > 2
+    //
+    if (option_noLUT && option_iq == 5) dsp.opt_nolut = 1; else dsp.opt_nolut = 0;
 
 
     if (gpx.option.raw && gpx.option.jsn) gpx.option.slt = 1;

@@ -23,7 +23,7 @@
 PCM-FM, 1200 baud biphase-S
 1200 bit pro Sekunde: zwei Frames, die wiederum in zwei Subframes unterteilt werden koennen, d.h. 4 mal 300 bit.
 
-Variante 1 (RS-11G ?)
+Variante 1 (RS-11G)
 <option -1>
 049DCE1C667FDD8F537C8100004F20764630A20000000010040436 FB623080801F395FFE08A76540000FE01D0C2C1E75025006DE0A07
 049DCE1C67008C73D7168200004F0F764B31A2FFFF000010270B14 FB6230000000000000000000000000000000000000000000001D59
@@ -49,7 +49,7 @@ Variante 1 (RS-11G ?)
 0x049DCE ^ 0xFB6230 = 0xFFFFFE
 
 
-Variante 2 (iMS-100 ?)
+Variante 2 (iMS-100)
 <option -2>
 049DCE3E228023DBF53FA700003C74628430C100000000ABE00B3B FB62302390031EECCC00E656E42327562B2436C4C01CDB0F18B09A
 049DCE3E23516AF62B3FC700003C7390D131C100000000AB090000 FB62300000000000032423222422202014211B13220000000067C4
@@ -58,6 +58,8 @@ Variante 2 (iMS-100 ?)
 0x03..0x04  16 bit  0.5s-counter, count%2=0:
 0x07..0x0A  32 bit  cfg[cnt%64] (float32); cfg[0,16,32,48]=SN
 0x11..0x12  30xx, xx=C1(ims100?),A2(rs11?)
+0x13..0x14  16 bit  temperature, main sensor, raw
+0x15..0x16  16 bit  humidity, raw
 0x17..0x18  16 bit  time ms yyxx, 00.000-59.000
 0x19..0x1A  16 bit  time hh:mm
 0x1B..0x1D  HEADER  0xFB6230
@@ -74,6 +76,7 @@ Variante 2 (iMS-100 ?)
 0x11..0x12  31xx, xx=C1(ims100?),A2(rs11?)
 0x17..0x18  16 bit  1024-counter yyxx, +0x400=1024; rollover synchron zu ms-counter, nach rollover auch +0x300=768
 0x1B..0x1D  HEADER  0xFB6230
+0x20..0x21  16 bit  GPS-vV * 1.944e1 (knots)
 0x22..0x23  yy00..yy03 (yy00: GPS PRN?)
 
 
@@ -137,14 +140,20 @@ typedef struct {
     int std; int min; float sek;
     double lat; double lon; double alt;
     double vH; double vD; double vV;
+    ui16_t f_ref;
+    float T; float RH;
     char frame_rawbits[RAWBITFRAME_LEN+10];
     ui8_t frame_bits[BITFRAME_LEN+10];
     ui32_t ecc;
     float cfg[64];
+    ui64_t cfg_valid;
     ui32_t _sn;
     float sn; //  0 mod 16
     float fq; // 15 mod 64
     int jsn_freq;   // freq/kHz (SDR)
+    int frm0_count; int frm0_valid;
+    int frm1_count; int frm1_valid;
+    int vV_valid;
     RS_t RS;
 } gpx_t;
 
@@ -241,6 +250,82 @@ static int get_w16(ui8_t *subframe_bits, int j) {
 
 /* -------------------------------------------------------------------------- */
 
+static int sanity_check_rs11g_config_temperature(gpx_t *gpx) {
+    int result = 1;
+    float R_old = 0;
+    float T_old = INFINITY;
+    int i;
+
+    // All resistance values in the R-T interpolation table must be positive and monotonically increasing
+    for (i = 0; i < 11; i++) {
+        if (gpx->cfg[37+i] <= R_old) {
+            result = 0;
+        }
+        R_old = gpx->cfg[37+i];
+    }
+
+    // All temperature values in the R-T interpolation table must be monotonically decreasing
+    for (i = 0; i < 11; i++) {
+        if (gpx->cfg[17+i] >= T_old) {
+            result = 0;
+        }
+        T_old = gpx->cfg[17+i];
+    }
+
+    return result;
+}
+
+static int sanity_check_ims100_config_temperature(gpx_t *gpx) {
+    int result = 1;
+    float R_old = 0;
+    float T_old = INFINITY;
+    int i;
+
+    // All resistance values in the R-T interpolation table must be positive and monotonically increasing
+    for (i = 0; i < 12; i++) {
+        if (gpx->cfg[33+i] <= R_old) {
+            result = 0;
+        }
+        R_old = gpx->cfg[33+i];
+    }
+
+    // All temperature values in the R-T interpolation table must be monotonically decreasing
+    for (i = 0; i < 12; i++) {
+        if (gpx->cfg[17+i] >= T_old) {
+            result = 0;
+        }
+        T_old = gpx->cfg[17+i];
+    }
+
+    return result;
+}
+
+/* -------------------------------------------------------------------------- */
+
+static int reset_gpx(gpx_t *gpx) {
+    int j;
+    for (j = 0; j < 64; j++) gpx->cfg[j] = 0.0f;
+    // DON'T RESET frame_(raw)bits and Reed-Solomon RS !
+    gpx->sn = -1;
+    gpx->frnr = gpx->frnr1 = 0;
+    gpx->jahr = gpx->monat = gpx->tag = 0;
+    gpx->std = gpx->min = 0; gpx->sek = 0.0f;
+    gpx->lat = gpx->lon = gpx->alt = 0.0;
+    gpx->vH = gpx->vD = gpx->vV = 0.0;
+    gpx->vV_valid = 0;
+    gpx->f_ref = 0;
+    gpx->RH = NAN;
+    gpx->T = NAN;
+    gpx->cfg_valid = 0;
+    gpx->_sn = 0;
+    gpx->fq = 0.0f;
+    gpx->frm0_count = 0; gpx->frm0_valid = 0;
+    gpx->frm1_count = 0; gpx->frm1_valid = 0;
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+
 
 int main(int argc, char **argv) {
 
@@ -249,19 +334,21 @@ int main(int argc, char **argv) {
         option_inv = 0,
         option_ecc = 0,    // BCH(63,51)
         option_jsn = 0;    // JSON output (auto_rx)
+    int option_ptu = 0;
     int option_min = 0;
     int option_iq = 0;
     int option_iqdc = 0;
     int option_lp = 0;
     int option_dc = 0;
+    int option_noLUT = 0;
     int option_softin = 0;
     int option_pcmraw = 0;
     int sel_wavch = 0;
     int wavloaded = 0;
     int cfreq = -1;
 
-    int option1 = 0,
-        option2 = 0;
+    int option_rs11g = 0,
+        option_ims100 = 0;
 
     float baudrate = -1;
 
@@ -305,11 +392,13 @@ int main(int argc, char **argv) {
     float thres = 0.7;
     float _mv = 0.0;
 
+    float lpIQ_bw = 16e3;
+
     int symlen = 1;
     int bitofs = 0; // 0..+1
     int shift = 0;
 
-    int reset_gpx = 0;
+    int rst_gpx = 0;
 
     pcm_t pcm = {0};
     dsp_t dsp = {0};  //memset(&dsp, 0, sizeof(dsp));
@@ -341,13 +430,16 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
-        else if ( (strcmp(*argv, "-2") == 0) ) {
-            option2 = 1;
+        else if ( (strcmp(*argv, "--ims100") == 0) ) {
+            option_ims100 = 1;
         }
-        else if ( (strcmp(*argv, "-1") == 0) ) {
-            option1 = 1;
+        else if ( (strcmp(*argv, "--rs11g") == 0) ) {
+            option_rs11g = 1;
         }
         else if   (strcmp(*argv, "--ecc") == 0) { option_ecc = 1; }
+        else if (strcmp(*argv, "--ptu") == 0) {
+            option_ptu = 1;
+        }
         else if ( (strcmp(*argv, "-v") == 0) ) { option_verbose = 1; }
         else if ( (strcmp(*argv, "--br") == 0) ) {
             ++argv;
@@ -389,8 +481,18 @@ int main(int argc, char **argv) {
             dsp.xlt_fq = -fq; // S(t) -> S(t)*exp(-f*2pi*I*t)
             option_iq = 5;
         }
-        else if   (strcmp(*argv, "--lp") == 0) { option_lp = 1; }  // IQ lowpass
-        else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
+        else if   (strcmp(*argv, "--lpIQ") == 0) { option_lp |= LP_IQ; }  // IQ/IF lowpass
+        else if   (strcmp(*argv, "--lpbw") == 0) {  // IQ lowpass BW / kHz
+            double bw = 0.0;
+            ++argv;
+            if (*argv) bw = atof(*argv);
+            else return -1;
+            if (bw > 4.6 && bw < 32.0) lpIQ_bw = bw*1e3;
+            option_lp |= LP_IQ;
+        }
+        else if   (strcmp(*argv, "--lpFM") == 0) { option_lp |= LP_FM; }  // FM lowpass
+        else if   (strcmp(*argv, "--dc") == 0) { option_dc = 1; }
+        else if   (strcmp(*argv, "--noLUT") == 0) { option_noLUT = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
             option_min = 1;
         }
@@ -422,8 +524,8 @@ int main(int argc, char **argv) {
             option_pcmraw = 1;
         }
         else {
-            if (option1 == 1 && option2 == 1) goto help_out;
-            if (!option_raw && option1 == 0 && option2 == 0) option2 = 1;
+            if (option_rs11g == 1 && option_ims100 == 1) goto help_out;
+            if (!option_raw && option_rs11g == 0 && option_ims100 == 0) option_ims100 = 1;
             fp = fopen(*argv, "rb");
             if (fp == NULL) {
                 fprintf(stderr, "error: open %s\n", *argv);
@@ -434,6 +536,13 @@ int main(int argc, char **argv) {
         ++argv;
     }
     if (!wavloaded) fp = stdin;
+
+    if (option_iq == 5 && option_dc) option_lp |= LP_FM;
+
+    // LUT faster for decM, however frequency correction after decimation
+    // LUT recommonded if decM > 2
+    //
+    if (option_noLUT && option_iq == 5) dsp.opt_nolut = 1; else dsp.opt_nolut = 0;
 
     if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
 
@@ -490,7 +599,7 @@ int main(int argc, char **argv) {
         dsp.opt_iq = option_iq;
         dsp.opt_iqdc = option_iqdc;
         dsp.opt_lp = option_lp;
-        dsp.lpIQ_bw = 16e3; // IF lowpass bandwidth
+        dsp.lpIQ_bw = lpIQ_bw; //16e3; // IF lowpass bandwidth
         dsp.lpFM_bw = 4e3; // FM audio lowpass
         dsp.opt_dc = option_dc;
         dsp.opt_IFmin = option_min;
@@ -542,7 +651,8 @@ int main(int argc, char **argv) {
     }
 
     gpx.sn = -1;
-
+    gpx.RH = NAN;
+    gpx.T = NAN;
 
     while ( 1 )
     {
@@ -590,7 +700,7 @@ int main(int argc, char **argv) {
                 err_blks = 0;
 
                 for (subframe = 0; subframe < 2; subframe++)
-                {                                                       // option2:
+                {                                                       // option_ims100:
                     subframe_bits = gpx.frame_bits;                     // subframe 0: 049DCE
                     if (subframe > 0) subframe_bits += BITFRAME_LEN/4;  // subframe 1: FB6230
 
@@ -638,13 +748,13 @@ int main(int argc, char **argv) {
                         }
                     }
 
-                    if (!option2 && !option_raw) {
+                    if (!option_ims100 && !option_raw) {
             jmpRS11:
-                        if (reset_gpx) {
-                            memset(&gpx, sizeof(gpx), 0);
+                        if (rst_gpx) {
+                            reset_gpx(&gpx);
                             sn = -1;
                             freq = -1;
-                            reset_gpx = 0;
+                            rst_gpx = 0;
                         }
                         if (header_found % 2 == 1)
                         {
@@ -660,9 +770,9 @@ int main(int argc, char **argv) {
                             // 0x30yy, 0x31yy
                             val = bits2val(subframe_bits+HEADLEN+46*3+17, 16);
                             if ( (val & 0xFF) >= 0xC0 && err_frm == 0) {
-                                option2 = 1;
+                                option_ims100 = 1;
                                 printf("\n");
-                                reset_gpx = 1;
+                                rst_gpx = 1;
                                 goto jmpIMS;
                             }
 
@@ -675,10 +785,72 @@ int main(int argc, char **argv) {
 
                             if (err_blks == 0) // err_frm zu schwach
                             {
+                                gpx.cfg[counter%64] = fw32;
+                                gpx.cfg_valid |= 1uLL << (counter%64);
+
                                 // SN
-                                if (counter % 0x10 == 0) { sn = f32e2(w32); gpx.sn = f32e2(w32); gpx._sn = w32; }
+                                if (counter % 16 == 0) { sn = fw32; gpx.sn = fw32; gpx._sn = w32; }
                                 // freq
                                 if (counter % 64 == 15) { freq = 403700+fw32*100.0; gpx.fq = freq; }
+
+                                //PTU: Save reference frequency (sent in both even and odd frames)
+                                if (counter % 4 == 0) {
+                                    gpx.f_ref = bits2val(subframe_bits+HEADLEN+0*46+17, 16);
+                                }
+
+                                if (counter % 2 == 0) {
+                                    if (option_ptu) {
+                                        gpx.T = NAN;
+                                        gpx.RH = NAN;
+                                        if (gpx.f_ref != 0) {  // must know the reference frequency
+                                            int T_cfg = ((gpx.cfg_valid & 0x0000FFFE0FFE0000LL) == 0x0000FFFE0FFE0000LL); // cfg[47:33,27:17]
+                                            int U_cfg = ((gpx.cfg_valid & 0x001E000000000000LL) == 0x001E000000000000LL); // cfg[52:49]
+                                            // Necessary parameters must exist and their values must meet the requirements
+                                            if (T_cfg && sanity_check_rs11g_config_temperature(&gpx)) {
+                                                ui16_t t_raw = bits2val(subframe_bits+HEADLEN+2*46+17, 16);
+                                                float f = ((float)t_raw / (float)gpx.f_ref) * 4.0f;
+                                                if (f > 1.0f) {
+                                                    // Use config coefficients to transform measured frequency to absolute resistance (kOhms)
+                                                    f = 1.0f / (f - 1.0f);
+                                                    float R = gpx.cfg[33] + gpx.cfg[34]*f + gpx.cfg[35]*f*f - gpx.cfg[36];
+                                                    // iMS-100 sends known resistance (cfg[44:33]) for 12 temperature sampling points
+                                                    // (cfg[28:17]). Actual temperature is found by interpolating in one of these
+                                                    // 11 intervals.
+                                                    if (R <= gpx.cfg[37]) { // R below min value?
+                                                        gpx.T = gpx.cfg[17]; // --> Set T = highest temperature
+                                                    } else if (R >= gpx.cfg[47]) { // R above max value?
+                                                        gpx.T = gpx.cfg[27]; // --> Set T = lowest temperature
+                                                    } else {
+                                                        // We now know that R is inside the interpolation range. Sampling points are
+                                                        // ordered by increasing resistance (decreasing temperature).
+                                                        // (We have verified this in the sanity check above.)
+                                                        // Search for the interval that contains R, then interpolate linearly
+                                                        // (using log(R)).
+                                                        for (j = 0; j < 10; j++) {
+                                                            if (R < gpx.cfg[38+j]) {
+                                                                f = (logf(R) - logf(gpx.cfg[37+j])) / (logf(gpx.cfg[38+j]) - logf(gpx.cfg[37+j]));
+                                                                gpx.T = gpx.cfg[17+j] - f*(gpx.cfg[17+j] - gpx.cfg[18+j]);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                if (!isnan(gpx.T)) printf("T=%.1fC ", gpx.T); // better don't use -ffast-math here
+                                                else T_cfg = 0;
+                                            }
+                                            if (U_cfg) {
+                                                ui16_t u_raw = bits2val(subframe_bits+HEADLEN+3*46, 16);
+                                                float f = ((float)u_raw / (float)gpx.f_ref) * 4.0f;
+                                                gpx.RH = gpx.cfg[49] + gpx.cfg[50]*f + gpx.cfg[51]*f*f + gpx.cfg[52]*f*f*f;
+                                                // Limit to 0...100%
+                                                gpx.RH = fmaxf(gpx.RH, 0.0f);
+                                                gpx.RH = fminf(gpx.RH, 100.0f);
+                                                printf("RH=%.0f%% ", gpx.RH);
+                                            }
+                                            if (T_cfg || U_cfg) printf(" ");
+                                        }
+                                    }
+                                }
                             }
 
                             if (counter % 2 == 1) {
@@ -709,6 +881,14 @@ int main(int argc, char **argv) {
                                         printf("{ \"type\": \"%s\"", "MEISEI");
                                         printf(", \"frame\": %d, \"id\": \"RS11G-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f, \"vel_v\": %.5f",
                                                gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD, gpx.vV );
+                                        if (option_ptu) {
+                                            if (!isnan(gpx.T)) { // better don't use -ffast-math here
+                                                fprintf(stdout, ", \"temp\": %.1f",  gpx.T );
+                                            }
+                                            if (!isnan(gpx.RH)) { // better don't use -ffast-math here
+                                                fprintf(stdout, ", \"humidity\": %.1f",  gpx.RH );
+                                            }
+                                        }
                                         printf(", \"subtype\": \"RS11G\"");
                                         if (gpx.jsn_freq > 0) {
                                             printf(", \"freq\": %d", gpx.jsn_freq);
@@ -716,6 +896,11 @@ int main(int argc, char **argv) {
                                         if (gpx.fq > 0) { // include frequency derived from subframe information if available
                                             fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
                                         }
+
+                                        // Reference time/position
+                                        printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+                                        printf(", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
                                         #ifdef VER_JSN_STR
                                             ver_jsn = VER_JSN_STR;
                                         #endif
@@ -798,13 +983,13 @@ int main(int argc, char **argv) {
                         }
 
                     }
-                    else if (option2 && !option_raw) { // iMS-100
+                    else if (option_ims100 && !option_raw) { // iMS-100
             jmpIMS:
-                        if (reset_gpx) {
-                            memset(&gpx, sizeof(gpx), 0);
+                        if (rst_gpx) {
+                            reset_gpx(&gpx);
                             sn = -1;
                             freq = -1;
-                            reset_gpx = 0;
+                            rst_gpx = 0;
                         }
                         if (header_found % 2 == 1) { // 049DCE
                             ui16_t w16[2];
@@ -817,16 +1002,16 @@ int main(int argc, char **argv) {
                             // 0x30C1, 0x31C1
                             val = bits2val(subframe_bits+HEADLEN+46*3+17, 16);
                             if ( (val & 0xFF) < 0xC0 && err_frm == 0) {
-                                option2 = 0;
+                                option_ims100 = 0;
                                 printf("\n");
-                                reset_gpx = 1;
+                                rst_gpx = 1;
                                 goto jmpRS11;
                             }
 
                             val = bits2val(subframe_bits+HEADLEN, 16);
                             counter = val & 0xFFFF;
 
-                            if (counter % 2 == 0) printf("[%d] ", counter);
+                            /*if (counter % 2 == 0)*/ printf("[%d] ", counter);
 
                             w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
                             w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
@@ -835,11 +1020,20 @@ int main(int argc, char **argv) {
                             if (err_frm == 0 && block_err[0] < 2 && block_err[1] < 2)
                             {
                                 gpx.cfg[counter%64] = *fcfg;
+                                gpx.cfg_valid |= 1uLL << (counter%64);
 
                                 // (main?) SN
                                 if (counter % 0x10 == 0) { sn = *fcfg; gpx.sn = sn; gpx._sn = w32; }
                                 // freq
                                 if (counter % 64 == 15) { freq = 400e3+(*fcfg)*100.0; gpx.fq = freq; }
+
+                                //PTU: Save reference frequency (sent in both even and odd frames)
+                                if (counter % 4 == 0) {
+                                    gpx.f_ref = bits2val(subframe_bits+HEADLEN+0*46+17, 16);
+                                }
+                                if (counter % 4 == 3) {
+                                    gpx.f_ref = bits2val(subframe_bits+HEADLEN+3*46, 16);
+                                }
                             }
 
                             if (counter % 2 == 0) {
@@ -855,6 +1049,58 @@ int main(int argc, char **argv) {
                                 printf("  ");
                                 printf("%02d:%02d:%06.3f ", gpx.std, gpx.min, gpx.sek);
                                 printf("  ");
+
+                                if (option_ptu) {
+                                    gpx.T = NAN;
+                                    gpx.RH = NAN;
+                                    if (gpx.f_ref != 0) {  // must know the reference frequency
+                                        int T_cfg = ((gpx.cfg_valid & 0x01E01FFE1FFE0000LL) == 0x01E01FFE1FFE0000LL); // cfg[56:53,44:33,28:17]
+                                        int U_cfg = ((gpx.cfg_valid & 0x001E000000000000LL) == 0x001E000000000000LL); // cfg[52:49]
+                                        // Necessary parameters must exist and their values must meet the requirements
+                                        if (T_cfg && sanity_check_ims100_config_temperature(&gpx)) {
+                                            ui16_t t_raw = bits2val(subframe_bits+HEADLEN+2*46+17, 16);
+                                            float f = ((float)t_raw / (float)gpx.f_ref) * 4.0f;
+                                            if (f > 1.0f) {
+                                                // Use config coefficients to transform measured frequency to absolute resistance (kOhms)
+                                                f = 1.0f / (f - 1.0f);
+                                                float R = gpx.cfg[53] + gpx.cfg[54]*f + gpx.cfg[55]*f*f - gpx.cfg[56];
+                                                // iMS-100 sends known resistance (cfg[44:33]) for 12 temperature sampling points
+                                                // (cfg[28:17]). Actual temperature is found by interpolating in one of these
+                                                // 11 intervals.
+                                                if (R <= gpx.cfg[33]) { // R below min value?
+                                                    gpx.T = gpx.cfg[17]; // --> Set T = highest temperature
+                                                } else if (R >= gpx.cfg[44]) { // R above max value?
+                                                    gpx.T = gpx.cfg[28]; // --> Set T = lowest temperature
+                                                } else {
+                                                    // We now know that R is inside the interpolation range. Sampling points are
+                                                    // ordered by increasing resistance (decreasing temperature).
+                                                    // (We have verified this in the sanity check above.)
+                                                    // Search for the interval that contains R, then interpolate linearly
+                                                    // (using log(R)).
+                                                    for (j = 0; j < 11; j++) {
+                                                        if (R < gpx.cfg[34+j]) {
+                                                            f = (logf(R) - logf(gpx.cfg[33+j])) / (logf(gpx.cfg[34+j]) - logf(gpx.cfg[33+j]));
+                                                            gpx.T = gpx.cfg[17+j] - f*(gpx.cfg[17+j] - gpx.cfg[18+j]);
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if (!isnan(gpx.T)) printf("T=%.1fC ", gpx.T); // better don't use -ffast-math here
+                                            else T_cfg = 0;
+                                        }
+                                        if (U_cfg) {
+                                            ui16_t u_raw = bits2val(subframe_bits+HEADLEN+3*46, 16);
+                                            float f = ((float)u_raw / (float)gpx.f_ref) * 4.0f;
+                                            gpx.RH = gpx.cfg[49] + gpx.cfg[50]*f + gpx.cfg[51]*f*f + gpx.cfg[52]*f*f*f;
+                                            // Limit to 0...100%
+                                            gpx.RH = fmaxf(gpx.RH, 0.0f);
+                                            gpx.RH = fminf(gpx.RH, 100.0f);
+                                            printf("RH=%.0f%% ", gpx.RH);
+                                        }
+                                        if (T_cfg || U_cfg) printf(" ");
+                                    }
+                                }
                             }
                         }
 
@@ -911,25 +1157,52 @@ int main(int argc, char **argv) {
                                 printf(" (vH: %.1fm/s  D: %.2f)", gpx.vH, gpx.vD);
                                 printf("  ");
                             }
+                            if (counter % 2 == 1) {
+                                // cf. DF9DQ
+                                vU = bits2val(subframe_bits+HEADLEN+46*0+17, 16);
+                                velU = (double)vU/1.94384e1; // knots -> m/s
+                                gpx.vV = velU;
+                                gpx.vV_valid = (vU != 0);
+                                if (gpx.vV_valid) {
+                                    printf("  (vV: %.1fm/s)", gpx.vV);
+                                }
+                                else {
+                                    printf("  (vV: --- m/s)");
+                                }
+                                printf("  ");
+                            }
 
                             if (counter % 2 == 0) {
+                                gpx.frm0_count = counter;
                                 if (option_ecc) {
                                     if (gps_err) printf("(no)"); else printf("(ok)");
                                     if (err_frm) printf("[NO]"); else printf("[OK]");
+                                    gpx.frm0_valid = (err_frm==0 && gps_err==0);
                                 }
                                 if (option_verbose) {
-                                    if (sn > 0) {
+                                    if (sn > 0) { // cfg[0,16,32,48]=SN
                                         printf(" : sn %.0f", sn);
                                         sn = -1;
                                     }
-                                    if (freq > 0) {
+                                }
+                                printf("\n");
+                            }
+                            if (counter % 2 == 1) {
+                                gpx.frm1_count = counter;
+                                if (option_ecc) {
+                                    if (gps_err) printf("(no)"); else printf("(ok)");
+                                    if (err_frm) printf("[NO]"); else printf("[OK]");
+                                    gpx.frm1_valid = (err_frm==0 && gps_err==0);
+                                }
+                                if (option_verbose) {
+                                    if (freq > 0) { // cfg[15]=freq
                                         printf(" : fq %.0f", freq); // kHz
                                         freq = -1;
                                     }
                                 }
                                 printf("\n");
 
-                                if (option_jsn && err_frm==0 && gps_err==0) {
+                                if (option_jsn && gpx.frm0_valid) {
                                     char *ver_jsn = NULL;
                                     char id_str[] = "xxxxxx\0\0\0\0\0\0";
                                     if (gpx.sn > 0 && gpx.sn < 1e9) {
@@ -938,6 +1211,17 @@ int main(int argc, char **argv) {
                                     printf("{ \"type\": \"%s\"", "MEISEI"); // alt: "IMS100"
                                     printf(", \"frame\": %d, \"id\": \"IMS100-%s\", \"datetime\": \"%04d-%02d-%02dT%02d:%02d:%06.3fZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.5f, \"vel_h\": %.5f, \"heading\": %.5f",
                                            gpx.frnr, id_str, gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt, gpx.vH, gpx.vD );
+                                    if (gpx.frm1_valid && (gpx.frm1_count == gpx.frm0_count + 1)) {
+                                        if (gpx.vV_valid) printf(", \"vel_v\": %.5f", gpx.vV );
+                                    }
+                                    if (option_ptu) {
+                                        if (!isnan(gpx.T)) { // don't use -ffast-math here
+                                            fprintf(stdout, ", \"temp\": %.1f",  gpx.T );
+                                        }
+                                        if (!isnan(gpx.RH)) { // don't use -ffast-math here
+                                            fprintf(stdout, ", \"humidity\": %.1f",  gpx.RH );
+                                        }
+                                    }
                                     printf(", \"subtype\": \"IMS100\"");
                                     if (gpx.jsn_freq > 0) { // not gpx.fq, because gpx.sn not in every frame
                                         printf(", \"freq\": %d", gpx.jsn_freq);
@@ -945,12 +1229,19 @@ int main(int argc, char **argv) {
                                     if (gpx.fq > 0) { // include frequency derived from subframe information if available
                                         fprintf(stdout, ", \"tx_frequency\": %.0f", gpx.fq );
                                     }
+
+                                    // Reference time/position
+                                    printf(", \"ref_datetime\": \"%s\"", "UTC" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+                                    printf(", \"ref_position\": \"%s\"", "MSL" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
                                     #ifdef VER_JSN_STR
                                         ver_jsn = VER_JSN_STR;
                                     #endif
                                     if (ver_jsn && *ver_jsn != '\0') printf(", \"version\": \"%s\"", ver_jsn);
                                     printf(" }\n");
                                     printf("\n");
+
+                                    gpx.frm0_valid = 0;
                                 }
 
                             }

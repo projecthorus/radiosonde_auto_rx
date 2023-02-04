@@ -44,10 +44,14 @@ auto_rx/imet1rs_dft
 auto_rx/lms6Xmod
 auto_rx/lms6mod
 auto_rx/m10mod
+auto_rx/m20mod
+auto_rx/mk2a1680mod
 auto_rx/rs_detect
+auto_rx/imet4iq
 auto_rx/imet54mod
 auto_rx/mXXmod
 auto_rx/mp3h1mod
+auto_rx/mts01mod
 
 m10
 meisei100mod
@@ -60,12 +64,15 @@ demod/mod/meisei100mod
 demod/mod/rs41mod
 demod/mod/rs92mod
 demod/mod/m10mod
+demod/mod/m20mod
 demod/mod/imet54mod
 demod/mod/mXXmod
 demod/mod/mp3h1mod
 imet/imet1rs_dft
+imet/imet4iq
 m10/m10
 mk2a/mk2a_lms1680
+mk2a/mk2a1680mod
 scan/dft_detect
 utils/fsk_demod
 rs41/rs41ecc

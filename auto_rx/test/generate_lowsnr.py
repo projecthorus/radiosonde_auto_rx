@@ -45,7 +45,9 @@ SAMPLES = [
     ['imet54_96k_float.bin', 4800, -10.0, 96000], # 4800 baud GMSK
     ['rsngp_96k_float.bin', 2400, -100.0, 96000], # RS92-NGP - wider bandwidth.
     ['lms6-400_96k_float.bin', 4800, -100, 96000], # LMS6, 400 MHz variant. Continuous signal.
-    ['mrz_96k_float.bin', 2400, -100, 96000] # MRZ Continuous signal.
+    ['mrz_96k_float.bin', 2400, -100, 96000], # MRZ Continuous signal.
+    ['m20_96k_float.bin', 9600, -15, 96000], # M20, kind of continuous signal? residual carrier when not transmitting
+    ['mts01_96k_float.bin', 1200, -20, 96000]
 ]
 
 

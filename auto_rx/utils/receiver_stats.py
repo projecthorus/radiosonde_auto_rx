@@ -77,8 +77,8 @@ def position_info(listener, balloon):
     eb = sin(angle_at_centre) * tb
     elevation = atan2(ea, eb)
 
-    # Use pythagorean theorem to find unknown side.
-    distance = sqrt((ea ** 2) + (eb ** 2))
+    # Use cosine rule to find unknown side.
+    distance = sqrt((ta ** 2) + (tb ** 2) - 2 * tb * ta * cos(angle_at_centre))
 
     # Give a bearing in range 0 <= b < 2pi
     if bearing < 0:

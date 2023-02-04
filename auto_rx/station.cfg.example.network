@@ -9,6 +9,7 @@
 # - [search_params] -> min_freq, max_freq - Set these suitable for your location!
 #
 
+
 ################
 # SDR SETTINGS #
 ################
@@ -24,7 +25,7 @@
 # KA9Q - Use a KA9Q SDR Server (Not yet implemented)
 # WARNING: These are still under development and may not work.
 #
-sdr_type = RTLSDR
+sdr_type = SpyServer
 
 
 #
@@ -37,7 +38,7 @@ sdr_type = RTLSDR
 # If SDR type is either KA9Q or SpyServer, this defines the maximum number of parallel
 # decoding/scan tasks. On a RPi 4, ~5 tasks are possible.
 #
-sdr_quantity = 1
+sdr_quantity = 5
 
 
 #
@@ -108,7 +109,8 @@ bias = False
 #	the sondes are often off-frequency. For now, check in something like GQRX to get an idea of what offset is required.
 #
 # Note - when using either a KA9Q or SpyServer as the SDR backend, the frequency scan limits are set by the
-# Server.
+# server and these settings are ignored. 
+# Refer https://github.com/projecthorus/radiosonde_auto_rx/wiki/Network-SDR-Decoding-Instructions
 
 min_freq = 400.05
 max_freq = 403.0
@@ -134,7 +136,6 @@ always_scan = []
 # List must be in the form: [[401.5,"RS41"], [402.5,"DFM"], [400.5,"M10"], [400.5,"IMET"]]
 # Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01
 always_decode = []
-
 
 ####################
 # STATION LOCATION #
@@ -405,7 +406,6 @@ subject = <type> Sonde launch detected on <freq>: <id>
 # <id> - Sonde Serial Number (i.e. M1234567)
 nearby_landing_subject = Nearby Radiosonde Landing Detected - <id>
 
-
 ###################
 # ROTATOR CONTROL #
 ###################
@@ -451,7 +451,6 @@ save_system_log = False
 # This setting, in combination with save_system_log (above), can help provide detailed information when debugging
 # auto_rx operational issues.
 enable_debug_logging = False
-
 
 ###########################
 # WEB INTERFACE SETTINNGS #
@@ -583,8 +582,6 @@ lms6-1680_experimental = False
 # MRZ sondes have not yet been tested with the fsk_demod flowgraph in the wild.
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
-
-
 
 # Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 

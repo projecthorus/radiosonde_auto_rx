@@ -11,18 +11,11 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.utils import formatdate
+from queue import Queue
 from threading import Thread
 from .config import read_auto_rx_config
 from .utils import position_info, strip_sonde_serial
 from .geometry import GenericTrack
-
-try:
-    # Python 2
-    from Queue import Queue
-
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class EmailNotification(object):
@@ -46,6 +39,7 @@ class EmailNotification(object):
         mail_from=None,
         mail_to=None,
         mail_subject=None,
+        mail_nearby_landing_subject=None,
         station_position=None,
         launch_notifications=True,
         landing_notifications=True,
@@ -62,6 +56,7 @@ class EmailNotification(object):
         self.mail_from = mail_from
         self.mail_to = mail_to
         self.mail_subject = mail_subject
+        self.mail_nearby_landing_subject = mail_nearby_landing_subject 
         self.station_position = station_position
         self.launch_notifications = launch_notifications
         self.landing_notifications = landing_notifications
@@ -266,7 +261,11 @@ class EmailNotification(object):
                                 % strip_sonde_serial(_id)
                             )
 
-                            _subject = "Nearby Radiosonde Landing Detected - %s" % _id
+                            # Construct subject
+                            _subject = self.mail_nearby_landing_subject
+                            _subject = _subject.replace("<id>", _id)
+                            _subject = _subject.replace("<type>", telemetry["type"])
+                            _subject = _subject.replace("<freq>", telemetry["freq"])
 
                             self.send_notification_email(subject=_subject, message=msg)
 
@@ -401,6 +400,7 @@ if __name__ == "__main__":
         mail_from=config["email_from"],
         mail_to=config["email_to"],
         mail_subject=config["email_subject"],
+        mail_nearby_landing_subject=config["email_nearby_landing_subject"],
         station_position=(-10.0, 10.0, 0.0,),
         landing_notifications=True,
         launch_notifications=True,

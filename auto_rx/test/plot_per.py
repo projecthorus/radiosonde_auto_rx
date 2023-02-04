@@ -29,15 +29,30 @@ CSV_DIR = "./results/"
 # }
 
 
+# soft-decision decoding, with a +0.25 Fs signal centre.
+# sonde_types = {
+# 	'RS41': {'csv':'rs41_fsk_demod_soft.txt', 'packets': 118, 'color': 'C0'},
+# 	'RS92': {'csv':'rs92_fsk_demod_soft.txt', 'packets': 120, 'color': 'C1'},
+# 	'RS92-NGP': {'csv':'rs92ngp_fsk_demod_soft.txt', 'packets': 120, 'color': 'C2'},
+# 	'DFM09': {'csv':'dfm_fsk_demod_soft.txt', 'packets': 96, 'color': 'C3'},
+# 	'M10': {'csv':'m10_fsk_demod_soft.txt', 'packets': 120, 'color': 'C4'},
+# 	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft.txt', 'packets': 120, 'color': 'C5'},
+# 	'MRZ': {'csv':'mrz_fsk_demod_soft.txt', 'packets': 105, 'color': 'C6'},
+# 	'iMet-54': {'csv':'imet54_fsk_demod_soft.txt', 'packets': 240, 'color': 'C7'},
+# }
+
+# soft-decision decoding, with a 0Hz signal centre.
 sonde_types = {
-	'RS41': {'csv':'rs41_fsk_demod_soft.txt', 'packets': 118, 'color': 'C0'},
-	'RS92': {'csv':'rs92_fsk_demod_soft.txt', 'packets': 120, 'color': 'C1'},
-	'RS92-NGP': {'csv':'rs92ngp_fsk_demod_soft.txt', 'packets': 120, 'color': 'C2'},
-	'DFM09': {'csv':'dfm_fsk_demod_soft.txt', 'packets': 96, 'color': 'C3'},
-	'M10': {'csv':'m10_fsk_demod_soft.txt', 'packets': 120, 'color': 'C4'},
-	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft.txt', 'packets': 120, 'color': 'C5'},
-	'MRZ': {'csv':'mrz_fsk_demod_soft.txt', 'packets': 105, 'color': 'C6'},
-	'iMet-54': {'csv':'imet54_fsk_demod_soft.txt', 'packets': 240, 'color': 'C7'},
+	'RS41': {'csv':'rs41_fsk_demod_soft_centre.txt', 'packets': 118, 'color': 'C0'},
+	'RS92': {'csv':'rs92_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C1'},
+	'RS92-NGP': {'csv':'rs92ngp_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C2'},
+	'DFM09': {'csv':'dfm_fsk_demod_soft_centre.txt', 'packets': 96, 'color': 'C3'},
+	'M10': {'csv':'m10_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C4'},
+	'LMS6-400': {'csv':'lms6-400_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C5'},
+	'MRZ': {'csv':'mrz_fsk_demod_soft_centre.txt', 'packets': 105, 'color': 'C6'},
+	'iMet-54': {'csv':'imet54_fsk_demod_soft_centre.txt', 'packets': 240, 'color': 'C7'},
+	'M20': {'csv':'m20_fsk_demod_soft_centre.txt', 'packets': 120, 'color': 'C8'},
+	'iMet-4': {'csv':'imet4_iq.txt', 'packets': 218, 'color': 'C9'},
 }
 
 
@@ -85,5 +100,5 @@ plt.legend()
 plt.grid()
 plt.ylabel("Packet Error Rate")
 plt.xlabel("Eb/No (dB)")
-plt.title("auto_rx Decode Chain Performance - fsk_demod")
+plt.title("auto_rx Decode Chain Performance - fsk_demod soft-decision 0 Hz")
 plt.show()

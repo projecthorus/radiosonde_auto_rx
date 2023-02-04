@@ -5,7 +5,7 @@
 
     <!-- Configure to work on mobile -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <!-- Import style sheets (font and icons are remote, should fix) -->
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/roboto.css') }}" rel="stylesheet">
@@ -14,7 +14,7 @@
     <link href="{{ url_for('static', filename='css/leaflet.fullscreen.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/autorx.css') }}" rel="stylesheet" >
     <link id='tabulatorsheet' href="{{ url_for('static', filename='css/tabulator_midnight.min.css') }}" rel='stylesheet'>
-    
+
     <!-- Import local libraries -->
     <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
@@ -29,23 +29,23 @@
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autorxapi.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tabulator.min.js') }}"></script>
-    
+
     <script>
         var autorx_config = {
             lat: 0.0,
             lon: 0.0
         };
-            
+
         var sonde_positions = {};
-            
+
         var sonde_currently_following = "none";
-            
+
         $( document ).ready(function() {
 
             namespace = '/update_status';
 
             var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
-            
+
             $.ajax({
                   // Get station.cfg file.
                   url: "/get_config",
@@ -61,15 +61,15 @@
                     $('#station_callsign').text(_station_call);
 
                     // Update webpage title
-                    document.title = _station_call + " Auto-RX Status";
-
+//                    document.title = _station_call + " Auto-RX Status";
+                      document.title = autorx_config['habitat_uploader_callsign'] + " - Radiosonde Auto-RX Status";
                     if(autorx_config["web_control"] == false){
                         $("#password-header").html("<h2>Web Control Disabled</h2>");
                         disable_web_controls();
                     }
                   }
             });
-            
+
             $.ajax({
                   // Get local version number.
                   url: "/get_version",
@@ -77,13 +77,13 @@
                   async: true,
                   success: function(data) {
                     // Update the current version field.
-                    if (getCookie('version') == 'false') {} 
+                    if (getCookie('version') == 'false') {}
                     else if (getCookie('version') == 'true') {
                         $('#currentversion').text(data.current);
                     } else if ((window.innerWidth/window.innerHeight) > 1) {
                         $('#currentversion').text(data.current);
-                    } 
-                    
+                    }
+
                     // Update the latest version area.
                     if(data.latest == 'Latest'){
                         //pass
@@ -98,18 +98,19 @@
                     }
                   }
             });
-            
-            socket.on('log_event', function(msg) {           
+
+            socket.on('log_event', function(msg) {
                 // New log entry received.
-                var log_time = new Date(msg.timestamp);               
+                var log_time = new Date(msg.timestamp);
                 // Check if time is UTC mode.
                 if (getCookie('UTC') == 'false') {
                     // Check if entry is important.
+                    var log_time_converted = log_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
                     if (msg.level == "INFO") {
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                        var log_entry = "<tr><td>" + log_time_converted + " – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
                     } else {
                         // If entry is important colour text red.
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + log_time.toLocaleString("en-AU") + "</td></tr>";
+                        var log_entry = "<tr><td>" + log_time_converted + " – " + msg.level + "<br><em style='font-size: 15px; color:red;'>" + msg.msg + "</em></td></tr>"
                         if (msg.level == "ERROR" || msg.level == "CRITICAL") {
                             if (document.getElementById("mySidenav").offsetWidth == 0) {
                                 $('#log-tray').css('color', 'red');
@@ -118,10 +119,10 @@
                     }
                 } else {
                     if (msg.level == "INFO") {
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                        var log_entry = "<tr><td>"  + new Date(msg.timestamp).toISOString().replace("T", " ").replace("Z", "").slice(0, -4) + " UTC – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
                     } else {
                         // If entry is important colour text red.
-                        var log_entry = "<tr><td><em>" + msg.level + "</em><br><b style='color:red'>" + msg.msg + "</b><br>" + msg.timestamp + "</td></tr>";
+                        var log_entry = "<tr><td>"  + new Date(msg.timestamp).toISOString().replace("T", " ").replace("Z", "").slice(0, -4) + " UTC – " + msg.level + "<br><em style='font-size: 15px; color:red;'>" + msg.msg + "</em></td></tr>";
                         if (msg.level == "ERROR" || msg.level == "CRITICAL") {
                             if (document.getElementById("mySidenav").offsetWidth == 0) {
                                 $('#log-tray').css('color', 'red');
@@ -131,10 +132,10 @@
                 }
                 // Append entry to log table.
                 $('#log_data > tbody').prepend(log_entry);
-            });    
-            
+            });
+
             setup_scan_chart();
-            
+
             socket.on('scan_event', function(msg) {
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
@@ -143,13 +144,13 @@
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
                     scan_chart_peaks.columns[0] = ['x_peaks'].concat(data.peak_freq);
                     scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
-
+                    scan_chart_threshold.columns[0] = ['x_thresh'].concat([data.freq[0],data.freq[data.freq.length-1]]);
                     scan_chart_threshold.columns[1] = ['Threshold'].concat([data.threshold+autorx_config.snr_threshold,data.threshold+autorx_config.snr_threshold]);
                     // Plot the updated data.
                     scan_chart_obj.load(scan_chart_spectra);
                     scan_chart_obj.load(scan_chart_peaks);
                     scan_chart_obj.load(scan_chart_threshold);
-                    
+
                     // Run dark mode check again to solve render issues.
                     var z = getCookie('dark');
                         if (z == 'true') {
@@ -160,30 +161,31 @@
                             changeTheme(true);
                         } else {
                             changeTheme(false);
-                        }           
+                        }
 
                     // Show the latest scan time.
                     if (getCookie('UTC') == 'false') {
                         temp_date = data.timestamp;
                         temp_date = temp_date.slice(0, -3);
                         temp_date += "Z";
-                        var date = new Date(temp_date);    
-                        $('#scan_results').html('<b>Latest Scan:</b> ' + date.toLocaleString("en-AU"));
+                        var date = new Date(temp_date);
+                        var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
                     } else {
-                        $('#scan_results').html('<b>Latest Scan:</b> ' + data.timestamp.slice(0, -3) + 'Z');
+                        $('#scan_results').html('<b>Latest Scan:</b> ' + (data.timestamp.slice(0, -3) + 'Z').replace("T", " ").replace("Z", "").slice(0, -4) + ' UTC');
                     }
 
                 }
                 );
-            }); 
-            
+            });
+
             socket.on('task_event', function(msg){
                 update_task_list();
             });
 
             // Update task list now.
             update_task_list();
-            
+
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
             var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
@@ -191,7 +193,7 @@
             var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
             var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
             var OpenTopoMap = L.tileLayer.provider("OpenTopoMap", {edgeBufferTiles: 2});
-            
+
             // Add maps to baseMaps.
             var baseMaps = {
                 "Mapnik": Mapnik,
@@ -199,7 +201,7 @@
                 "WorldImagery": WorldImagery,
                 "Terrain": Terrain,
                 "Voyager": Voyager,
-                "OpenTopoMap": OpenTopoMap                          
+                "OpenTopoMap": OpenTopoMap
             };
 
             // Check if user has preffered map theme.
@@ -215,21 +217,21 @@
                     mapTheme = "Mapnik"
                 }
             }
-            
+
             // Home Icon.
             homeIcon = L.icon({
             iconUrl: "{{ url_for('static', filename='img/antenna-green.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
-            });  
-            
+            });
+
             // Home Icon for dark mode.
             homeIconDark = L.icon({
             iconUrl: "{{ url_for('static', filename='img/antenna-green-dark.png') }}",
             iconSize: [26, 34],
             iconAnchor: [13, 34]
-            });  
-            
+            });
+
             // Create map object.
             mymap = L.map('mapid').setView([autorx_config.station_lat, autorx_config.station_lon], 8);
             mymap.addControl(new L.Control.Fullscreen());
@@ -242,12 +244,12 @@
                         {title: 'Receiver Location', icon: homeIconDark}
                         ).addTo(mymap);
             }
-            
-                        
+
+
             L.control.layers(baseMaps).addTo(mymap);
 
             baseMaps[mapTheme].addTo(mymap);
-            
+
             // Update preffered them cookie on layer change.
             mymap.on('baselayerchange', function(e) {
                 setCookie("theme", e['name'], 365);
@@ -257,7 +259,7 @@
                     home_marker.setIcon(homeIcon);
                  }
             });
-                      
+
             // Check if user has preffered map visiblity.
             if (getCookie('map') == 'false') {
                 document.getElementById("showmapbutton").checked = false;
@@ -265,7 +267,7 @@
             } else {
                 document.getElementById("showmapbutton").checked = true;
             }
-            
+
             // Check if user has preffered table visiblity.
             if (getCookie('table') == 'false') {
                 document.getElementById("showtablebutton").checked = false;
@@ -273,28 +275,28 @@
             } else {
                 document.getElementById("showtablebutton").checked = true;
             }
-            
+
             // Check if user has preffered follow latest sonde selection.
             if (getCookie('follow') == 'false') {
                 document.getElementById("sondeAutoFollow").checked = false;
             } else {
                 document.getElementById("sondeAutoFollow").checked = true;
             }
-            
+
             // Check if user has UTC time selection.
             if (getCookie('UTC') == 'false') {
                 document.getElementById("showUTCbutton").checked = false;
             } else {
                 document.getElementById("showUTCbutton").checked = true;
             }
-            
+
             // Check if user has UTC time selection.
             if (getCookie('imperial') == 'true') {
                 document.getElementById("showimperialbutton").checked = true;
             } else {
                 document.getElementById("showimperialbutton").checked = false;
             }
-            
+
             // Check if user has version shown selection.
             if (getCookie('version') == 'false') {
                 document.getElementById("showversionbutton").checked = false;
@@ -305,7 +307,7 @@
             } else {
                 document.getElementById("showversionbutton").checked = false;
             }
-            
+
             // Check if user has preffered scan chart visiblity.
             if (getCookie('scan') == 'true') {
                 document.getElementById("showscanbutton").checked = true;
@@ -314,7 +316,7 @@
                 document.getElementById("showscanbutton").checked = false;
                 document.getElementById("scanid").style.display = "none";
             }
-            
+
             // Check if user has dark mode set.
             if (getCookie('dark') == 'true') {
                 document.getElementById("showdarkbutton").checked = true;
@@ -328,8 +330,8 @@
             } else {
                 document.getElementById("showdarkbutton").checked = false;
                 changeTheme(false);
-            }              
-               
+            }
+
             // Function to change CSS options when changing dark mode.
             function changeTheme(dark) {
                 if (dark == false) {
@@ -353,10 +355,10 @@
                     $('.c3-axis-x').css('fill', 'black')
                     $('.c3-legend-item text').css('fill', 'black')
                     $('.domain').css('stroke', 'black')
-                    $('.tick line').css('stroke', 'black')  
-                    $('#mapid span').css('color', 'black') 
+                    $('.tick line').css('stroke', 'black')
+                    $('#mapid span').css('color', 'black')
                     $('.sidenav').css('background-color', '#111')
-                    $('.settings').css('background-color', '#111')  
+                    $('.settings').css('background-color', '#111')
                     $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_simple.min.css") }}');
                 } else {
                     document.body.style.background = '#121212';
@@ -386,55 +388,55 @@
                     $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_midnight.min.css") }}');
                 }
             }
-            
+
             // Check if dark mode button has been ticked.
             $('#showdarkbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("dark", 'true', 365);
-                    changeTheme(true);                                             
+                    changeTheme(true);
                 } else {
                     setCookie("dark", 'false', 365);
-                    changeTheme(false);            
+                    changeTheme(false);
                 }
             });
-            
+
             // Check if imperial units button has been ticked.
             $('#showimperialbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("imperial", 'true', 365);
-                    location.reload(); 
+                    location.reload();
                 } else {
-                    setCookie("imperial", 'false', 365);     
-                    location.reload();  
+                    setCookie("imperial", 'false', 365);
+                    location.reload();
                 }
             });
-            
+
             // Check if show version button has been ticked.
             $('#showversionbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("version", 'true', 365);
                     location.reload();
                 } else {
-                    setCookie("version", 'false', 365); 
+                    setCookie("version", 'false', 365);
                     location.reload();
                 }
             });
-            
+
             // Check if UTC button has been ticked.
             $('#showUTCbutton').change(function() {
                 if ($(this).is(":checked")) {
                     setCookie("UTC", 'true', 365);
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
-                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
-                    }          
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat();
+                    }
                 } else {
                     setCookie("UTC", 'false', 365);
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
-                        table.getRow(Object.keys(sonde_positions)[i]).reformat(); 
+                        table.getRow(Object.keys(sonde_positions)[i]).reformat();
                     }
                 }
             });
-            
+
             // Check if settings div has been scrolled.
             $('#scrollsettingsid').scroll(function() {
                 if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
@@ -443,28 +445,27 @@
                     document.getElementById("downdiv").style.display = "block";
                 }
             });
-                       
+
             // Check if pagination selector has been ticked.
             $('#paginationSelector').change(function() {
                 setCookie("pagination", this.value, 365);
-                table.setPageSize(this.value);                              
-            });      
+                table.setPageSize(this.value);
+            });
 
-            
             // Check if cookie exists for entries to display per page in table
             if (getCookie('pagination') != null) {
                 pagination_size = parseInt(getCookie('pagination'));
-                $('#paginationSelector option[value="'+ getCookie('pagination') +'"]').attr("selected",true);  
+                $('#paginationSelector option[value="'+ getCookie('pagination') +'"]').attr("selected",true);
             } else {
                 if (($( window ).width()/$( window ).height()) > 1) {
                     pagination_size = 6;
-                    $('#paginationSelector option[value="6"]').attr("selected",true);  
+                    $('#paginationSelector option[value="6"]').attr("selected",true);
                 } else {
                     pagination_size = 3;
-                    $('#paginationSelector option[value="3"]').attr("selected",true);  
+                    $('#paginationSelector option[value="3"]').attr("selected",true);
                 }
             }
-            
+
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
@@ -472,7 +473,7 @@
                 // Split into pages for over 6 entries.
                 pagination:"local",
                 paginationSize:pagination_size,
-                layout:"fitDataFill", 
+                layout:"fitDataFill",
                 resizableColumns:"header",
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
@@ -482,9 +483,9 @@
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
-                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
-                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ)-/,"");
-                        
+                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01)-/,"");
+                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01)-/,"");
+
                         // Add Sondehub Link
                         _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
 
@@ -502,10 +503,11 @@
                     {title:"Time", field:"datetime", width:180, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
-                            if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
+                            var temp_converted = temp_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                            if (temp_converted == "Invalid Date") {                    
                                 return;
                             } else {
-                                return temp_time.toLocaleString("en-AU");
+                                return temp_converted;
                             }                            
                         } else {
                             return cell.getValue();
@@ -523,7 +525,7 @@
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (ft)";              
+                            return cell.getValue() + " (ft)";
                         } else {
                             return cell.getValue() + " (m)";
                         }
@@ -537,7 +539,7 @@
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (mph)";              
+                            return cell.getValue() + " (mph)";
                         } else {
                             return cell.getValue() + " (kph)";
                         }
@@ -545,13 +547,13 @@
                     },
                     {title:"Asc", field:"vel_v", headerSort:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return (Math.round((cell.getValue()*196.85) * 10) / 10);           
+                            return (Math.round((cell.getValue()*196.85) * 10) / 10);
                         } else {
                             return cell.getValue();
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (ft/min)";              
+                            return cell.getValue() + " (ft/min)";
                         } else {
                             return cell.getValue() + " (m/s)";
                         }
@@ -559,13 +561,13 @@
                     },
                     {title:"Temp", field:"temp", headerSort:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return (Math.round(((cell.getValue()*9/5) + 32) * 10) / 10);               
+                            return (Math.round(((cell.getValue()*9/5) + 32) * 10) / 10);
                         } else {
                             return cell.getValue();
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (°F)";              
+                            return cell.getValue() + " (°F)";
                         } else {
                             return cell.getValue() + " (°C)";
                         }
@@ -576,13 +578,13 @@
                     {title:"El (°)", field:"elevation", headerSort:false},
                     {title:"Range", field:"range", headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return (Math.round((cell.getValue()*0.621371) * 10) / 10);             
+                            return (Math.round((cell.getValue()*0.621371) * 10) / 10);
                         } else {
                             return cell.getValue();
                         }
                     }, titleFormatter:function(cell, formatterParams, onRendered){
                         if (getCookie('imperial') == 'true') {
-                            return cell.getValue() + " (mi)";              
+                            return cell.getValue() + " (mi)";
                         } else {
                             return cell.getValue() + " (km)";
                         }
@@ -592,9 +594,9 @@
                     {title:"Other", field:"other", width:140, headerSort:false},
                     {title:"Real ID", field:"realid", visible:false}
                 ],
-                rowContext:function(e, row){  
+                rowContext:function(e, row){
                     e.preventDefault();
-                    //Highlight Sonde on map when row selected  
+                    //Highlight Sonde on map when row selected
                     for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
                         console.log(Object.keys(sonde_positions)[i]);
                         if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
@@ -607,8 +609,8 @@
                                 sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
                             }
                         }
-                    }                    
-                                      
+                    }
+
                     if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
                         selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
                         sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
@@ -634,10 +636,10 @@
                         }
                         */
                     }
-                    
+
                 }
             });
-            
+
             // Update Tabulator table.
             function updateTelemetryTable(){
                 var telem_data = [];
@@ -654,6 +656,12 @@
                         if (sonde_id_age>(1000*autorx_config.rx_timeout)){
                             sonde_id_data.sdr_device_idx = "";
                             sonde_id_data.age = "old";
+                            // Remove the LOS line
+                            if(sonde_positions[sonde_id].hasOwnProperty("los_path")){
+                                sonde_positions[sonde_id].los_path.remove();
+                                delete sonde_positions[sonde_id].los_path;
+                            }
+
                         }else{
                             sonde_id_data.age = (sonde_id_age/1000.0).toFixed(0) + " s";
                         }
@@ -667,7 +675,11 @@
                             var _look_angles = calculate_lookangles(_station, _bal);
 
                             sonde_id_data.azimuth = _look_angles.azimuth.toFixed(1);
-                            sonde_id_data.elevation = _look_angles.elevation.toFixed(1);
+			    if (_look_angles.elevation >= 10){
+                                sonde_id_data.elevation = _look_angles.elevation.toFixed(1);
+			    }else{
+                                sonde_id_data.elevation = _look_angles.elevation.toFixed(2);
+			    }
                             sonde_id_data.range = (_look_angles.range/1000).toFixed(1);
                         } else{
                             // Insert blank data.
@@ -687,7 +699,7 @@
                         sonde_id_data.alt = sonde_id_data.alt.toFixed(1);
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
-                        
+
 
                         // Add a link to HabHub if we have habitat enabled.
                         // if (autorx_config.sondehub_enabled == true) {
@@ -699,7 +711,7 @@
                         // } else if (autorx_config.aprs_enabled == true) {
                         //     sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
                         // }
-                        
+
                         sonde_id_data.realid = sonde_id;
 
                         // Add SNR data, if it exists.
@@ -721,7 +733,7 @@
 
                         telem_data.push(sonde_id_data);
                     });
-                }       
+                }
                 table.updateOrAddData(telem_data);
                 // Hide table page navigation if only one page.
                 if(table.getPageMax() == 1){
@@ -764,25 +776,25 @@
                             .bindTooltip('<div class="tooltip-container">' + sonde_id + '<div class="tooltip-container" style="color: #005ec1;">' + _alt +  _vel_v +  _vel_h + '</div></div>',{permanent:false, direction:'right', className: 'sondeTooltip', offset: [10,0], interactive: false, opacity: 0.7 })
                             .addTo(mymap);
 
-                        if(autorx_config.station_lat != 0.0){
-                            sonde_positions[sonde_id].los_path = L.polyline([],
-                                {
-                                    color:los_color,
-                                    opacity:los_opacity
-                                }
-                            ).addTo(mymap);
-                        }
+                        // if(autorx_config.station_lat != 0.0){
+                        //     sonde_positions[sonde_id].los_path = L.polyline([],
+                        //         {
+                        //             color:los_color,
+                        //             opacity:los_opacity
+                        //         }
+                        //     ).addTo(mymap);
+                        // }
 
                         if (telem.vel_v < 0){
                             sonde_positions[sonde_id].marker.setIcon(sondeDescentIcons[sonde_positions[sonde_id].colour]);
                         }
-                        
+
                         colour_idx = (colour_idx+1)%colour_values.length;
                     }
                     updateTelemetryTable();
                     initial_load_complete = true;
                   }
-            });   
+            });
 
             socket.on('station_update', function(msg) {
                 // Station update messages indicate a move of the station location, as updated
@@ -802,7 +814,7 @@
                 autorx_config.station_alt = msg.alt;
 
             });
-            
+
             socket.on('telemetry_event', function(msg) {
                 // Telemetry Event messages contain the entire telemetry dictionary, as produced by the SondeDecoder class.
                 // This includes the fields: ['frame', 'id', 'datetime', 'lat', 'lon', 'alt', 'temp', 'type', 'freq', 'freq_float']
@@ -812,7 +824,7 @@
                     return
                 }
 
-                // Have we seen this sonde before? 
+                // Have we seen this sonde before?
                 if (sonde_positions.hasOwnProperty(msg.id) == false){
                     // Nope, add a property to the sonde_positions object, and setup markers for the sonde.
                     sonde_positions[msg.id] = {
@@ -866,12 +878,12 @@
                             _vel_h = (msg.vel_h*3.6).toFixed(0) + 'km/h  ';
                         }
                     sonde_positions[msg.id].marker.setTooltipContent('<div class="tooltip-container">' + msg.id + '<div class="tooltip-container" style="color: #005ec1;">' + _alt +  _vel_v +  _vel_h +'</div></div>');
-                    
+
                     if (msg.vel_v < 0){
                         if (selected_sonde == msg.id) {
                             sonde_positions[msg.id].marker.setIcon(sondeDescentIcons['white']);
                         } else {
-                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);                            
+                            sonde_positions[msg.id].marker.setIcon(sondeDescentIcons[sonde_positions[msg.id].colour]);
                         }
                     }else{
                         if (selected_sonde == msg.id) {
@@ -882,7 +894,16 @@
                     }
 
                     if(autorx_config.station_lat != 0.0){
-                        sonde_positions[msg.id].los_path.setLatLngs([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]]);
+                        if(sonde_positions[msg.id].hasOwnProperty("los_path")){
+                            sonde_positions[msg.id].los_path.setLatLngs([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]]);
+                        } else {
+                            sonde_positions[msg.id].los_path = L.polyline([[autorx_config.station_lat, autorx_config.station_lon],[msg.lat, msg.lon]],
+                            {
+                                color:los_color,
+                                opacity:los_opacity
+                            }
+                            ).addTo(mymap);
+                        }
                     }
                 }
 
@@ -918,36 +939,36 @@
                 if ( (now_time-sonde_positions[sonde_currently_following].age) > sonde_follow_timeout){
                     sonde_currently_following = "none";
                 }
-            }, sonde_follow_timeout);           
+            }, sonde_follow_timeout);
 
 
             // Update telemetry table every second (this is mainly to update the age field)
             window.setInterval(function(){
                 updateTelemetryTable();
             }, 1000);
-                        
+
             // Tell program we are connected and ready for data.
             socket.on('connect', function() {
                 socket.emit('client_connected', {data: 'I\'m connected!'});
-            });   
-            
+            });
+
             // Function to change table columns visible.
-            $(document).on('change', 'form input', function() {            
+            $(document).on('change', 'form input', function() {
                 var checked = $(this).is(":checked");
-                
+
                 if (checked == false) {
                   var cookiesend = 'false';
                 } else {
                   var cookiesend = 'true';
                 }
-                
+
                 var index = $(this).attr("class");
-                
+
                 // Set cookie for columns to show in future.
-                setCookie("col" + index, cookiesend, 365);  
+                setCookie("col" + index, cookiesend, 365);
 
                 // Update Tabulator table with selected columns visible.
-                if(checked) {  
+                if(checked) {
                     switch(index) {
                         case "0":
                             table.showColumn("sdr_device_idx");
@@ -990,7 +1011,7 @@
                             break;
                         case "13":
                             table.showColumn("humidity");
-                            break;    
+                            break;
                         case "14":
                             table.showColumn("azimuth");
                             break;
@@ -1005,7 +1026,7 @@
                             break;
                         case "18":
                             table.showColumn("other");
-                            break;                  
+                            break;
                     }
                     table.redraw();
                 } else {
@@ -1051,7 +1072,7 @@
                             break;
                         case "13":
                             table.hideColumn("humidity");
-                            break;    
+                            break;
                         case "14":
                             table.hideColumn("azimuth");
                             break;
@@ -1066,16 +1087,16 @@
                             break;
                         case "18":
                             table.hideColumn("other");
-                            break;                
+                            break;
                 }
                 table.redraw();
               }
             });
-            
+
             // Runs once at page load to set which Tabulator columns to show/hide per set cookies
             for (i = 0; i < 19; i++) {
                 var show = getCookie("col"+i);
-                if (show == 'false') { 
+                if (show == 'false') {
                     document.getElementById("checkbox" + i).checked = false;
                     switch(i) {
                         case 0:
@@ -1119,7 +1140,7 @@
                             break;
                         case 13:
                             table.hideColumn("humidity");
-                            break;    
+                            break;
                         case 14:
                             table.hideColumn("azimuth");
                             break;
@@ -1134,7 +1155,7 @@
                             break;
                         case 18:
                             table.hideColumn("other");
-                            break;                
+                            break;
                     }
                 } else if (show == 'true') {
                     document.getElementById("checkbox" + i).checked = true;
@@ -1191,7 +1212,7 @@
                                     break;
                                 case 13:
                                     table.hideColumn("humidity");
-                                    break;    
+                                    break;
                                 case 14:
                                     table.hideColumn("azimuth");
                                     break;
@@ -1206,9 +1227,9 @@
                                     break;
                                 case 18:
                                     table.hideColumn("other");
-                                    break;                
+                                    break;
                             }
-                        }                
+                        }
                     }
                 }
             }
@@ -1224,7 +1245,7 @@
             } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                 $('#log-tray').css('color', 'white');
             } else {
-                $('#log-tray').css('color', 'black');                
+                $('#log-tray').css('color', 'black');
             }
             var x = document.getElementById("closebtn");
             var y = document.getElementById('mapid');
@@ -1238,7 +1259,7 @@
                     }
                     document.getElementById("mySidenav").style.width = "350px";
                     document.getElementById("main").style.marginLeft = "350px";
-                    document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                    document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";
                     mymap.invalidateSize();
                     setTimeout(scan_chart_obj.resize,500);
                 } else { // Fullsize on mobile.
@@ -1261,7 +1282,7 @@
         }
 
         // Function to open/close right settings menu along with adjusting other elements so they render correctly.
-        function changeSettings() {            
+        function changeSettings() {
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
@@ -1291,7 +1312,7 @@
                 setTimeout(showDown,500);
             }
         }
-        
+
         function showDown () {
             if ((document.getElementById("scrollsettingsid").scrollHeight - document.getElementById("scrollsettingsid").scrollTop - document.getElementById("scrollsettingsid").clientHeight) < 1 ) {
                 document.getElementById("downdiv").style.display = "none";
@@ -1310,7 +1331,7 @@
              setCookie("map", 'true', 365);
              mymap.invalidateSize();
            }
-        }       
+        }
 
         // Show/hide scan chart on button press and update cookies.
         function showScan(element) {
@@ -1357,7 +1378,7 @@
         }
 
         // Reset specific cookie.
-        function eraseCookie(name) {   
+        function eraseCookie(name) {
             localStorage.removeItem(name);
         }
 
@@ -1389,16 +1410,16 @@
                 $('#password-input').val('');
             }
         });
-        
+
         let vh = window.innerHeight * 0.01;
-        
-        document.documentElement.style.setProperty('--vh', `${vh}px`);        
+
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
     </script>
 </head>
 <body>
-    <!-- Wrapper for entire body to ensure flex works -->    
+    <!-- Wrapper for entire body to ensure flex works -->
     <div class="wrapper">
-        <!-- Wrapper for log sidebar -->   
+        <!-- Wrapper for log sidebar -->
         <div id="mySidenav" class="sidenav">
             <div class="headerdiv">
             <a href="javascript:void(0)" class="closebtn" id="closebtn" onclick="changeNav()">&#10006;</a>
@@ -1413,12 +1434,12 @@
             </div>
         </div>
 
-    <!-- Wrapper for settings sidebar -->   
+    <!-- Wrapper for settings sidebar -->
     <div id="mySettings" class="settings">
         <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
-        <br><h2>Settings</h2>
-        <div class="scrollsettings" id="scrollsettingsid">
-            <h2>Table Options</h2>
+        <h1 style="color: white; text-align: center; margin: -0.25em;">Settings</h1>
+        <div class="scrollsettings" id="scrollsettingsid" style="margin-top: 20px;">
+           <h2 style="display:inline; vertical-align:middle; margin-left: 35px; margin-bottom: 0.3em;">Table Options</h2>
               <form>
                   <input type="checkbox" class="0" id="checkbox0" checked>
                   <label> SDR</label><br>
@@ -1459,14 +1480,14 @@
                   <input type="checkbox" class="18" id="checkbox18" checked>
                   <label> Other</label><br><br>
               </form>
-              <div style="margin-left:60px;">
+              <div style="margin-left:40px;">
                   <h2 style="display:inline;vertical-align:middle;">Show Table</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                   <label class="switch">
                     <input type="checkbox" onchange="showTable(this)" id="showtablebutton">
                     <span class="slider round"></span>
-                  </label>   
+                  </label>
                   </div>
                   <br>
                   <br>
@@ -1513,7 +1534,7 @@
                   <h2 style="display:inline;vertical-align:middle;">Set Pagination Size</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
-                  <select id="paginationSelector">
+                  <select id="paginationSelector" style="font-size: 1.2rem;">
                     <option value="1">One</option>
                     <option value="2">Two</option>
                     <option value="3">Three</option>
@@ -1537,7 +1558,7 @@
                   </label>
                   </div>
                   <br>
-                  <br>   
+                  <br>
                   <h2 style="display:inline;vertical-align:middle;">Show Imperial Units</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
@@ -1557,7 +1578,7 @@
                   </label>
                   </div>
                   <br>
-                  <br>                  
+                  <br>
                   <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
@@ -1569,32 +1590,32 @@
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button onclick="deleteAllCookies()">RESET</button>
-                  </div>                 
+                  </div>
                   <br>
                   <br>
                   <h2 style="display:inline;vertical-align:middle;">Controls</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button id="open-controls" onclick="openModal()">OPEN</button>
-                  </div>    
+                  </div>
                   <br>
                   <br>
                   <h2 style="display:inline;vertical-align:middle;">Historical View</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                     <button onclick="window.location.href='/historical.html'">OPEN</button>
-                  </div>                            
+                  </div>
                   <br>
                   <br>
                   <br>
-            </div>       
-        </div>    
+            </div>
+        </div>
         <div id="downdiv">
             <i class="icon-angle-down" style="font-size:60px;opacity:1;"></i>
         </div>
     </div>
 
-    <!-- Wrapper for main screen -->   
+    <!-- Wrapper for main screen -->
     <div id="main" onload="loadMap();">
         <div>
             <span style="font-size:3vh;font-size:calc(var(--vh, 1vh) * 3);cursor:pointer;" onclick="changeNav()"><span id="log-tray">&#9776;</span> Radiosonde Auto-RX <span id="currentversion" style="white-space:nowrap"></span></span>
@@ -1615,15 +1636,15 @@
         <i id="myBtn" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
         <a href="historical.html" id="historyBtn"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
-    
+
     <!-- Wrapper for advanced control modal -->
     <div id="myModal" class="modal">
-      <div class="modal-content"> 
+      <div class="modal-content">
         <div class="modal-header">
           <span class="close" onclick="closeModal()">&times;</span>
           <h2>Advanced Controls</h2>
-        </div>   
-        <div class="modal-body">       
+        </div>
+        <div class="modal-body">
           <div id="password-field">
             <span id="password-header"><h2>No Password Entered</h2></span>
             <input style="display:inline;vertical-align:middle;" type="text" id="password-input" placeholder="Password" >
@@ -1647,6 +1668,7 @@
                 <option value="IMET5">iMet-50/54</option>
                 <option value="MEISEI">iMS-100</option>
                 <option value="MRZ">MRZ-H1</option>
+                <option value="MTS01">MTS01</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="start-decoder" onclick="start_decoder();">Start</button>
@@ -1667,9 +1689,9 @@
             <div style="display:inline;vertical-align:middle;">
                 <button id="disable-scanner" onclick="disable_scanner();">Disable</button>
             </div>
-          </div>         
+          </div>
         </div>
-      </div>      
+      </div>
     </div>
 </div>
 </body>

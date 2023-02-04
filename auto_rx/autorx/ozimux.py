@@ -10,14 +10,8 @@ import json
 import logging
 import socket
 import time
+from queue import Queue
 from threading import Thread
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class OziUploader(object):
@@ -50,7 +44,7 @@ class OziUploader(object):
     ]
 
     # Extra fields we can pass on to other programs.
-    EXTRA_FIELDS = ["bt", "humidity", "sats", "batt", "snr", "fest", "f_centre", "ppm"]
+    EXTRA_FIELDS = ["bt", "humidity", "sats", "batt", "snr", "fest", "f_centre", "ppm", "subtype", "sdr_device_idx"]
 
     def __init__(
         self,

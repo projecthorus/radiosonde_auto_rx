@@ -10,15 +10,9 @@ import socket
 import time
 import numpy as np
 
+from queue import Queue
 from threading import Thread, Lock
 from autorx.utils import position_info
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 def read_rotator(rotctld_host="localhost", rotctld_port=4533, timeout=5):

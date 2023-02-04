@@ -751,12 +751,12 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 fprintf(stdout, " lon: "col_GPSlon"%.5f"col_TXT" ", gpx->lon);
                 fprintf(stdout, " alt: "col_GPSalt"%.2f"col_TXT" ", gpx->alt);
                 if (!err2) {
-                    fprintf(stdout, "  vH: "col_GPSvel"%.1f"col_TXT"  D: "col_GPSvel"%.1f"col_TXT"  vV: "col_GPSvel"%.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
+                    fprintf(stdout, "  vH: "col_GPSvel"%4.1f"col_TXT"  D: "col_GPSvel"%5.1f"col_TXT"  vV: "col_GPSvel"%3.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
                 }
-                if (gpx->option.vbs >= 2 && (bcOK || csOK)) { // SN
+                if (gpx->option.vbs >= 1 && (bcOK || csOK)) { // SN
                     fprintf(stdout, "  SN: "col_SN"%s"col_TXT, gpx->SN);
                 }
-                if (gpx->option.vbs >= 2) {
+                if (gpx->option.vbs >= 1) {
                     fprintf(stdout, "  # ");
                     if      (bcOK > 0) fprintf(stdout, " "col_CSok"(ok)"col_TXT);
                     else if (bcOK < 0) fprintf(stdout, " "col_CSoo"(oo)"col_TXT);
@@ -769,7 +769,9 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                     fprintf(stdout, " ");
                     if (gpx->T > -273.0f)  fprintf(stdout, " T:%.1fC", gpx->T);
                     if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%%", gpx->RH);
-                    if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
+                    if (gpx->option.vbs >= 2) {
+                        if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
+                    }
                     if (gpx->P > 0.0f) {
                         if (gpx->P < 100.0f) fprintf(stdout, " P=%.2fhPa ", gpx->P);
                         else                 fprintf(stdout, " P=%.1fhPa ", gpx->P);
@@ -789,12 +791,12 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 fprintf(stdout, " lon: %.5f ", gpx->lon);
                 fprintf(stdout, " alt: %.2f ", gpx->alt);
                 if (!err2) {
-                    fprintf(stdout, "  vH: %.1f  D: %.1f  vV: %.1f ", gpx->vH, gpx->vD, gpx->vV);
+                    fprintf(stdout, "  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vV);
                 }
-                if (gpx->option.vbs >= 2 && (bcOK || csOK)) { // SN
+                if (gpx->option.vbs >= 1 && (bcOK || csOK)) { // SN
                     fprintf(stdout, "  SN: %s", gpx->SN);
                 }
-                if (gpx->option.vbs >= 2) {
+                if (gpx->option.vbs >= 1) {
                     fprintf(stdout, "  # ");
                     //if (bcOK) fprintf(stdout, " (ok)"); else fprintf(stdout, " (no)");
                     if      (bcOK > 0) fprintf(stdout, " (ok)");
@@ -807,7 +809,9 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                     fprintf(stdout, " ");
                     if (gpx->T > -273.0f)  fprintf(stdout, " T:%.1fC", gpx->T);
                     if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%%", gpx->RH);
-                    if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
+                    if (gpx->option.vbs >= 2) {
+                        if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
+                    }
                     if (gpx->P > 0.0f) {
                         if (gpx->P < 100.0f) fprintf(stdout, " P=%.2fhPa ", gpx->P);
                         else                 fprintf(stdout, " P=%.1fhPa ", gpx->P);
@@ -842,6 +846,11 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
                 if (gpx->jsn_freq > 0) {
                     fprintf(stdout, ", \"freq\": %d", gpx->jsn_freq);
                 }
+
+                // Reference time/position
+                fprintf(stdout, ", \"ref_datetime\": \"%s\"", "GPS" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
+                fprintf(stdout, ", \"ref_position\": \"%s\"", "GPS" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
+
                 #ifdef VER_JSN_STR
                     ver_jsn = VER_JSN_STR;
                 #endif
@@ -1318,6 +1327,7 @@ int main(int argc, char **argv) {
                 header_found = 0;
 
                 // bis Ende der Sekunde vorspulen; allerdings Doppel-Frame alle 10 sek
+                // M20 only single frame ... AUX ?
                 if (gpx.option.vbs < 3) { // && (regulare frame) // print_frame-return?
                     while ( bitpos < 5*BITFRAME_LEN ) {
                         if (option_softin) {
@@ -1350,7 +1360,7 @@ int main(int argc, char **argv) {
 
         while (1 > 0) {
 
-            memset(buffer_rawhex, 2*(FRAME_LEN+AUX_LEN)+12, 0);
+            memset(buffer_rawhex, 0, 2*(FRAME_LEN+AUX_LEN)+12);
             pbuf = fgets(buffer_rawhex, 2*(FRAME_LEN+AUX_LEN)+12, fp);
             if (pbuf == NULL) break;
             buffer_rawhex[2*(FRAME_LEN+AUX_LEN)] = '\0';

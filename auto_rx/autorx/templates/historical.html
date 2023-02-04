@@ -100,10 +100,11 @@
                     {title:"Date", field:"datetime", width:160, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
                             var temp_time = new Date(cell.getValue());
-                            if (temp_time.toLocaleString("en-AU") == "Invalid Date") {                    
+                            var temp_converted = temp_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+                            if (temp_converted == "Invalid Date") {                    
                                 return;
                             } else {
-                                return temp_time.toLocaleString("en-AU");
+                                return temp_converted;
                             }                            
                         } else {
                             return cell.getValue();
@@ -698,6 +699,8 @@
                                     }
                                 }
                             });  
+                        } else {
+                            enableMenu();
                         }
                         if (i < (selectedrows.length-1)) {
                             i++;	

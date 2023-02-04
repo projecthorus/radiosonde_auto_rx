@@ -18,15 +18,9 @@ import logging
 import os
 import requests
 import time
+from queue import Queue
 from threading import Thread
 from email.utils import formatdate
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 class SondehubUploader(object):
@@ -61,6 +55,7 @@ class SondehubUploader(object):
         """
 
         self.upload_rate = upload_rate
+        self.actual_upload_rate = upload_rate  # Allow for the upload rate to be tweaked...
         self.upload_timeout = upload_timeout
         self.upload_retries = upload_retries
         self.user_callsign = user_callsign
@@ -68,6 +63,8 @@ class SondehubUploader(object):
         self.user_antenna = user_antenna
         self.contact_email = contact_email
         self.user_position_update_rate = user_position_update_rate
+
+        self.slower_uploads = False
 
         if self.user_position is None:
             self.inhibit_upload = True
@@ -80,20 +77,10 @@ class SondehubUploader(object):
         # Record of when we last uploaded a user station position to Sondehub.
         self.last_user_position_upload = 0
 
-        try:
-            # Python 2 check. Python 2 doesnt have gzip.compress so this will throw an exception.
-            gzip.compress(b"\x00\x00")
-
-            # Start queue processing thread.
-            self.input_processing_running = True
-            self.input_process_thread = Thread(target=self.process_queue)
-            self.input_process_thread.start()
-
-        except:
-            logging.error(
-                "Detected Python 2.7, which does not support gzip.compress. Sondehub DB uploading will be disabled."
-            )
-            self.input_processing_running = False
+        # Start queue processing thread.
+        self.input_processing_running = True
+        self.input_process_thread = Thread(target=self.process_queue)
+        self.input_process_thread.start()
 
     def update_station_position(self, lat, lon, alt):
         """ Update the internal station position record. Used when determining the station position by GPSD """
@@ -175,6 +162,10 @@ class SondehubUploader(object):
             if "dfmcode" in telemetry:
                 _output["dfmcode"] = telemetry["dfmcode"]
 
+            # We are handling DFM packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
             _output["manufacturer"] = "Meteomodem"
             _output["type"] = telemetry["type"]
@@ -213,10 +204,27 @@ class SondehubUploader(object):
             _output["type"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
+        elif telemetry["type"] == "IMS100":
+            _output["manufacturer"] = "Meisei"
+            _output["type"] = "iMS-100"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
+        elif telemetry["type"] == "RS11G":
+            _output["manufacturer"] = "Meisei"
+            _output["type"] = "RS-11G"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
         elif telemetry["type"] == "MRZ":
             _output["manufacturer"] = "Meteo-Radiy"
             _output["type"] = "MRZ"
             _output["serial"] = telemetry["id"][4:]
+            if "subtype" in telemetry:
+                _output["subtype"] = telemetry["subtype"]
+
+        elif telemetry["type"] == "MTS01":
+            _output["manufacturer"] = "Meteosis"
+            _output["type"] = "MTS01"
+            _output["serial"] = telemetry["id"].split("-")[1]
 
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
@@ -271,6 +279,13 @@ class SondehubUploader(object):
         if "bt" in telemetry:
             _output["burst_timer"] = telemetry["bt"]
 
+        # Time / Position reference information (e.g. GPS or something else)
+        if "ref_position" in telemetry:
+            _output["ref_position"] = telemetry["ref_position"]
+
+        if "ref_datetime" in telemetry:
+            _output["ref_datetime"] = telemetry["ref_datetime"]
+
         # Handle the additional SNR and frequency estimation if we have it
         if "snr" in telemetry:
             _output["snr"] = telemetry["snr"]
@@ -310,8 +325,13 @@ class SondehubUploader(object):
             ) > self.user_position_update_rate * 3600:
                 self.station_position_upload()
 
+            # If we are encounting DFM packets we need to upload at a slower rate so 
+            # that we have enough uploaded packets to pass z-check.
+            if self.slower_uploads:
+                self.actual_upload_rate = min(30,int(self.upload_rate*1.5))
+            
             # Sleep while waiting for some new data.
-            for i in range(self.upload_rate):
+            for i in range(self.actual_upload_rate):
                 time.sleep(1)
                 if self.input_processing_running == False:
                     break
@@ -385,7 +405,7 @@ class SondehubUploader(object):
                 _retries += 1
                 continue
 
-            elif _req.status_code == 201:
+            elif (_req.status_code == 201) or (_req.status_code == 202):
                 self.log_debug(
                     "Sondehub reported issue when adding packets to DB. Status Code: %d %s."
                     % (_req.status_code, _req.text)

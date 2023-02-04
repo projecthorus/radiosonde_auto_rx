@@ -22,14 +22,8 @@ import semver
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
+from queue import Queue
 from . import __version__ as auto_rx_version
-
-try:
-    # Python 2
-    from Queue import Queue
-except ImportError:
-    # Python 3
-    from queue import Queue
 
 
 # List of binaries we check for on startup
@@ -37,16 +31,18 @@ REQUIRED_RS_UTILS = [
     "dft_detect",
     "dfm09mod",
     "m10mod",
-    "imet1rs_dft",
     "rs41mod",
     "rs92mod",
     "fsk_demod",
-    "mk2mod",
+    "mk2a1680mod",
     "lms6Xmod",
     "meisei100mod",
     "imet54mod",
     "mp3h1mod",
     "m20mod",
+    "imet4iq",
+    "mts01mod",
+    "iq_dec"
 ]
 
 
@@ -146,7 +142,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6|IMS100|RS11G|MTS01)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
@@ -186,8 +182,14 @@ def short_type_lookup(type_name):
         return "Intermet Systems iMet-5x"
     elif type_name == "MEISEI":
         return "Meisei iMS-100/RS-11"
+    elif type_name == "IMS100":
+        return "Meisei iMS-100"
+    elif type_name == "RS11G":
+        return "Meisei RS-11G"
     elif type_name == "MRZ":
         return "Meteo-Radiy MRZ"
+    elif type_name == "MTS01":
+        return "Meteosis MTS01"
     else:
         return "Unknown"
 
@@ -220,8 +222,14 @@ def short_short_type_lookup(type_name):
         return "iMet-5x"
     elif type_name == "MEISEI":
         return "iMS-100"
+    elif type_name == "IMS100":
+        return "iMS-100"
+    elif type_name == "RS11G":
+        return "RS-11G"
     elif type_name == "MRZ":
         return "MRZ"
+    elif type_name == "MTS01":
+        return "MTS01"
     else:
         return "Unknown"
 
@@ -277,7 +285,7 @@ def generate_aprs_id(sonde_data):
             _id_hex = hex(_id_suffix).upper()
             _object_name = "LMS6" + _id_hex[-5:]
 
-        elif "MEISEI" in sonde_data["type"]:
+        elif "MEISEI" in sonde_data["type"] or "IMS100" in sonde_data["type"] or "RS11G" in sonde_data["type"]:
             # Convert the serial number to an int
             _meisei_id = int(sonde_data["id"].split("-")[-1])
             _id_suffix = hex(_meisei_id).upper().split("0X")[1]
@@ -296,6 +304,18 @@ def generate_aprs_id(sonde_data):
             if len(_id_hex) > 6:
                 _id_hex = _id_hex[-6:]
             _object_name = "MRZ" + _id_hex.upper()
+
+        elif "MTS01" in sonde_data["type"]:
+            # Split out just the serial number part of the ID, and cast it to an int
+            # This acts as another check that we have been provided with a numeric serial.
+            _mts_id = int(sonde_data["id"].split("-")[-1])
+
+            # Convert to upper-case hex, and take the last 6 nibbles.
+            _id_suffix = hex(_mts_id).upper()[-6:]
+
+            # Create the object name
+            _object_name = "MTS" + _id_suffix
+
 
         # New Sonde types will be added in here.
         else:
@@ -723,8 +743,7 @@ def is_not_linux():
 
     # Second check for the existence of '-Microsoft' in the uname release field.
     # This is a good check that we are running in WSL.
-    # Note the use of indexing instead of the named field, for Python 2 & 3 compatability.
-    if "Microsoft" in platform.uname()[2]:
+    if "Microsoft" in platform.uname().release:
         return True
 
     # Else, we're probably in native Linux!

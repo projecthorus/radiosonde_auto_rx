@@ -17,7 +17,7 @@ import argparse
 import glob
 import os
 import fastkml
-from dateutil.parser import *
+from dateutil.parser import parse
 from shapely.geometry import Point, LineString
 
 def read_telemetry_csv(filename,

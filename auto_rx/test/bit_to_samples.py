@@ -4,27 +4,17 @@
 #
 import sys
 
-# Check if we are running in Python 2 or 3
-PY3 = sys.version_info[0] == 3
 
 _sample_rate = int(sys.argv[1])
 _symbol_rate = int(sys.argv[2])
 
 _bit_length = _sample_rate // _symbol_rate
 
-if PY3:
-	_zero = b'\x00'*_bit_length
-	_one = b'\xFF'*_bit_length
+_zero = b'\x00'*_bit_length
+_one = b'\xFF'*_bit_length
 
-	_in = sys.stdin.read
-	_out = sys.stdout.buffer.write
-
-else:
-	_zero = '\x00'*_bit_length
-	_one = '\xFF'*_bit_length
-
-	_in = sys.stdin.read
-	_out = sys.stdout.write	
+_in = sys.stdin.read
+_out = sys.stdout.buffer.write
 
 while True:
 	_char = _in(1)
