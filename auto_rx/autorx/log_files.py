@@ -417,7 +417,7 @@ def calculate_skewt_data(
 
             _temp = temperature[i]
 
-            if humidity[i] >= 0.0:
+            if humidity[i] > 0.0:
                 _rh = humidity[i]
 
                 _dp = (

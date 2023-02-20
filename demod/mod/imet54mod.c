@@ -549,7 +549,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc
     // prnGPS,prnTPU
     if (gpx->option.jsn && frm_ok && (crc_ok || std_ok) && (gpx->status&0x30)==0x30) {
         char *ver_jsn = NULL;
-        char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
+        char *subtype = (rs_type == 54) ? "iMet-54" : "iMet-50";
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
