@@ -287,7 +287,7 @@ table {
   cursor: pointer;
   position: absolute;
   right: 6vh;
-  right: calc(4vh + 36px);
+  right: calc(8vh + 36px);
   color: white;
 }
 
