@@ -80,3 +80,4 @@ function calculate_lookangles(a, b) {
         'bearing': str_bearing
     };
 }
+
