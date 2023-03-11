@@ -5,6 +5,7 @@ var scan_chart_peaks;
 var scan_chart_threshold;
 var scan_chart_obj;
 var scan_chart_latest_timestamp;
+var scan_chart_last_drawn = "none";
 
 function setup_scan_chart(){
 	scan_chart_spectra = {
@@ -69,11 +70,18 @@ function setup_scan_chart(){
 
 function redraw_scan_chart(){
 	// Plot the updated data.
+	if(scan_chart_last_drawn === scan_chart_latest_timestamp){
+		// No need to re-draw.
+		//console.log("No need to re-draw.");
+		return;
+	}
 	scan_chart_obj.load(scan_chart_spectra);
 	scan_chart_obj.load(scan_chart_peaks);
 	scan_chart_obj.load(scan_chart_threshold);
 
-	console.log("Scan plot redraw - " + scan_chart_latest_timestamp);
+	scan_chart_last_drawn = scan_chart_latest_timestamp;
+
+	//console.log("Scan plot redraw - " + scan_chart_latest_timestamp);
 
 	// Run dark mode check again to solve render issues.
 	var z = getCookie('dark');
