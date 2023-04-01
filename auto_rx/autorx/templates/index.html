@@ -40,6 +40,63 @@
 
         var sonde_currently_following = "none";
 
+        // Function to change CSS options when changing dark mode.
+        function changeTheme(dark) {
+            if (dark == false) {
+                document.body.style.background = 'white';
+                if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                    $('#main span').css('color', 'black')
+                    $('#log-tray').css('color', 'red');
+                } else {
+                    $('#main span').css('color', 'black')
+                }
+                $('#main p').css('color', 'black')
+                $('.modal-content p').css('color', 'black')
+                $('.modal-content h2').css('color', 'black')
+                $('.modal-content span').css('color', 'black')
+                $('.modal-content').css('background-color', 'white')
+                $('.close').css('color', 'black')
+                $('#myBtn1').css('color', 'black')
+                $('#myBtn2').css('color', 'black')
+                $('#scanid').css('color', 'black')
+                $('.c3-axis-y').css('fill', 'black')
+                $('.c3-axis-x').css('fill', 'black')
+                $('.c3-legend-item text').css('fill', 'black')
+                $('.domain').css('stroke', 'black')
+                $('.tick line').css('stroke', 'black')
+                $('#mapid span').css('color', 'black')
+                $('.sidenav').css('background-color', '#111')
+                $('.settings').css('background-color', '#111')
+                $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_simple.min.css") }}');
+            } else {
+                document.body.style.background = '#121212';
+                if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
+                    $('#main span').css('color', 'white')
+                    $('#log-tray').css('color', 'red');
+                } else {
+                    $('#main span').css('color', 'white')
+                }
+                $('#main p').css('color', 'white')
+                $('.modal-content p').css('color', 'white')
+                $('.modal-content h2').css('color', 'white')
+                $('.modal-content span').css('color', 'white')
+                $('.modal-content').css('background-color', 'black')
+                $('.close').css('color', 'white')
+                $('#myBtn1').css('color', 'white')
+                $('#myBtn2').css('color', 'white')
+                $('#scanid').css('color', 'white')
+                $('.c3-axis-y').css('fill', 'white')
+                $('.c3-axis-x').css('fill', 'white')
+                $('.c3-legend-item text').css('fill', 'white')
+                $('.domain').css('stroke', 'white')
+                $('.tick line').css('stroke', 'white')
+                $('#mapid span').css('color', 'black')
+                $('.sidenav').css('background-color', '#414141')
+                $('.settings').css('background-color', '#414141')
+                $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_midnight.min.css") }}');
+            }
+        }
+
         $( document ).ready(function() {
 
             namespace = '/update_status';
@@ -106,7 +163,7 @@
                 if (getCookie('UTC') == 'false') {
                     // Check if entry is important.
                     var log_time_converted = log_time.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
-                    if (msg.level == "INFO") {
+                    if (msg.level == "INFO" || msg.level == "DEBUG") {
                         var log_entry = "<tr><td>" + log_time_converted + " – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
                     } else {
                         // If entry is important colour text red.
@@ -118,7 +175,7 @@
                         }
                     }
                 } else {
-                    if (msg.level == "INFO") {
+                    if (msg.level == "INFO" || msg.level == "DEBUG") {
                         var log_entry = "<tr><td>"  + new Date(msg.timestamp).toISOString().replace("T", " ").replace("Z", "").slice(0, -4) + " UTC – " + msg.level + "<br><em style='font-size: 15px;'>" + msg.msg + "</em></td></tr>";
                     } else {
                         // If entry is important colour text red.
@@ -140,43 +197,30 @@
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
                 $.getJSON("/get_scan_data", function(data){
+                    // Load the data into our data stores.
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
                     scan_chart_peaks.columns[0] = ['x_peaks'].concat(data.peak_freq);
                     scan_chart_peaks.columns[1] = ['Peaks'].concat(data.peak_lvl);
                     scan_chart_threshold.columns[0] = ['x_thresh'].concat([data.freq[0],data.freq[data.freq.length-1]]);
                     scan_chart_threshold.columns[1] = ['Threshold'].concat([data.threshold+autorx_config.snr_threshold,data.threshold+autorx_config.snr_threshold]);
-                    // Plot the updated data.
-                    scan_chart_obj.load(scan_chart_spectra);
-                    scan_chart_obj.load(scan_chart_peaks);
-                    scan_chart_obj.load(scan_chart_threshold);
+                    scan_chart_latest_timestamp = data.timestamp;
 
-                    // Run dark mode check again to solve render issues.
-                    var z = getCookie('dark');
-                        if (z == 'true') {
-                            changeTheme(true);
-                        } else if (z == 'false') {
-                            changeTheme(false);
-                        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                            changeTheme(true);
-                        } else {
-                            changeTheme(false);
-                        }
-
-                    // Show the latest scan time.
-                    if (getCookie('UTC') == 'false') {
-                        temp_date = data.timestamp;
-                        temp_date = temp_date.slice(0, -3);
-                        temp_date += "Z";
-                        var date = new Date(temp_date);
-                        var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
-                        $('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
+                    // Do not update the scan plot if the tab is hidden, or we have the scan plot hidden.
+                    if( (document.visibilityState == "hidden") || (document.getElementById("showscanbutton").checked == false) ){
+                        return;
                     } else {
-                        $('#scan_results').html('<b>Latest Scan:</b> ' + (data.timestamp.slice(0, -3) + 'Z').replace("T", " ").replace("Z", "").slice(0, -4) + ' UTC');
+                        redraw_scan_chart(data);
                     }
-
+                
                 }
                 );
+            });
+
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === "visible" && document.getElementById("showscanbutton").checked) {
+                    redraw_scan_chart();
+                }
             });
 
             socket.on('task_event', function(msg){
@@ -332,62 +376,6 @@
                 changeTheme(false);
             }
 
-            // Function to change CSS options when changing dark mode.
-            function changeTheme(dark) {
-                if (dark == false) {
-                    document.body.style.background = 'white';
-                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
-                        $('#main span').css('color', 'black')
-                        $('#log-tray').css('color', 'red');
-                    } else {
-                        $('#main span').css('color', 'black')
-                    }
-                    $('#main p').css('color', 'black')
-                    $('.modal-content p').css('color', 'black')
-                    $('.modal-content h2').css('color', 'black')
-                    $('.modal-content span').css('color', 'black')
-                    $('.modal-content').css('background-color', 'white')
-                    $('.close').css('color', 'black')
-                    $('#myBtn').css('color', 'black')
-                    $('#historyBtn').css('color', 'black')
-                    $('#scanid').css('color', 'black')
-                    $('.c3-axis-y').css('fill', 'black')
-                    $('.c3-axis-x').css('fill', 'black')
-                    $('.c3-legend-item text').css('fill', 'black')
-                    $('.domain').css('stroke', 'black')
-                    $('.tick line').css('stroke', 'black')
-                    $('#mapid span').css('color', 'black')
-                    $('.sidenav').css('background-color', '#111')
-                    $('.settings').css('background-color', '#111')
-                    $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_simple.min.css") }}');
-                } else {
-                    document.body.style.background = '#121212';
-                    if (document.getElementById("log-tray").style.color == "rgb(255, 0, 0)") {
-                        $('#main span').css('color', 'white')
-                        $('#log-tray').css('color', 'red');
-                    } else {
-                        $('#main span').css('color', 'white')
-                    }
-                    $('#main p').css('color', 'white')
-                    $('.modal-content p').css('color', 'white')
-                    $('.modal-content h2').css('color', 'white')
-                    $('.modal-content span').css('color', 'white')
-                    $('.modal-content').css('background-color', 'black')
-                    $('.close').css('color', 'white')
-                    $('#myBtn').css('color', 'white')
-                    $('#historyBtn').css('color', 'white')
-                    $('#scanid').css('color', 'white')
-                    $('.c3-axis-y').css('fill', 'white')
-                    $('.c3-axis-x').css('fill', 'white')
-                    $('.c3-legend-item text').css('fill', 'white')
-                    $('.domain').css('stroke', 'white')
-                    $('.tick line').css('stroke', 'white')
-                    $('#mapid span').css('color', 'black')
-                    $('.sidenav').css('background-color', '#414141')
-                    $('.settings').css('background-color', '#414141')
-                    $('#tabulatorsheet').attr('href', '{{ url_for("static", filename="css/tabulator_midnight.min.css") }}');
-                }
-            }
 
             // Check if dark mode button has been ticked.
             $('#showdarkbutton').change(function() {
@@ -1343,6 +1331,7 @@
              document.getElementById("scanid").style.display = "block";
              setCookie("scan", 'true', 365);
              mymap.invalidateSize();
+             redraw_scan_chart();
              setTimeout(scan_chart_obj.resize,500);
            }
         }
@@ -1627,14 +1616,14 @@
             <div id="telem_table"></div>
         </div>
         <div id="scanid">
-            <h2>Scan Results:</h2>
+            <h2>Scan Results</h2>
             <div id='scan_results'>No scan data yet...</div>
             <div id="scan_chart" style="width:100%;"></div>
         </div>
         <br>
         <div id="mapid"></div>
-        <i id="myBtn" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
-        <a href="historical.html" id="historyBtn"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+        <i id="myBtn1" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="historical.html" id="myBtn2"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
     </div>
 
     <!-- Wrapper for advanced control modal -->

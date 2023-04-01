@@ -76,6 +76,23 @@ a {
   flex-direction: column;
 }
 
+.skewt {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  background-color: #111;
+  overflow: hidden;
+  transition: 0.5s;
+  padding-top: 20px;
+  text-align: centre;
+  flex: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .settings form {
   margin-left: 35px;
   color: white;
@@ -243,17 +260,34 @@ table {
   color: white;
 }
 
-#myBtn {
+.skewt .closebtn3 {
+  position: absolute;
+  top: 6px;
+  left: 16px;
+  font-size: 36px;
+  text-decoration: none;
+  color: black;
+}
+
+#myBtn1 {
   cursor: pointer;
   position: absolute;
   right: 16px;
 }
 
-#historyBtn {
+#myBtn2 {
   cursor: pointer;
   position: absolute;
   right: 6vh;
   right: calc(4vh + 24px);
+  color: white;
+}
+
+#myBtn3 {
+  cursor: pointer;
+  position: absolute;
+  right: 6vh;
+  right: calc(8vh + 36px);
   color: white;
 }
 

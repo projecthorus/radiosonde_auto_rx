@@ -36,6 +36,8 @@
         };
 
         var table_data = {}
+
+        var sonde_list_width = 1;
             
         $( document ).ready(function() {
 
@@ -71,8 +73,8 @@
                     if (document.getElementById("mySidenav").style.width == "0px" || document.getElementById("mySidenav").style.width == 0) {
                         if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                             x.style.display = "none";
-                            document.getElementById("mySidenav").style.width = "665px";
-                            document.getElementById("main").style.marginLeft = "665px";
+                            document.getElementById("mySidenav").style.width = sonde_list_width + "px";
+                            document.getElementById("main").style.marginLeft = sonde_list_width + "px";
                             document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                         } else { // Fullsize on mobile.
                             x.style.display = "block";
@@ -114,6 +116,10 @@
                     },
                     {title:"Type", field:"short_type", width:85, resizable:false}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false}, // 105
+                    {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
+                        formatter:function(cell, formatterParams, onRendered){
+                            return cell.getValue().toFixed(3);
+                        }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
                     {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
                         formatter:function(cell, formatterParams, onRendered){
@@ -127,7 +133,7 @@
                         formatter:function(cell, formatterParams, onRendered){
                             return cell.getValue() + " km"; //return the contents of the cell;
                         }},
-                    {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
+                    {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
                 rowSelected:function(row){
                     mymap.eachLayer(function(layer){
@@ -858,11 +864,11 @@
                                 skewt.clear()
                             } catch(e) {
                                 //sidebar needs to be open first time
-                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                if (document.getElementById("mySkewT").style.width == "0px" || document.getElementById("mySkewT").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "100vh";
+                                        document.getElementById("mySkewT").style.width = "100vh";
                                     } else {
-                                        document.getElementById("mySettings").style.width = "100%";
+                                        document.getElementById("mySkewT").style.width = "100%";
                                     }
                                     await sleep(500);
                                 }
@@ -889,11 +895,11 @@
                                     output.innerHTML = this.value;
                                 }
                                 enableMenu();
-                                if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
+                                if (document.getElementById("mySkewT").style.width == "0px" || document.getElementById("mySkewT").style.width == 0) {
                                     if ((window.innerWidth/window.innerHeight) > 1) {
-                                        document.getElementById("mySettings").style.width = "100vh";
+                                        document.getElementById("mySkewT").style.width = "100vh";
                                     } else {
-                                        document.getElementById("mySettings").style.width = "100%";
+                                        document.getElementById("mySkewT").style.width = "100%";
                                     }
                                 }
                             }
@@ -1061,8 +1067,9 @@
                     $('.modal-content span').css('color', 'black')
                     $('.modal-content').css('background-color', 'white')
                     $('.close').css('color', 'black')
-                    $('#myBtn').css('color', 'black')
-                    $('#historyBtn').css('color', 'black')
+                    $('#myBtn1').css('color', 'black')
+                    $('#myBtn2').css('color', 'black')
+                    $('#myBtn3').css('color', 'black')
                     $('#scanid').css('color', 'black')
                     $('.c3-axis-y').css('fill', 'black')
                     $('.c3-axis-x').css('fill', 'black')
@@ -1074,7 +1081,8 @@
                     $('#skewt-header').css('color', 'black')
                     $('#closebtn2').css('color', 'black')
                     // SkewT Light Mode Colors
-                    $('.settings').css('background-color', '#f2f2f2')
+                    $('.skewt').css('background-color', '#f2f2f2')
+                    $('.settings').css('background-color', '#111')
                     $(".gridline").css('stroke', '#c4c4c4')
                     $(".tempzero").css('stroke', '#c4c4c4')
                 } else {
@@ -1091,8 +1099,9 @@
                     $('.modal-content span').css('color', 'white')
                     $('.modal-content').css('background-color', 'black')
                     $('.close').css('color', 'white')
-                    $('#myBtn').css('color', 'white')
-                    $('#historyBtn').css('color', 'white')
+                    $('#myBtn1').css('color', 'white')
+                    $('#myBtn2').css('color', 'white')
+                    $('#myBtn3').css('color', 'white')
                     $('#scanid').css('color', 'white')
                     $('.c3-axis-y').css('fill', 'white')
                     $('.c3-axis-x').css('fill', 'white')
@@ -1101,7 +1110,8 @@
                     $('.tick line').css('stroke', 'white')
                     $('#mapid span').css('color', 'black')
                     $('.sidenav').css('background-color', '#414141')
-                    $('.settings').css('background-color', '#808080')
+                    $('.skewt').css('background-color', '#808080')
+                    $('.settings').css('background-color', '#414141')
                     // TODO: Dark Mode SkewT Colors for better contrast.
                 }
             }
@@ -1127,7 +1137,205 @@
                 autorx_config.station_alt = msg.alt;
 
             });
+
+            // Function to change table columns visible.
+            $(document).on('change', 'form input', function() {
+                var checked = $(this).is(":checked");
+
+                if (checked == false) {
+                  var cookiesend = 'false';
+                } else {
+                  var cookiesend = 'true';
+                }
+
+                var index = $(this).attr("class");
+
+                // Set cookie for columns to show in future.
+                setCookie("sonde_list_col" + index, cookiesend, 365);
+
+                // Update Tabulator table with selected columns visible.
+                if(checked) {
+                    switch(index) {
+                        case "0":
+                            table.showColumn("datetime");
+                            break;
+                        case "1":
+                            table.showColumn("short_type");
+                            break;
+                        case "2":
+                            table.showColumn("serial");
+                            break;
+                        case "3":
+                            table.showColumn("freq");
+                            break;
+                        case "4":
+                            table.showColumn("lines");
+                            break;
+                        case "5":
+                            table.showColumn("min_height");
+                            break;
+                        case "6":
+                            table.showColumn("last_range");
+                            break;
+                        case "7":
+                            table.showColumn("max_range");
+                            break;
+                    }
+                } else {
+                    switch(index) {
+                        case "0":
+                            table.hideColumn("datetime");
+                            break;
+                        case "1":
+                            table.hideColumn("short_type");
+                            break;
+                        case "2":
+                            table.hideColumn("serial");
+                            break;
+                        case "3":
+                            table.hideColumn("freq");
+                            break;
+                        case "4":
+                            table.hideColumn("lines");
+                            break;
+                        case "5":
+                            table.hideColumn("min_height");
+                            break;
+                        case "6":
+                            table.hideColumn("last_range");
+                            break;
+                        case "7":
+                            table.hideColumn("max_range");
+                            break;
+		            }
+                }
+                table.redraw();
+                sonde_list_width = 0;
+                var columns = table.getColumns();
+                for (i = 0; i < columns.length; i++){
+                    if(columns[i]._column.visible){
+                        sonde_list_width += columns[i]._column.width;
+                    }
+                }
+                if(sonde_list_width<160) sonde_list_width=160;
+                adjustNav();
+	        });
+
+	        // Runs once at page load to set which Tabulator columns to show/hide per set cookies
+            for (i = 0; i < 8; i++) {
+                var show = getCookie("sonde_list_col"+i);
+                if (show == 'false') {
+                    document.getElementById("checkbox" + i).checked = false;
+                    switch(i) {
+                        case 0:
+                            table.hideColumn("datetime");
+                            break;
+                        case 1:
+                            table.hideColumn("short_type");
+                            break;
+                        case 2:
+                            table.hideColumn("serial");
+                            break;
+                        case 3:
+                            table.hideColumn("freq");
+                            break;
+                        case 4:
+                            table.hideColumn("lines");
+                            break;
+                        case 5:
+                            table.hideColumn("min_height");
+                            break;
+                        case 6:
+                            table.hideColumn("last_range");
+                            break;
+                        case 7:
+                            table.hideColumn("max_range");
+                            break;
+                    }
+                } else if (show == 'true') {
+                    document.getElementById("checkbox" + i).checked = true;
+                } else {
+                    if ($( window ).width() > 1200) {
+                        document.getElementById("checkbox" + i).checked = true;
+                    } else { // If no cookies are set on mobile device show limited number for better experience.
+                        if ([0,1].includes(i)) {
+                            setCookie("sonde_list_col" + i, 'true', 365);
+                            document.getElementById("checkbox" + i).checked = true;
+                        }
+                        if ([2,3,4,5,6,7].includes(i)) {
+                            setCookie("sonde_list_col" + i, 'false', 365);
+                            document.getElementById("checkbox" + i).checked = false;
+                            switch(i) {
+                                case 0:
+                                    table.hideColumn("datetime");
+                                    break;
+                                case 1:
+                                    table.hideColumn("short_type");
+                                    break;
+                                case 2:
+                                    table.hideColumn("serial");
+                                    break;
+                                case 3:
+                                    table.hideColumn("freq");
+                                    break;
+                                case 4:
+                                    table.hideColumn("lines");
+                                    break;
+                                case 5:
+                                    table.hideColumn("min_height");
+                                    break;
+                                case 6:
+                                    table.hideColumn("last_range");
+                                    break;
+                                case 7:
+                                    table.hideColumn("max_range");
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+	    
+            sonde_list_width = 0;
+            var columns = table.getColumns();
+            for (i = 0; i < columns.length; i++){
+                if(columns[i]._column.visible){
+                    sonde_list_width += columns[i]._column.width;
+                }
+            }
+            if(sonde_list_width<160) sonde_list_width=160;
+            adjustNav();
+            table.redraw();
+	    
         });
+
+        // Function to open/close left log menu along with adjusting other elements so they render correctly.
+        function adjustNav() {
+            var x = document.getElementById("closebtn");
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySidenav").style.width != "0px" && document.getElementById("mySidenav").style.width != 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
+                    x.style.display = "none";
+                    y.style.display = "block";
+                    document.getElementById("mySidenav").style.width = sonde_list_width + "px";
+                    document.getElementById("main").style.marginLeft = sonde_list_width + "px";
+                    document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
+                    mymap.invalidateSize();
+                } else { // Fullsize on mobile.
+                    x.style.display = "block";
+                    y.style.display = "none";
+                    document.getElementById("mySidenav").style.width = "100%";
+                    document.getElementById("main").style.marginLeft = "0";
+                    document.getElementById("mySidenav").style.borderRadius = "0px";
+                }
+            } else {
+                x.style.display = "none";
+                y.style.display = "block";
+                document.getElementById("mySidenav").style.width = 0;
+                document.getElementById("main").style.marginLeft = 0;
+                mymap.invalidateSize();
+            }
+        }
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
         function changeNav() {
@@ -1137,8 +1345,8 @@
                 if ((window.innerWidth/window.innerHeight) > 1) { // 620px wide on desktop.
                     x.style.display = "none";
                     y.style.display = "block";
-                    document.getElementById("mySidenav").style.width = "665px";
-                    document.getElementById("main").style.marginLeft = "665px";
+                    document.getElementById("mySidenav").style.width = sonde_list_width + "px";
+                    document.getElementById("main").style.marginLeft = sonde_list_width + "px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";  
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -1158,13 +1366,37 @@
         }
 
         // Function to open/close right settings menu along with adjusting other elements so they render correctly.
+        function changeSkewT() {            
+            var y = document.getElementById('mapid');
+            if (document.getElementById("mySkewT").style.width == "0px" || document.getElementById("mySkewT").style.width == 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
+                    y.style.display = "block";
+                    document.getElementById("mySkewT").style.width = "100vh";
+                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("mySkewT").style.borderRadius = "25px 0px 0px 25px";
+                    mymap.invalidateSize();
+                } else { // Fullsize on mobile.
+                    y.style.display = "none";
+                    document.getElementById("mySkewT").style.width = "100%";
+                    document.getElementById("main").style.marginRight = "0";
+                    document.getElementById("mySkewT").style.borderRadius = "0px";
+                }
+            } else {
+                y.style.display = "block";
+                document.getElementById("mySkewT").style.width = 0;
+                document.getElementById("main").style.marginRight = 0;
+                mymap.invalidateSize();
+            }
+        }
+
+        // Function to open/close right settings menu along with adjusting other elements so they render correctly.
         function changeSettings() {            
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     y.style.display = "block";
-                    document.getElementById("mySettings").style.width = "100vh";
-                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("mySettings").style.width = "350px";
+                    document.getElementById("main").style.marginRight = "350px";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
                 } else { // Fullsize on mobile.
@@ -1206,6 +1438,7 @@
         
         document.documentElement.style.setProperty('--vh', `${vh}px`);
 
+
     </script>
 </head>
 <body>
@@ -1233,8 +1466,8 @@
         </div>
 
     <!-- Wrapper for settings sidebar -->   
-    <div id="mySettings" class="settings">
-        <a href="javascript:void(0)" class="closebtn2" id="closebtn2" onclick="changeSettings()">&#10006;</a>
+    <div id="mySkewT" class="skewt">
+        <a href="javascript:void(0)" class="closebtn3" id="closebtn3" onclick="changeSkewT()">&#10006;</a>
         <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
         <div id="skewt" style="width:90%;margin:3px auto"></div>
         <span id="skewt-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
@@ -1252,6 +1485,36 @@
         <div id="skewt-footer"></div>
     </div>
 
+    <!-- Wrapper for settings sidebar -->
+    <div id="mySettings" class="settings">
+        <a href="javascript:void(0)" class="closebtn2" id="closebt2" onclick="changeSettings()">&#10006;</a>
+        <h1 style="color: white; text-align: center; margin: -0.25em;">Settings</h1>
+        <div class="scrollsettings" id="scrollsettingsid" style="margin-top: 20px;">
+           <h2 style="display:inline; vertical-align:middle; margin-left: 35px; margin-bottom: 0.3em;">Sonde List Options</h2>
+              <form>
+                  <input type="checkbox" class="0" id="checkbox0" checked>
+                  <label> Date</label><br>
+                  <input type="checkbox" class="1" id="checkbox1" checked>
+                  <label> Type</label><br>
+                  <input type="checkbox" class="2" id="checkbox2" checked>
+                  <label> Serial</label><br>
+                  <input type="checkbox" class="3" id="checkbox3" checked>
+                  <label> Frequency</label><br>
+                  <input type="checkbox" class="4" id="checkbox4">
+                  <label> Count</label><br>
+                  <input type="checkbox" class="5" id="checkbox5" checked>
+                  <label> Last Height</label><br>
+                  <input type="checkbox" class="6" id="checkbox6" checked>
+                  <label> Last Range</label><br>
+                  <input type="checkbox" class="7" id="checkbox7" checked>
+                  <label> Max Range</label><br>
+              </form>
+        </div>
+        <div id="downdiv">
+            <i class="icon-angle-down" style="font-size:60px;opacity:1;"></i>
+        </div>
+    </div>
+
     <!-- Wrapper for main screen -->   
     <div id="main" onload="loadMap();">
         <div>
@@ -1260,8 +1523,9 @@
         <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
         <br>
         <div id="mapid"></div>
-        <i id="myBtn" onclick="changeSettings()" class="icon-chart-line" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
-        <a href="." id="historyBtn"><i class="icon-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+        <i id="myBtn1" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <a href="." id="myBtn2"><i class="icon-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
+        <i id="myBtn3" onclick="changeSkewT()" class="icon-chart-line" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
     </div>
 </div>
 </body>
