@@ -190,7 +190,7 @@ frame[0x02..0x03]: ADC RH (incl.555)
 frame[0x04..0x05]: ADC Temperatur , frame[0x46]: scale/range ?
 frame[0x06..0x07]: ADC RH-Temperature     range: 0:0..4095 , 1:4096..8191 , 2:8192..12287
 frame[0x08..0x0A]: GPS altitude
-frame[0x0B..0x0E]: GPS hor.Vel. (velE,velN)
+frame[0x0B..0x0C]: GPS hor.Vel. (velE,velN)
 frame[0x0F..0x11]: GPS TOW
 frame[0x15]:       counter
 frame[0x16..0x17]: block check
