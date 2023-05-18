@@ -897,6 +897,7 @@ def main():
             ),
             launch_notifications=config["email_launch_notifications"],
             landing_notifications=config["email_landing_notifications"],
+            encrypted_sonde_notifications=config["email_encrypted_sonde_notifications"],
             landing_range_threshold=config["email_landing_range_threshold"],
             landing_altitude_threshold=config["email_landing_altitude_threshold"],
         )

@@ -748,6 +748,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Did not find system / debug logging options, using defaults (disabled, unless set as a command-line option.)"
             )
 
+        # 1.6.2 - Encrypted Sonde Email Notifications
+        try:
+            auto_rx_config["email_encrypted_sonde_notifications"] = config.getboolean(
+                "email", "encrypted_sonde_notifications"
+            )
+        except:
+            logging.warning(
+                "Config - Did not find encrypted_sonde_notifications setting (new in v1.6.2), using default (True)"
+            )
+            auto_rx_config["email_encrypted_sonde_notifications"] = True
+
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
