@@ -43,6 +43,7 @@ class EmailNotification(object):
         station_position=None,
         launch_notifications=True,
         landing_notifications=True,
+        encrypted_sonde_notifications=True,
         landing_range_threshold=50,
         landing_altitude_threshold=1000,
         landing_descent_trip=10,
@@ -60,6 +61,7 @@ class EmailNotification(object):
         self.station_position = station_position
         self.launch_notifications = launch_notifications
         self.landing_notifications = landing_notifications
+        self.encrypted_sonde_notifications = encrypted_sonde_notifications
         self.landing_range_threshold = landing_range_threshold
         self.landing_altitude_threshold = landing_altitude_threshold
         self.landing_descent_trip = landing_descent_trip
@@ -133,18 +135,44 @@ class EmailNotification(object):
                 }
             )
 
-            if self.launch_notifications:
+            if "encrypted" in telemetry:
+                if telemetry["encrypted"] and self.encrypted_sonde_notifications:
+                    try:
+                        # This is a new Encrypted Radiosonde, send an email.
+                        msg = "Encrypted Radiosonde Detected:\n"
+                        msg += "\n"
+
+                        if "subtype" in telemetry:
+                            telemetry["type"] = telemetry["subtype"]
+
+                        msg += "Serial:    %s\n" % _id
+                        msg += "Type:      %s\n" % telemetry["type"]
+                        msg += "Frequency: %s\n" % telemetry["freq"]
+                        msg += "Time Detected: %sZ\n" % telemetry["datetime_dt"].isoformat()
+
+                        # Construct subject
+                        _subject = self.mail_subject
+                        _subject = _subject.replace("<id>", telemetry["id"])
+                        _subject = _subject.replace("<type>", telemetry["type"])
+                        _subject = _subject.replace("<freq>", telemetry["freq"])
+
+                        if "encrypted" in telemetry:
+                            if telemetry["encrypted"] == True:
+                                _subject += " - ENCRYPTED SONDE"
+
+                        self.send_notification_email(subject=_subject, message=msg)
+
+                    except Exception as e:
+                        self.log_error("Error sending E-mail - %s" % str(e))
+
+            elif self.launch_notifications:
 
                 try:
                     # This is a new sonde. Send the email.
                     msg = "Sonde launch detected:\n"
                     msg += "\n"
 
-                    if "encrypted" in telemetry:
-                        if telemetry["encrypted"] == True:
-                            msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
-
-                    msg += "Callsign:  %s\n" % _id
+                    msg += "Serial:    %s\n" % _id
                     msg += "Type:      %s\n" % telemetry["type"]
                     msg += "Frequency: %s\n" % telemetry["freq"]
                     msg += "Position:  %.5f,%.5f\n" % (
@@ -174,10 +202,6 @@ class EmailNotification(object):
                     _subject = _subject.replace("<id>", telemetry["id"])
                     _subject = _subject.replace("<type>", telemetry["type"])
                     _subject = _subject.replace("<freq>", telemetry["freq"])
-
-                    if "encrypted" in telemetry:
-                        if telemetry["encrypted"] == True:
-                            _subject += " - ENCRYPTED SONDE"
 
                     self.send_notification_email(subject=_subject, message=msg)
 
@@ -237,7 +261,7 @@ class EmailNotification(object):
 
                             msg = "Nearby sonde landing detected:\n\n"
 
-                            msg += "Callsign:  %s\n" % _id
+                            msg += "Serial:    %s\n" % _id
                             msg += "Type:      %s\n" % telemetry["type"]
                             msg += "Frequency: %s\n" % telemetry["freq"]
                             msg += "Position:  %.5f,%.5f\n" % (
@@ -430,6 +454,29 @@ if __name__ == "__main__":
             "vel_h": 5.1,
             "vel_v": -5.0,
             "datetime_dt": datetime.datetime.utcnow(),
+        }
+    )
+
+    time.sleep(10)
+
+    print("Testing encrypted sonde alert.")
+    _email_notification.add(
+        {
+            "id": "R1234557",
+            "frame": 10,
+            "lat": 0.0,
+            "lon": 0.0,
+            "alt": 0,
+            "temp": 1.0,
+            "type": "RS41",
+            "subtype": "RS41-SGM",
+            "freq": "401.520 MHz",
+            "freq_float": 401.52,
+            "heading": 0.0,
+            "vel_h": 5.1,
+            "vel_v": -5.0,
+            "datetime_dt": datetime.datetime.utcnow(),
+            "encrypted": True
         }
     )
 

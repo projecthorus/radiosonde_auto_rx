@@ -23,6 +23,7 @@ from .gps import get_ephemeris, get_almanac
 from .sonde_specific import fix_datetime, imet_unique_id
 from .fsk_demod import FSKDemodStats
 from .sdr_wrappers import test_sdr, get_sdr_iq_cmd, get_sdr_fm_cmd, get_sdr_name
+from .email_notification import EmailNotification
 
 # Global valid sonde types list.
 VALID_SONDE_TYPES = [
@@ -1424,6 +1425,20 @@ class SondeDecoder(object):
                         "Radiosonde %s has encrypted telemetry (Possible encrypted RS41-SGM)! We cannot decode this, closing decoder."
                         % _telemetry["id"]
                     )
+
+                    # Overwrite the datetime field to make the email notifier happy
+                    _telemetry['datetime_dt'] = datetime.datetime.utcnow()
+                    _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
+
+                    # Send this to only the Email Notifier, if it exists.
+                    for _exporter in self.exporters:
+                        try:
+                            if _exporter.__self__.__module__ == EmailNotification.__module__:
+                                _exporter(_telemetry)
+                        except Exception as e:
+                            self.log_error("Exporter Error %s" % str(e))
+
+                    # Close the decoder.
                     self.exit_state = "Encrypted"
                     self.decoder_running = False
                     return False

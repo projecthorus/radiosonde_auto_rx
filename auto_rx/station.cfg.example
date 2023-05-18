@@ -362,6 +362,9 @@ launch_notifications = True
 # Send e-mails when a radiosonde is detected descending near your station location
 landing_notifications = True
 
+# Send e-mails when an encrypted radiosonde is detected.
+encrypted_sonde_notifications = True
+
 # Range threshold for Landing notifications (km from your station location)
 landing_range_threshold = 30
 
