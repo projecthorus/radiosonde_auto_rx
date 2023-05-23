@@ -6,3 +6,4 @@ numpy
 requests
 semver
 simplekml
+simple-websocket
