@@ -683,7 +683,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # that this goes against the wishes of the radiosonde_auto_rx developers to not be part
         # of the bigger problem of APRS-IS congestion. 
 
-        ALLOWED_APRS_SERVERS = ["radiosondy.info"]
+        ALLOWED_APRS_SERVERS = ["radiosondy.info", "localhost"]
         ALLOWED_APRS_PORTS = [14590]
 
         if auto_rx_config["aprs_server"] not in ALLOWED_APRS_SERVERS:

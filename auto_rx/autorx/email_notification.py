@@ -121,6 +121,7 @@ class EmailNotification(object):
             self.sondes[_id] = {
                 "last_time": time.time(),
                 "descending_trip": 0,
+                "ascent_trip": False,
                 "descent_notified": False,
                 "track": GenericTrack(max_elements=20),
             }
@@ -224,14 +225,21 @@ class EmailNotification(object):
             # We have seen this sonde recently. Let's check it's descending...
 
             if self.sondes[_id]["descent_notified"] == False and _sonde_state:
+
+                # Set a flag if the sonde has passed above the landing altitude threshold.
+                # This is used along with the descending trip to trigger a landing email notification.
+                if (telemetry["alt"] > self.landing_altitude_threshold):
+                    self.sondes[_id]["ascent_trip"] = True 
+
                 # If the sonde is below our threshold altitude, *and* is descending at a reasonable rate, increment.
                 if (telemetry["alt"] < self.landing_altitude_threshold) and (
                     _sonde_state["ascent_rate"] < -2.0
                 ):
                     self.sondes[_id]["descending_trip"] += 1
 
-                if self.sondes[_id]["descending_trip"] > self.landing_descent_trip:
-                    # We've seen this sonde descending for enough time now.
+                if (self.sondes[_id]["descending_trip"] > self.landing_descent_trip) and self.sondes[_id]["ascent_trip"]:
+                    # We've seen this sonde descending for enough time now AND we have also seen it go above the landing threshold,
+                    # so it's likely been on a flight and isnt just bouncing around on the ground.
                     # Note that we've passed the descent threshold, so we shouldn't analyze anything from this sonde anymore.
                     self.sondes[_id]["descent_notified"] = True
 
