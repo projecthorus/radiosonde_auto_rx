@@ -865,11 +865,37 @@ class SondeScanner(object):
                 # Scan completed successfuly! Reset the error counter.
                 self.error_retries = 0
 
-            # Sleep before starting the next scan.
-            time.sleep(self.scan_delay)
+            if self.sonde_scanner_running == False:
+                self.log_info("Stopping thread just before sleep")
+                break
+            if _results:
+                # Sleep before starting the next scan.
+                # time.sleep(self.scan_delay)
+                for i in range(self.scan_delay):
+                    time.sleep(1)
+                    if self.sonde_scanner_running == False:
+                        self.log_info("Stopping thread during sleep!")
+                        break
+            else:
+                self.run_readsb(self.scan_delay)
+                if self.sonde_scanner_running == False:
+                    self.log_info("Request to stop thread came during readsb")
 
         self.log_info("Scanner Thread Closed.")
         self.sonde_scanner_running = False
+
+    def run_readsb(self, timeout=60):
+        """Run readsb for a given time period to interleave sonde scans with ADSB traffic scanning.
+
+        XXX: This is all hardcoded and just punk.
+
+        If you run readsb and tar1090 using systemd, you must first do `sudo ln -s /tmp/readsb-run/ /run/readsb; mkdir -p /tmp/readsb-run` on system start."""
+        self.log_info(f"Running readsb for {timeout}s")
+        _cmd = f"timeout {timeout} /usr/bin/readsb --device 00000001 --device-type rtlsdr --gain -10 --ppm 0 --max-range 450 --write-json-every 1 --net --net-heartbeat 60 --net-ro-size 1250 --net-ro-interval 0.05 --net-ri-port 30001 --net-ro-port 30002 --net-sbs-port 30003 --net-bi-port 30004,30104 --net-bo-port 30005 --json-location-accuracy 2 --range-outline-hours 24 --write-json /tmp/readsb-run --quiet"
+        import subprocess
+        _ret_code = subprocess.call(_cmd, shell=True)
+        if _ret_code != 0 and _ret_code != 124:  # 124: timeout kill
+            self.log_warning(f"readsb exited with non-zero error code: {_ret_code}")
 
     def sonde_search(self, first_only=False):
         """Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
