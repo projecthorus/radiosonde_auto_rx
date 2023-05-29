@@ -526,8 +526,8 @@ min_distance = 1000
 scan_dwell_time = 20
 # Scanner - Detection Dwell time - How long to wait for a sonde detection on each peak.
 detect_dwell_time = 5
-# Scanner - Delay between scans. We should delay a short amount between scans to allow for decoders and other actions to jump in.
-scan_delay = 10
+# Scanner - Delay between scans. We should delay between scans to allow for decoders and other actions to jump in. ADSB is received during the downtime.
+scan_delay = 60
 # Quantize search results to x Hz steps. Useful as most sondes are on 10 kHz frequency steps.
 quantization = 10000
 # Decoder Spacing Limit - Only start a new decoder if it is separated from an existing decoder by at least
