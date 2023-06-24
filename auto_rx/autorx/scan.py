@@ -866,7 +866,11 @@ class SondeScanner(object):
                 self.error_retries = 0
 
             # Sleep before starting the next scan.
-            time.sleep(self.scan_delay)
+            for i in range(self.scan_delay):
+                time.sleep(1)
+                if self.sonde_scanner_running == False:
+                    self.log_debug("Breaking out of scan loop.")
+                    break
 
         self.log_info("Scanner Thread Closed.")
         self.sonde_scanner_running = False
