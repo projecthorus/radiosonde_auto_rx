@@ -335,7 +335,9 @@ class GPSDAdaptor(object):
         self.gpsd_thread_running = False
         # Wait for the thread to close.
         if self.gpsd_thread != None:
-            self.gpsd_thread.join()
+            self.gpsd_thread.join(60)
+            if self.gpsd_thread.is_alive():
+                logging.error("GPS thread failed to join")
 
     def send_to_callback(self, data):
         """
