@@ -872,7 +872,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         if len(auto_rx_config["sdr_settings"].keys()) == 0:
             # We have no SDRs to use!!
             logging.error("Config - No working SDRs! Cannot run...")
-            return None
+            raise SystemError("No working SDRs!")
         else:
             # Create a global copy of the configuration file at this point
             global_config = copy.deepcopy(auto_rx_config)
@@ -891,7 +891,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             web_password = auto_rx_config["web_password"]
 
             return auto_rx_config
-
+    except SystemError as e:
+        raise e
     except:
         traceback.print_exc()
         logging.error("Could not parse config file.")
