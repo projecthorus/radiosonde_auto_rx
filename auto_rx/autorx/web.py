@@ -49,7 +49,7 @@ app.jinja_env.auto_reload = True
 # This thread will hold the currently running flask application thread.
 flask_app_thread = None
 # A key that needs to be matched to allow shutdown.
-flask_shutdown_key = "temp"
+flask_shutdown_key = None
 
 # SocketIO instance
 socketio = SocketIO(app, async_mode="threading")
@@ -289,6 +289,9 @@ def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
     return json.dumps(list_log_files(quicklook=True))
 
+def flask_running():
+    global flask_shutdown_key
+    return flask_shutdown_key is not None
 
 @app.route("/get_log_by_serial/<serial>")
 def flask_get_log_by_serial(serial):

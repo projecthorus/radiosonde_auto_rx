@@ -831,13 +831,20 @@ class HabitatUploader(object):
 
         # Wait for all threads to close.
         if self.upload_thread is not None:
-            self.upload_thread.join()
+            self.upload_thread.join(60)
+            if self.upload_thread.is_alive():
+                self.log_error("habitat upload thread failed to join")
+
 
         if self.timer_thread is not None:
-            self.timer_thread.join()
+            self.timer_thread.join(60)
+            if self.timer_thread.is_alive():
+                self.log_error("habitat timer thread failed to join")
 
         if self.input_thread is not None:
-            self.input_thread.join()
+            self.input_thread.join(60)
+            if self.input_thread.is_alive():
+                self.log_error("habitat input thread failed to join")
 
     def log_debug(self, line):
         """ Helper function to log a debug message with a descriptive heading. 

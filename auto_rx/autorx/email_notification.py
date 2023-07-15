@@ -379,7 +379,9 @@ class EmailNotification(object):
         self.input_processing_running = False
 
         if self.input_thread is not None:
-            self.input_thread.join()
+            self.input_thread.join(60)
+            if self.input_thread.is_alive():
+                self.log_error("email notification input thread failed to join")
 
     def running(self):
         """ Check if the logging thread is running.

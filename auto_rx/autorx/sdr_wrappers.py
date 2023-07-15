@@ -11,7 +11,7 @@ import platform
 import subprocess
 import numpy as np
 
-from .utils import rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs
+from .utils import rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs, timeout_cmd
 
 
 def test_sdr(
@@ -67,7 +67,7 @@ def test_sdr(
             return False
 
         _cmd = (
-            f"timeout 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
+            f"{timeout_cmd()} 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
             f"{ss_iq_path} "
             f"-f {check_freq} "
             f"-s 48000 "
@@ -480,17 +480,7 @@ def get_power_spectrum(
         if os.path.exists(_log_filename):
             os.remove(_log_filename)
 
-
-        # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
-        # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
-        # which is provided with OSX (Darwin).
-        _platform = platform.system()
-        if "Darwin" in _platform:
-            _timeout_kill = ""
-        else:
-            _timeout_kill = "-k 30 "
-
-        _timeout_cmd = f"timeout {_timeout_kill}{integration_time+10}"
+        _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
 
         _gain = ""
         if gain:
@@ -564,17 +554,7 @@ def get_power_spectrum(
         if os.path.exists(_log_filename):
             os.remove(_log_filename)
 
-
-        # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
-        # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
-        # which is provided with OSX (Darwin).
-        _platform = platform.system()
-        if "Darwin" in _platform:
-            _timeout_kill = ""
-        else:
-            _timeout_kill = "-k 30 "
-
-        _timeout_cmd = f"timeout {_timeout_kill}{integration_time+10}"
+        _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
 
         _frequency_centre = int(frequency_start + (frequency_stop-frequency_start)/2.0)
 
