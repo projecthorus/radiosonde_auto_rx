@@ -15,7 +15,18 @@ cd $(dirname $0)
 # Clean up old files
 rm log_power*.csv
 
-# Start auto_rx process with a 3 hour timeout.
-# auto_rx will exit after this time.
-
-python3 auto_rx.py -t 180
+while true
+do
+    python3 auto_rx.py
+    rc=$?
+    echo auto_rx.py exited with result code $rc
+    if [ $rc -gt 2 ]
+    then
+        echo "Performing power reset of SDR's"
+        python3 sdr_reset.py
+    fi
+    if [ $rc -eq 0 ]
+    then
+        break
+    fi
+done

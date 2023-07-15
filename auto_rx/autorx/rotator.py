@@ -320,7 +320,9 @@ class Rotator(object):
         self.rotator_thread_running = False
 
         if self.rotator_thread is not None:
-            self.rotator_thread.join()
+            self.rotator_thread.join(60)
+            if self.rotator_thread.is_alive():
+                self.log_error("rotator control thread failed to join")
 
         self.log_debug("Stopped rotator control thread.")
 

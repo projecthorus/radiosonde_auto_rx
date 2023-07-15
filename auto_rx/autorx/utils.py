@@ -19,6 +19,7 @@ import threading
 import time
 import numpy as np
 import semver
+import shutil
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
@@ -45,6 +46,21 @@ REQUIRED_RS_UTILS = [
     "iq_dec"
 ]
 
+_timeout_cmd = None
+
+def timeout_cmd():
+    global _timeout_cmd
+    if not _timeout_cmd:
+        t=shutil.which("gtimeout")
+        if t:
+            _timeout_cmd = "gtimeout -k 30 "
+        else:
+            if not shutil.which("timeout"):
+                logging.critical("timeout command-line tool not present in system. try installing gtimeout.")
+                sys.exit(1)
+            else:
+                _timeout_cmd = "timeout -k 30 "
+    return _timeout_cmd
 
 def check_rs_utils():
     """ Check the required RS decoder binaries exist
@@ -54,7 +70,7 @@ def check_rs_utils():
         if not os.path.isfile(_file):
             logging.critical("Binary %s does not exist - did you run build.sh?" % _file)
             return False
-
+        _ = timeout_cmd()
     return True
 
 
@@ -776,10 +792,10 @@ def is_rtlsdr(vid, pid):
 def reset_rtlsdr_by_serial(serial):
     """ Attempt to reset a RTLSDR with a provided serial number """
 
-    # If not Linux, return immediately.
+    # If not Linux, raise exception and let auto_rx.py convert it to exit status code.
     if is_not_linux():
         logging.debug("RTLSDR - Not a native Linux system, skipping reset attempt.")
-        return
+        raise SystemError("SDR unresponsive")
 
     lsusb_info = lsusb()
     bus_num = None
@@ -853,10 +869,10 @@ def find_rtlsdr(serial=None):
 def reset_all_rtlsdrs():
     """ Reset all RTLSDR devices found in the lsusb tree """
 
-    # If not Linux, return immediately.
+    # If not Linux, raise exception and let auto_rx.py convert it to exit status code.
     if is_not_linux():
         logging.debug("RTLSDR - Not a native Linux system, skipping reset attempt.")
-        return
+        raise SystemError("SDR unresponsive")
 
     lsusb_info = lsusb()
     bus_num = None
@@ -906,11 +922,12 @@ def rtlsdr_test(device_idx="0", rtl_sdr_path="rtl_sdr", retries=5):
         logging.debug("RTLSDR - TCP Device, skipping RTLSDR test step.")
         return True
 
-    _rtl_cmd = "timeout 5 %s -d %s -n 200000 - > /dev/null" % (
+    _rtl_cmd = "%s 5 %s -d %s -f 400000000 -n 200000 - > /dev/null" % (
+        timeout_cmd(),
         rtl_sdr_path,
         str(device_idx),
     )
-
+    
     # First, check if the RTLSDR with a provided serial number is present.
     if device_idx == "0":
         # Check for the presence of any RTLSDRs.

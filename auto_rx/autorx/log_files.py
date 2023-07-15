@@ -455,9 +455,8 @@ def calculate_skewt_data(
                 break
 
         except Exception as e:
-            print(str(e))
-
-        # Continue through the data..
+            logging.exception(f"Exception {str(e)} in calculate_skewt_data")
+            raise
 
     return _skewt
 
