@@ -10,8 +10,14 @@ function update_task_list(){
         added_decoders = false;
 
         for (_task in data){
-            // Append the current task to the task list text.
-            task_info += "SDR #" + _task + ": " + data[_task]["task"] + "    ";
+            // Append the current task to the task list.
+            if(_task.includes("SPY")){
+                task_detail = _task + " - "
+            }else{
+                task_detail = "SDR:" + _task + " - "
+            }
+
+
             if(data[_task]["freq"] > 0.0){
                 $('#stop-frequency-select')
                     .append($("<option></option>")
@@ -19,7 +25,22 @@ function update_task_list(){
                     .text( (parseFloat( data[_task]["freq"] )/1e6).toFixed(3)));
 
                 added_decoders = true;
+
+                task_detail += (parseFloat( data[_task]["freq"] )/1e6).toFixed(3);
+
+                if (data[_task].hasOwnProperty("type")){
+                    task_detail += " " + data[_task]["type"];
+                }
+                
+            } else {
+                if(data[_task]["task"] == "Scanning"){
+                    task_detail += "Scan";
+                } else {
+                    task_detail += "Idle";
+                }
             }
+
+            task_info += "<div class='sdrinfo-element'>" + task_detail + "</div>"
         }
 
         if(added_decoders == false){
@@ -30,7 +51,7 @@ function update_task_list(){
         }
         
         // Update page with latest task.
-        $('#task_status').text(task_info);
+        $('#task_status').html(task_info);
         
         setTimeout(resume_web_controls,2000);
     });
