@@ -21,6 +21,7 @@ import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
 from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from autorx.decode import SondeDecoder
 from queue import Queue
 from threading import Thread
 import flask
@@ -105,6 +106,7 @@ def flask_get_version():
 def flask_get_task_list():
     """ Return the current list of active SDRs, and their active task names """
 
+
     # Read in the task list, index by SDR ID.
     _task_list = {}
     for _task in autorx.task_list.keys():
@@ -124,8 +126,15 @@ def flask_get_task_list():
                         "task": "Decoding (%.3f MHz)" % (_task_list[str(_sdr)] / 1e6),
                         "freq": _task_list[str(_sdr)],
                     }
+                    
                 except:
                     _sdr_list[str(_sdr)] = {"task": "Decoding (?? MHz)", "freq": 0}
+
+                # Try and add on sonde type.
+                try:
+                    _sdr_list[str(_sdr)]['type'] = autorx.task_list[_task_list[str(_sdr)]]['task'].sonde_type
+                except:
+                    pass
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
