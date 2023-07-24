@@ -27,6 +27,7 @@ from threading import Thread
 import flask
 from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 import re
 
 try:
@@ -44,6 +45,7 @@ cli.show_server_banner = lambda *x: None
 
 # Instantiate our Flask app.
 app = flask.Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_prefix=1)
 app.config["SECRET_KEY"] = "secret!"
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
@@ -69,7 +71,7 @@ flask_telemetry_store = {}
 #
 def flask_emit_event(event_name="none", data={}):
     """ Emit a socketio event to any clients. """
-    socketio.emit(event_name, data, namespace="/update_status")
+    socketio.emit(event_name, data, namespace="update_status")
 
 
 #

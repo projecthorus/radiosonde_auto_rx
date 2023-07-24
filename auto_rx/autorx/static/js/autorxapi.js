@@ -2,7 +2,7 @@
 
 function update_task_list(){
     // Grab the latest task list.
-    $.getJSON("/get_task_list", function(data){
+    $.getJSON("get_task_list", function(data){
         var task_info = "";
 
         $('#stop-frequency-select').children().remove();
@@ -117,7 +117,7 @@ function verify_password(){
 
     // Do the request
     $.post(
-        "/check_password", 
+        "check_password", 
         {"password": _api_password},
         function(data){
             // If OK, update the header to indicate the password was OK.
