@@ -150,7 +150,7 @@ def flask_get_kml():
     kml = Kml()
     netlink = kml.newnetworklink(name="Radiosonde Auto-RX Live Telemetry")
     netlink.open = 1
-    netlink.link.href = flask.request.host_url + "rs_feed.kml"
+    netlink.link.href = flask.request.url_root + "rs_feed.kml"
     try:
         netlink.link.refreshinterval = _config["kml_refresh_rate"]
     except KeyError:
@@ -173,7 +173,7 @@ def flask_get_kml_feed():
         description="AutoRX Ground Station",
     )
     pnt.open = 1
-    pnt.iconstyle.icon.href = flask.request.host_url + "static/img/antenna-green.png"
+    pnt.iconstyle.icon.href = flask.request.url_root + "static/img/antenna-green.png"
     pnt.coords = [
         (
             autorx.config.global_config["station_lon"],
@@ -200,9 +200,9 @@ def flask_get_kml_feed():
             Pressure: {pressure:.1f} hPa
             """
             if flask_telemetry_store[rs_id]["latest_telem"]["vel_v"] > -5:
-                icon = flask.request.host_url + "static/img/balloon-green.png"
+                icon = flask.request.url_root + "static/img/balloon-green.png"
             else:
-                icon = flask.request.host_url + "static/img/parachute-green.png"
+                icon = flask.request.url_root + "static/img/parachute-green.png"
 
             # Add folder
             fol = kml.newfolder(name=rs_id)
