@@ -45,8 +45,10 @@
             quickLaunches = false;
             quickLandings = false;
 
-	    var socket_path = "{{ url_for("static", filename="") }}".replace('static/', 'socket.io')
-            var socket = io.connect({'path': socket_path});
+            namespace = '/update_status';
+            var socket_path = "{{ url_for("static", filename="") }}".replace('static/', 'socket.io')
+            var socket = io.connect(location.origin+namespace, {'path': socket_path});
+
 
             $.ajax({
                   // Get station.cfg file.

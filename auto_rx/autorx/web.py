@@ -71,7 +71,7 @@ flask_telemetry_store = {}
 #
 def flask_emit_event(event_name="none", data={}):
     """ Emit a socketio event to any clients. """
-    socketio.emit(event_name, data, namespace="update_status")
+    socketio.emit(event_name, data, namespace="/update_status")
 
 
 #
