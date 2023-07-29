@@ -59,7 +59,7 @@
 		_decim = $('#decimation-input').val();
 
 		$.post(
-		"/get_log_detail", 
+		"get_log_detail", 
         {serial: _serial, decimation:_decim},
         function(data){
 			console.log(data);

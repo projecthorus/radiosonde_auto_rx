@@ -46,12 +46,13 @@
             quickLandings = false;
 
             namespace = '/update_status';
+            var socket_path = "{{ url_for("static", filename="") }}".replace('static/', 'socket.io')
+            var socket = io.connect(location.origin+namespace, {'path': socket_path});
 
-            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
-            
+
             $.ajax({
                   // Get station.cfg file.
-                  url: "/get_config",
+                  url: "get_config",
                   dataType: 'json',
                   async: false,
                   success: function(data) {
@@ -64,7 +65,7 @@
 
             $.ajax({
                   // Get list of sonde.
-                  url: "/get_log_list",
+                  url: "get_log_list",
                   dataType: 'json',
                   async: false,
                   success: function(data) {
@@ -462,7 +463,7 @@
                                 highest = i;
                             }
                             $.ajax({
-                                url: "/get_log_by_serial/" + selectedrows[i]['serial'],
+                                url: "get_log_by_serial/" + selectedrows[i]['serial'],
                                 dataType: 'json',
                                 async: true,
                                 success: function(data) {
@@ -731,7 +732,7 @@
                 table.selectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [20, 20];
                             new_icon.options.iconAnchor = [10, 10];
@@ -746,7 +747,7 @@
                 table.deselectRow();
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "static/img/launch_marker.png") {
                             new_icon = layer['options']['icon'];
                             new_icon.options.iconSize = [15, 15];
                             new_icon.options.iconAnchor = [7.5, 7.5];
@@ -770,7 +771,7 @@
 
                 mymap.eachLayer(function(layer){
                     try {
-                        if (layer['options']['icon']['options']['iconUrl'] == "/static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "/static/img/launch_marker.png") {
+                        if (layer['options']['icon']['options']['iconUrl'] == "static/img/landing_marker.png" || layer['options']['icon']['options']['iconUrl'] == "static/img/launch_marker.png") {
                             if (layer['options']['icon']['options']['iconSize'][0] == 15) {
                                 if (!shown.includes(layer['options']['title'])) {
                                     mymap.removeLayer(layer);
@@ -857,7 +858,7 @@
                     _serial = selectedrows[selectedrows.length-1]['serial'];
                     _type = selectedrows[selectedrows.length-1]['type'];
                     $.post(
-                        "/get_log_detail", 
+                        "get_log_detail", 
                         {serial: _serial, decimation:decimation},
                         async function(data){
                             try {
@@ -947,13 +948,13 @@
 
                     if(_serial_list.length == table.getData().length){
                         // Request all log files
-                        window.open("/export_all_log_files" , '_blank');
+                        window.open("export_all_log_files" , '_blank');
                     }else {
                         // Just request the selected ones.
                         // Convert the list to JSON, and then to base64
                         b64 = btoa(JSON.stringify(_serial_list));
                         // Make the request in a new tab
-                        window.open("/export_log_files/"+b64 , '_blank');
+                        window.open("export_log_files/"+b64 , '_blank');
                     }
                 }
             }

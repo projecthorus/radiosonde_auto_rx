@@ -2,7 +2,7 @@
 
 function update_task_list(){
     // Grab the latest task list.
-    $.getJSON("/get_task_list", function(data){
+    $.getJSON("get_task_list", function(data){
         var task_info = "";
 
         $('#stop-frequency-select').children().remove();
@@ -117,7 +117,7 @@ function verify_password(){
 
     // Do the request
     $.post(
-        "/check_password", 
+        "check_password", 
         {"password": _api_password},
         function(data){
             // If OK, update the header to indicate the password was OK.
@@ -146,7 +146,7 @@ function disable_scanner(){
 
     // Do the request
     $.post(
-        "/disable_scanner", 
+        "disable_scanner", 
         {"password": _api_password},
         function(data){
             //console.log(data);
@@ -183,7 +183,7 @@ function enable_scanner(){
 
     // Do the request
     $.post(
-        "/enable_scanner", 
+        "enable_scanner", 
         {"password": _api_password},
         function(data){
             //console.log(data);
@@ -215,7 +215,7 @@ function stop_decoder(){
 
     // Do the request
     $.post(
-        "/stop_decoder", 
+        "stop_decoder", 
         {password: _api_password, freq: _decoder},
         function(data){
             //console.log(data);
@@ -266,7 +266,7 @@ function start_decoder(){
 
     // Do the request
     $.post(
-        "/start_decoder", 
+        "start_decoder", 
         {password: _api_password, freq: _freq_hz, type: _type},
         function(data){
             alert("Added requested decoder to results queue.")
