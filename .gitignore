@@ -41,6 +41,7 @@ auto_rx/dfm09mod
 auto_rx/dft_detect
 auto_rx/fsk_demod
 auto_rx/imet1rs_dft
+auto_rx/iq_dec
 auto_rx/lms6Xmod
 auto_rx/lms6mod
 auto_rx/m10mod
