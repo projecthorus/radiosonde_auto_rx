@@ -194,7 +194,7 @@ def flask_get_kml_feed():
             Altitude: {alt:.1f} m
             Heading: {heading:.1f} degrees
             Ground Speed: {vel_h:.2f} m/s
-            Ascent Rate: {vel_v:.2} m/s
+            Ascent Rate: {vel_v:.2f} m/s
             Temperature: {temp:.1f} C
             Humidity: {humidity:.1f} %
             Pressure: {pressure:.1f} hPa
