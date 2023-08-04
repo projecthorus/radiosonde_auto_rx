@@ -200,6 +200,9 @@ sondehub_enabled = True
 # How often to push data to the SondeHub Database. (seconds)
 # All received positions are cached and uploaded every X seconds. 
 # Uploads are gzip compressed, so don't require much data transfer.
+# Users receiving Graw DFM sondes may want to set this to 30 to improve
+# the chances of uploads not being rejected by our Z-check.
+# (Refer: https://github.com/projecthorus/sondehub-infra/wiki/DFM-radiosonde-above-1000-and-not-enough-data-to-perform-z-check )
 sondehub_upload_rate = 15
 
 # An optional contact e-mail address.
@@ -361,6 +364,9 @@ launch_notifications = True
 
 # Send e-mails when a radiosonde is detected descending near your station location
 landing_notifications = True
+
+# Send e-mails when an encrypted radiosonde is detected.
+encrypted_sonde_notifications = True
 
 # Range threshold for Landing notifications (km from your station location)
 landing_range_threshold = 30

@@ -99,13 +99,13 @@
 
         $( document ).ready(function() {
 
-            namespace = '/update_status';
-
-            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
-
+	    namespace = '/update_status';
+	    var socket_path = "{{ url_for("static", filename="") }}".replace('static/', 'socket.io')
+	    var socket = io.connect(location.origin+namespace, {'path': socket_path});
+ 
             $.ajax({
                   // Get station.cfg file.
-                  url: "/get_config",
+                  url: "get_config",
                   dataType: 'json',
                   async: false,
                   success: function(data) {
@@ -129,7 +129,7 @@
 
             $.ajax({
                   // Get local version number.
-                  url: "/get_version",
+                  url: "get_version",
                   dataType: 'json',
                   async: true,
                   success: function(data) {
@@ -196,7 +196,7 @@
             socket.on('scan_event', function(msg) {
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
-                $.getJSON("/get_scan_data", function(data){
+                $.getJSON("get_scan_data", function(data){
                     // Load the data into our data stores.
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
@@ -736,7 +736,7 @@
             var initial_load_complete = false;
             selected_sonde = "";
             $.ajax({ // Get archived data.
-                  url: "/get_telemetry_archive",
+                  url: "get_telemetry_archive",
                   dataType: 'json',
                   async: true,
                   success: function(data) {
@@ -1571,7 +1571,7 @@
                   <h2 style="display:inline;vertical-align:middle;">Live KML</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
-                      <button onclick="window.location.href='/rs.kml'">SHOW</button>
+                      <button onclick="window.location.href='rs.kml'">SHOW</button>
                   </div>
                   <br>
                   <br>
@@ -1592,7 +1592,7 @@
                   <h2 style="display:inline;vertical-align:middle;">Historical View</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
-                    <button onclick="window.location.href='/historical.html'">OPEN</button>
+                    <button onclick="window.location.href='historical.html'">OPEN</button>
                   </div>
                   <br>
                   <br>
@@ -1611,7 +1611,7 @@
         </div>
         <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
         <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Station: <span id="station_callsign">???</span></p>
-        <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Current Task: <span id="task_status">???</span></p>
+        <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Tasking: <span id="task_status"></span></p>
         <div id="tableid">
             <div id="telem_table"></div>
         </div>

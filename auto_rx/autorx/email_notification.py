@@ -43,6 +43,7 @@ class EmailNotification(object):
         station_position=None,
         launch_notifications=True,
         landing_notifications=True,
+        encrypted_sonde_notifications=True,
         landing_range_threshold=50,
         landing_altitude_threshold=1000,
         landing_descent_trip=10,
@@ -60,6 +61,7 @@ class EmailNotification(object):
         self.station_position = station_position
         self.launch_notifications = launch_notifications
         self.landing_notifications = landing_notifications
+        self.encrypted_sonde_notifications = encrypted_sonde_notifications
         self.landing_range_threshold = landing_range_threshold
         self.landing_altitude_threshold = landing_altitude_threshold
         self.landing_descent_trip = landing_descent_trip
@@ -119,6 +121,7 @@ class EmailNotification(object):
             self.sondes[_id] = {
                 "last_time": time.time(),
                 "descending_trip": 0,
+                "ascent_trip": False,
                 "descent_notified": False,
                 "track": GenericTrack(max_elements=20),
             }
@@ -133,18 +136,44 @@ class EmailNotification(object):
                 }
             )
 
-            if self.launch_notifications:
+            if "encrypted" in telemetry:
+                if telemetry["encrypted"] and self.encrypted_sonde_notifications:
+                    try:
+                        # This is a new Encrypted Radiosonde, send an email.
+                        msg = "Encrypted Radiosonde Detected:\n"
+                        msg += "\n"
+
+                        if "subtype" in telemetry:
+                            telemetry["type"] = telemetry["subtype"]
+
+                        msg += "Serial:    %s\n" % _id
+                        msg += "Type:      %s\n" % telemetry["type"]
+                        msg += "Frequency: %s\n" % telemetry["freq"]
+                        msg += "Time Detected: %sZ\n" % telemetry["datetime_dt"].isoformat()
+
+                        # Construct subject
+                        _subject = self.mail_subject
+                        _subject = _subject.replace("<id>", telemetry["id"])
+                        _subject = _subject.replace("<type>", telemetry["type"])
+                        _subject = _subject.replace("<freq>", telemetry["freq"])
+
+                        if "encrypted" in telemetry:
+                            if telemetry["encrypted"] == True:
+                                _subject += " - ENCRYPTED SONDE"
+
+                        self.send_notification_email(subject=_subject, message=msg)
+
+                    except Exception as e:
+                        self.log_error("Error sending E-mail - %s" % str(e))
+
+            elif self.launch_notifications:
 
                 try:
                     # This is a new sonde. Send the email.
                     msg = "Sonde launch detected:\n"
                     msg += "\n"
 
-                    if "encrypted" in telemetry:
-                        if telemetry["encrypted"] == True:
-                            msg += "ENCRYPTED RADIOSONDE DETECTED!\n"
-
-                    msg += "Callsign:  %s\n" % _id
+                    msg += "Serial:    %s\n" % _id
                     msg += "Type:      %s\n" % telemetry["type"]
                     msg += "Frequency: %s\n" % telemetry["freq"]
                     msg += "Position:  %.5f,%.5f\n" % (
@@ -175,10 +204,6 @@ class EmailNotification(object):
                     _subject = _subject.replace("<type>", telemetry["type"])
                     _subject = _subject.replace("<freq>", telemetry["freq"])
 
-                    if "encrypted" in telemetry:
-                        if telemetry["encrypted"] == True:
-                            _subject += " - ENCRYPTED SONDE"
-
                     self.send_notification_email(subject=_subject, message=msg)
 
                 except Exception as e:
@@ -200,14 +225,21 @@ class EmailNotification(object):
             # We have seen this sonde recently. Let's check it's descending...
 
             if self.sondes[_id]["descent_notified"] == False and _sonde_state:
+
+                # Set a flag if the sonde has passed above the landing altitude threshold.
+                # This is used along with the descending trip to trigger a landing email notification.
+                if (telemetry["alt"] > self.landing_altitude_threshold):
+                    self.sondes[_id]["ascent_trip"] = True 
+
                 # If the sonde is below our threshold altitude, *and* is descending at a reasonable rate, increment.
                 if (telemetry["alt"] < self.landing_altitude_threshold) and (
                     _sonde_state["ascent_rate"] < -2.0
                 ):
                     self.sondes[_id]["descending_trip"] += 1
 
-                if self.sondes[_id]["descending_trip"] > self.landing_descent_trip:
-                    # We've seen this sonde descending for enough time now.
+                if (self.sondes[_id]["descending_trip"] > self.landing_descent_trip) and self.sondes[_id]["ascent_trip"]:
+                    # We've seen this sonde descending for enough time now AND we have also seen it go above the landing threshold,
+                    # so it's likely been on a flight and isnt just bouncing around on the ground.
                     # Note that we've passed the descent threshold, so we shouldn't analyze anything from this sonde anymore.
                     self.sondes[_id]["descent_notified"] = True
 
@@ -237,7 +269,7 @@ class EmailNotification(object):
 
                             msg = "Nearby sonde landing detected:\n\n"
 
-                            msg += "Callsign:  %s\n" % _id
+                            msg += "Serial:    %s\n" % _id
                             msg += "Type:      %s\n" % telemetry["type"]
                             msg += "Frequency: %s\n" % telemetry["freq"]
                             msg += "Position:  %.5f,%.5f\n" % (
@@ -347,7 +379,9 @@ class EmailNotification(object):
         self.input_processing_running = False
 
         if self.input_thread is not None:
-            self.input_thread.join()
+            self.input_thread.join(60)
+            if self.input_thread.is_alive():
+                self.log_error("email notification input thread failed to join")
 
     def running(self):
         """ Check if the logging thread is running.
@@ -430,6 +464,29 @@ if __name__ == "__main__":
             "vel_h": 5.1,
             "vel_v": -5.0,
             "datetime_dt": datetime.datetime.utcnow(),
+        }
+    )
+
+    time.sleep(10)
+
+    print("Testing encrypted sonde alert.")
+    _email_notification.add(
+        {
+            "id": "R1234557",
+            "frame": 10,
+            "lat": 0.0,
+            "lon": 0.0,
+            "alt": 0,
+            "temp": 1.0,
+            "type": "RS41",
+            "subtype": "RS41-SGM",
+            "freq": "401.520 MHz",
+            "freq_float": 401.52,
+            "heading": 0.0,
+            "vel_h": 5.1,
+            "vel_v": -5.0,
+            "datetime_dt": datetime.datetime.utcnow(),
+            "encrypted": True
         }
     )
 

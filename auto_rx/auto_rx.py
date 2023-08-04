@@ -8,6 +8,16 @@
 #   Refer github page for instructions on setup and usage.
 #   https://github.com/projecthorus/radiosonde_auto_rx/
 #
+
+# exit status codes:
+#
+# 0 - normal termination (ctrl-c)
+# 1 - critical error, needs human attention to fix
+# 2 - exit because continous running timeout reached
+# 3 - exception occurred, can rerun after resetting SDR
+# 4 - some of the threads failed to join, SDR reset and restart required
+#     this is mostly caused by hung external utilities
+
 import argparse
 import datetime
 import logging
@@ -44,6 +54,7 @@ from autorx.web import (
     start_flask,
     stop_flask,
     flask_emit_event,
+    flask_running,
     WebHandler,
     WebExporter,
 )
@@ -322,7 +333,7 @@ def handle_scan_results():
                     if (type(_key) == int) or (type(_key) == float):
                         # Extract the currently decoded sonde type from the currently running decoder.
                         _decoding_sonde_type = autorx.task_list[_key]["task"].sonde_type
-                        
+
                         # Remove any inverted decoder information for the comparison.
                         if _decoding_sonde_type.startswith("-"):
                             _decoding_sonde_type = _decoding_sonde_type[1:]
@@ -806,6 +817,11 @@ def main():
     logging.getLogger("engineio").setLevel(logging.ERROR)
     logging.getLogger("geventwebsocket").setLevel(logging.ERROR)
 
+    # Check all the RS utilities exist.
+    logging.debug("Checking if utils exist")
+    if not check_rs_utils():
+        sys.exit(1)
+
     # Attempt to read in config file
     logging.info("Reading configuration file...")
     _temp_cfg = read_auto_rx_config(args.config)
@@ -844,9 +860,6 @@ def main():
     web_handler = WebHandler()
     logging.getLogger().addHandler(web_handler)
 
-    # Check all the RS utilities exist.
-    if not check_rs_utils():
-        sys.exit(1)
 
     # If a sonde type has been provided, insert an entry into the scan results,
     # and immediately start a decoder. This also sets the decoder time to 0, which
@@ -897,6 +910,7 @@ def main():
             ),
             launch_notifications=config["email_launch_notifications"],
             landing_notifications=config["email_landing_notifications"],
+            encrypted_sonde_notifications=config["email_encrypted_sonde_notifications"],
             landing_range_threshold=config["email_landing_range_threshold"],
             landing_altitude_threshold=config["email_landing_altitude_threshold"],
         )
@@ -1073,7 +1087,7 @@ def main():
             logging.info("Shutdown time reached. Closing.")
             stop_flask(host=config["web_host"], port=config["web_port"])
             stop_all()
-            break
+            sys.exit(2)
 
 
 if __name__ == "__main__":
@@ -1084,9 +1098,13 @@ if __name__ == "__main__":
         # Upon CTRL+C, shutdown all threads and exit.
         stop_flask(host=config["web_host"], port=config["web_port"])
         stop_all()
+        sys.exit(0)
     except Exception as e:
         # Upon exceptions, attempt to shutdown threads and exit.
         traceback.print_exc()
         print("Main Loop Error - %s" % str(e))
-        stop_flask(host=config["web_host"], port=config["web_port"])
+        if flask_running():
+            stop_flask(host=config["web_host"], port=config["web_port"])
         stop_all()
+        sys.exit(3)
+

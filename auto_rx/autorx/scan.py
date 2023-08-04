@@ -9,6 +9,7 @@ import datetime
 import logging
 import numpy as np
 import os
+import sys
 import platform
 import subprocess
 import time
@@ -22,6 +23,7 @@ from .utils import (
     reset_rtlsdr_by_serial,
     reset_all_rtlsdrs,
     peak_decimation,
+    timeout_cmd
 )
 from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum
 
@@ -91,18 +93,10 @@ def run_rtl_power(
     if os.path.exists(filename):
         os.remove(filename)
 
-    # Add -k 30 option, to SIGKILL rtl_power 30 seconds after the regular timeout expires.
-    # Note that this only works with the GNU Coreutils version of Timeout, not the IBM version,
-    # which is provided with OSX (Darwin).
-    if "Darwin" in platform.platform():
-        timeout_kill = ""
-    else:
-        timeout_kill = "-k 30 "
-
     rtl_power_cmd = (
-        "timeout %s%d %s %s-f %d:%d:%d -i %d -1 -c 25%% -p %d -d %s %s%s"
+        "%s %d %s %s-f %d:%d:%d -i %d -1 -c 25%% -p %d -d %s %s%s"
         % (
-            timeout_kill,
+            timeout_cmd(),
             dwell + 10,
             rtl_power_path,
             bias_option,
@@ -314,7 +308,7 @@ def detect_sonde(
 
     if _mode == "IQ":
         # IQ decoding
-        rx_test_command = f"timeout {dwell_time * 2} "
+        rx_test_command = f"{timeout_cmd()} {dwell_time * 2} "
 
         rx_test_command += get_sdr_iq_cmd(
             sdr_type=sdr_type,
@@ -331,8 +325,9 @@ def detect_sonde(
         )
 
         # rx_test_command = (
-        #     "timeout %ds %s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |"
+        #     "%s %ds %s %s-p %d -d %s %s-M raw -F9 -s %d -f %d 2>/dev/null |"
         #     % (
+        #         timeout_cmd(),
         #         dwell_time * 2,
         #         rtl_fm_path,
         #         bias_option,
@@ -360,7 +355,7 @@ def detect_sonde(
 
         # Sample Source (rtl_fm)
 
-        rx_test_command = f"timeout {dwell_time * 2} "
+        rx_test_command = f"{timeout_cmd()} {dwell_time * 2} "
 
         rx_test_command += get_sdr_fm_cmd(
             sdr_type=sdr_type,
@@ -379,8 +374,9 @@ def detect_sonde(
         )
 
         # rx_test_command = (
-        #     "timeout %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |"
+        #     "%s %ds %s %s-p %d -d %s %s-M fm -F9 -s %d -f %d 2>/dev/null |"
         #     % (
+        #         timeout_cmd(),
         #         dwell_time * 2,
         #         rtl_fm_path,
         #         bias_option,
@@ -783,9 +779,9 @@ class SondeScanner(object):
     def start(self):
         # Start the scan loop (if not already running)
         if self.sonde_scan_thread is None:
-            self.sonde_scanner_running = True
             self.sonde_scan_thread = Thread(target=self.scan_loop)
             self.sonde_scan_thread.start()
+            self.sonde_scanner_running = True
         else:
             self.log_warning("Sonde scan already running!")
 
@@ -854,22 +850,32 @@ class SondeScanner(object):
                     sdr_hostname = self.sdr_hostname, 
                     sdr_port = self.sdr_port
                 )
-
-                time.sleep(10)
+                for _ in range(10):
+                    if not self.sonde_scanner_running:
+                        break
+                    time.sleep(1)
                 continue
             except Exception as e:
                 traceback.print_exc()
                 self.log_error("Caught other error: %s" % str(e))
-                time.sleep(10)
+                for _ in range(10):
+                    if not self.sonde_scanner_running:
+                        break
+                    time.sleep(1)
             else:
                 # Scan completed successfuly! Reset the error counter.
                 self.error_retries = 0
 
             # Sleep before starting the next scan.
-            time.sleep(self.scan_delay)
+            for _ in range(self.scan_delay):
+                if not self.sonde_scanner_running:
+                    self.log_debug("Breaking out of scan loop.")
+                    break
+                time.sleep(1)
 
         self.log_info("Scanner Thread Closed.")
         self.sonde_scanner_running = False
+        self.sonde_scanner_thread = None
 
     def sonde_search(self, first_only=False):
         """Perform a frequency scan across a defined frequency range, and test each detected peak for the presence of a radiosonde.
@@ -1139,12 +1145,16 @@ class SondeScanner(object):
 
     def stop(self, nowait=False):
         """Stop the Scan Loop"""
-        self.log_info("Waiting for current scan to finish...")
-        self.sonde_scanner_running = False
+        if self.sonde_scanner_running:
+            self.log_info("Waiting for current scan to finish...")
+            self.sonde_scanner_running = False
 
-        # Wait for the sonde scanner thread to close, if there is one.
-        if self.sonde_scan_thread != None and (not nowait):
-            self.sonde_scan_thread.join()
+            # Wait for the sonde scanner thread to close, if there is one.
+            if self.sonde_scan_thread != None and (not nowait):
+                self.sonde_scan_thread.join(60)
+                if self.sonde_scan_thread.is_alive():
+                    self.log_error("Scanning thread did not finish, terminating")
+                    sys.exit(4)
 
     def running(self):
         """Check if the scanner is running"""

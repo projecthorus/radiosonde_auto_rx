@@ -21,11 +21,13 @@ import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
 from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from autorx.decode import SondeDecoder
 from queue import Queue
 from threading import Thread
 import flask
 from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 import re
 
 try:
@@ -43,13 +45,14 @@ cli.show_server_banner = lambda *x: None
 
 # Instantiate our Flask app.
 app = flask.Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_prefix=1)
 app.config["SECRET_KEY"] = "secret!"
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 # This thread will hold the currently running flask application thread.
 flask_app_thread = None
 # A key that needs to be matched to allow shutdown.
-flask_shutdown_key = "temp"
+flask_shutdown_key = None
 
 # SocketIO instance
 socketio = SocketIO(app, async_mode="threading")
@@ -105,6 +108,7 @@ def flask_get_version():
 def flask_get_task_list():
     """ Return the current list of active SDRs, and their active task names """
 
+
     # Read in the task list, index by SDR ID.
     _task_list = {}
     for _task in autorx.task_list.keys():
@@ -124,8 +128,15 @@ def flask_get_task_list():
                         "task": "Decoding (%.3f MHz)" % (_task_list[str(_sdr)] / 1e6),
                         "freq": _task_list[str(_sdr)],
                     }
+                    
                 except:
                     _sdr_list[str(_sdr)] = {"task": "Decoding (?? MHz)", "freq": 0}
+
+                # Try and add on sonde type.
+                try:
+                    _sdr_list[str(_sdr)]['type'] = autorx.task_list[_task_list[str(_sdr)]]['task'].sonde_type
+                except:
+                    pass
 
     # Convert the task list to a JSON blob, and return.
     return json.dumps(_sdr_list)
@@ -139,7 +150,7 @@ def flask_get_kml():
     kml = Kml()
     netlink = kml.newnetworklink(name="Radiosonde Auto-RX Live Telemetry")
     netlink.open = 1
-    netlink.link.href = flask.request.host_url + "rs_feed.kml"
+    netlink.link.href = flask.request.url_root + "rs_feed.kml"
     try:
         netlink.link.refreshinterval = _config["kml_refresh_rate"]
     except KeyError:
@@ -162,7 +173,7 @@ def flask_get_kml_feed():
         description="AutoRX Ground Station",
     )
     pnt.open = 1
-    pnt.iconstyle.icon.href = flask.request.host_url + "static/img/antenna-green.png"
+    pnt.iconstyle.icon.href = flask.request.url_root + "static/img/antenna-green.png"
     pnt.coords = [
         (
             autorx.config.global_config["station_lon"],
@@ -183,15 +194,15 @@ def flask_get_kml_feed():
             Altitude: {alt:.1f} m
             Heading: {heading:.1f} degrees
             Ground Speed: {vel_h:.2f} m/s
-            Ascent Rate: {vel_v:.2} m/s
+            Ascent Rate: {vel_v:.2f} m/s
             Temperature: {temp:.1f} C
             Humidity: {humidity:.1f} %
             Pressure: {pressure:.1f} hPa
             """
             if flask_telemetry_store[rs_id]["latest_telem"]["vel_v"] > -5:
-                icon = flask.request.host_url + "static/img/balloon-green.png"
+                icon = flask.request.url_root + "static/img/balloon-green.png"
             else:
-                icon = flask.request.host_url + "static/img/parachute-green.png"
+                icon = flask.request.url_root + "static/img/parachute-green.png"
 
             # Add folder
             fol = kml.newfolder(name=rs_id)
@@ -289,6 +300,9 @@ def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
     return json.dumps(list_log_files(quicklook=True))
 
+def flask_running():
+    global flask_shutdown_key
+    return flask_shutdown_key is not None
 
 @app.route("/get_log_by_serial/<serial>")
 def flask_get_log_by_serial(serial):
