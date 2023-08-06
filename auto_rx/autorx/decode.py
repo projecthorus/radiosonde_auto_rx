@@ -221,6 +221,9 @@ class SondeDecoder(object):
         else:
             self.raw_file_option = ""
 
+        self.save_decode_iq_path = os.path.join(autorx.logging_path, f"decode_IQ_{self.sonde_freq}_{self.sonde_type}_{str(self.rtl_device_idx)}.raw")
+        self.save_decode_audio_path = os.path.join(autorx.logging_path, f"decode_audio_{self.sonde_freq}_{self.sonde_type}_{str(self.rtl_device_idx)}.wav")
+
         # iMet ID store. We latch in the first iMet ID we calculate, to avoid issues with iMet-1-RS units
         # which don't necessarily have a consistent packet count to time increment ratio.
         # This is a tradeoff between being able to handle multiple iMet sondes on a single frequency, and
@@ -384,7 +387,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_audio_path} |"
 
             decode_cmd += "./rs41mod --ptu2 --json 2>/dev/null"
 
@@ -450,7 +453,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_audio_path} |"
 
             decode_cmd += (
                 "./rs92mod -vx -v --crc --ecc --vel --json %s %s 2>/dev/null"
@@ -483,7 +486,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_audio_path} |"
 
             # DFM decoder
             decode_cmd += "./dfm09mod -vv --ecc --json --dist --auto 2>/dev/null"
@@ -510,7 +513,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_audio_path} |"
 
             # M10 decoder
             decode_cmd += "./m10mod --json --ptu -vvv 2>/dev/null"
@@ -535,7 +538,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # iMet-4 (IMET1RS) decoder
             decode_cmd += f"./imet4iq --iq 0.0 --lpIQ --dc - {_sample_rate} 16 --json 2>/dev/null"
@@ -560,7 +563,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # iMet-54 Decoder
             decode_cmd += (
@@ -587,7 +590,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # MRZ decoder
             #decode_cmd += "./mp3h1mod --auto --json --ptu 2>/dev/null"
@@ -624,7 +627,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # LMS6-1680 decoder
             decode_cmd += f"./mk2a1680mod --iq 0.0 --lpIQ --lpbw 160 --decFM --dc --crc --json {self.raw_file_option} - 240000 16 2>/dev/null"
@@ -661,7 +664,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_audio:
-                decode_cmd += " tee decode_%s.wav |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_audio_path} |"
 
             decode_cmd += "./lms6Xmod --json 2>/dev/null"
 
@@ -685,7 +688,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # Meisei Decoder, in IQ input mode
             decode_cmd += f"./meisei100mod --IQ 0.0 --lpIQ --dc  - {_sample_rate} 16 --json --ptu --ecc 2>/dev/null"
@@ -710,7 +713,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                decode_cmd += " tee decode_%s.raw |" % str(self.rtl_device_idx)
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # Meteosis MTS01 decoder
             decode_cmd += f"./mts01mod --json --IQ 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
@@ -774,7 +777,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -849,7 +852,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -900,7 +903,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -952,7 +955,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += (
                 "./fsk_demod --cs16 -b %d -u %d -s -p %d --stats=%d 2 %d %d - -"
@@ -994,7 +997,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += (
                 "./fsk_demod --cs16 -b %d -u %d -s -p %d --stats=%d 2 %d %d - -"
@@ -1034,7 +1037,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -1075,7 +1078,7 @@ class SondeDecoder(object):
             )
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -1117,7 +1120,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
                 _lower,
@@ -1163,7 +1166,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save audio to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             # LMS6-1680 decoder
             demod_cmd += f"./mk2a1680mod --iq 0.0 --lpIQ --lpbw 160 --lpFM --dc --crc --json {self.raw_file_option} - 220000 16 2>/dev/null"
@@ -1204,7 +1207,7 @@ class SondeDecoder(object):
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
-                demod_cmd += " tee decode_IQ_%s.bin |" % str(self.rtl_device_idx)
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
                 _lower,

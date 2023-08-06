@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import datetime
 import logging
 import numpy as np
@@ -340,7 +341,8 @@ def detect_sonde(
         # )
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.raw | " % str(rtl_device_idx)
+            detect_iq_path = os.path.join(autorx.logging_path, f"detect_IQ_{frequency}_{str(rtl_device_idx)}.raw")
+            rx_test_command += f" tee {detect_iq_path} |"
 
         rx_test_command += os.path.join(
             rs_path, "dft_detect"
@@ -395,7 +397,8 @@ def detect_sonde(
 
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.wav | " % str(rtl_device_idx)
+            detect_audio_path = os.path.join(autorx.logging_path, f"detect_audio_{frequency}_{str(rtl_device_idx)}.wav")
+            rx_test_command += f" tee {detect_audio_path} |"
 
         # Sample decoding / detection
         # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
