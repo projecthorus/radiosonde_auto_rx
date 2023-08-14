@@ -43,7 +43,8 @@ REQUIRED_RS_UTILS = [
     "m20mod",
     "imet4iq",
     "mts01mod",
-    "iq_dec"
+    "iq_dec",
+    "weathex301d"
 ]
 
 _timeout_cmd = None
@@ -158,7 +159,7 @@ def strip_sonde_serial(serial):
     """ Strip off any leading sonde type that may be present in a serial number """
 
     # Look for serials with prefixes matching the following known sonde types.
-    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6|IMS100|RS11G|MTS01)-")
+    _re = re.compile("^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|LMS6|IMS100|RS11G|MTS01|WXR)-")
 
     # If we have a match, return the trailing part of the serial, re-adding
     # any - separators if they exist.
@@ -206,6 +207,8 @@ def short_type_lookup(type_name):
         return "Meteo-Radiy MRZ"
     elif type_name == "MTS01":
         return "Meteosis MTS01"
+    elif type_name == "WXR301":
+        return "Weathex WxR-301D"
     else:
         return "Unknown"
 
@@ -246,6 +249,8 @@ def short_short_type_lookup(type_name):
         return "MRZ"
     elif type_name == "MTS01":
         return "MTS01"
+    elif type_name == "WXR301":
+        return "WXR301"
     else:
         return "Unknown"
 

@@ -40,6 +40,7 @@ VALID_SONDE_TYPES = [
     "MRZ",
     "MTS01",
     "UDP",
+    "WXR301"
 ]
 
 # Known 'Drifty' Radiosonde types
@@ -119,6 +120,7 @@ class SondeDecoder(object):
         "MRZ",
         "MTS01",
         "UDP",
+        "WXR301"
     ]
 
     def __init__(
@@ -143,7 +145,8 @@ class SondeDecoder(object):
         rs92_ephemeris=None,
         rs41_drift_tweak=False,
         experimental_decoder=False,
-        save_raw_hex=False
+        save_raw_hex=False,
+        wideband_sondes=False
     ):
         """ Initialise and start a Sonde Decoder.
 
@@ -182,6 +185,7 @@ class SondeDecoder(object):
             rs41_drift_tweak (bool): If True, add a high-pass filter in the decode chain, which can improve decode performance on drifty SDRs.
             experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
             save_raw_hex (bool): If True, save the raw hex output from the decoder to a file.
+            wideband_sondes (bool): If True, use a wider bandwidth for iMet sondes. Does not affect settings for any other radiosonde types.
         """
         # Thread running flag
         self.decoder_running = True
@@ -212,6 +216,7 @@ class SondeDecoder(object):
         self.experimental_decoder = experimental_decoder
         self.save_raw_hex = save_raw_hex
         self.raw_file = None
+        self.wideband_sondes = wideband_sondes
 
         # Raw hex filename
         if self.save_raw_hex:
@@ -521,7 +526,11 @@ class SondeDecoder(object):
         elif self.sonde_type == "IMET":
             # iMet-4 Sondes
 
-            _sample_rate = 48000
+            # These samples rates probably need to be revisited.
+            if self.wideband_sondes:
+                _sample_rate = 96000
+            else:
+                _sample_rate = 48000
 
             decode_cmd = get_sdr_iq_cmd(
                 sdr_type = self.sdr_type,
@@ -717,6 +726,35 @@ class SondeDecoder(object):
 
             # Meteosis MTS01 decoder
             decode_cmd += f"./mts01mod --json --IQ 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
+
+
+        elif self.sonde_type == "WXR301":
+            # Weathex WxR-301D
+            
+            _sample_rate = 96000
+            _if_bw = 64
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
+
+            # WXR301, via iq_dec as a FM Demod.
+            decode_cmd += f"./iq_dec --FM --IFbw {_if_bw} --lpFM --wav --iq 0.0 - {_sample_rate} 16 2>/dev/null | ./weathex301d -b --json"
+
+
 
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
@@ -1601,6 +1639,16 @@ class SondeDecoder(object):
             # LMS Specific Actions (LMS6, MK2LMS)
             if "LMS" in self.sonde_type:
                 # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+                # Re-generate the datetime string.
+                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+
+            # Weathex Specific Actions
+            # Same datetime issues as with iMets, and LMS6
+            if self.sonde_type == "WXR301":
+                # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
                 # Re-generate the datetime string.
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(

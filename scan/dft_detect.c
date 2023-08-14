@@ -32,6 +32,7 @@ static int option_verbose = 0,  // ausfuehrliche Anzeige
            option_dc = 0,
            option_silent = 0,
            option_cont = 0,
+           option_d2 = 0,
            option_pcmraw = 0,
            option_singleLpIQ = 0,
            wavloaded = 0;
@@ -107,8 +108,13 @@ static char imet1rs_header[] =
 
 // C34/C50: 2400 baud, 1:2900Hz/0:4800Hz
 static char c34_preheader[] =
-"01010101010101010101010101010101";   // 2900 Hz tone
-// dft, dB-max(1000Hz..5000Hz) = 2900Hz ?
+    "01010101010101010101010101010101";   // 2900 Hz tone
+    // dft, dB-max(1000Hz..5000Hz) = 2900Hz ?
+
+
+static char weathex_header[] =
+    "10101010""10101010""10101010"       // AA AA AA (preamble)
+    "00101101""11010100"; //"10101010";  // 2D D4 55/AA
 
 
 typedef struct {
@@ -144,6 +150,7 @@ static float set_lpIQ = 0.0;
 #define tn_MRZ     12
 #define tn_MTS01   13
 #define tn_C34C50  15
+#define tn_WXR301  16
 #define tn_MK2LMS  18
 #define tn_IMET5   24
 #define tn_IMETa   25
@@ -151,10 +158,10 @@ static float set_lpIQ = 0.0;
 #define tn_IMET1rs 28
 #define tn_IMET1ab 29
 
-#define Nrs         15
-#define idxIMETafsk 12
-#define idxRS       13
-#define idxI4       14
+#define Nrs         16
+#define idxIMETafsk 13
+#define idxRS       14
+#define idxI4       15
 static rsheader_t rs_hdr[Nrs] = {
     { 2500, 0, 0, dfm_header,     1.0, 0.0, 0.65, 2, NULL, "DFM9",     tn_DFM,     0, 1, 0.0, 0.0}, // DFM6: -2 ?
     { 4800, 0, 0, rs41_header,    0.5, 0.0, 0.70, 2, NULL, "RS41",     tn_RS41,    0, 1, 0.0, 0.0},
@@ -167,6 +174,7 @@ static rsheader_t rs_hdr[Nrs] = {
     { 2400, 0, 0, mrz_header,     1.5, 0.0, 0.80, 2, NULL, "MRZ",      tn_MRZ,     0, 1, 0.0, 0.0},
     { 1200, 0, 0, mts01_header,   1.0, 0.0, 0.65, 2, NULL, "MTS01",    tn_MTS01,   0, 0, 0.0, 0.0},
     { 5800, 0, 0, c34_preheader,  1.5, 0.0, 0.80, 2, NULL, "C34C50",   tn_C34C50,  0, 2, 0.0, 0.0}, // C34/C50 2900 Hz tone
+    { 4800, 0, 0, weathex_header, 1.0, 0.0, 0.65, 2, NULL, "WXR301",   tn_WXR301,  0, 3, 0.0, 0.0},
     { 9600, 0, 0, imet1ab_header, 1.0, 0.0, 0.80, 2, NULL, "IMET1AB",  tn_IMET1ab, 1, 3, 0.0, 0.0}, // (rs_hdr[idxAB])
     { 9600, 0, 0, imet_preamble,  0.5, 0.0, 0.80, 4, NULL, "IMETafsk", tn_IMETa  , 1, 1, 0.0, 0.0}, // IMET1AB, IMET1RS (IQ)IMET4
     { 9600, 0, 0, imet1rs_header, 0.5, 0.0, 0.80, 2, NULL, "IMET1RS",  tn_IMET1rs, 0, 3, 0.0, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
@@ -175,7 +183,25 @@ static rsheader_t rs_hdr[Nrs] = {
 
 static int idx_MTS01 = -1,
            idx_C34C50 = -1,
+           idx_WXR301 = -1,
            idx_IMET1AB = -1;
+
+
+static int rs_detect2[Nrs];
+
+static int rs_d2() {
+    int tn = 0;
+    for (tn = 0; tn < Nrs; tn++) {
+        if ( rs_detect2[tn] > 1 ) break;
+    }
+    return tn;
+}
+
+static int reset_d2() {
+    int n = 0;
+    for (n = 0; n < Nrs; n++) rs_detect2[n] = 0;
+    return 0;
+}
 
 
 /*
@@ -1115,6 +1141,9 @@ static int init_buffers() {
         #ifdef NOC34C50
         if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) idx_C34C50 = j;
         #endif
+        #ifdef NOWXR301
+        if ( strncmp(rs_hdr[j].type, "WXR301", 5) == 0 ) idx_WXR301 = j;
+        #endif
         #ifdef NOIMET1AB
         if ( strncmp(rs_hdr[j].type, "IMET1AB", 7) == 0 ) idx_IMET1AB = j;
         #endif
@@ -1124,7 +1153,7 @@ static int init_buffers() {
         rs_hdr[j].spb = sample_rate/(float)rs_hdr[j].sps;
         rs_hdr[j].hLen = strlen(rs_hdr[j].header);
         rs_hdr[j].L = rs_hdr[j].hLen * rs_hdr[j].spb + 0.5;
-        if (j != idx_MTS01 && j != idx_C34C50 && j != idx_IMET1AB) {
+        if (j != idx_MTS01 && j != idx_C34C50 && j != idx_WXR301 && j != idx_IMET1AB) {
             if (rs_hdr[j].hLen > hLen) hLen = rs_hdr[j].hLen;
             if (rs_hdr[j].L > Lmax) Lmax = rs_hdr[j].L;
         }
@@ -1302,6 +1331,8 @@ int main(int argc, char **argv) {
     int j_max;
     float mv_max;
 
+    int d2_tn = Nrs;
+
 
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
@@ -1364,6 +1395,9 @@ int main(int argc, char **argv) {
             if (*argv) tl = atof(*argv);
             else return -50;
         }
+        else if ( (strcmp(*argv, "-d2") == 0) ) {
+            option_d2 = 1;
+        }
         else if ( (strcmp(*argv, "--ch2") == 0) ) { wav_channel = 1; }  // right channel (default: 0=left)
         else if ( (strcmp(*argv, "--ths") == 0) ) {
             ++argv;
@@ -1397,6 +1431,9 @@ int main(int argc, char **argv) {
     }
     if (!wavloaded) fp = stdin;
 
+    if (option_d2) {
+        option_cont = 0;
+    }
 
     if (option_pcmraw == 0) {
         j = read_wav_header(fp, wav_channel);
@@ -1439,6 +1476,7 @@ int main(int argc, char **argv) {
 
                 if ( j == idx_MTS01 ) continue;   // only ifdef NOMTS01
                 if ( j == idx_C34C50 ) continue;  // only ifdef NOC34C50
+                if ( j == idx_WXR301 ) continue;  // only ifdef NOWXR301
                 if ( j == idx_IMET1AB ) continue; // only ifdef NOIMET1AB
 
                 mv0_pos[j] = mv_pos[j];
@@ -1547,16 +1585,23 @@ int main(int argc, char **argv) {
 
                         if (header_found) {
                             if (!option_silent && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
-                                if (option_verbose) fprintf(stdout, "sample: %d\n", mv_pos[j]);
-                                fprintf(stdout, "%s: %.4f", rs_hdr[j].type, mv[j]);
-                                if (option_dc && option_iq) {
-                                    fprintf(stdout, " , %+.1fHz", rs_hdr[j].df*sr_base);
-                                    if (option_verbose) {
-                                        fprintf(stdout, "   [ fq-ofs: %+.6f", rs_hdr[j].df);
-                                        fprintf(stdout, " = %+.1fHz ]", rs_hdr[j].df*sr_base);
-                                    }
+                                if (option_d2) {
+                                    rs_detect2[j] += 1;
+                                    d2_tn = rs_d2();
+                                    if ( d2_tn == Nrs ) header_found = 0;
                                 }
-                                fprintf(stdout, "\n");
+                                if ( !option_d2 || j == d2_tn ) {
+                                    if (option_verbose) fprintf(stdout, "sample: %d\n", mv_pos[j]);
+                                    fprintf(stdout, "%s: %.4f", rs_hdr[j].type, mv[j]);
+                                    if (option_dc && option_iq) {
+                                        fprintf(stdout, " , %+.1fHz", rs_hdr[j].df*sr_base);
+                                        if (option_verbose) {
+                                            fprintf(stdout, "   [ fq-ofs: %+.6f", rs_hdr[j].df);
+                                            fprintf(stdout, " = %+.1fHz ]", rs_hdr[j].df*sr_base);
+                                        }
+                                    }
+                                    fprintf(stdout, "\n");
+                                }
                             }
                             // if ((j < 3) && mv[j] < 0) header_found = -1;
 
@@ -1570,7 +1615,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (header_found && !option_cont) break;
+        if (header_found && !option_cont || d2_tn < Nrs) break;
         header_found = 0;
         for (j = 0; j < Nrs; j++) mv[j] = 0.0;
     }

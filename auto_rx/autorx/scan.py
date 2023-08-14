@@ -234,6 +234,7 @@ def detect_sonde(
     bias=False,
     save_detection_audio=False,
     ngp_tweak=False,
+    wideband_sondes=False
 ):
     """Receive some FM and attempt to detect the presence of a radiosonde.
 
@@ -248,6 +249,7 @@ def detect_sonde(
         bias (bool): If True, enable the bias tee on the SDR.
         save_detection_audio (bool): Save the audio used in detection to a file.
         ngp_tweak (bool): When scanning in the 1680 MHz sonde band, use a narrower FM filter for better RS92-NGP detection.
+        wideband_sondes (bool): Use a wider detection filter to allow detection of Weathex and wideband iMet sondes.
 
     Returns:
         str/None: Returns None if no sonde found, otherwise returns a sonde type, from the following:
@@ -262,7 +264,9 @@ def detect_sonde(
     """
 
     # Notes:
-    # 400 MHz sondes: Use --bw 20  (20 kHz BW)
+    # 400 MHz sondes
+    #  Normal mode: 48 kHz sample rate, 20 kHz IF BW
+    #  Wideband mode: 96 kHz sample rate, 64 kHz IF BW
     # 1680 MHz RS92 Setting: --bw 32
     # 1680 MHz LMS6-1680: Use FM demod. as usual.
 
@@ -280,16 +284,20 @@ def detect_sonde(
 
     # Adjust the detection bandwidth based on the band the scanning is occuring in.
     if frequency < 1000e6:
-        # 400-406 MHz sondes - use a 20 kHz detection bandwidth.
+        # 400-406 MHz sondes
         _mode = "IQ"
-        _iq_bw = 48000
-        _if_bw = 20
+        if wideband_sondes:
+            _iq_bw = 96000
+            _if_bw = 64
+        else:
+            _iq_bw = 48000
+            _if_bw = 20
 
-        # Try and avoid the RTLSDR 403.2 MHz spur.
-        # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
-        if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
-            logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
-            _if_bw = 15
+            # Try and avoid the RTLSDR 403.2 MHz spur.
+            # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
+            if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
+                logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
+                _if_bw = 15
         
     else:
         # 1680 MHz sondes
@@ -341,7 +349,7 @@ def detect_sonde(
         # )
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            detect_iq_path = os.path.join(autorx.logging_path, f"detect_IQ_{frequency}_{str(rtl_device_idx)}.raw")
+            detect_iq_path = os.path.join(autorx.logging_path, f"detect_IQ_{frequency}_{_iq_bw}_{str(rtl_device_idx)}.raw")
             rx_test_command += f" tee {detect_iq_path} |"
 
         rx_test_command += os.path.join(
@@ -594,6 +602,13 @@ def detect_sonde(
         else:
             _sonde_type = "MTS01"
 
+    elif "WXR301" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXR301"
+
     else:
         _sonde_type = None
 
@@ -648,6 +663,7 @@ class SondeScanner(object):
         temporary_block_list={},
         temporary_block_time=60,
         ngp_tweak=False,
+        wideband_sondes=False
     ):
         """Initialise a Sonde Scanner Object.
 
@@ -697,6 +713,7 @@ class SondeScanner(object):
             temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blocked for a set time.
             temporary_block_time (int): How long (minutes) frequencies in the temporary block list should remain blocked for.
             ngp_tweak (bool): Narrow the detection filter when searching for 1680 MHz sondes, to enhance detection of RS92-NGPs.
+            wideband_sondes (bool): Use a wider detection filter to allow detection of Weathex and wideband iMet sondes.
         """
 
         # Thread flag. This is set to True when a scan is running.
@@ -735,6 +752,7 @@ class SondeScanner(object):
 
         self.callback = callback
         self.save_detection_audio = save_detection_audio
+        self.wideband_sondes = wideband_sondes
 
         # Temporary block list.
         self.temporary_block_list = temporary_block_list.copy()
@@ -1100,6 +1118,7 @@ class SondeScanner(object):
                 bias=self.bias,
                 dwell_time=self.detect_dwell_time,
                 save_detection_audio=self.save_detection_audio,
+                wideband_sondes=self.wideband_sondes
             )
 
             if detected != None:

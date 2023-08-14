@@ -590,8 +590,6 @@ lms6-1680_experimental = False
 # If someone can confirm that this works, I'll set it to True by default!
 mrz_experimental = False
 
-
-
 # Note: As iMet-4 sondes use AFSK, using fsk_demod does not give any advantage, so there is no experimental decoder for them.
 
 # Optimize 1680 MHz Scanning for RS92-NGP Sondes
@@ -599,6 +597,14 @@ mrz_experimental = False
 # to be detected reliably.
 # Set this to True if you are sure that only RS92-NGPs are flying in your area.
 ngp_tweak = False
+
+# Wideband Radiosonde Detection:
+# Enables some tweaks to better handle detection and decoding of the following radiosonde types:
+# - Intermet iMet-1/4 (Wideband versions)
+# - Weathex WxR-301d
+# If this is enabled in areas with 'narrowband' sondes as well (RS41, DFM, narrowband iMet, etc...) there will likely
+# be degradation in detection and decode performance. 
+wideband_sondes = False
 
 
 ######################

@@ -471,8 +471,8 @@
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
                     {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
-                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01)-/,"");
-                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01)-/,"");
+                        _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
+                        _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
 
                         // Add Sondehub Link
                         _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
@@ -1658,6 +1658,7 @@
                 <option value="MEISEI">iMS-100</option>
                 <option value="MRZ">MRZ-H1</option>
                 <option value="MTS01">MTS01</option>
+                <option value="WXR301">WXR301</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="start-decoder" onclick="start_decoder();">Start</button>
