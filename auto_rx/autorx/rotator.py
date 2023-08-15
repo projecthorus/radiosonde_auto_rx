@@ -215,7 +215,12 @@ class Rotator(object):
         _curr_az = _pos[0] % 360.0
         _curr_el = _pos[1]
 
-        if (abs(azimuth - _curr_az) > self.rotator_update_threshold) or (
+        _azimuth_diff = abs(azimuth - _curr_az)
+        if (_azimuth_diff > 180.0):
+            _azimuth_diff = abs(_azimuth_diff - 360.0)
+
+
+        if (_azimuth_diff > self.rotator_update_threshold) or (
             abs(elevation - _curr_el) > self.rotator_update_threshold
         ):
             # Move to the target position.
