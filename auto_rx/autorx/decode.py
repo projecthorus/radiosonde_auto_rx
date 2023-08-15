@@ -549,8 +549,13 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 decode_cmd += f" tee {self.save_decode_iq_path} |"
 
+            if self.wideband_sondes:
+                _wideband = "--imet1"
+            else:
+                _wideband = ""
+
             # iMet-4 (IMET1RS) decoder
-            decode_cmd += f"./imet4iq --iq 0.0 --lpIQ --dc - {_sample_rate} 16 --json 2>/dev/null"
+            decode_cmd += f"./imet4iq --iq 0.0 --lpIQ --dc - {_sample_rate} 16 --json {_wideband} 2>/dev/null"
 
         elif self.sonde_type == "IMET5":
             # iMet-54 Sondes
