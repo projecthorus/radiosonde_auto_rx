@@ -820,8 +820,8 @@ def main():
     logging.getLogger("geventwebsocket").setLevel(logging.ERROR)
 
     # Check all the RS utilities exist.
-    logging.debug("Checking if utils exist")
-    if not check_rs_utils():
+    logging.debug("Checking if required binaries exist")
+    if not check_rs_utils(config):
         sys.exit(1)
 
     # Attempt to read in config file
@@ -833,6 +833,7 @@ def main():
     else:
         config = _temp_cfg
         autorx.sdr_list = config["sdr_settings"]
+
 
     # Apply any logging changes based on configuration file settings.
     if config["save_system_log"]:

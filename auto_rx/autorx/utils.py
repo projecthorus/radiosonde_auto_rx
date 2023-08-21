@@ -63,7 +63,7 @@ def timeout_cmd():
                 _timeout_cmd = "timeout -k 30 "
     return _timeout_cmd
 
-def check_rs_utils():
+def check_rs_utils(config):
     """ Check the required RS decoder binaries exist
         Currently we just check there is a file present - we don't check functionality.
     """
@@ -72,6 +72,7 @@ def check_rs_utils():
             logging.critical("Binary %s does not exist - did you run build.sh?" % _file)
             return False
         _ = timeout_cmd()
+
     return True
 
 
@@ -958,10 +959,16 @@ def rtlsdr_test(device_idx="0", rtl_sdr_path="rtl_sdr", retries=5):
             FNULL = open(os.devnull, "w")  # Inhibit stderr output
             _ret_code = subprocess.check_call(_rtl_cmd, shell=True, stderr=FNULL)
             FNULL.close()
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             # This exception means the subprocess has returned an error code of one.
-            # This indicates either the RTLSDR doesn't exist, or
-            pass
+            # This indicates either the RTLSDR doesn't exist, or some other error.
+            if e.returncode == 127:
+                # 127 - File not found
+                logging.critical("rtl_sdr utilities (rtl_sdr, rtl_fm, rtl_power) not found!")
+                return False
+            else:
+                logging.warning(f"rtl_sdr test call resulted in return code of {e.returncode}.")
+                pass
         else:
             # rtl-sdr returned OK. We can return True now.
             time.sleep(1)
