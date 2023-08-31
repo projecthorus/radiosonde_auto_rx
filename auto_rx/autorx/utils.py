@@ -780,8 +780,10 @@ def reset_usb(bus, device):
         try:
             fcntl.ioctl(usb_file, _USBDEVFS_RESET)
 
-        except IOError:
-            logging.error("RTLSDR - USB Reset Failed.")
+        # This was just catching IOError, just catch everything and print.
+        except Exception as e:
+            logging.error(f"RTLSDR - USB Reset Failed - {str(e)}")
+
 
 
 def is_rtlsdr(vid, pid):
@@ -963,7 +965,7 @@ def rtlsdr_test(device_idx="0", rtl_sdr_path="rtl_sdr", retries=5):
             # This exception means the subprocess has returned an error code of one.
             # This indicates either the RTLSDR doesn't exist, or some other error.
             if e.returncode == 127:
-                # 127 - File not found
+                # 127 = File not found
                 logging.critical("rtl_sdr utilities (rtl_sdr, rtl_fm, rtl_power) not found!")
                 return False
             else:
@@ -983,7 +985,7 @@ def rtlsdr_test(device_idx="0", rtl_sdr_path="rtl_sdr", retries=5):
 
         # Decrement out retry count, then wait a bit before looping
         _rtlsdr_retries -= 1
-        time.sleep(2)
+        time.sleep(5)
 
     # If we run out of retries, clearly the RTLSDR isn't working.
     logging.error(
