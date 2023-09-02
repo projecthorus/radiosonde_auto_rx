@@ -865,12 +865,16 @@ class SondeScanner(object):
                 self.log_warning("SDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the SDR, if possible.
-                reset_sdr(
-                    self.sdr_type, 
-                    rtl_device_idx = self.rtl_device_idx, 
-                    sdr_hostname = self.sdr_hostname, 
-                    sdr_port = self.sdr_port
-                )
+                try:
+                    reset_sdr(
+                        self.sdr_type, 
+                        rtl_device_idx = self.rtl_device_idx, 
+                        sdr_hostname = self.sdr_hostname, 
+                        sdr_port = self.sdr_port
+                    )
+                except Exception as e:
+                    self.log_error(f"Caught error when trying to reset SDR - {str(e)}")
+
                 for _ in range(10):
                     if not self.sonde_scanner_running:
                         break
