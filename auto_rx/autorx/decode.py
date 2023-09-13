@@ -1266,6 +1266,49 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=1.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
+        elif self.sonde_type == "WXR301":
+            # Weathex WxR-301D Sondes.
+
+            _baud_rate = 4800
+            _sample_rate = 96000
+
+            # Limit FSK estimator window to roughly +/- 40 kHz
+            _lower = -40000
+            _upper = 40000
+
+            demod_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias,
+                dc_block = True
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
+
+            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sample_rate,
+                _baud_rate,
+            )
+
+            # Soft-decision decoding, inverted.
+            decode_cmd = f"./weathex301d --softin -i --json 2>/dev/null"
+
+            # Weathex sondes transmit continuously - average over the last frame, and use a peak hold
+            demod_stats = FSKDemodStats(averaging_time=5.0, peak_hold=True)
+            self.rx_frequency = self.sonde_freq
+
         else:
             return None
 
@@ -1659,6 +1702,7 @@ class SondeDecoder(object):
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
+
 
             # Grab a snapshot of modem statistics, if we are using an experimental decoder.
             if self.demod_stats is not None:

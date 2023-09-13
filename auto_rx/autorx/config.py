@@ -456,7 +456,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "MEISEI": True,
             "MTS01": False, # Until we test it
             "MRZ": False,  # .... except for the MRZ, until we know it works.
-            "WXR301": False, # No fsk_demod chain for this yet.
+            "WXR301": True, # No fsk_demod chain for this yet.
             "UDP": False,
         }
 
