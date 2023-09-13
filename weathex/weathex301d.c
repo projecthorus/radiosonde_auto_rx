@@ -34,6 +34,7 @@ int option_verbose = 0,
     option_b = 0,
     option_json = 0,
     option_timestamp = 0,
+    option_softin = 0,
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
 
@@ -228,6 +229,28 @@ int read_rawbit(FILE *fp, int *bit) {
 
     return 0;
 }
+
+
+int f32soft_read(FILE *fp, float *s) {
+    unsigned int word = 0;
+    short *b = (short*)&word;
+    float *f = (float*)&word;
+    int bps = 32;
+
+    if (fread( &word, bps/8, 1, fp) != 1) return EOF;
+
+    if (bps == 32) {
+        *s = *f;
+    }
+    else {
+        if (bps ==  8) { *b -= 128; }
+        *s = *b/128.0;
+        if (bps == 16) { *s /= 256.0; }
+    }
+
+    return 0;
+}
+
 
 int compare() {
     int i=0;
@@ -428,7 +451,7 @@ int print_frame() {
             val = xframe[OFS+13] | (xframe[OFS+14]<<8) | (xframe[OFS+15]<<16);
             val >>= 4;
             val &= 0x7FFFF; // int19 ?
-            //if (val & 0x40000) val -= 0x80000;
+            //if (val & 0x40000) val -= 0x80000; ?? or sign bit ?
             float alt = val / 10.0f;
             printf(" alt: %.1f ", alt);  // MSL
             gpx.alt = alt;
@@ -436,16 +459,16 @@ int print_frame() {
             // lat
             val = xframe[OFS+15] | (xframe[OFS+16]<<8) | (xframe[OFS+17]<<16) | (xframe[OFS+18]<<24);
             val >>= 7;
-            val &= 0x1FFFFFF; // int25 ?
-            if (val & 0x1000000) val -= 0x2000000; // sign ?  (or 90 -> -90 wrap ?)
+            val &= 0x1FFFFFF; // int25 ?  ?? sign NMEA N/S ?
+            //if (val & 0x1000000) val -= 0x2000000; // sign bit ?  (or 90 -> -90 wrap ?)
             float lat = val / 1e5f;
             printf(" lat: %.4f ", lat);
             gpx.lat = lat;
 
             // lon
             val = xframe[OFS+19] | (xframe[OFS+20]<<8) | (xframe[OFS+21]<<16)| (xframe[OFS+22]<<24);
-            val &= 0x3FFFFFF; // int26 ?
-            if (val & 0x2000000) val -= 0x4000000; // sign ?  (or 180 -> -180 wrap ?)
+            val &= 0x3FFFFFF; // int26 ?  ?? sign NMEA E/W ?
+            //if (val & 0x2000000) val -= 0x4000000; // or sign bit ?  (or 180 -> -180 wrap ?)
             float lon = val / 1e5f;
             printf(" lon: %.4f ", lon);
             gpx.lon = lon;
@@ -518,6 +541,7 @@ int main(int argc, char **argv) {
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
             option_verbose = 1;
         }
+        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
         else if   (strcmp(*argv, "-b" ) == 0) { option_b = 1; }
         else if   (strcmp(*argv, "-t" ) == 0) { option_timestamp = 1; }
         else if ( (strcmp(*argv, "-r") == 0) || (strcmp(*argv, "--raw") == 0) ) {
@@ -549,8 +573,10 @@ int main(int argc, char **argv) {
     if (!wavloaded) fp = stdin;
 
 
-    i = read_wav_header(fp);
-    if (i) return -1;
+    if ( !option_softin ) {
+        i = read_wav_header(fp);
+        if (i) return -1;
+    }
 
 
     if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
@@ -558,17 +584,18 @@ int main(int argc, char **argv) {
 
     bit_count = 0;
     frames = 0;
-    while (!read_bits_fsk(fp, &bit, &len)) {
 
-        if (len == 0) {
-            bufpos--;
-            if (bufpos < 0) bufpos = HEADLEN-1;
-            buf[bufpos] = 'x';
-            continue;
-        }
+    if (option_softin)
+    {
+        float s = 0.0f;
+        int bit = 0;
+        sample_rate = BAUD_RATE;
+        sample_count = 0;
 
+        while (!f32soft_read(fp, &s)) {
 
-        for (j = 0; j < len; j++) {
+            bit = option_inv ? (s<=0.0f) : (s>=0.0f);  // softbit s: bit=0 <=> s<0 , bit=1 <=> s>=0
+
             bufpos--;
             if (bufpos < 0) bufpos = HEADLEN-1;
             buf[bufpos] = 0x30 + bit;
@@ -597,23 +624,69 @@ int main(int argc, char **argv) {
 
                 print_frame();
             }
-
-        }
-        if (header_found && option_b) {
-            bitstart = 1;
-
-            while ( bit_count < BITFRAMELEN ) {
-                if (read_rawbit(fp, &bit) == EOF) break;
-                frame_bits[bit_count] = 0x30 + bit;
-                bit_count += 1;
-            }
-
-            bit_count = 0;
-            header_found = 0;
-
-            print_frame();
+            sample_count += 1;
         }
     }
+    else
+    {
+        while (!read_bits_fsk(fp, &bit, &len)) {
+
+            if (len == 0) {
+                bufpos--;
+                if (bufpos < 0) bufpos = HEADLEN-1;
+                buf[bufpos] = 'x';
+                continue;
+            }
+
+
+            for (j = 0; j < len; j++) {
+                bufpos--;
+                if (bufpos < 0) bufpos = HEADLEN-1;
+                buf[bufpos] = 0x30 + bit;
+
+                if (!header_found)
+                {
+                    h = compare(); //h2 = compare2();
+                    if ((h >= HEADLEN)) {
+                        header_found = 1;
+                        fflush(stdout);
+                        if (option_timestamp) printf("<%8.3f> ", sample_count/(double)sample_rate);
+                        strncpy(frame_bits, header, HEADLEN);
+                        bit_count += HEADLEN;
+                        frames++;
+                    }
+                }
+                else
+                {
+                    frame_bits[bit_count] = 0x30 + bit;
+                    bit_count += 1;
+                }
+
+                if (bit_count >= BITFRAMELEN) {
+                    bit_count = 0;
+                    header_found = 0;
+
+                    print_frame();
+                }
+
+            }
+            if (header_found && option_b) {
+                bitstart = 1;
+
+                while ( bit_count < BITFRAMELEN ) {
+                    if (read_rawbit(fp, &bit) == EOF) break;
+                    frame_bits[bit_count] = 0x30 + bit;
+                    bit_count += 1;
+                }
+
+                bit_count = 0;
+                header_found = 0;
+
+                print_frame();
+            }
+        }
+    }
+
     printf("\n");
 
     fclose(fp);

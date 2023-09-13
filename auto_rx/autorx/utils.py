@@ -306,6 +306,12 @@ def generate_aprs_id(sonde_data):
             _id_suffix = int(sonde_data["id"].split("-")[1])
             _id_hex = hex(_id_suffix).upper()
             _object_name = "LMS6" + _id_hex[-5:]
+        
+        elif "WXR" in sonde_data["type"]:
+            # Use the last 6 hex digits of the sonde ID.
+            _id_suffix = int(sonde_data["id"].split("-")[1])
+            _id_hex = hex(_id_suffix).upper()
+            _object_name = "WXR" + _id_hex[-6:]
 
         elif "MEISEI" in sonde_data["type"] or "IMS100" in sonde_data["type"] or "RS11G" in sonde_data["type"]:
             # Convert the serial number to an int
