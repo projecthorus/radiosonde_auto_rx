@@ -117,8 +117,6 @@ class EmailNotification(object):
         """ Process a new telemmetry dict, and send an e-mail if it is a new sonde. """
         _id = telemetry["id"]
 
-        print(telemetry)
-
         if _id not in self.sondes:
             self.sondes[_id] = {
                 "last_time": time.time(),
