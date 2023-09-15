@@ -498,7 +498,7 @@ if __name__ == "__main__":
         "frame": 10,
         "lat": -10.01,
         "lon": 10.01,
-        "alt": 800,
+        "alt": 1006,
         "temp": 1.0,
         "type": "RS41",
         "freq": "401.520 MHz",
