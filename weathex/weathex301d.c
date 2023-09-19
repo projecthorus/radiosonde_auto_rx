@@ -481,6 +481,8 @@ int print_frame() {
 
             // JSON
             if (option_json && gpx.chk2ok) {
+                if (gpx.chk1ok && gpx.sn2 == gpx.sn1 && gpx.cnt2 == gpx.cnt1) // double check, unreliable checksums
+                {
                     char *ver_jsn = NULL;
                     fprintf(stdout, "{ \"type\": \"%s\"", "WXR301");
                     fprintf(stdout, ", \"frame\": %u", gpx.cnt2);
@@ -506,6 +508,7 @@ int print_frame() {
                     if (ver_jsn && *ver_jsn != '\0') fprintf(stdout, ", \"version\": \"%s\"", ver_jsn);
                     fprintf(stdout, " }\n");
                     fprintf(stdout, "\n");
+                }
             }
 
         }
