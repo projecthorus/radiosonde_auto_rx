@@ -393,6 +393,11 @@ def calculate_skewt_data(
 
     while i < _burst_idx:
         i += decimation
+
+        # If we've hit the end of our data, break.
+        if i > (len(datetime) - 1):
+            break
+
         try:
             if temperature[i] < -260.0:
                 # If we don't have any valid temp data, just skip this point
