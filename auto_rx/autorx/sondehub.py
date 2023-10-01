@@ -291,6 +291,12 @@ class SondehubUploader(object):
         if "ref_datetime" in telemetry:
             _output["ref_datetime"] = telemetry["ref_datetime"]
 
+        if "rs41_mainboard" in telemetry:
+            _output["rs41_mainboard"] = telemetry["rs41_mainboard"]
+
+        if "rs41_mainboard_fw" in telemetry:
+            _output["rs41_mainboard_fw"] = str(telemetry["rs41_mainboard_fw"])
+
         # Handle the additional SNR and frequency estimation if we have it
         if "snr" in telemetry:
             _output["snr"] = telemetry["snr"]

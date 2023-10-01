@@ -139,6 +139,7 @@ typedef struct {
     ui16_t conf_cd; // kill countdown (sec) (kt or bt)
     ui8_t  conf_bk; // burst kill
     char rstyp[9];  // RS41-SG, RS41-SGP
+    char rsm[10];   // RSM421
     int  aux;
     char xdata[XDATA_LEN+16]; // xdata: aux_str1#aux_str2 ...
     option_t option;
@@ -330,7 +331,8 @@ GPS chip: ublox UBX-G6010-ST
 #define pos_Calburst    0x05E  // 1 byte, calfr 0x02
 // ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
 #define pos_CalRSTyp    0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
-        // weitere chars in calfr 0x22/0x23; weitere ID
+        // weitere chars in calfr 0x22/0x23; weitere ID (RSM)
+#define pos_CalRSM      0x055  // 6 byte, calfr 0x22
 
 #define crc_PTU        (1<<1)
 #define xor_PTU        0xE388  // ^0x99A2=0x0x7A2A
@@ -448,6 +450,7 @@ static int get_SondeID(gpx_t *gpx, int crc, int ofs) {
             memset(gpx->calfrchk, 0, 51); // 0x00..0x32
             // reset conf data
             memset(gpx->rstyp, 0, 9);
+            memset(gpx->rsm, 0, 10);
             gpx->freq = 0;
             gpx->conf_fw = 0;
             gpx->conf_bt = 0;
@@ -1366,6 +1369,7 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
     ui16_t fw = 0;
     int freq = 0, f0 = 0, f1 = 0;
     char sondetyp[9];
+    char rsmtyp[10];
     int err = 0;
 
     byte = gpx->frame[pos_CalData+ofs];
@@ -1450,6 +1454,17 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
                     if (qfe2 > 0.0) fprintf(stdout, "QFE2:%.1fhPa ", qfe2);
                 }
             }
+        }
+
+        if (calfr == 0x22) {
+            for (i = 0; i < 10; i++) rsmtyp[i] = 0;
+            for (i = 0; i < 8; i++) {
+                byte = gpx->frame[pos_CalRSM+ofs + i];
+                if ((byte >= 0x20) && (byte < 0x7F)) rsmtyp[i] = byte;
+                else /*if (byte == 0x00)*/ rsmtyp[i] = '\0';
+            }
+            if (out && gpx->option.vbs) fprintf(stdout, ": %s ", rsmtyp);
+            strcpy(gpx->rsm, rsmtyp);
         }
     }
 
@@ -2087,6 +2102,12 @@ static int print_position(gpx_t *gpx, int ec) {
                             int fq_kHz = gpx->jsn_freq;
                             if (gpx->freq > 0) fq_kHz = gpx->freq;
                             fprintf(stdout, ", \"freq\": %d", fq_kHz);
+                        }
+                        if (*gpx->rsm) {  // RSM type
+                            fprintf(stdout, ", \"rs41_mainboard\": \"%s\"", gpx->rsm);
+                        }
+                        if (gpx->conf_fw) {  // firmware
+                            fprintf(stdout, ", \"rs41_mainboard_fw\": %d", gpx->conf_fw);
                         }
 
                         // Include frequency derived from subframe information if available.
