@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import datetime
 import logging
 import numpy as np
@@ -233,6 +234,7 @@ def detect_sonde(
     bias=False,
     save_detection_audio=False,
     ngp_tweak=False,
+    wideband_sondes=False
 ):
     """Receive some FM and attempt to detect the presence of a radiosonde.
 
@@ -247,6 +249,7 @@ def detect_sonde(
         bias (bool): If True, enable the bias tee on the SDR.
         save_detection_audio (bool): Save the audio used in detection to a file.
         ngp_tweak (bool): When scanning in the 1680 MHz sonde band, use a narrower FM filter for better RS92-NGP detection.
+        wideband_sondes (bool): Use a wider detection filter to allow detection of Weathex and wideband iMet sondes.
 
     Returns:
         str/None: Returns None if no sonde found, otherwise returns a sonde type, from the following:
@@ -261,7 +264,9 @@ def detect_sonde(
     """
 
     # Notes:
-    # 400 MHz sondes: Use --bw 20  (20 kHz BW)
+    # 400 MHz sondes
+    #  Normal mode: 48 kHz sample rate, 20 kHz IF BW
+    #  Wideband mode: 96 kHz sample rate, 64 kHz IF BW
     # 1680 MHz RS92 Setting: --bw 32
     # 1680 MHz LMS6-1680: Use FM demod. as usual.
 
@@ -279,16 +284,20 @@ def detect_sonde(
 
     # Adjust the detection bandwidth based on the band the scanning is occuring in.
     if frequency < 1000e6:
-        # 400-406 MHz sondes - use a 20 kHz detection bandwidth.
+        # 400-406 MHz sondes
         _mode = "IQ"
-        _iq_bw = 48000
-        _if_bw = 20
+        if wideband_sondes:
+            _iq_bw = 96000
+            _if_bw = 64
+        else:
+            _iq_bw = 48000
+            _if_bw = 20
 
-        # Try and avoid the RTLSDR 403.2 MHz spur.
-        # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
-        if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
-            logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
-            _if_bw = 15
+            # Try and avoid the RTLSDR 403.2 MHz spur.
+            # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
+            if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
+                logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
+                _if_bw = 15
         
     else:
         # 1680 MHz sondes
@@ -340,7 +349,8 @@ def detect_sonde(
         # )
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.raw | " % str(rtl_device_idx)
+            detect_iq_path = os.path.join(autorx.logging_path, f"detect_IQ_{frequency}_{_iq_bw}_{str(rtl_device_idx)}.raw")
+            rx_test_command += f" tee {detect_iq_path} |"
 
         rx_test_command += os.path.join(
             rs_path, "dft_detect"
@@ -395,7 +405,8 @@ def detect_sonde(
 
         # Saving of Debug audio, if enabled,
         if save_detection_audio:
-            rx_test_command += "tee detect_%s.wav | " % str(rtl_device_idx)
+            detect_audio_path = os.path.join(autorx.logging_path, f"detect_audio_{frequency}_{str(rtl_device_idx)}.wav")
+            rx_test_command += f" tee {detect_audio_path} |"
 
         # Sample decoding / detection
         # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
@@ -475,6 +486,8 @@ def detect_sonde(
         else:
             _score = float(_score.strip())
             _offset_est = 0.0
+
+        
     except Exception as e:
         logging.error(
             "Scanner - Error parsing dft_detect output: %s" % ret_output.strip()
@@ -591,6 +604,16 @@ def detect_sonde(
         else:
             _sonde_type = "MTS01"
 
+    elif "WXR301" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXR301"
+        # Clear out the offset estimate for WxR-301's as it's not accurate
+        # to do no whitening on the signal.
+        _offset_est = 0.0
+
     else:
         _sonde_type = None
 
@@ -645,6 +668,7 @@ class SondeScanner(object):
         temporary_block_list={},
         temporary_block_time=60,
         ngp_tweak=False,
+        wideband_sondes=False
     ):
         """Initialise a Sonde Scanner Object.
 
@@ -694,6 +718,7 @@ class SondeScanner(object):
             temporary_block_list (dict): A dictionary where each attribute represents a frequency that should be blocked for a set time.
             temporary_block_time (int): How long (minutes) frequencies in the temporary block list should remain blocked for.
             ngp_tweak (bool): Narrow the detection filter when searching for 1680 MHz sondes, to enhance detection of RS92-NGPs.
+            wideband_sondes (bool): Use a wider detection filter to allow detection of Weathex and wideband iMet sondes.
         """
 
         # Thread flag. This is set to True when a scan is running.
@@ -732,6 +757,7 @@ class SondeScanner(object):
 
         self.callback = callback
         self.save_detection_audio = save_detection_audio
+        self.wideband_sondes = wideband_sondes
 
         # Temporary block list.
         self.temporary_block_list = temporary_block_list.copy()
@@ -844,12 +870,16 @@ class SondeScanner(object):
                 self.log_warning("SDR produced no output... resetting and retrying.")
                 self.error_retries += 1
                 # Attempt to reset the SDR, if possible.
-                reset_sdr(
-                    self.sdr_type, 
-                    rtl_device_idx = self.rtl_device_idx, 
-                    sdr_hostname = self.sdr_hostname, 
-                    sdr_port = self.sdr_port
-                )
+                try:
+                    reset_sdr(
+                        self.sdr_type, 
+                        rtl_device_idx = self.rtl_device_idx, 
+                        sdr_hostname = self.sdr_hostname, 
+                        sdr_port = self.sdr_port
+                    )
+                except Exception as e:
+                    self.log_error(f"Caught error when trying to reset SDR - {str(e)}")
+
                 for _ in range(10):
                     if not self.sonde_scanner_running:
                         break
@@ -1097,6 +1127,7 @@ class SondeScanner(object):
                 bias=self.bias,
                 dwell_time=self.detect_dwell_time,
                 save_detection_audio=self.save_detection_audio,
+                wideband_sondes=self.wideband_sondes
             )
 
             if detected != None:

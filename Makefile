@@ -13,6 +13,7 @@ SUBDIRS := \
 	mk2a \
 	scan \
 	utils \
+	weathex \
 
 all: $(SUBDIRS)
 

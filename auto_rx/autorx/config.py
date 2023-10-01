@@ -175,6 +175,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
         # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
+        "wideband_sondes": False, # Wideband sonde detection / decoding
     }
 
     try:
@@ -455,27 +456,30 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "MEISEI": True,
             "MTS01": False, # Until we test it
             "MRZ": False,  # .... except for the MRZ, until we know it works.
+            "WXR301": True, # No fsk_demod chain for this yet.
             "UDP": False,
         }
 
         auto_rx_config["decoder_spacing_limit"] = config.getint(
             "advanced", "decoder_spacing_limit"
         )
-        auto_rx_config["experimental_decoders"]["RS41"] = config.getboolean(
-            "advanced", "rs41_experimental"
-        )
-        auto_rx_config["experimental_decoders"]["RS92"] = config.getboolean(
-            "advanced", "rs92_experimental"
-        )
-        auto_rx_config["experimental_decoders"]["M10"] = config.getboolean(
-            "advanced", "m10_experimental"
-        )
-        auto_rx_config["experimental_decoders"]["DFM"] = config.getboolean(
-            "advanced", "dfm_experimental"
-        )
-        auto_rx_config["experimental_decoders"]["LMS6"] = config.getboolean(
-            "advanced", "lms6-400_experimental"
-        )
+        # Use 'experimental' (not really, anymore!) decoders for RS41, RS92, M10, DFM and LMS6-400.
+        # Don't allow overriding to the FM based decoders.
+        # auto_rx_config["experimental_decoders"]["RS41"] = config.getboolean(
+        #     "advanced", "rs41_experimental"
+        # )
+        # auto_rx_config["experimental_decoders"]["RS92"] = config.getboolean(
+        #     "advanced", "rs92_experimental"
+        # )
+        # auto_rx_config["experimental_decoders"]["M10"] = config.getboolean(
+        #     "advanced", "m10_experimental"
+        # )
+        # auto_rx_config["experimental_decoders"]["DFM"] = config.getboolean(
+        #     "advanced", "dfm_experimental"
+        # )
+        # auto_rx_config["experimental_decoders"]["LMS6"] = config.getboolean(
+        #     "advanced", "lms6-400_experimental"
+        # )
 
         try:
             auto_rx_config["web_control"] = config.getboolean("web", "web_control")
@@ -759,6 +763,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["email_encrypted_sonde_notifications"] = True
 
+
+        # 1.6.3 - Weathex WXR301d support
+        try:
+            auto_rx_config["wideband_sondes"] = config.getboolean(
+                "advanced", "wideband_sondes"
+            )
+        except:
+            logging.warning(
+                "Config - Missing wideband_sondes option (new in v1.6.3), using default (False)"
+            )
+            auto_rx_config["wideband_sondes"] = False
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

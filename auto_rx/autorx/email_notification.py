@@ -495,10 +495,10 @@ if __name__ == "__main__":
 
     _test = {
         "id": "N1234557",
-        "frame": 10,
+        "frame": 11,
         "lat": -10.01,
         "lon": 10.01,
-        "alt": 800,
+        "alt": 1100,
         "temp": 1.0,
         "type": "RS41",
         "freq": "401.520 MHz",
@@ -510,11 +510,14 @@ if __name__ == "__main__":
     }
 
     print("Testing landing alert.")
-    for i in range(20):
-        _email_notification.add(_test)
-        _test["alt"] = _test["alt"] - 5.0
+    for i in range(30):
+        _tosubmit = _test.copy()
+        _email_notification.add(_tosubmit)
+        _test["alt"] = _test["alt"] - 10.0
+        _test["lat"] = _test["lat"] + 0.001
+        _test["lon"] = _test["lon"] + 0.001
         _test["datetime_dt"] = datetime.datetime.utcnow()
-        time.sleep(2)
+        time.sleep(1)
 
     time.sleep(60)
 

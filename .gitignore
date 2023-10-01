@@ -53,6 +53,7 @@ auto_rx/imet54mod
 auto_rx/mXXmod
 auto_rx/mp3h1mod
 auto_rx/mts01mod
+auto_rx/weathex301d
 
 m10
 meisei100mod
@@ -82,3 +83,4 @@ rs_module/rs41mod
 rs_module/rs92mod
 scan/reset_usb
 scan/rs_detect
+weathex/weathex301d

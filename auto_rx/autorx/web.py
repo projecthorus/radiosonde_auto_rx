@@ -290,7 +290,11 @@ def shutdown_flask(shutdown_key):
     global flask_shutdown_key
     # Only shutdown if the supplied key matches our shutdown key
     if shutdown_key == flask_shutdown_key:
-        flask.request.environ.get("werkzeug.server.shutdown")()
+        shutdown_function = flask.request.environ.get("werkzeug.server.shutdown")
+        if shutdown_function:
+            shutdown_function()
+        else:
+            logging.debug("Unable to stop this version of Werkzeug, continuing...")
 
     return ""
 
@@ -586,6 +590,8 @@ def start_flask(host="0.0.0.0", port=5000):
 
     # Start up Flask
     flask_app_thread = Thread(target=flask_thread, kwargs={"host": host, "port": port})
+    # Set thread to be a daemon, so python will quit nicely.
+    flask_app_thread.daemon = True
     flask_app_thread.start()
     logging.info("Started Flask server on http://%s:%d" % (host, port))
 

@@ -38,5 +38,6 @@ mv ../demod/mod/imet54mod .
 mv ../demod/mod/mp3h1mod .
 mv ../demod/mod/mts01mod .
 mv ../demod/mod/iq_dec .
+mv ../weathex/weathex301d .
 
 echo "Done!"

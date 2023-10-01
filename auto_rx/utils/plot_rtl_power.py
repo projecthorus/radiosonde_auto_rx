@@ -7,7 +7,7 @@
 #
 import matplotlib.pyplot as plt
 import numpy as np
-from StringIO import StringIO
+from io import StringIO
 import sys
 
 # Need to keep this in sync with auto_rx.py as we're not set up to do relative imports yet.
@@ -59,13 +59,15 @@ def read_rtl_power(filename):
 
 
 if __name__ == '__main__':
-	filename = sys.argv[1]
+    filename = sys.argv[1]
 
-	(freq, power, freq_step) = read_rtl_power(filename)
+    (freq, power, freq_step) = read_rtl_power(filename)
 
-	plt.plot(freq/1e6, power)
-	plt.xlabel("Frequency (MHz)")
-	plt.ylabel("Power (dB?)")
-	plt.title("rtl_power output: %s" % filename)
-	plt.show()
+    print(f"Median value: {np.median(power):.2f} dB")
+
+    plt.plot(freq/1e6, power)
+    plt.xlabel("Frequency (MHz)")
+    plt.ylabel("Power (dB?)")
+    plt.title("rtl_power output: %s" % filename)
+    plt.show()
 

@@ -181,6 +181,7 @@ def start_scanner():
             ppm=autorx.sdr_list[_device_idx]["ppm"],
             bias=autorx.sdr_list[_device_idx]["bias"],
             save_detection_audio=config["save_detection_audio"],
+            wideband_sondes=config["wideband_sondes"],
             temporary_block_list=temporary_block_list,
             temporary_block_time=config["temporary_block_time"],
         )
@@ -272,7 +273,8 @@ def start_decoder(freq, sonde_type, continuous=False):
             rs92_ephemeris=rs92_ephemeris,
             rs41_drift_tweak=config["rs41_drift_tweak"],
             experimental_decoder=config["experimental_decoders"][_exp_sonde_type],
-            save_raw_hex=config["save_raw_hex"]
+            save_raw_hex=config["save_raw_hex"],
+            wideband_sondes=config["wideband_sondes"]
         )
         autorx.sdr_list[_device_idx]["task"] = autorx.task_list[freq]["task"]
 
@@ -651,6 +653,7 @@ def telemetry_filter(telemetry):
         or ("LMS" in telemetry["type"])
         or ("IMET" in telemetry["type"])
         or ("MTS01" in telemetry["type"])
+        or ("WXR" in telemetry["type"])
     ):
         return "OK"
     else:
@@ -818,8 +821,8 @@ def main():
     logging.getLogger("geventwebsocket").setLevel(logging.ERROR)
 
     # Check all the RS utilities exist.
-    logging.debug("Checking if utils exist")
-    if not check_rs_utils():
+    logging.debug("Checking if required binaries exist")
+    if not check_rs_utils(config):
         sys.exit(1)
 
     # Attempt to read in config file
@@ -831,6 +834,7 @@ def main():
     else:
         config = _temp_cfg
         autorx.sdr_list = config["sdr_settings"]
+
 
     # Apply any logging changes based on configuration file settings.
     if config["save_system_log"]:
