@@ -533,11 +533,13 @@ def detect_sonde(
         )
         _sonde_type = "IMET"
     elif "IMET1" in _type:
+        # This could actually be a wideband iMet sonde. We treat this as a IMET4.
         logging.debug(
-            "Scanner (%s) - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)"
+            "Scanner (%s) - Possible detection of a Wideband iMet Sonde! (Type %s) (Score: %.2f)"
             % (_sdr_name, _type, _score)
         )
-        _sonde_type = "IMET1"
+        # Override the type to IMET4.
+        _sonde_type = "IMET"
     elif "IMETafsk" in _type:
         logging.debug(
             "Scanner (%s) - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)"
