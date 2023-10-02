@@ -1602,8 +1602,9 @@ class SondeDecoder(object):
             # which is most likely an Ozone sensor (though could be something different!)
             # We append -Ozone to the sonde type field to indicate this.
             # TODO: Decode device ID from aux field to indicate what the aux payload actually is?
-            if "aux" in _telemetry:
-               _telemetry["type"] += "-Ozone"
+            # 2023-10 - disabled this addition. Can be too misleading. -XDATA now appended on the web interface only.
+            # if "aux" in _telemetry:
+            #    _telemetry["type"] += "-Ozone"
 
             # iMet Specific actions
             if self.sonde_type == "IMET":
