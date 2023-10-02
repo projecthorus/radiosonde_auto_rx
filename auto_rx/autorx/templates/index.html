@@ -719,6 +719,11 @@
                             sonde_id_data.other += sonde_id_data.batt.toFixed(1) + " V";
                         }
 
+                        if (sonde_id_data.hasOwnProperty('aux')){
+                            sonde_id_data.type += "-XDATA";
+                        }
+
+
                         telem_data.push(sonde_id_data);
                     });
                 }
