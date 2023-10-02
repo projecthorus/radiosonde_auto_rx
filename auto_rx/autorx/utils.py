@@ -196,6 +196,8 @@ def short_type_lookup(type_name):
         return "Lockheed Martin LMS6-1680"
     elif type_name == "IMET":
         return "Intermet Systems iMet-1/4"
+    elif type_name == "IMET-XDATA":
+        return "Intermet Systems iMet-1/4 + XDATA"
     elif type_name == "IMET5":
         return "Intermet Systems iMet-5x"
     elif type_name == "MEISEI":
@@ -237,6 +239,8 @@ def short_short_type_lookup(type_name):
     elif type_name == "MK2LMS":
         return "LMS6-1680"
     elif type_name == "IMET":
+        return "iMet-1/4"
+    elif type_name == "IMET-XDATA":
         return "iMet-1/4"
     elif type_name == "IMET5":
         return "iMet-5x"

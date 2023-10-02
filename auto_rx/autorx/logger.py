@@ -199,6 +199,9 @@ class TelemetryLogger(object):
         _id = telemetry["id"]
         _type = telemetry["type"]
 
+        if 'aux' in telemetry:
+            _type += "-XDATA"
+
         # If there is no log open for the current ID check to see if there is an existing (closed) log file, and open it.
         if _id not in self.open_logs:
             _search_string = os.path.join(self.log_directory, "*%s_*_sonde.log" % (_id))
