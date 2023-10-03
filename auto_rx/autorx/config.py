@@ -165,6 +165,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "save_raw_hex": False,
         "save_system_log": False,
         "enable_debug_logging": False,
+        "save_cal_data": False,
         # URL for the Habitat DB Server.
         # As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
         # from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
@@ -774,6 +775,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Missing wideband_sondes option (new in v1.6.3), using default (False)"
             )
             auto_rx_config["wideband_sondes"] = False
+
+        # 1.7.1 - Save RS41 Calibration Data
+        try:
+            auto_rx_config["save_cal_data"] = config.getboolean(
+                "logging", "save_cal_data"
+            )
+        except:
+            logging.warning(
+                "Config - Missing save_cal_data option (new in v1.7.1), using default (False)"
+            )
+            auto_rx_config["save_cal_data"] = False
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

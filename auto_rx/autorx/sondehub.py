@@ -10,6 +10,8 @@
 #   Released under GNU GPL v3 or later
 #
 import autorx
+import base64
+import codecs
 import datetime
 import glob
 import gzip
@@ -296,6 +298,16 @@ class SondehubUploader(object):
 
         if "rs41_mainboard_fw" in telemetry:
             _output["rs41_mainboard_fw"] = str(telemetry["rs41_mainboard_fw"])
+
+        if 'rs41_subframe' in telemetry:
+            # RS41 calibration subframe data.
+            # We try to base64 encode this.
+            try:
+                _calbytes = codecs.decode(telemetry['rs41_subframe'], 'hex')
+                _output['rs41_subframe'] = base64.b64encode(_calbytes).decode()
+            except Exception as e:
+                self.log_error(f"Error handling RS41 subframe data.")
+
 
         # Handle the additional SNR and frequency estimation if we have it
         if "snr" in telemetry:
