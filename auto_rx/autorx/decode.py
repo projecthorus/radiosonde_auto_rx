@@ -1710,15 +1710,15 @@ class SondeDecoder(object):
 
             # RS41 Subframe Data Actions
             # We only upload the subframe data once.
-            if 'rs41_calconf320' in _telemetry:
+            if 'rs41_calconf51x16' in _telemetry:
                 # Remove subframe data if we have already uploaded it once.
                 if _telemetry['id'] in self.rs41_subframe_uploads:
-                    _telemetry.pop('rs41_calconf320')
+                    _telemetry.pop('rs41_calconf51x16')
                 else:
                     self.rs41_subframe_uploads.append(_telemetry['id'])
                     self.log_info(f"Received complete calibration dataset for {_telemetry['id']}.")
-                    _telemetry['rs41_subframe'] = _telemetry['rs41_calconf320']
-                    _telemetry.pop('rs41_calconf320')
+                    _telemetry['rs41_subframe'] = _telemetry['rs41_calconf51x16']
+                    _telemetry.pop('rs41_calconf51x16')
 
 
 

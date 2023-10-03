@@ -2132,9 +2132,16 @@ static int print_position(gpx_t *gpx, int ec) {
                         }
 
                         if (gpx->option.cal == 1) {  // cal/conf
+                            int _j;
                             if ( !gpx->calconf_sent && gpx->calconf_complete ) {
-                                fprintf(stdout, ", \"rs41_calconf320\": \"");
-                                for (int _j = 0; _j < 51*16; _j++) {
+                                /*
+                                fprintf(stdout, ", \"rs41_calconf320h\": \""); // only constant/crc part
+                                for (int _j = 0; _j < 50*16; _j++) {
+                                    fprintf(stdout, "%02X", gpx->calibytes[_j]);
+                                }
+                                */
+                                fprintf(stdout, ", \"rs41_calconf51x16\": \"");
+                                for (_j = 0; _j < 51*16; _j++) {
                                     fprintf(stdout, "%02X", gpx->calibytes[_j]);
                                 }
                                 fprintf(stdout, "\"");
@@ -2142,15 +2149,16 @@ static int print_position(gpx_t *gpx, int ec) {
                             }
                             if (gpx->calconf_subfrm[0] == 0x32) {
                                 fprintf(stdout, ", \"rs41_conf0x32\": \"");
-                                for (int _j = 0; _j < 16; _j++) {
+                                for (_j = 0; _j < 16; _j++) {
                                     fprintf(stdout, "%02X", gpx->calconf_subfrm[1+_j]);
                                 }
                                 fprintf(stdout, "\"");
                             }
                         }
                         if (gpx->option.cal == 2) {  // cal/conf
+                            int _j;
                             fprintf(stdout, ", \"rs41_subfrm\": \"0x%02X:", gpx->calconf_subfrm[0]);
-                            for (int _j = 0; _j < 16; _j++) {
+                            for (_j = 0; _j < 16; _j++) {
                                 fprintf(stdout, "%02X", gpx->calconf_subfrm[1+_j]);
                             }
                             fprintf(stdout, "\"");
