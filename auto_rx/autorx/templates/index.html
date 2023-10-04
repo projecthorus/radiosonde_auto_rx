@@ -709,6 +709,14 @@
 
                         // Add data into the 'other' field.
                         sonde_id_data.other = "";
+
+                        if(sonde_id_data.hasOwnProperty('rs41_mainboard')){
+                            // Only print mainboard type if it's not the 'original' mainboard.
+                            if(sonde_id_data.rs41_mainboard !== 'RSM412'){
+                                sonde_id_data.other += sonde_id_data.rs41_mainboard + " ";
+                            }
+                        }
+
                         // Burst timer for RS41s
                         if (sonde_id_data.hasOwnProperty('bt')){
                             if ((sonde_id_data.bt >= 0) && (sonde_id_data.bt < 65535)) {

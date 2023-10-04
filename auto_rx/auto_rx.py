@@ -891,7 +891,10 @@ def main():
     # Start our exporter options
     # Telemetry Logger
     if config["per_sonde_log"]:
-        _logger = TelemetryLogger(log_directory=logging_path)
+        _logger = TelemetryLogger(
+            log_directory=logging_path,
+            save_cal_data=config["save_cal_data"]
+        )
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
 
