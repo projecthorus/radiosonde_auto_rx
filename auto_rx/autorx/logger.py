@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import codecs
 import datetime
 import glob
 import logging
@@ -50,7 +51,9 @@ class TelemetryLogger(object):
 
     LOG_HEADER = "timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,pressure,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data\n"
 
-    def __init__(self, log_directory="./log"):
+    def __init__(self, 
+                 log_directory="./log",
+                 save_cal_data=False):
         """ Initialise and start a sonde logger.
         
         Args:
@@ -59,6 +62,7 @@ class TelemetryLogger(object):
         """
 
         self.log_directory = log_directory
+        self.save_cal_data = save_cal_data
 
         # Dictionary to contain file handles.
         # Each sonde id is added as a unique key. Under each key are the contents:
@@ -199,6 +203,9 @@ class TelemetryLogger(object):
         _id = telemetry["id"]
         _type = telemetry["type"]
 
+        if 'aux' in telemetry:
+            _type += "-XDATA"
+
         # If there is no log open for the current ID check to see if there is an existing (closed) log file, and open it.
         if _id not in self.open_logs:
             _search_string = os.path.join(self.log_directory, "*%s_*_sonde.log" % (_id))
@@ -211,6 +218,7 @@ class TelemetryLogger(object):
                 self.open_logs[_id] = {
                     "log": open(_log_file_name, "a"),
                     "last_time": time.time(),
+                    "subframe_saved": False
                 }
             else:
                 # Create a new log file.
@@ -226,6 +234,7 @@ class TelemetryLogger(object):
                 self.open_logs[_id] = {
                     "log": open(_log_file_name, "a"),
                     "last_time": time.time(),
+                    "subframe_saved": False
                 }
 
                 # Write in a header line.
@@ -240,6 +249,15 @@ class TelemetryLogger(object):
         # Update the last_time field.
         self.open_logs[_id]["last_time"] = time.time()
         self.log_debug("Wrote line: %s" % _log_line.strip())
+
+        # Save out RS41 subframe data once, if we have it.
+        if ('rs41_subframe' in telemetry) and self.save_cal_data:
+            if self.open_logs[_id]['subframe_saved'] == False:
+                self.open_logs[_id]['subframe_saved'] = self.write_rs41_subframe(telemetry)
+
+
+
+
 
     def cleanup_logs(self):
         """ Close any open logs that have not had telemetry added in X seconds. """
@@ -258,6 +276,42 @@ class TelemetryLogger(object):
                     self.log_info("Closed log file for %s" % _id)
             except Exception as e:
                 self.log_error("Error closing log for %s - %s" % (_id, str(e)))
+
+    def write_rs41_subframe(self, telemetry):
+        """ Write RS41 subframe data to disk """
+
+        _id = telemetry["id"]
+        _type = telemetry["type"]
+
+        if 'aux' in telemetry:
+            _type += "-XDATA"
+
+        _subframe_log_suffix = "%s_%s_%s_%d_subframe.bin" % (
+            datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+            _id,
+            _type,
+            int(telemetry["freq_float"] * 1e3),  # Convert frequency to kHz
+        )
+        _log_file_name = os.path.join(self.log_directory, _subframe_log_suffix)
+
+
+        try:
+            _subframe_data = codecs.decode(telemetry['rs41_subframe'], 'hex')
+        except Exception as e:
+            self.log_error("Error parsing RS41 subframe data")
+            
+        if _subframe_data:
+            _subframe_file = open(_log_file_name, 'wb')
+            _subframe_file.write(_subframe_data)
+            _subframe_file.close()
+
+            self.log_info(f"Wrote subframe data for {telemetry['id']} to {_subframe_log_suffix}")
+            return True
+        else:
+            return False
+
+
+
 
     def close(self):
         """ Close input processing thread. """

@@ -246,6 +246,9 @@ class SondeDecoder(object):
         self.imet_prev_time = None
         self.imet_prev_frame = None
 
+        # Keep a record of which RS41 serials we have uploaded complete subframe data for.
+        self.rs41_subframe_uploads = []
+
         # This will become our decoder thread.
         self.decoder = None
 
@@ -394,7 +397,7 @@ class SondeDecoder(object):
             if self.save_decode_audio:
                 decode_cmd += f" tee {self.save_decode_audio_path} |"
 
-            decode_cmd += "./rs41mod --ptu2 --json 2>/dev/null"
+            decode_cmd += "./rs41mod --ptu2 --json --jsnsubfrm1 2>/dev/null"
 
         elif self.sonde_type == "RS92":
             # Decoding a RS92 requires either an ephemeris or an almanac file.
@@ -830,7 +833,7 @@ class SondeDecoder(object):
                 _baud_rate,
             )
 
-            decode_cmd = f"./rs41mod --ptu2 --json --softin -i {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./rs41mod --ptu2 --json --jsnsubfrm1 --softin -i {self.raw_file_option} 2>/dev/null"
 
             # RS41s transmit pulsed beacons - average over the last 2 frames, and use a peak-hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
@@ -1602,8 +1605,9 @@ class SondeDecoder(object):
             # which is most likely an Ozone sensor (though could be something different!)
             # We append -Ozone to the sonde type field to indicate this.
             # TODO: Decode device ID from aux field to indicate what the aux payload actually is?
-            if "aux" in _telemetry:
-               _telemetry["type"] += "-Ozone"
+            # 2023-10 - disabled this addition. Can be too misleading. -XDATA now appended on the web interface only.
+            # if "aux" in _telemetry:
+            #    _telemetry["type"] += "-Ozone"
 
             # iMet Specific actions
             if self.sonde_type == "IMET":
@@ -1703,6 +1707,19 @@ class SondeDecoder(object):
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
+
+            # RS41 Subframe Data Actions
+            # We only upload the subframe data once.
+            if 'rs41_calconf51x16' in _telemetry:
+                # Remove subframe data if we have already uploaded it once.
+                if _telemetry['id'] in self.rs41_subframe_uploads:
+                    _telemetry.pop('rs41_calconf51x16')
+                else:
+                    self.rs41_subframe_uploads.append(_telemetry['id'])
+                    self.log_info(f"Received complete calibration dataset for {_telemetry['id']}.")
+                    _telemetry['rs41_subframe'] = _telemetry['rs41_calconf51x16']
+                    _telemetry.pop('rs41_calconf51x16')
+
 
 
             # Grab a snapshot of modem statistics, if we are using an experimental decoder.

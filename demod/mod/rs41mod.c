@@ -65,6 +65,7 @@ typedef struct {
     i8_t aut;
     i8_t jsn;  // JSON output (auto_rx)
     i8_t slt;  // silent (only raw/json)
+    i8_t cal;  // json cal/conf
 } option_t;
 
 typedef struct {
@@ -117,6 +118,9 @@ typedef struct {
     ui8_t dfrm_bitscore[FRAME_LEN];
     ui8_t calibytes[51*16];
     ui8_t calfrchk[51];
+    ui8_t calconf_complete;
+    ui8_t calconf_sent;
+    ui8_t *calconf_subfrm; // 1+16 byte cal/conf subframe
     float ptu_Rf1;      // ref-resistor f1 (750 Ohm)
     float ptu_Rf2;      // ref-resistor f2 (1100 Ohm)
     float ptu_co1[3];   // { -243.911 , 0.187654 , 8.2e-06 }
@@ -139,6 +143,7 @@ typedef struct {
     ui16_t conf_cd; // kill countdown (sec) (kt or bt)
     ui8_t  conf_bk; // burst kill
     char rstyp[9];  // RS41-SG, RS41-SGP
+    char rsm[10];   // RSM421
     int  aux;
     char xdata[XDATA_LEN+16]; // xdata: aux_str1#aux_str2 ...
     option_t option;
@@ -266,15 +271,15 @@ float r4(ui8_t *bytes) {
 }
 */
 
-static int crc16(gpx_t *gpx, int start, int len) {
+static int crc16(ui8_t data[], int len) {
     int crc16poly = 0x1021;
     int rem = 0xFFFF, i, j;
     int byte;
 
-    if (start+len+2 > FRAME_LEN) return -1;
+    //if (start+len+2 > FRAME_LEN) return -1;
 
     for (i = 0; i < len; i++) {
-        byte = gpx->frame[start+i];
+        byte = data[i];
         rem = rem ^ (byte << 8);
         for (j = 0; j < 8; j++) {
             if (rem & 0x8000) {
@@ -297,7 +302,7 @@ static int check_CRC(gpx_t *gpx, ui32_t pos, ui32_t pck) {
     crclen = gpx->frame[pos+1];
     if (pos + crclen + 4 > FRAME_LEN) return -1;
     crcdat = u2(gpx->frame+pos+2+crclen);
-    if ( crcdat != crc16(gpx, pos+2, crclen) ) {
+    if ( crcdat != crc16(gpx->frame+pos+2, crclen) ) {
         return 1;  // CRC NO
     }
     else return 0; // CRC OK
@@ -330,7 +335,8 @@ GPS chip: ublox UBX-G6010-ST
 #define pos_Calburst    0x05E  // 1 byte, calfr 0x02
 // ? #define pos_Caltimer  0x05A  // 2 byte, calfr 0x02 ?
 #define pos_CalRSTyp    0x05B  // 8 byte, calfr 0x21 (+2 byte in 0x22?)
-        // weitere chars in calfr 0x22/0x23; weitere ID
+        // weitere chars in calfr 0x22/0x23; weitere ID (RSM)
+#define pos_CalRSM      0x055  // 6 byte, calfr 0x22
 
 #define crc_PTU        (1<<1)
 #define xor_PTU        0xE388  // ^0x99A2=0x0x7A2A
@@ -448,6 +454,9 @@ static int get_SondeID(gpx_t *gpx, int crc, int ofs) {
             memset(gpx->calfrchk, 0, 51); // 0x00..0x32
             // reset conf data
             memset(gpx->rstyp, 0, 9);
+            memset(gpx->rsm, 0, 10);
+            gpx->calconf_complete = 0;
+            gpx->calconf_sent = 0;
             gpx->freq = 0;
             gpx->conf_fw = 0;
             gpx->conf_bt = 0;
@@ -501,6 +510,19 @@ static int get_FrameConf(gpx_t *gpx, int ofs) {
 
         gpx->ecdat.last_calfrm = calfr;
         gpx->ecdat.last_calfrm_ts = gpx->ecdat.ts;
+
+        if ( !gpx->calconf_complete ) {
+            int sum = 0;
+            for (i = 0; i < 51; i++) { // 0x00..0x32
+                sum += gpx->calfrchk[i];
+            }
+            if (sum == 51) { // count all subframes
+                int calconf_dat = gpx->calibytes[0] | (gpx->calibytes[1]<<8);
+                int calconf_crc = crc16(gpx->calibytes+2, 50*16-2); // subframe 0x32 not included (variable)
+
+                if (calconf_dat == calconf_crc) gpx->calconf_complete = 1;
+            }
+        }
     }
 
     return err;
@@ -1296,7 +1318,7 @@ static int get_Aux(gpx_t *gpx, int out, int pos) {
             auxlen = gpx->frame[pos+1];
             auxcrc = gpx->frame[pos+2+auxlen] | (gpx->frame[pos+2+auxlen+1]<<8);
 
-            if ( auxcrc == crc16(gpx, pos+2, auxlen) ) {
+            if ( pos + auxlen + 4 <= FRAME_LEN && auxcrc == crc16(gpx->frame+pos+2, auxlen) ) {
                 if (count7E == 0) {
                     if (out) fprintf(stdout, "\n # xdata = ");
                 }
@@ -1366,7 +1388,10 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
     ui16_t fw = 0;
     int freq = 0, f0 = 0, f1 = 0;
     char sondetyp[9];
+    char rsmtyp[10];
     int err = 0;
+
+    gpx->calconf_subfrm = gpx->frame+pos_CalData+ofs;
 
     byte = gpx->frame[pos_CalData+ofs];
     calfr = byte;
@@ -1450,6 +1475,17 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
                     if (qfe2 > 0.0) fprintf(stdout, "QFE2:%.1fhPa ", qfe2);
                 }
             }
+        }
+
+        if (calfr == 0x22) {
+            for (i = 0; i < 10; i++) rsmtyp[i] = 0;
+            for (i = 0; i < 8; i++) {
+                byte = gpx->frame[pos_CalRSM+ofs + i];
+                if ((byte >= 0x20) && (byte < 0x7F)) rsmtyp[i] = byte;
+                else /*if (byte == 0x00)*/ rsmtyp[i] = '\0';
+            }
+            if (out && gpx->option.vbs) fprintf(stdout, ": %s ", rsmtyp);
+            strcpy(gpx->rsm, rsmtyp);
         }
     }
 
@@ -2088,6 +2124,45 @@ static int print_position(gpx_t *gpx, int ec) {
                             if (gpx->freq > 0) fq_kHz = gpx->freq;
                             fprintf(stdout, ", \"freq\": %d", fq_kHz);
                         }
+                        if (*gpx->rsm) {  // RSM type
+                            fprintf(stdout, ", \"rs41_mainboard\": \"%s\"", gpx->rsm);
+                        }
+                        if (gpx->conf_fw) {  // firmware
+                            fprintf(stdout, ", \"rs41_mainboard_fw\": %d", gpx->conf_fw);
+                        }
+
+                        if (gpx->option.cal == 1) {  // cal/conf
+                            int _j;
+                            if ( !gpx->calconf_sent && gpx->calconf_complete ) {
+                                /*
+                                fprintf(stdout, ", \"rs41_calconf320h\": \""); // only constant/crc part
+                                for (int _j = 0; _j < 50*16; _j++) {
+                                    fprintf(stdout, "%02X", gpx->calibytes[_j]);
+                                }
+                                */
+                                fprintf(stdout, ", \"rs41_calconf51x16\": \"");
+                                for (_j = 0; _j < 51*16; _j++) {
+                                    fprintf(stdout, "%02X", gpx->calibytes[_j]);
+                                }
+                                fprintf(stdout, "\"");
+                                gpx->calconf_sent = 1;
+                            }
+                            if (gpx->calconf_subfrm[0] == 0x32) {
+                                fprintf(stdout, ", \"rs41_conf0x32\": \"");
+                                for (_j = 0; _j < 16; _j++) {
+                                    fprintf(stdout, "%02X", gpx->calconf_subfrm[1+_j]);
+                                }
+                                fprintf(stdout, "\"");
+                            }
+                        }
+                        if (gpx->option.cal == 2) {  // cal/conf
+                            int _j;
+                            fprintf(stdout, ", \"rs41_subfrm\": \"0x%02X:", gpx->calconf_subfrm[0]);
+                            for (_j = 0; _j < 16; _j++) {
+                                fprintf(stdout, "%02X", gpx->calconf_subfrm[1+_j]);
+                            }
+                            fprintf(stdout, "\"");
+                        }
 
                         // Include frequency derived from subframe information if available.
                         if (gpx->freq > 0) {
@@ -2423,6 +2498,8 @@ int main(int argc, char *argv[]) {
             if (frq < 300000000) frq = -1;
             cfreq = frq;
         }
+        else if   (strcmp(*argv, "--jsnsubfrm1") == 0) { gpx.option.cal = 1; }  // json cal/conf
+        else if   (strcmp(*argv, "--jsnsubfrm2") == 0) { gpx.option.cal = 2; }  // json cal/conf
         else if   (strcmp(*argv, "--rawhex") == 0) { rawhex = 2; }  // raw hex input
         else if   (strcmp(*argv, "--xorhex") == 0) { rawhex = 2; xorhex = 1; }  // raw xor input
         else if (strcmp(*argv, "-") == 0) {
@@ -2473,6 +2550,13 @@ int main(int argc, char *argv[]) {
 
     // init gpx
     memcpy(gpx.frame, rs41_header_bytes, sizeof(rs41_header_bytes)); // 8 header bytes
+
+    gpx.calconf_subfrm = gpx.frame+pos_CalData;
+    if (gpx.option.cal) {
+        gpx.option.jsn = 1;
+        gpx.option.ecc = 2;
+        gpx.option.crc = 1;
+    }
 
     if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
 

@@ -458,6 +458,9 @@ save_system_log = False
 # auto_rx operational issues.
 enable_debug_logging = False
 
+# Enable logging of RS41 Calibration data ('subframe' data)
+# This is saved as a binary file with file suffix _subframe.bin
+save_cal_data = False
 
 ###########################
 # WEB INTERFACE SETTINNGS #
