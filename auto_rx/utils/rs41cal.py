@@ -239,10 +239,11 @@ if __name__ == "__main__":
         # Assume this is a serial number and try and download it.
         (subframe_data, telem) = download_subframe_data(args.filename)
 
-        subframe = RS41Subframe(raw_bytes=subframe_data)
+        if subframe_data:
+            subframe = RS41Subframe(raw_bytes=subframe_data)
 
-        print("Telemetry data at time of subframe collection:")
-        pprint.pprint(telem)
+            print("Telemetry data at time of subframe collection:")
+            pprint.pprint(telem)
 
 
 
