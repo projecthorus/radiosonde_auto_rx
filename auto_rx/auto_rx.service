@@ -3,7 +3,11 @@ Description=auto_rx
 After=syslog.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/radiosonde_auto_rx/auto_rx/auto_rx.py -t 0
+# For running outside of a python virtual environment
+# ExecStart=/usr/bin/python3 /home/pi/radiosonde_auto_rx/auto_rx/auto_rx.py -t 0 
+
+# For running within a venv, located at /home/pi/radiosonde_auto_rx/auto_rx/venv/
+ExecStart=/home/pi/radiosonde_auto_rx/auto_rx/venv/bin/python3 /home/pi/radiosonde_auto_rx/auto_rx/auto_rx.py -t 0
 Restart=always
 RestartSec=120
 WorkingDirectory=/home/pi/radiosonde_auto_rx/auto_rx/
