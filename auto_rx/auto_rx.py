@@ -244,7 +244,7 @@ def start_decoder(freq, sonde_type, continuous=False):
             _exp_sonde_type = sonde_type
 
         if continuous:
-            _timeout = 0
+            _timeout = 3600*6 # 6 hours before a 'continuous' decoder gets restarted automatically.
         else:
             _timeout = config["rx_timeout"]
 
