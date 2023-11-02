@@ -71,7 +71,7 @@ def test_sdr(
             f"{ss_iq_path} "
             f"-f {check_freq} "
             f"-s 48000 "
-            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
+            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null"
         )
 
         logging.debug(f"SpyServer - Testing using command: {_cmd}")
@@ -85,6 +85,12 @@ def test_sdr(
             logging.critical(
                 f"SpyServer ({sdr_hostname}:{sdr_port}) - ss_iq call failed with return code {e.returncode}."
             )
+            # Look at the error output in a bit more details.
+            _output = e.output.decode("ascii")
+            if "outside currently allowed range" in _output:
+                logging.critical(
+                    f"SpyServer ({sdr_hostname}:{sdr_port}) - SpyServer does not cover required frequency {check_freq}, please check your SpyServer configuration!"
+                )
             return False
 
         return True
