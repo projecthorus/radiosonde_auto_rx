@@ -445,7 +445,8 @@ def clean_task_list():
 
             else:
                 # Shutdown the SDR, if required for the particular SDR type.
-                shutdown_sdr(config["sdr_type"], _task_sdr)
+                if _key != 'SCAN':
+                    shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_key)
                 # Release its associated SDR.
                 autorx.sdr_list[_task_sdr]["in_use"] = False
                 autorx.sdr_list[_task_sdr]["task"] = None
@@ -505,6 +506,12 @@ def stop_all():
     for _task in autorx.task_list.keys():
         try:
             autorx.task_list[_task]["task"].stop()
+
+            # Release the SDR channel if necessary
+            _task_sdr = autorx.task_list[_task]["device_idx"]
+            if _task != 'SCAN':
+                shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_task)
+
         except Exception as e:
             logging.error("Error stopping task - %s" % str(e))
 

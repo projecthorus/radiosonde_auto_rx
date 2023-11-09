@@ -26,7 +26,7 @@ from .utils import (
     peak_decimation,
     timeout_cmd
 )
-from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum
+from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum, shutdown_sdr
 
 
 try:
@@ -434,6 +434,10 @@ def detect_sonde(
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
         ret_output = ret_output.decode("utf8")
+
+        # Release the SDR channel if necessary
+        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency)
+
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
         # logging.debug("Scanner - dfm_detect return code: %s" % e.returncode)
@@ -452,7 +456,7 @@ def detect_sonde(
     except Exception as e:
         # Something broke when running the detection function.
         logging.error(
-            f"Scanner ({_sdr_name}) - Error when running dft_detect - {sdr(e)}"
+            f"Scanner ({_sdr_name}) - Error when running dft_detect - {str(e)}"
         )
         return (None, 0.0)
 
