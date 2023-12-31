@@ -62,6 +62,7 @@ function disable_web_controls(){
     $("#verify-password").prop('disabled', true);
     $("#start-decoder").prop('disabled', true);
     $("#stop-decoder").prop('disabled', true);
+    $("#stop-decoder-lockout").prop('disabled', true);
     $("#enable-scanner").prop('disabled', true);
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
@@ -75,6 +76,7 @@ function pause_web_controls() {
     $("#verify-password").prop('disabled', true);
     $("#start-decoder").prop('disabled', true);
     $("#stop-decoder").prop('disabled', true);
+    $("#stop-decoder-lockout").prop('disabled', true);
     $("#enable-scanner").prop('disabled', true);
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
@@ -86,6 +88,7 @@ function resume_web_controls() {
     $("#verify-password").prop('disabled', false);
     $("#start-decoder").prop('disabled', false);
     $("#stop-decoder").prop('disabled', false);
+    $("#stop-decoder-lockout").prop('disabled', false);
     $("#enable-scanner").prop('disabled', false);
     $("#disable-scanner").prop('disabled', false);
     $("#frequency-input").prop('disabled', false);
@@ -217,6 +220,41 @@ function stop_decoder(){
     $.post(
         "stop_decoder", 
         {password: _api_password, freq: _decoder},
+        function(data){
+            //console.log(data);
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
+            // Need to figure out where to put this data..
+        }
+    ).fail(function(xhr, status, error){
+        console.log(error);
+        // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
+        if(error == "FORBIDDEN"){
+            $("#password-header").html("<h2>Incorrect Password</h2>");
+        } else if (error == "NOT FOUND"){
+            // Scanner isn't running. Don't do anything.
+            alert("Decoder on supplied frequency not running!");
+        }
+    });
+}
+
+function stop_decoder_lockout(){
+    // Stop the decoder on the requested frequency, and lockout frequency
+
+    // Re-verify the password. This will occur async, so wont stop the main request from going ahead,
+    // but will at least present an error for the user.
+    verify_password();
+
+    // Grab the password
+    _api_password = getCookie("password");
+
+    // Grab the selected frequency
+    _decoder = $('#stop-frequency-select').val();
+
+    // Do the request
+    $.post(
+        "stop_decoder", 
+        {password: _api_password, freq: _decoder, lockout: 1},
         function(data){
             //console.log(data);
             pause_web_controls();

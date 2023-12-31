@@ -464,7 +464,11 @@ def flask_start_decoder():
 def flask_stop_decoder():
     """ Request that a decoder process be halted. 
     Example:
-    curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
+
+    curl -d "freq=403250000&password=foobar" -X POST http://localhost:5000/stop_decoder
+
+    Stop decoder and lockout for temporary_block_time
+    curl -d "freq=403250000&password=foobar&lockout=1" -X POST http://localhost:5000/stop_decoder
     """
 
     if request.method == "POST" and autorx.config.global_config["web_control"]:
@@ -476,10 +480,15 @@ def flask_stop_decoder():
         ):
             _freq = float(request.form["freq"])
 
+            _lockout = False
+            if "lockout" in request.form:
+                if int(request.form["lockout"]) == 1:
+                    _lockout = True
+
             logging.info("Web - Got decoder stop request: %f" % (_freq))
 
             if _freq in autorx.task_list:
-                autorx.task_list[_freq]["task"].stop(nowait=True)
+                autorx.task_list[_freq]["task"].stop(nowait=True, temporary_lockout=_lockout)
                 return "OK"
             else:
                 # If we aren't running a decoder, 404.
