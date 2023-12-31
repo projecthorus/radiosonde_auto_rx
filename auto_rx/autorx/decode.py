@@ -1845,8 +1845,12 @@ class SondeDecoder(object):
             f"Decoder ({_sdr_name}) {self.sonde_type} {self.sonde_freq/1e6:.3f} - {line}"
         )
 
-    def stop(self, nowait=False):
+    def stop(self, nowait=False, temporary_lockout=False):
         """ Kill the currently running decoder subprocess """
+
+        if temporary_lockout:
+            self.exit_state = "TempBlock"
+        
         self.decoder_running = False
 
         if self.decoder is not None and (not nowait):

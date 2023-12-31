@@ -867,7 +867,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 return None
 
             for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
-                _sdr_name = f"KA9Q{_n:02d}"
+                _sdr_name = f"KA9Q-{_n:02d}"
                 auto_rx_config["sdr_settings"][_sdr_name] = {
                     "ppm": 0,
                     "gain": 0,
@@ -876,8 +876,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "task": None,
                 }
             
-            logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
-            return None
         
         else:
             logging.critical(f"Config - Unknown SDR Type {auto_rx_config['sdr_type']} - exiting.")
