@@ -136,6 +136,7 @@ e.g. -b --br 2398
 
 typedef struct {
     int frnr; int frnr1;
+    int ref_yr;
     int jahr; int monat; int tag;
     int std; int min; float sek;
     double lat; double lon; double alt;
@@ -326,11 +327,27 @@ static int reset_gpx(gpx_t *gpx) {
 
 /* -------------------------------------------------------------------------- */
 
+static int est_year_ims100(int _y, int _yr) {
+    int yr_rollover = 20; // default: 2020..2029
+    int yr_offset = 20;
+    if (_yr > 2003 && _yr < 2100) {
+        yr_rollover = _yr - 2004;
+        yr_offset = (yr_rollover / 10) * 10;
+    }
+    _y %= 10;
+    _y += yr_offset;
+    if (_y < yr_rollover) _y += 10;
+    return 2000+_y;
+}
+
+/* -------------------------------------------------------------------------- */
+
 
 int main(int argc, char **argv) {
 
     int option_verbose = 0,
         option_raw = 0,
+        option_dbg = 0,
         option_inv = 0,
         option_ecc = 0,    // BCH(63,51)
         option_jsn = 0;    // JSON output (auto_rx)
@@ -427,6 +444,7 @@ int main(int argc, char **argv) {
             return 0;
         }
         else if ( (strcmp(*argv, "-r") == 0) ) { option_raw = 1; }
+        else if ( (strcmp(*argv, "--dbg") == 0) ) { option_dbg = 1; }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;  // nicht noetig
         }
@@ -445,7 +463,7 @@ int main(int argc, char **argv) {
             ++argv;
             if (*argv) {
                 baudrate = atof(*argv);
-                if (baudrate < 2200 || baudrate > 2400) baudrate = 2400; // default: 2400
+                if (baudrate < 2200 || baudrate > 2600) baudrate = 2400; // default: 2400
             }
             else return -1;
         }
@@ -507,6 +525,12 @@ int main(int argc, char **argv) {
             if (frq < 300000000) frq = -1;
             cfreq = frq;
         }
+        else if   (strcmp(*argv, "--year") == 0) {
+            int _yr = 0;
+            ++argv;
+            if (*argv) _yr = atoi(*argv); else return -1;
+            if (_yr > 2003 && _yr < 2100) gpx.ref_yr = _yr;
+        }
         else if (strcmp(*argv, "-") == 0) {
             int sample_rate = 0, bits_sample = 0, channels = 0;
             ++argv;
@@ -545,6 +569,9 @@ int main(int argc, char **argv) {
     if (option_noLUT && option_iq == 5) dsp.opt_nolut = 1; else dsp.opt_nolut = 0;
 
     if (cfreq > 0) gpx.jsn_freq = (cfreq+500)/1000;
+
+    // ims100: default ref. year
+    if (gpx.ref_yr < 2000) gpx.ref_yr = 2024; // -> 2020..2029
 
 
     #ifdef EXT_FSK
@@ -783,6 +810,10 @@ int main(int argc, char **argv) {
                                  | ( (w16[0]&0xFF00)>>8 | (w16[0]&0xFF)<<8 );
                             fw32 = f32e2(w32);
 
+                            if (option_dbg) {
+                                printf(" # [%02d] %08x : %.1f # ", counter % 64, w32, fw32);
+                            }
+
                             if (err_blks == 0) // err_frm zu schwach
                             {
                                 gpx.cfg[counter%64] = fw32;
@@ -1016,6 +1047,10 @@ int main(int argc, char **argv) {
                             w16[0] = bits2val(subframe_bits+HEADLEN+46*1   , 16);
                             w16[1] = bits2val(subframe_bits+HEADLEN+46*1+17, 16);
                             w32 = (w16[1]<<16) | w16[0];
+
+                            if (option_dbg) {
+                                printf(" # [%02d] %08x : %.1f # ", counter % 64, w32, *fcfg);
+                            }
                                              // counter ok   and    w16[] ok  (max 1 error)
                             if (err_frm == 0 && block_err[0] < 2 && block_err[1] < 2)
                             {
@@ -1117,12 +1152,9 @@ int main(int argc, char **argv) {
                                 dat2 = bits2val(subframe_bits+HEADLEN, 16);
                                 gpx.tag = dat2/1000;
                                 gpx.monat = (dat2/10)%100;
-                                _y = (dat2%10)+10;
-                                if (_y < 14) _y += 10; // 2020
-                                gpx.jahr = 2000 + _y;
-                                //if (option_verbose) printf("%05u  ", dat2);
-                                //printf("(%02d-%02d-%02d) ", gpx.tag, gpx.monat, gpx.jahr%100); // 2020: +20 ?
-                                printf("(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag); // 2020: +20 ?
+                                _y = dat2 % 10;
+                                gpx.jahr = est_year_ims100(_y, gpx.ref_yr);
+                                printf("(%04d-%02d-%02d) ", gpx.jahr, gpx.monat, gpx.tag);
 
                                 lat1 = bits2val(subframe_bits+HEADLEN+46*0+17, 16);
                                 lat2 = bits2val(subframe_bits+HEADLEN+46*1   , 16);
