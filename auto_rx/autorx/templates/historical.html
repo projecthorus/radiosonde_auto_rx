@@ -122,17 +122,29 @@
                             return cell.getValue().toFixed(3);
                         }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
-                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
+                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " m"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*3.28084.toFixed(0) + " ft";
+                            } else {
+                                return cell.getValue() + " m";
+                            }
                         }},
-                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range (km)",
+                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " km"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*0.621371.toFixed(0) + " mi";
+                            } else {
+                                return cell.getValue() + " km";
+                            }
                         }},
-                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range (km))",
+                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " km"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*0.621371.toFixed(0) + " mi";
+                            } else {
+                                return cell.getValue() + " km";
+                            }
                         }},
                     {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
