@@ -200,14 +200,17 @@ def log_quick_look(filename):
         return _output
 
 
-def list_log_files(quicklook=False):
+def list_log_files(quicklook=False, custom_log_dir=None):
     """ Look for all sonde log files within the logging directory """
 
     # Output list, which will contain one object per log file, ordered by time
     _output = []
 
     # Search for file matching the expected log file name
-    _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+    if custom_log_dir:
+        _log_mask = os.path.join(custom_log_dir, "*_sonde.log")
+    else:
+        _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
     _log_files = glob.glob(_log_mask)
 
     # Sort alphanumerically, which will result in the entries being date ordered
