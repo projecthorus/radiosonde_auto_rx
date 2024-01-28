@@ -20,13 +20,14 @@ import fastkml
 from dateutil.parser import parse
 from shapely.geometry import Point, LineString
 
+
 def read_telemetry_csv(filename,
-    datetime_field = 0,
-    latitude_field = 3,
-    longitude_field = 4,
-    altitude_field = 5,
-    delimiter=','):
-    ''' 
+                       datetime_field=0,
+                       latitude_field=3,
+                       longitude_field=4,
+                       altitude_field=5,
+                       delimiter=','):
+    '''
     Read in a radiosonde_auto_rx generated telemetry CSV file.
     Fields to use can be set as arguments to this function.
     These have output like the following:
@@ -47,7 +48,7 @@ def read_telemetry_csv(filename,
 
     output = []
 
-    f = open(filename,'r')
+    f = open(filename, 'r')
 
     for line in f:
         try:
@@ -90,12 +91,13 @@ def flight_burst_position(flight_path):
 
 ns = '{http://www.opengis.net/kml/2.2}'
 
+
 def new_placemark(lat, lon, alt,
-    placemark_id="Placemark ID",
-    name="Placemark Name",
-    absolute = False,
-    icon = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
-    scale = 1.0):
+                  placemark_id="Placemark ID",
+                  name="Placemark Name",
+                  absolute=False,
+                  icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
+                  scale=1.0):
     """ Generate a generic placemark object """
 
     if absolute:
@@ -104,8 +106,8 @@ def new_placemark(lat, lon, alt,
         _alt_mode = 'clampToGround'
 
     flight_icon_style = fastkml.styles.IconStyle(
-        ns=ns, 
-        icon_href=icon, 
+        ns=ns,
+        icon_href=icon,
         scale=scale)
 
     flight_style = fastkml.styles.Style(
@@ -113,7 +115,7 @@ def new_placemark(lat, lon, alt,
         styles=[flight_icon_style])
 
     flight_placemark = fastkml.kml.Placemark(
-        ns=ns, 
+        ns=ns,
         id=placemark_id,
         name=name,
         description="",
@@ -127,16 +129,15 @@ def new_placemark(lat, lon, alt,
     return flight_placemark
 
 
-
 def flight_path_to_geometry(flight_path,
-    placemark_id="Flight Path ID",
-    name="Flight Path Name",
-    track_color="aaffffff",
-    poly_color="20000000",
-    track_width=2.0,
-    absolute = True,
-    extrude = True,
-    tessellate = True):
+                            placemark_id="Flight Path ID",
+                            name="Flight Path Name",
+                            track_color="aaffffff",
+                            poly_color="20000000",
+                            track_width=2.0,
+                            absolute=True,
+                            extrude=True,
+                            tessellate=True):
     ''' Produce a fastkml geometry object from a flight path array '''
 
     # Handle selection of absolute altitude mode
@@ -149,7 +150,7 @@ def flight_path_to_geometry(flight_path,
     track_points = []
     for _point in flight_path:
         # Flight path array is in lat,lon,alt order, needs to be in lon,lat,alt
-        track_points.append([_point[2],_point[1],_point[3]])
+        track_points.append([_point[2], _point[1], _point[3]])
 
     _flight_geom = LineString(track_points)
 
@@ -186,8 +187,8 @@ def flight_path_to_geometry(flight_path,
 
 
 def write_kml(geom_objects,
-                filename="output.kml",
-                comment=""):
+              filename="output.kml",
+              comment=""):
     """ Write out flight path geometry objects to a kml file. """
 
     kml_root = fastkml.kml.KML()
@@ -201,7 +202,7 @@ def write_kml(geom_objects,
     for _flight in geom_objects:
         kml_doc.append(_flight)
 
-    with open(filename,'w') as kml_file:
+    with open(filename, 'w') as kml_file:
         kml_file.write(kml_doc.to_string())
         kml_file.close()
 
@@ -214,7 +215,7 @@ def convert_single_file(filename, absolute=True, tessellate=True, last_only=Fals
 
     # Extract the flight's serial number and launch time from the first line in the file.
     _first_line = _flight_data[0][4]
-    _flight_serial = _first_line.split(',')[1] # Serial number is the second field in the line.
+    _flight_serial = _first_line.split(',')[1]  # Serial number is the second field in the line.
     _launch_time = _flight_data[0][0].strftime("%Y%m%d-%H%M%SZ")
     # Generate a comment line to use in the folder and placemark descriptions
     _track_comment = "%s %s" % (_launch_time, _flight_serial)
@@ -225,11 +226,13 @@ def convert_single_file(filename, absolute=True, tessellate=True, last_only=Fals
     _landing_pos = _flight_data[-1]
 
     # Generate the placemark & flight track.
-    _flight_geom = flight_path_to_geometry(_flight_data, name=_track_comment, absolute=absolute, tessellate=tessellate, extrude=tessellate)
-    _landing_geom = new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3], name=_landing_comment, absolute=absolute)
+    _flight_geom = flight_path_to_geometry(_flight_data, name=_track_comment, absolute=absolute,
+                                           tessellate=tessellate, extrude=tessellate)
+    _landing_geom = new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3],
+                                  name=_landing_comment, absolute=absolute)
 
     _folder = fastkml.kml.Folder(ns, _flight_serial, _track_comment, 'Radiosonde Flight Path')
-    if last_only == False:
+    if not last_only:
         _folder.append(_flight_geom)
     _folder.append(_landing_geom)
 
@@ -238,12 +241,17 @@ def convert_single_file(filename, absolute=True, tessellate=True, last_only=Fals
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", type=str, default="../log/*_sonde.log", 
-        help="Path to log file. May include wildcards, though the path must be wrapped in quotes. Default=../log/*_sonde.log")
-    parser.add_argument("-o", "--output", type=str, default="sondes.kml", help="KML output file name. Default=sondes.kml")
-    parser.add_argument('--clamp', action="store_false", default=True, help="Clamp tracks to ground instead of showing absolute altitudes.")
-    parser.add_argument('--noextrude', action="store_false", default=True, help="Disable Extrusions for absolute flight paths.")
-    parser.add_argument('--lastonly', action="store_true", default=False, help="Only plot last-seen sonde positions, not the flight paths.")
+    parser.add_argument("-i", "--input", type=str, default="../log/*_sonde.log",
+                        help="Path to log file. May include wildcards, though the path "
+                             "must be wrapped in quotes. Default=../log/*_sonde.log")
+    parser.add_argument("-o", "--output", type=str, default="sondes.kml",
+                        help="KML output file name. Default=sondes.kml")
+    parser.add_argument('--clamp', action="store_false", default=True,
+                        help="Clamp tracks to ground instead of showing absolute altitudes.")
+    parser.add_argument('--noextrude', action="store_false", default=True,
+                        help="Disable Extrusions for absolute flight paths.")
+    parser.add_argument('--lastonly', action="store_true", default=False,
+                        help="Only plot last-seen sonde positions, not the flight paths.")
     args = parser.parse_args()
 
     _file_list = glob.glob(args.input)
@@ -253,27 +261,11 @@ if __name__ == "__main__":
     for _file in _file_list:
         print("Processing: %s" % _file)
         try:
-            _placemarks.append(convert_single_file(_file, absolute=args.clamp, tessellate=args.noextrude, last_only=args.lastonly))
+            _placemarks.append(convert_single_file(_file, absolute=args.clamp,
+                                                   tessellate=args.noextrude, last_only=args.lastonly))
         except:
             print("Failed to process: %s" % _file)
 
     write_kml(_placemarks, filename=args.output)
 
     print("Output saved to: %s" % args.output)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
