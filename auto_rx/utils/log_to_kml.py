@@ -9,13 +9,9 @@
 # sudo pip install fastkml shapely
 #
 
-import sys
-import time
-import datetime
 import traceback
 import argparse
 import glob
-import os
 import fastkml
 from dateutil.parser import parse
 from shapely.geometry import Point, LineString
