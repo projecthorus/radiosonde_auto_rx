@@ -5,16 +5,12 @@
 #
 # 2018-02 Mark Jessop <vk5qi@rfhead.net>
 #
-# Note: This utility requires the fastkml and shapely libraries, which can be installed using:
-# sudo pip install fastkml shapely
-#
 
 import traceback
 import argparse
 import glob
-import fastkml
+import xml.etree.ElementTree as ET
 from dateutil.parser import parse
-from shapely.geometry import Point, LineString
 
 
 def read_telemetry_csv(filename,
@@ -89,108 +85,86 @@ ns = '{http://www.opengis.net/kml/2.2}'
 
 
 def new_placemark(lat, lon, alt,
-                  placemark_id="Placemark ID",
                   name="Placemark Name",
                   absolute=False,
                   icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
                   scale=1.0):
     """ Generate a generic placemark object """
 
+    placemark = ET.Element("Placemark")
+
+    pm_name = ET.SubElement(placemark, "name")
+    pm_name.text = name
+
+    style = ET.SubElement(placemark, "Style")
+    icon_style = ET.SubElement(style, "IconStyle")
+    icon_scale = ET.SubElement(icon_style, "scale")
+    icon_scale.text = str(scale)
+    pm_icon = ET.SubElement(icon_style, "Icon")
+    href = ET.SubElement(pm_icon, "href")
+    href.text = icon
+
+    point = ET.SubElement(placemark, "Point")
     if absolute:
-        _alt_mode = 'absolute'
-    else:
-        _alt_mode = 'clampToGround'
+        altitude_mode = ET.SubElement(point, "altitudeMode")
+        altitude_mode.text = "absolute"
+    coordinates = ET.SubElement(point, "coordinates")
+    coordinates.text = f"{lon:.6f},{lat:.6f},{alt:.6f}"
 
-    flight_icon_style = fastkml.styles.IconStyle(
-        ns=ns,
-        icon_href=icon,
-        scale=scale)
-
-    flight_style = fastkml.styles.Style(
-        ns=ns,
-        styles=[flight_icon_style])
-
-    flight_placemark = fastkml.kml.Placemark(
-        ns=ns,
-        id=placemark_id,
-        name=name,
-        description="",
-        styles=[flight_style])
-
-    flight_placemark.geometry = fastkml.geometry.Geometry(
-        ns=ns,
-        geometry=Point(lon, lat, alt),
-        altitude_mode=_alt_mode)
-
-    return flight_placemark
+    return placemark
 
 
 def flight_path_to_geometry(flight_path,
-                            placemark_id="Flight Path ID",
                             name="Flight Path Name",
                             track_color="aaffffff",
                             poly_color="20000000",
                             track_width=2.0,
                             absolute=True,
-                            extrude=True,
-                            tessellate=True):
-    ''' Produce a fastkml geometry object from a flight path array '''
+                            extrude=True):
+    ''' Produce a placemark object from a flight path array '''
 
-    # Handle selection of absolute altitude mode
+    placemark = ET.Element("Placemark")
+
+    pm_name = ET.SubElement(placemark, "name")
+    pm_name.text = name
+
+    style = ET.SubElement(placemark, "Style")
+    line_style = ET.SubElement(style, "LineStyle")
+    color = ET.SubElement(line_style, "color")
+    color.text = track_color
+    width = ET.SubElement(line_style, "width")
+    width.text = str(track_width)
+    poly_style = ET.SubElement(style, "PolyStyle")
+    color = ET.SubElement(poly_style, "color")
+    color.text = poly_color
+    fill = ET.SubElement(poly_style, "fill")
+    fill.text = "1"
+    outline = ET.SubElement(poly_style, "outline")
+    outline.text = "1"
+
+    line_string = ET.SubElement(placemark, "LineString")
     if absolute:
-        _alt_mode = 'absolute'
+        if extrude:
+            ls_extrude = ET.SubElement(line_string, "extrude")
+            ls_extrude.text = "1"
+        altitude_mode = ET.SubElement(line_string, "altitudeMode")
+        altitude_mode.text = "absolute"
     else:
-        _alt_mode = 'clampToGround'
+        ls_tessellate = ET.SubElement(line_string, "tessellate")
+        ls_tessellate.text = "1"
+    coordinates = ET.SubElement(line_string, "coordinates")
+    coordinates.text = " ".join(f"{lon:.6f},{lat:.6f},{alt:.6f}" for _, lat, lon, alt, _ in flight_path)
 
-    # Convert the flight path array [time, lat, lon, alt, comment] into a LineString object.
-    track_points = []
-    for _point in flight_path:
-        # Flight path array is in lat,lon,alt order, needs to be in lon,lat,alt
-        track_points.append([_point[2], _point[1], _point[3]])
-
-    _flight_geom = LineString(track_points)
-
-    # Define the Line and Polygon styles, which are used for the flight path, and the extrusions (if enabled)
-    flight_track_line_style = fastkml.styles.LineStyle(
-        ns=ns,
-        color=track_color,
-        width=track_width)
-
-    flight_extrusion_style = fastkml.styles.PolyStyle(
-        ns=ns,
-        color=poly_color)
-
-    flight_track_style = fastkml.styles.Style(
-        ns=ns,
-        styles=[flight_track_line_style, flight_extrusion_style])
-
-    # Generate the Placemark which will contain the track data.
-    flight_line = fastkml.kml.Placemark(
-        ns=ns,
-        id=placemark_id,
-        name=name,
-        styles=[flight_track_style])
-
-    # Add the track data to the Placemark
-    flight_line.geometry = fastkml.geometry.Geometry(
-        ns=ns,
-        geometry=_flight_geom,
-        altitude_mode=_alt_mode,
-        extrude=extrude,
-        tessellate=tessellate)
-
-    return flight_line
+    return placemark
 
 
 def write_kml(geom_objects,
-              filename="output.kml",
+              kml_file,
               comment=""):
     """ Write out flight path geometry objects to a kml file. """
 
-    kml_root = fastkml.kml.KML()
-    kml_doc = fastkml.kml.Document(
-        ns=ns,
-        name=comment)
+    kml_root = ET.Element("kml", {"xmlns": "http://www.opengis.net/kml/2.2"})
+    kml_doc = ET.SubElement(kml_root, "Document")
 
     if type(geom_objects) is not list:
         geom_objects = [geom_objects]
@@ -198,13 +172,12 @@ def write_kml(geom_objects,
     for _flight in geom_objects:
         kml_doc.append(_flight)
 
-    with open(filename, 'w') as kml_file:
-        kml_file.write(kml_doc.to_string())
-        kml_file.close()
+    tree = ET.ElementTree(kml_root)
+    tree.write(kml_file, encoding="UTF-8", xml_declaration=True)
 
 
-def convert_single_file(filename, absolute=True, tessellate=True, last_only=False):
-    ''' Convert a single sonde log file to a fastkml KML Folder object '''
+def convert_single_file(filename, absolute=True, extrude=True, last_only=False):
+    ''' Convert a single sonde log file to a KML Folder object '''
 
     # Read file.
     _flight_data = read_telemetry_csv(filename)
@@ -221,16 +194,18 @@ def convert_single_file(filename, absolute=True, tessellate=True, last_only=Fals
     _burst_pos = flight_burst_position(_flight_data)
     _landing_pos = _flight_data[-1]
 
-    # Generate the placemark & flight track.
-    _flight_geom = flight_path_to_geometry(_flight_data, name=_track_comment, absolute=absolute,
-                                           tessellate=tessellate, extrude=tessellate)
-    _landing_geom = new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3],
-                                  name=_landing_comment, absolute=absolute)
+    _folder = ET.Element("Folder")
+    _name = ET.SubElement(_folder, "name")
+    _name.text = _track_comment
+    _description = ET.SubElement(_folder, "description")
+    _description.text = "Radiosonde Flight Path"
 
-    _folder = fastkml.kml.Folder(ns, _flight_serial, _track_comment, 'Radiosonde Flight Path')
+    # Generate the placemark & flight track.
     if not last_only:
-        _folder.append(_flight_geom)
-    _folder.append(_landing_geom)
+        _folder.append(flight_path_to_geometry(_flight_data, name=_track_comment,
+                                               absolute=absolute, extrude=extrude))
+    _folder.append(new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3],
+                                 name=_landing_comment, absolute=absolute))
 
     return _folder
 
@@ -258,10 +233,11 @@ if __name__ == "__main__":
         print("Processing: %s" % _file)
         try:
             _placemarks.append(convert_single_file(_file, absolute=args.clamp,
-                                                   tessellate=args.noextrude, last_only=args.lastonly))
+                                                   extrude=args.noextrude, last_only=args.lastonly))
         except:
             print("Failed to process: %s" % _file)
 
-    write_kml(_placemarks, filename=args.output)
+    with open(args.output, "wb") as kml_file:
+        write_kml(_placemarks, kml_file)
 
     print("Output saved to: %s" % args.output)
