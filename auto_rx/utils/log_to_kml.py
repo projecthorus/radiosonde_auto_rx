@@ -67,23 +67,6 @@ def read_telemetry_csv(filename,
     return output
 
 
-def flight_burst_position(flight_path):
-    ''' Search through flight data for the burst position and return it. '''
-
-    # Read through array and hunt for max altitude point.
-    current_alt = 0.0
-    current_index = 0
-    for i in range(len(flight_path)):
-        if flight_path[i][3] > current_alt:
-            current_alt = flight_path[i][3]
-            current_index = i
-
-    return flight_path[current_index]
-
-
-ns = '{http://www.opengis.net/kml/2.2}'
-
-
 def new_placemark(lat, lon, alt,
                   name="Placemark Name",
                   absolute=False,
@@ -190,8 +173,7 @@ def convert_single_file(filename, absolute=True, extrude=True, last_only=False):
     _track_comment = "%s %s" % (_launch_time, _flight_serial)
     _landing_comment = "%s Last Position" % (_flight_serial)
 
-    # Grab burst and last-seen positions
-    _burst_pos = flight_burst_position(_flight_data)
+    # Grab last-seen position
     _landing_pos = _flight_data[-1]
 
     _folder = ET.Element("Folder")
