@@ -6,65 +6,16 @@
 # 2018-02 Mark Jessop <vk5qi@rfhead.net>
 #
 
-import traceback
 import argparse
 import glob
+import sys
 import xml.etree.ElementTree as ET
 from dateutil.parser import parse
+from os.path import dirname, abspath
 
-
-def read_telemetry_csv(filename,
-                       datetime_field=0,
-                       latitude_field=3,
-                       longitude_field=4,
-                       altitude_field=5,
-                       delimiter=','):
-    '''
-    Read in a radiosonde_auto_rx generated telemetry CSV file.
-    Fields to use can be set as arguments to this function.
-    These have output like the following:
-    2017-12-27T23:21:59.560,M2913374,982,-34.95143,138.52471,719.9,-273.0,RS92,401.520
-    <datetime>,<serial>,<frame_no>,<lat>,<lon>,<alt>,<temp>,<sonde_type>,<freq>
-
-    Note that the datetime field must be parsable by dateutil.parsers.parse.
-
-    If any fields are missing, or invalid, this function will return None.
-
-    The output data structure is in the form:
-    [
-        [datetime (as a datetime object), latitude, longitude, altitude, raw_line],
-        [datetime (as a datetime object), latitude, longitude, altitude, raw_line],
-        ...
-    ]
-    '''
-
-    output = []
-
-    f = open(filename, 'r')
-
-    for line in f:
-        try:
-            # Split line by comma delimiters.
-            _fields = line.split(delimiter)
-
-            if _fields[0] == 'timestamp':
-                # First line in file - header line.
-                continue
-
-            # Attempt to parse fields.
-            _datetime = parse(_fields[datetime_field])
-            _latitude = float(_fields[latitude_field])
-            _longitude = float(_fields[longitude_field])
-            _altitude = float(_fields[altitude_field])
-
-            output.append([_datetime, _latitude, _longitude, _altitude, line])
-        except:
-            traceback.print_exc()
-            return None
-
-    f.close()
-
-    return output
+parent_dir = dirname(dirname(abspath(__file__)))
+sys.path.append(parent_dir)
+from autorx.log_files import read_log_file
 
 
 def new_placemark(lat, lon, alt,
@@ -136,7 +87,7 @@ def flight_path_to_geometry(flight_path,
         ls_tessellate = ET.SubElement(line_string, "tessellate")
         ls_tessellate.text = "1"
     coordinates = ET.SubElement(line_string, "coordinates")
-    coordinates.text = " ".join(f"{lon:.6f},{lat:.6f},{alt:.6f}" for _, lat, lon, alt, _ in flight_path)
+    coordinates.text = " ".join(f"{lon:.6f},{lat:.6f},{alt:.6f}" for lat, lon, alt in flight_path)
 
     return placemark
 
@@ -163,18 +114,16 @@ def convert_single_file(filename, absolute=True, extrude=True, last_only=False):
     ''' Convert a single sonde log file to a KML Folder object '''
 
     # Read file.
-    _flight_data = read_telemetry_csv(filename)
+    _flight_data = read_log_file(filename)
 
-    # Extract the flight's serial number and launch time from the first line in the file.
-    _first_line = _flight_data[0][4]
-    _flight_serial = _first_line.split(',')[1]  # Serial number is the second field in the line.
-    _launch_time = _flight_data[0][0].strftime("%Y%m%d-%H%M%SZ")
+    _flight_serial = _flight_data["serial"]
+    _launch_time = parse(_flight_data["first_time"]).strftime("%Y%m%d-%H%M%SZ")
     # Generate a comment line to use in the folder and placemark descriptions
     _track_comment = "%s %s" % (_launch_time, _flight_serial)
     _landing_comment = "%s Last Position" % (_flight_serial)
 
     # Grab last-seen position
-    _landing_pos = _flight_data[-1]
+    _landing_pos = _flight_data["path"][-1]
 
     _folder = ET.Element("Folder")
     _name = ET.SubElement(_folder, "name")
@@ -184,9 +133,9 @@ def convert_single_file(filename, absolute=True, extrude=True, last_only=False):
 
     # Generate the placemark & flight track.
     if not last_only:
-        _folder.append(flight_path_to_geometry(_flight_data, name=_track_comment,
+        _folder.append(flight_path_to_geometry(_flight_data["path"], name=_track_comment,
                                                absolute=absolute, extrude=extrude))
-    _folder.append(new_placemark(_landing_pos[1], _landing_pos[2], _landing_pos[3],
+    _folder.append(new_placemark(_landing_pos[0], _landing_pos[1], _landing_pos[2],
                                  name=_landing_comment, absolute=absolute))
 
     return _folder
