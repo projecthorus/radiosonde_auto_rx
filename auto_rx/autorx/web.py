@@ -8,8 +8,11 @@
 import base64
 import copy
 import datetime
+import glob
+import io
 import json
 import logging
+import os
 import random
 import requests
 import time
@@ -20,7 +23,7 @@ import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
-from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files, log_files_to_kml
 from autorx.decode import SondeDecoder
 from queue import Queue
 from threading import Thread
@@ -367,6 +370,54 @@ def flask_export_log_files(serialb64=None):
 
     except Exception as e:
         logging.error("Web - Error handling Zip request:" + str(e))
+        abort(400)
+
+
+@app.route("/generate_kml")
+@app.route("/generate_kml/<serialb64>")
+def flask_generate_kml(serialb64=None):
+    """ 
+    Generate a KML file from a set of log files.
+    The list of log files is provided in the URL as a base64-encoded JSON list.
+    """
+
+    try:
+        if serialb64:
+            _serial_list = json.loads(base64.b64decode(serialb64))
+            _log_files = []
+            for _serial in _serial_list:
+                _log_mask = os.path.join(autorx.logging_path, f"*_*{_serial}_*_sonde.log")
+                _matching_files = glob.glob(_log_mask)
+
+                if len(_matching_files) >= 1:
+                    _log_files.append(_matching_files[0])
+        else:
+            _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+            _log_files = glob.glob(_log_mask)
+
+        _kml_file = io.BytesIO()
+        log_files_to_kml(_log_files, _kml_file)
+        _kml_file.seek(0)
+
+        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+
+        response = make_response(
+            flask.send_file(
+                _kml_file,
+                mimetype="application/vnd.google-earth.kml+xml",
+                as_attachment=True,
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.kml",
+            )
+        )
+
+        # Add header asking client not to cache the download
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+
+        return response
+
+    except Exception as e:
+        logging.error("Web - Error handling KML request:" + str(e))
         abort(400)
 
 #
