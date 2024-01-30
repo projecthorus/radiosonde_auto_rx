@@ -23,9 +23,8 @@ import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
-from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files, log_files_to_kml
 from autorx.decode import SondeDecoder
-from utils.log_to_kml import convert_single_file, write_kml
 from queue import Queue
 from threading import Thread
 import flask
@@ -396,16 +395,8 @@ def flask_generate_kml(serialb64=None):
             _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
             _log_files = glob.glob(_log_mask)
 
-        _placemarks = []
-
-        for _file in _log_files:
-            try:
-                _placemarks.append(convert_single_file(_file, absolute=True, extrude=True, last_only=False))
-            except:
-                pass
-
         _kml_file = io.BytesIO()
-        write_kml(_placemarks, _kml_file)
+        log_files_to_kml(_log_files, _kml_file)
         _kml_file.seek(0)
 
         _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
