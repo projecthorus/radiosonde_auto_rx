@@ -634,12 +634,12 @@ def log_files_to_kml(file_list, kml_file, absolute=True, extrude=True, last_only
     kml_doc = ET.SubElement(kml_root, "Document")
 
     for file in file_list:
-        print("Processing: %s" % file)
+        logging.debug(f"Converting {file} to KML")
         try:
             kml_doc.append(_log_file_to_kml_folder(file, absolute=absolute,
                                                    extrude=extrude, last_only=last_only))
-        except:
-            print("Failed to process: %s" % file)
+        except Exception:
+            logging.exception(f"Failed to convert {file} to KML")
 
     tree = ET.ElementTree(kml_root)
     tree.write(kml_file, encoding="UTF-8", xml_declaration=True)
