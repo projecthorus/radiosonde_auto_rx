@@ -48,10 +48,7 @@ for _line in _f:
 	_fest2.append(_data['f2_est'])
 	_ppm.append(_data['ppm'])
 
-	if _time == []:
-		_time = [0]
-	else:
-		_time.append(_time[-1]+1.0/_sps)
+	_time.append(_data['samples'])
 
 
 _ebno_max = pd.Series(_ebno).rolling(10).max().dropna().tolist()
