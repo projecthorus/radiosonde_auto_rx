@@ -411,6 +411,7 @@ def flask_generate_kml(serialb64=None):
             _log_files = glob.glob(_log_mask)
 
         _kml_file = io.BytesIO()
+        _log_files.sort(reverse=True)
         log_files_to_kml(_log_files, _kml_file)
         _kml_file.seek(0)
 

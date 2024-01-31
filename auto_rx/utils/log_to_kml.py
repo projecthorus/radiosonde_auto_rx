@@ -32,6 +32,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     _file_list = glob.glob(args.input)
+    _file_list.sort(reverse=True)
 
     with open(args.output, "wb") as kml_file:
         log_files_to_kml(_file_list, kml_file, absolute=args.clamp,
