@@ -564,7 +564,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             logging.warning(
                 "Config - Did not find kml_refresh_rate setting, using default (10 seconds)."
             )
-            auto_rx_config["kml_refresh_rate"] = 11
+            auto_rx_config["kml_refresh_rate"] = 10
 
         # New Sondehub db Settings
         try:

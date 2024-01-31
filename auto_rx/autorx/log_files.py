@@ -522,17 +522,20 @@ def zip_log_files(serial_list=None):
     return data
 
 
-def _coordinates_to_kml_placemark(lat, lon, alt,
-                                  name="Placemark Name",
-                                  absolute=False,
-                                  icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
-                                  scale=1.0):
+def coordinates_to_kml_placemark(lat, lon, alt,
+                                 name="Placemark Name",
+                                 description="Placemark Description",
+                                 absolute=False,
+                                 icon="https://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
+                                 scale=1.0):
     """ Generate a generic placemark object """
 
     placemark = ET.Element("Placemark")
 
     pm_name = ET.SubElement(placemark, "name")
     pm_name.text = name
+    pm_desc = ET.SubElement(placemark, "description")
+    pm_desc.text = description
 
     style = ET.SubElement(placemark, "Style")
     icon_style = ET.SubElement(style, "IconStyle")
@@ -552,13 +555,13 @@ def _coordinates_to_kml_placemark(lat, lon, alt,
     return placemark
 
 
-def _flight_path_to_kml_placemark(flight_path,
-                                  name="Flight Path Name",
-                                  track_color="aaffffff",
-                                  poly_color="20000000",
-                                  track_width=2.0,
-                                  absolute=True,
-                                  extrude=True):
+def path_to_kml_placemark(flight_path,
+                          name="Flight Path Name",
+                          track_color="ff03bafc",
+                          poly_color="8003bafc",
+                          track_width=2.0,
+                          absolute=True,
+                          extrude=True):
     ''' Produce a placemark object from a flight path array '''
 
     placemark = ET.Element("Placemark")
@@ -572,13 +575,14 @@ def _flight_path_to_kml_placemark(flight_path,
     color.text = track_color
     width = ET.SubElement(line_style, "width")
     width.text = str(track_width)
-    poly_style = ET.SubElement(style, "PolyStyle")
-    color = ET.SubElement(poly_style, "color")
-    color.text = poly_color
-    fill = ET.SubElement(poly_style, "fill")
-    fill.text = "1"
-    outline = ET.SubElement(poly_style, "outline")
-    outline.text = "1"
+    if extrude:
+        poly_style = ET.SubElement(style, "PolyStyle")
+        color = ET.SubElement(poly_style, "color")
+        color.text = poly_color
+        fill = ET.SubElement(poly_style, "fill")
+        fill.text = "1"
+        outline = ET.SubElement(poly_style, "outline")
+        outline.text = "1"
 
     line_string = ET.SubElement(placemark, "LineString")
     if absolute:
@@ -603,26 +607,19 @@ def _log_file_to_kml_folder(filename, absolute=True, extrude=True, last_only=Fal
     _flight_data = read_log_file(filename)
 
     _flight_serial = _flight_data["serial"]
-    _launch_time = parse(_flight_data["first_time"]).strftime("%Y%m%d-%H%M%SZ")
-    # Generate a comment line to use in the folder and placemark descriptions
-    _track_comment = "%s %s" % (_launch_time, _flight_serial)
-    _landing_comment = "%s Last Position" % (_flight_serial)
-
-    # Grab last-seen position
+    _landing_time = _flight_data["last_time"]
     _landing_pos = _flight_data["path"][-1]
 
     _folder = ET.Element("Folder")
     _name = ET.SubElement(_folder, "name")
-    _name.text = _track_comment
-    _description = ET.SubElement(_folder, "description")
-    _description.text = "Radiosonde Flight Path"
+    _name.text = _flight_serial
 
     # Generate the placemark & flight track.
+    _folder.append(coordinates_to_kml_placemark(_landing_pos[0], _landing_pos[1], _landing_pos[2],
+                                                name=_flight_serial, description=_landing_time, absolute=absolute))
     if not last_only:
-        _folder.append(_flight_path_to_kml_placemark(_flight_data["path"], name=_track_comment,
-                                                     absolute=absolute, extrude=extrude))
-    _folder.append(_coordinates_to_kml_placemark(_landing_pos[0], _landing_pos[1], _landing_pos[2],
-                                                 name=_landing_comment, absolute=absolute))
+        _folder.append(path_to_kml_placemark(_flight_data["path"], name="Track",
+                                             absolute=absolute, extrude=extrude))
 
     return _folder
 
@@ -630,7 +627,7 @@ def _log_file_to_kml_folder(filename, absolute=True, extrude=True, last_only=Fal
 def log_files_to_kml(file_list, kml_file, absolute=True, extrude=True, last_only=False):
     """ Convert a collection of log files to a KML file """
 
-    kml_root = ET.Element("kml", {"xmlns": "http://www.opengis.net/kml/2.2"})
+    kml_root = ET.Element("kml", xmlns="http://www.opengis.net/kml/2.2")
     kml_doc = ET.SubElement(kml_root, "Document")
 
     for file in file_list:
