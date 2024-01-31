@@ -38,7 +38,6 @@ from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
-from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.sondehub import SondehubUploader
@@ -932,30 +931,6 @@ def main():
 
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
-
-    # Habitat Uploader - DEPRECATED - Sondehub DB now in use (>1.5.0)
-    # if config["habitat_enabled"]:
-
-    #     if config["habitat_upload_listener_position"] is False:
-    #         _habitat_station_position = None
-    #     else:
-    #         _habitat_station_position = (
-    #             config["station_lat"],
-    #             config["station_lon"],
-    #             config["station_alt"],
-    #         )
-
-    #     _habitat = HabitatUploader(
-    #         user_callsign=config["habitat_uploader_callsign"],
-    #         user_antenna=config["habitat_uploader_antenna"],
-    #         station_position=_habitat_station_position,
-    #         synchronous_upload_time=config["habitat_upload_rate"],
-    #         callsign_validity_threshold=config["payload_id_valid"],
-    #         url=config["habitat_url"],
-    #     )
-
-    #     exporter_objects.append(_habitat)
-    #     exporter_functions.append(_habitat.add)
 
     # APRS Uploader
     if config["aprs_enabled"]:
