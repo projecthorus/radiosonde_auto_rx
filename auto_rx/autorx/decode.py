@@ -1871,7 +1871,6 @@ class SondeDecoder(object):
 if __name__ == "__main__":
     # Test script.
     from .logger import TelemetryLogger
-    from .habitat import HabitatUploader
 
     logging.basicConfig(
         format="%(asctime)s %(levelname)s:%(message)s", level=logging.DEBUG
@@ -1883,7 +1882,6 @@ if __name__ == "__main__":
     urllib3_log.setLevel(logging.CRITICAL)
 
     _log = TelemetryLogger(log_directory="./testlog/")
-    _habitat = HabitatUploader(user_callsign="VK5QI_AUTO_RX_DEV", inhibit=False)
 
     try:
         _decoder = SondeDecoder(
@@ -1891,14 +1889,14 @@ if __name__ == "__main__":
             sonde_type="RS41",
             timeout=50,
             rtl_device_idx="00000002",
-            exporter=[_habitat.add, _log.add],
+            exporter=[_log.add],
         )
 
         # _decoder2 = SondeDecoder(sonde_freq = 405.5*1e6,
         #     sonde_type = "RS41",
         #     timeout = 50,
         #     rtl_device_idx="00000001",
-        #     exporter=[_habitat.add, _log.add])
+        #     exporter=[_log.add])
 
         while True:
             time.sleep(5)
@@ -1911,5 +1909,4 @@ if __name__ == "__main__":
         traceback.print_exc()
         pass
 
-    _habitat.close()
     _log.close()

@@ -1,4 +1,3 @@
-crcmod
 python-dateutil
 flask
 flask-socketio
