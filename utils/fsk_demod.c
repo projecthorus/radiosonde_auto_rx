@@ -54,6 +54,7 @@ int main(int argc,char *argv[]){
     struct FSK *fsk;
     struct MODEM_STATS stats;
     int Fs,Rs,M,P,stats_ctr,stats_loop;
+    long sample_count;
     float loop_time;
     int enable_stats = 0;
     FILE *fin,*fout;
@@ -280,6 +281,7 @@ int main(int argc,char *argv[]){
             for(i=0;i<fsk_nin(fsk);i++){
                 modbuf[i].real = ((float)rawbuf[i])/FDMDV_SCALE;
                 modbuf[i].imag = 0.0;
+                sample_count++;
             }
         }
         else {
@@ -289,6 +291,7 @@ int main(int argc,char *argv[]){
                 for(i=0;i<fsk_nin(fsk);i++){
                     modbuf[i].real = ((float)rawbuf_u8[2*i]-127.0)/128.0;
                     modbuf[i].imag = ((float)rawbuf_u8[2*i+1]-127.0)/128.0;
+                    sample_count++;
                 }
             }
             else {
@@ -296,6 +299,7 @@ int main(int argc,char *argv[]){
                 for(i=0;i<fsk_nin(fsk);i++){
                     modbuf[i].real = ((float)rawbuf[2*i])/FDMDV_SCALE;
                     modbuf[i].imag = ((float)rawbuf[2*i+1]/FDMDV_SCALE);
+                    sample_count++;
                 }
             }
         }
@@ -356,7 +360,7 @@ int main(int argc,char *argv[]){
                 fprintf(stderr,"{");
                 time_t seconds  = time(NULL);
 
-                fprintf(stderr,"\"secs\": %ld, \"EbNodB\": %5.1f, \"ppm\": %4d,",seconds, stats.snr_est, (int)fsk->ppm);
+                fprintf(stderr,"\"secs\": %ld, \"samples\": %ld, \"EbNodB\": %5.1f, \"ppm\": %4d,",seconds, sample_count, stats.snr_est, (int)fsk->ppm);
                 float *f_est;
                 if (fsk->freq_est_type)
                     f_est = fsk->f2_est;
