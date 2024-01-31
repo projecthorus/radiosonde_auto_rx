@@ -5,5 +5,4 @@ flask-socketio
 numpy
 requests
 semver
-simplekml
 simple-websocket
