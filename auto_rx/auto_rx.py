@@ -765,9 +765,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # Copy out timeout value, and convert to seconds,
-    _timeout = args.timeout * 60
-
     # Copy out RS92 ephemeris value, if provided.
     if args.ephemeris != "None":
         rs92_ephemeris = args.ephemeris
@@ -825,6 +822,11 @@ def main():
     logging.getLogger("socketio").setLevel(logging.ERROR)
     logging.getLogger("engineio").setLevel(logging.ERROR)
     logging.getLogger("geventwebsocket").setLevel(logging.ERROR)
+
+    # Copy out timeout value, and convert to seconds.
+    if args.timeout > 0:
+        logging.info(f"Will shut down automatically after {args.timeout} minutes.")
+    _timeout = args.timeout * 60
 
     # Check all the RS utilities exist.
     logging.debug("Checking if required binaries exist")
