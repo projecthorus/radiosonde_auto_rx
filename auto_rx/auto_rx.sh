@@ -14,7 +14,4 @@
 # change into appropriate directory
 cd $(dirname $0)
 
-# Clean up old files
-rm log_power*.csv
-
 python3 auto_rx.py -t 180
