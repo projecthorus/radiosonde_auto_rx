@@ -83,7 +83,7 @@ static char rawheader[] = "10011001100110010100110010011001";
 #define FRAME_LEN       (100+1)   // 0x64+1
 #define BITFRAME_LEN    (FRAME_LEN*BITS)
 
-#define AUX_LEN          20
+#define AUX_LEN          64
 #define BITAUX_LEN      (AUX_LEN*BITS)
 
 
@@ -263,6 +263,9 @@ $ for code in  {0..255}
 > do echo -e "\e[38;5;${code}m"'\\e[38;5;'"$code"m"\e[0m"
 > done
 */
+
+#define COLOPT(tcol)  ((gpx->option.col)?(tcol):(""))
+
 
 static int get_GPSweek(gpx_t *gpx) {
     int i;
@@ -721,6 +724,9 @@ static float get_P(gpx_t *gpx) {
     if (val > 0) {
         hPa = val/(float)(16*256); // 4096=0x1000
     }
+    if (hPa > 2560.0f) { // val > 0xA00000
+        hPa = -1.0f;
+    }
 
     return hPa;
 }
@@ -767,96 +773,55 @@ static int print_pos(gpx_t *gpx, int bcOK, int csOK) {
 
         if ( !gpx->option.slt )
         {
-            if (gpx->option.col) {
-                fprintf(stdout, col_TXT);
-                if (gpx->option.vbs >= 3) {
-                    fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_CNT]);
-                    fprintf(stdout, " (W "col_GPSweek"%d"col_TXT") ", gpx->week);
-                }
-                fprintf(stdout, col_GPSTOW"%s"col_TXT" ", weekday[gpx->wday]);
-                fprintf(stdout, col_GPSdate"%04d-%02d-%02d"col_TXT" "col_GPSTOW"%02d:%02d:%06.3f"col_TXT" ",
-                        gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek);
-                fprintf(stdout, " lat: "col_GPSlat"%.5f"col_TXT" ", gpx->lat);
-                fprintf(stdout, " lon: "col_GPSlon"%.5f"col_TXT" ", gpx->lon);
-                fprintf(stdout, " alt: "col_GPSalt"%.2f"col_TXT" ", gpx->alt);
-                if (!err2) {
-                    fprintf(stdout, "  vH: "col_GPSvel"%4.1f"col_TXT"  D: "col_GPSvel"%5.1f"col_TXT"  vV: "col_GPSvel"%3.1f"col_TXT" ", gpx->vH, gpx->vD, gpx->vV);
-                }
-                if (gpx->option.vbs >= 1 && (bcOK || csOK)) { // SN
-                    fprintf(stdout, "  SN: "col_SN"%s"col_TXT, gpx->SN);
-                }
-                if (gpx->option.vbs >= 1) {
-                    fprintf(stdout, "  # ");
-                    if (gpx->fwVer < 0x07) {
-                        if      (bcOK > 0) fprintf(stdout, " "col_CSok"(ok)"col_TXT);
-                        else if (bcOK < 0) fprintf(stdout, " "col_CSoo"(oo)"col_TXT);
-                        else               fprintf(stdout, " "col_CSno"(no)"col_TXT);
-                    }
-                    if (csOK) fprintf(stdout, " "col_CSok"[OK]"col_TXT);
-                    else      fprintf(stdout, " "col_CSno"[NO]"col_TXT);
-                }
-                if (gpx->option.ptu && csOK) {
-                    fprintf(stdout, " ");
-                    if (gpx->T > -273.0f)  fprintf(stdout, " T:%.1fC", gpx->T);
-                    if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%%", gpx->RH);
-                    if (gpx->option.vbs >= 2) {
-                        if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
-                    }
-                    if (gpx->P > 0.0f) {
-                        if      (gpx->P <  10.0f) fprintf(stdout, " P=%.3fhPa ", gpx->P);
-                        else if (gpx->P < 100.0f) fprintf(stdout, " P=%.2fhPa ", gpx->P);
-                        else                      fprintf(stdout, " P=%.1fhPa ", gpx->P);
-                    }
-                }
-                if (gpx->option.vbs >= 3 && csOK) {
-                    fprintf(stdout, " (bat:%.2fV)", gpx->batV);
-                }
-                fprintf(stdout, ANSI_COLOR_RESET"");
+            fprintf(stdout, "%s", COLOPT(col_TXT));
+            if (gpx->option.vbs >= 3) {
+                fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_CNT]);
+                fprintf(stdout, " (W %s%d%s) ", COLOPT(col_GPSweek), gpx->week, COLOPT(col_TXT));
             }
-            else {
-                if (gpx->option.vbs >= 3) {
-                    fprintf(stdout, "[%3d]", gpx->frame_bytes[pos_CNT]);
-                    fprintf(stdout, " (W %d) ", gpx->week);
+            fprintf(stdout, "%s%s%s ", COLOPT(col_GPSTOW), weekday[gpx->wday], COLOPT(col_TXT));
+            fprintf(stdout, "%s%04d-%02d-%02d%s %s%02d:%02d:%06.3f%s ",
+                    COLOPT(col_GPSdate), gpx->jahr, gpx->monat, gpx->tag, COLOPT(col_TXT),
+                    COLOPT(col_GPSTOW), gpx->std, gpx->min, gpx->sek, COLOPT(col_TXT));
+            fprintf(stdout, " lat: %s%.5f%s ", COLOPT(col_GPSlat), gpx->lat, COLOPT(col_TXT));
+            fprintf(stdout, " lon: %s%.5f%s ", COLOPT(col_GPSlon), gpx->lon, COLOPT(col_TXT));
+            fprintf(stdout, " alt: %s%.2f%s ", COLOPT(col_GPSalt), gpx->alt, COLOPT(col_TXT));
+            if (!err2) {
+                fprintf(stdout, "  vH: %s%4.1f%s  D: %s%5.1f%s  vV: %s%3.1f%s ",
+                        COLOPT(col_GPSvel), gpx->vH, COLOPT(col_TXT),
+                        COLOPT(col_GPSvel), gpx->vD, COLOPT(col_TXT),
+                        COLOPT(col_GPSvel), gpx->vV, COLOPT(col_TXT));
+            }
+            if (gpx->option.vbs >= 1 && (bcOK || csOK)) { // SN
+                fprintf(stdout, "  SN: %s%s%s", COLOPT(col_SN), gpx->SN, COLOPT(col_TXT));
+            }
+            if (gpx->option.vbs >= 1) {
+                fprintf(stdout, "  # ");
+                if (gpx->fwVer < 0x07) {
+                    if      (bcOK > 0) fprintf(stdout, " %s(ok)%s", COLOPT(col_CSok), COLOPT(col_TXT));
+                    else if (bcOK < 0) fprintf(stdout, " %s(oo)%s", COLOPT(col_CSoo), COLOPT(col_TXT));
+                    else               fprintf(stdout, " %s(no)%s", COLOPT(col_CSno), COLOPT(col_TXT));
                 }
-                fprintf(stdout, "%s ", weekday[gpx->wday]);
-                fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%06.3f ",
-                        gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek);
-                fprintf(stdout, " lat: %.5f ", gpx->lat);
-                fprintf(stdout, " lon: %.5f ", gpx->lon);
-                fprintf(stdout, " alt: %.2f ", gpx->alt);
-                if (!err2) {
-                    fprintf(stdout, "  vH: %4.1f  D: %5.1f  vV: %3.1f ", gpx->vH, gpx->vD, gpx->vV);
+                if (csOK) fprintf(stdout, " %s[OK]%s", COLOPT(col_CSok), COLOPT(col_TXT));
+                else      fprintf(stdout, " %s[NO]%s", COLOPT(col_CSno), COLOPT(col_TXT));
+            }
+            if (gpx->option.ptu && csOK) {
+                fprintf(stdout, " ");
+                if (gpx->T > -273.0f)  fprintf(stdout, " T:%.1fC", gpx->T);
+                if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%%", gpx->RH);
+                if (gpx->option.vbs >= 2) {
+                    if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
                 }
-                if (gpx->option.vbs >= 1 && (bcOK || csOK)) { // SN
-                    fprintf(stdout, "  SN: %s", gpx->SN);
-                }
-                if (gpx->option.vbs >= 1) {
-                    fprintf(stdout, "  # ");
-                    if (gpx->fwVer < 0x07) {
-                        //if (bcOK) fprintf(stdout, " (ok)"); else fprintf(stdout, " (no)");
-                        if      (bcOK > 0) fprintf(stdout, " (ok)");
-                        else if (bcOK < 0) fprintf(stdout, " (oo)");
-                        else               fprintf(stdout, " (no)");
-                    }
-                    if (csOK) fprintf(stdout, " [OK]"); else fprintf(stdout, " [NO]");
-                }
-                if (gpx->option.ptu && csOK) {
-                    fprintf(stdout, " ");
-                    if (gpx->T > -273.0f)  fprintf(stdout, " T:%.1fC", gpx->T);
-                    if (gpx->RH > -0.5f)   fprintf(stdout, " RH=%.0f%%", gpx->RH);
-                    if (gpx->option.vbs >= 2) {
-                        if (gpx->TH > -273.0f) fprintf(stdout, " TH:%.1fC", gpx->TH);
-                    }
-                    if (gpx->P > 0.0f) {
-                        if      (gpx->P <  10.0f) fprintf(stdout, " P=%.3fhPa ", gpx->P);
-                        else if (gpx->P < 100.0f) fprintf(stdout, " P=%.2fhPa ", gpx->P);
-                        else                      fprintf(stdout, " P=%.1fhPa ", gpx->P);
-                    }
-                }
-                if (gpx->option.vbs >= 3 && csOK) {
-                    fprintf(stdout, " (bat:%.2fV)", gpx->batV);
+                if (gpx->P > 0.0f) {
+                    if      (gpx->P <  10.0f) fprintf(stdout, " P=%.3fhPa ", gpx->P);
+                    else if (gpx->P < 100.0f) fprintf(stdout, " P=%.2fhPa ", gpx->P);
+                    else                      fprintf(stdout, " P=%.1fhPa ", gpx->P);
                 }
             }
+            if (gpx->option.vbs >= 3 && csOK) {
+                fprintf(stdout, " (bat:%.2fV)", gpx->batV);
+            }
+            fprintf(stdout, "%s", COLOPT(ANSI_COLOR_RESET));
+
             fprintf(stdout, "\n");
         }
 
@@ -910,7 +875,7 @@ static int print_frame(gpx_t *gpx, int pos, int b2B) {
     ui8_t byte;
     int cs1, cs2;
     int bc1, bc2, bc;
-    int flen = stdFLEN; // stdFLEN=0x64, auxFLEN=0x76; M20:0x45 ?
+    int flen = stdFLEN; // M10:stdFLEN=0x64,auxFLEN=0x76; M20:stdFLEN=0x45,auxFLEN=0x6F ?
     int pos_fw = pos_stdFW;
     int pos_check = pos_stdCheck;
 
@@ -954,46 +919,46 @@ static int print_frame(gpx_t *gpx, int pos, int b2B) {
 
     if (gpx->option.raw) {
 
-        if (gpx->option.col /* &&  gpx->frame_bytes[1] != 0x49 */) {
-            fprintf(stdout, col_FRTXT);
+        if (1 /*&& gpx->frame_bytes[1] != 0x49 */) {
+            fprintf(stdout, "%s", COLOPT(col_FRTXT));
             for (i = 0; i < flen+1; i++) {
                 byte = gpx->frame_bytes[i];
-                if  (i == 1) fprintf(stdout, col_Mtype);
-                if ((i >= pos_GPSTOW)   &&  (i < pos_GPSTOW+3))   fprintf(stdout, col_GPSTOW);
-                if ((i >= pos_GPSlat)   &&  (i < pos_GPSlat+4))   fprintf(stdout, col_GPSlat);
-                if ((i >= pos_GPSlon)   &&  (i < pos_GPSlon+4))   fprintf(stdout, col_GPSlon);
-                if ((i >= pos_GPSalt)   &&  (i < pos_GPSalt+3))   fprintf(stdout, col_GPSalt);
-                if ((i >= pos_GPSweek)  &&  (i < pos_GPSweek+2))  fprintf(stdout, col_GPSweek);
-                if ((i >= pos_GPSvE)    &&  (i < pos_GPSvE+2))    fprintf(stdout, col_GPSvel);
-                if ((i >= pos_GPSvN)    &&  (i < pos_GPSvN+2))    fprintf(stdout, col_GPSvel);
-                if ((i >= pos_GPSvU)    &&  (i < pos_GPSvU+2))    fprintf(stdout, col_GPSvel);
-                if ((i >= pos_SN)       &&  (i < pos_SN+3))       fprintf(stdout, col_SN);
-                if  (i == pos_CNT) fprintf(stdout, col_CNT);
+                if  (i == 1) fprintf(stdout, "%s", COLOPT(col_Mtype));
+                if ((i >= pos_GPSTOW)   &&  (i < pos_GPSTOW+3))   fprintf(stdout, "%s", COLOPT(col_GPSTOW));
+                if ((i >= pos_GPSlat)   &&  (i < pos_GPSlat+4))   fprintf(stdout, "%s", COLOPT(col_GPSlat));
+                if ((i >= pos_GPSlon)   &&  (i < pos_GPSlon+4))   fprintf(stdout, "%s", COLOPT(col_GPSlon));
+                if ((i >= pos_GPSalt)   &&  (i < pos_GPSalt+3))   fprintf(stdout, "%s", COLOPT(col_GPSalt));
+                if ((i >= pos_GPSweek)  &&  (i < pos_GPSweek+2))  fprintf(stdout, "%s", COLOPT(col_GPSweek));
+                if ((i >= pos_GPSvE)    &&  (i < pos_GPSvE+2))    fprintf(stdout, "%s", COLOPT(col_GPSvel));
+                if ((i >= pos_GPSvN)    &&  (i < pos_GPSvN+2))    fprintf(stdout, "%s", COLOPT(col_GPSvel));
+                if ((i >= pos_GPSvU)    &&  (i < pos_GPSvU+2))    fprintf(stdout, "%s", COLOPT(col_GPSvel));
+                if ((i >= pos_SN)       &&  (i < pos_SN+3))       fprintf(stdout, "%s", COLOPT(col_SN));
+                if  (i == pos_CNT) fprintf(stdout, "%s", COLOPT(col_CNT));
                 if (gpx->fwVer < 0x07) {
-                    if ((i >= pos_BlkChk)   &&  (i < pos_BlkChk+2))   fprintf(stdout, col_Check);
+                    if ((i >= pos_BlkChk)   &&  (i < pos_BlkChk+2))   fprintf(stdout, "%s", COLOPT(col_Check));
                 } else {
-                    if ((i >= pos_BlkChk+1) &&  (i < pos_BlkChk+2))   fprintf(stdout, col_Check);
+                    if ((i >= pos_BlkChk+1) &&  (i < pos_BlkChk+2))   fprintf(stdout, "%s", COLOPT(col_Check));
                 }
-                if (i >= 0x02 && i <= 0x03)  fprintf(stdout, col_ptuU);
-                if (i >= 0x04 && i <= 0x05)  fprintf(stdout, col_ptuT);
-                if (i >= 0x06 && i <= 0x07)  fprintf(stdout, col_ptuTH);
-                if (i == 0x16 && gpx->fwVer >= 0x07 || i >= 0x24 && i <= 0x25)  fprintf(stdout, col_ptuP);
+                if (i >= 0x02 && i <= 0x03)  fprintf(stdout, "%s", COLOPT(col_ptuU));
+                if (i >= 0x04 && i <= 0x05)  fprintf(stdout, "%s", COLOPT(col_ptuT));
+                if (i >= 0x06 && i <= 0x07)  fprintf(stdout, "%s", COLOPT(col_ptuTH));
+                if (i == 0x16 && gpx->fwVer >= 0x07 || i >= 0x24 && i <= 0x25)  fprintf(stdout, "%s", COLOPT(col_ptuP));
 
-                if ((i >= pos_check)  &&  (i < pos_check+2))  fprintf(stdout, col_Check);
+                if ((i >= pos_check)  &&  (i < pos_check+2))  fprintf(stdout, "%s", COLOPT(col_Check));
                 fprintf(stdout, "%02x", byte);
-                fprintf(stdout, col_FRTXT);
+                fprintf(stdout, "%s", COLOPT(col_FRTXT));
             }
             if (gpx->option.vbs) {
-                fprintf(stdout, " # "col_Check"%04x"col_FRTXT, cs2);
+                fprintf(stdout, " # %s%04x%s", COLOPT(col_Check), cs2, COLOPT(col_FRTXT));
                 if (gpx->fwVer < 0x07) {
-                    if      (bc > 0) fprintf(stdout, " "col_CSok"(ok)"col_TXT);
-                    else if (bc < 0) fprintf(stdout, " "col_CSoo"(oo)"col_TXT);
-                    else             fprintf(stdout, " "col_CSno"(no)"col_TXT);
+                    if      (bc > 0) fprintf(stdout, " %s(ok)%s", COLOPT(col_CSok), COLOPT(col_TXT));
+                    else if (bc < 0) fprintf(stdout, " %s(oo)%s", COLOPT(col_CSoo), COLOPT(col_TXT));
+                    else             fprintf(stdout, " %s(no)%s", COLOPT(col_CSno), COLOPT(col_TXT));
                 }
-                if (cs1 == cs2) fprintf(stdout, " "col_CSok"[OK]"col_TXT);
-                else            fprintf(stdout, " "col_CSno"[NO]"col_TXT);
+                if (cs1 == cs2) fprintf(stdout, " %s[OK]%s", COLOPT(col_CSok), COLOPT(col_TXT));
+                else            fprintf(stdout, " %s[NO]%s", COLOPT(col_CSno), COLOPT(col_TXT));
             }
-            fprintf(stdout, ANSI_COLOR_RESET"\n");
+            fprintf(stdout, "%s\n", COLOPT(ANSI_COLOR_RESET));
         }
         else {
             for (i = 0; i < flen+1; i++) {
