@@ -124,7 +124,7 @@ def emulate_telemetry(filename, port=55673, speed=1.0):
     _fields = _line.split(",")
     _telemetry_datetime = parse(_fields[0])
 
-    _current_datetime = datetime.datetime.utcnow()
+    _current_datetime = datetime.datetime.now(datetime.timezone.utc)
 
     for _line in _f:
         _fields = _line.split(",")

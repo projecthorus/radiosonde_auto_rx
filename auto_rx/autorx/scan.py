@@ -969,7 +969,7 @@ class SondeScanner(object):
             (_freq_decimate, _power_decimate) = peak_decimation(freq / 1e6, power, 10)
             scan_result["freq"] = list(_freq_decimate)
             scan_result["power"] = list(_power_decimate)
-            scan_result["timestamp"] = datetime.datetime.utcnow().isoformat()
+            scan_result["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             scan_result["peak_freq"] = []
             scan_result["peak_lvl"] = []
 
