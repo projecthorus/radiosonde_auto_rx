@@ -463,7 +463,7 @@ if __name__ == "__main__":
             "heading": 0.0,
             "vel_h": 5.1,
             "vel_v": -5.0,
-            "datetime_dt": datetime.datetime.utcnow(),
+            "datetime_dt": datetime.datetime.now(datetime.timezone.utc),
         }
     )
 
@@ -485,7 +485,7 @@ if __name__ == "__main__":
             "heading": 0.0,
             "vel_h": 5.1,
             "vel_v": -5.0,
-            "datetime_dt": datetime.datetime.utcnow(),
+            "datetime_dt": datetime.datetime.now(datetime.timezone.utc),
             "encrypted": True
         }
     )
@@ -506,7 +506,7 @@ if __name__ == "__main__":
         "heading": 0.0,
         "vel_h": 5.1,
         "vel_v": -5.0,
-        "datetime_dt": datetime.datetime.utcnow(),
+        "datetime_dt": datetime.datetime.now(datetime.timezone.utc),
     }
 
     print("Testing landing alert.")
@@ -516,7 +516,7 @@ if __name__ == "__main__":
         _test["alt"] = _test["alt"] - 10.0
         _test["lat"] = _test["lat"] + 0.001
         _test["lon"] = _test["lon"] + 0.001
-        _test["datetime_dt"] = datetime.datetime.utcnow()
+        _test["datetime_dt"] = datetime.datetime.now(datetime.timezone.utc)
         time.sleep(1)
 
     time.sleep(60)

@@ -120,7 +120,7 @@ class SondehubUploader(object):
             "uploader_callsign": self.user_callsign,
             "uploader_position": self.user_position,
             "uploader_antenna": self.user_antenna,
-            "time_received": datetime.datetime.utcnow().strftime(
+            "time_received": datetime.datetime.now(datetime.timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%S.%fZ"
             ),
         }

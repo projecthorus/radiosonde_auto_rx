@@ -366,7 +366,7 @@ def flask_export_log_files(serialb64=None):
 
         _zip = zip_log_files(_serial_list)
 
-        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+        _ts = datetime.datetime.strftime(datetime.datetime.now(datetime.timezone.utc), "%Y%m%d-%H%M%SZ")
 
         response = make_response(
             flask.send_file(
@@ -415,7 +415,7 @@ def flask_generate_kml(serialb64=None):
         log_files_to_kml(_log_files, _kml_file)
         _kml_file.seek(0)
 
-        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+        _ts = datetime.datetime.strftime(datetime.datetime.now(datetime.timezone.utc), "%Y%m%d-%H%M%SZ")
 
         response = make_response(
             flask.send_file(
@@ -667,7 +667,7 @@ class WebHandler(logging.Handler):
             # Convert log record into a dictionary
             log_data = {
                 "level": record.levelname,
-                "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "msg": record.msg,
             }
             # Emit to all socket.io clients

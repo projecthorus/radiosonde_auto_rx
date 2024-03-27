@@ -417,7 +417,7 @@ def process_directory(log_dir, output_dir, status_file, time_limit = 60):
 
 
             # Calculate the age of the last data point in minutes.
-            _data_age = (pytz.utc.localize(datetime.datetime.utcnow()) - parse(last_time)).total_seconds() / 60.0
+            _data_age = (datetime.datetime.now(datetime.timezone.utc) - parse(last_time)).total_seconds() / 60.0
             if burst or (_data_age > time_limit):
                 # We consider this file to be finished.
                 _log_status[_basename]['complete'] = True
