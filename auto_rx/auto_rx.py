@@ -787,7 +787,7 @@ def main():
     autorx.logging_path = logging_path
 
     # Configure logging
-    _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
+    _log_suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)
 
     system_log_enabled = False

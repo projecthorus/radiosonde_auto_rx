@@ -16,7 +16,7 @@ def fix_datetime(datetime_str, local_dt_str=None):
 	"""
 
     if local_dt_str is None:
-        _now = datetime.datetime.utcnow()
+        _now = datetime.datetime.now(datetime.timezone.utc)
     else:
         _now = parse(local_dt_str)
 

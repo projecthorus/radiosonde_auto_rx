@@ -220,7 +220,7 @@ class SondeDecoder(object):
 
         # Raw hex filename
         if self.save_raw_hex:
-            _outfilename = f"{datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')}_{self.sonde_type}_{int(self.sonde_freq)}.raw"
+            _outfilename = f"{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')}_{self.sonde_type}_{int(self.sonde_freq)}.raw"
             _outfilename = os.path.join(autorx.logging_path, _outfilename)
             self.raw_file_option = "-r"
         else:
@@ -1520,7 +1520,7 @@ class SondeDecoder(object):
                     )
 
                     # Overwrite the datetime field to make the email notifier happy
-                    _telemetry['datetime_dt'] = datetime.datetime.utcnow()
+                    _telemetry['datetime_dt'] = datetime.datetime.now(datetime.timezone.utc)
                     _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
 
                     # Send this to only the Email Notifier, if it exists.
