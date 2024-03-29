@@ -197,6 +197,10 @@
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
                 $.getJSON("get_scan_data", function(data){
+                    if (data.freq.length == 0) {
+                        return;
+                    }
+
                     // Load the data into our data stores.
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
