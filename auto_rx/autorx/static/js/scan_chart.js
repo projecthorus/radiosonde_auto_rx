@@ -96,20 +96,11 @@ function redraw_scan_chart(){
 		}
 
 	// Show the latest scan time.
-	var date = new Date(scan_chart_latest_timestamp);
-	var date_options = {
-		hourCycle: 'h23',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		timeZoneName: 'short'
-	};
-	if (getCookie('UTC') != 'false') {
-		date_options.timeZone = 'UTC';
+	if (getCookie('UTC') == 'false') {
+		var date = new Date(scan_chart_latest_timestamp);
+		var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
+	} else {
+		var date_converted = scan_chart_latest_timestamp.slice(0, 19).replace("T", " ") + ' UTC'
 	}
-	var date_converted = date.toLocaleString(window.navigator.language, date_options);
 	$('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
 }
