@@ -467,6 +467,7 @@ save_cal_data = False
 ###########################
 [web]
 # Server Host - Can be set to :: to listen on IPv6
+# Leave this at 0.0.0.0 to have the web server listen on all interfaces.
 web_host = 0.0.0.0
 # Server Port - Ports below 1024 can only be used if you run auto_rx as root (not recommended)
 web_port = 5000
