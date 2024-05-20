@@ -801,7 +801,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         ret = (gpx->sonde_typ & 0xF);
     }
 
-    dfm17_0xA = (gpx->SN > 23050000 && gpx->option.inv);  // detected Manchester type/polarity could depend on receiver/sdr
+    // 23038743, 2307....
+    dfm17_0xA = (gpx->SN >= 23000000 && gpx->option.inv);  // detected Manchester type/polarity could depend on receiver/sdr
 
     if (conf_id >= 0 && conf_id <= 8 && ec == 0) {
         gpx->cfgchk24[conf_id] = 1;
