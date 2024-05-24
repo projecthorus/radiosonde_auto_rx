@@ -2,6 +2,8 @@
 #
 # Auto Sonde Decoder build script.
 
+set -e
+
 # Get the auto-rx version.
 AUTO_RX_VERSION="\"$(python3 -m autorx.version 2>/dev/null || python -m autorx.version)\""
 
