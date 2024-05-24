@@ -25,6 +25,7 @@
  *  author: zilog80
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -203,7 +204,7 @@ static void Gps2Date(gpx_t *gpx) {
 // ------------------------------------------------------------------------
 
 static ui8_t vit_code[N];
-static int vitCodes_init = 0;
+static bool vitCodes_init = false;
 
 static int vit_initCodes(gpx_t *gpx) {
     int cA, cB;
@@ -213,7 +214,7 @@ static int vit_initCodes(gpx_t *gpx) {
     if (pv == NULL) return -1;
     gpx->vit = pv;
 
-    if ( vitCodes_init == 0 ) {
+    if ( !vitCodes_init ) {
         for (bits = 0; bits < N; bits++) {
             cA = 0;
             cB = 0;
@@ -223,7 +224,7 @@ static int vit_initCodes(gpx_t *gpx) {
             }
             vit_code[bits] = (cA<<1) | cB;
         }
-        vitCodes_init = 1;
+        vitCodes_init = true;
     }
 
     return 0;
