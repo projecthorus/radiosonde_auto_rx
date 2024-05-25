@@ -6,7 +6,7 @@ alternative decoders using cross-correlation for better header-synchronization
 #### Files
 
   * `demod_mod.c`, `demod_mod.h`, <br />
-    `rs41mod.c`, `rs92mod.c`, `dfm09mod.c`, `m10mod.c`, `lms6mod.c`, `lms6Xmod.c`, `meisei100mod.c`, <br />
+    `rs41mod.c`, `rs92mod.c`, `dfm09mod.c`, `m10mod.c`, `lms6Xmod.c`, `meisei100mod.c`, <br />
     `bch_ecc_mod.c`, `bch_ecc_mod.h`
 
 #### Compile
