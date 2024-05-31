@@ -233,6 +233,16 @@ class SondehubUploader(object):
             _output["type"] = "WxR-301D"
             _output["serial"] = telemetry["id"].split("-")[1]
 
+            # Double check for the subtype being present, just in case...
+            if "subtype" in telemetry:
+                if telemetry["subtype"] == "WXR_PN9":
+                    _output["type"] = "WxR-301D (PN9)"
+
+        elif telemetry["type"] == "WXRPN9":
+            _output["manufacturer"] = "Weathex"
+            _output["type"] = "WxR-301D (PN9)"
+            _output["serial"] = telemetry["id"].split("-")[1]
+
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
             return None
