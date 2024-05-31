@@ -212,6 +212,8 @@ def short_type_lookup(type_name):
         return "Meteosis MTS01"
     elif type_name == "WXR301":
         return "Weathex WxR-301D"
+    elif type_name == "WXRPN9":
+        return "Weathex WxR-301D (PN9 Variant)"
     else:
         return "Unknown"
 
@@ -256,6 +258,8 @@ def short_short_type_lookup(type_name):
         return "MTS01"
     elif type_name == "WXR301":
         return "WXR301"
+    elif type_name == "WXRPN9":
+        return "WXR301(PN9)"
     else:
         return "Unknown"
 

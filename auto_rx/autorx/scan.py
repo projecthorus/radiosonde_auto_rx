@@ -620,6 +620,15 @@ def detect_sonde(
         # to do no whitening on the signal.
         _offset_est = 0.0
 
+    elif "WXRPN9" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde (PN9 Variant)! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXRPN9"
+        # Clear out the offset estimate for WxR-301's as it's not accurate
+        # to do no whitening on the signal.
+        _offset_est = 0.0
     else:
         _sonde_type = None
 
