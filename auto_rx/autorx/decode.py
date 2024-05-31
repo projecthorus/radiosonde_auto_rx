@@ -1342,8 +1342,8 @@ class SondeDecoder(object):
         elif self.sonde_type == "WXRPN9":
             # Weathex WxR-301D Sonde, PN9 variant
 
-            _baud_rate = 4800
-            _sample_rate = 96000
+            _baud_rate = 5000
+            _sample_rate = 100000
 
             # Limit FSK estimator window to roughly +/- 40 kHz
             _lower = -40000
