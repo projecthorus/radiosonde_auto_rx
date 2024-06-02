@@ -236,11 +236,11 @@ class SondehubUploader(object):
             # Double check for the subtype being present, just in case...
             if "subtype" in telemetry:
                 if telemetry["subtype"] == "WXR_PN9":
-                    _output["type"] = "WxR-301D (PN9)"
+                    _output["subtype"] = "WxR-301D-5k"
 
         elif telemetry["type"] == "WXRPN9":
             _output["manufacturer"] = "Weathex"
-            _output["type"] = "WxR-301D (PN9)"
+            _output["type"] = "WxR-301D-5k"
             _output["serial"] = telemetry["id"].split("-")[1]
 
         else:
