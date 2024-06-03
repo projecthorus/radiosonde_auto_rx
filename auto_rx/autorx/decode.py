@@ -1368,7 +1368,7 @@ class SondeDecoder(object):
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             # Trying out using the mask estimator here to reduce issues with interference
-            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --mask 60000 --stats=%d 2 %d %d - -" % (
+            demod_cmd += "./fsk_demod --cs16 -s -b %d -u %d --mask 50000 --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
