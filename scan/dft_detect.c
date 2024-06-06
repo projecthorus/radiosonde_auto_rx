@@ -1018,8 +1018,11 @@ static int init_buffers() {
         float f_lp; // dec_lowpass: lowpass_bw/2
         float t_bw; // dec_lowpass: transition_bw
         int taps; // dec_lowpass: taps
+        int wideIF = 0;
 
         if (set_lpIQ > IF_sr) IF_sr = set_lpIQ;
+
+        wideIF = IF_sr > 60e3;
 
         sr_base = sample_rate;
 
@@ -1030,8 +1033,13 @@ static int init_buffers() {
             decM = sr_base / IF_sr;
         }
 
-        f_lp = (IF_sr+20e3)/(4.0*sr_base);
+        f_lp = (IF_sr+20e3)/(4.0*sr_base);    // IF=48k
         t_bw = (IF_sr-20e3)/*/2.0*/;
+        if (wideIF) {                         // IF=96k
+            f_lp = (IF_sr+60e3)/(4.0*sr_base);
+            t_bw = (IF_sr-60e3)/*/2.0*/;
+        }
+        else
         if (option_min) {
             t_bw = (IF_sr-12e3);
         }
