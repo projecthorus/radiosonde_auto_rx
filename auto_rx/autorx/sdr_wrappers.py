@@ -5,6 +5,7 @@
 #   Copyright (C) 2022  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import logging
 import os.path
 import platform
@@ -12,6 +13,7 @@ import subprocess
 import numpy as np
 
 from .utils import rtlsdr_test, reset_rtlsdr_by_serial, reset_all_rtlsdrs, timeout_cmd
+from .ka9q import *
 
 
 def test_sdr(
@@ -51,13 +53,86 @@ def test_sdr(
 
     
     elif sdr_type == "KA9Q":
-        # To be implemented
-        _ok = False
+        # Test that a KA9Q server is working by attempting to start up a new narrowband channel on it.
 
-        if not _ok:
-            logging.error(f"KA9Q Server {sdr_hostname}:{sdr_port} non-functional.")
+        # Check for presence of KA9Q-radio binaries that we need
+        # if not os.path.isfile('tune'):
+        #     logging.critical("Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed.")
+        #     return False
+        # if not os.path.isfile('pcmcat'):
+        #     logging.critical("Could not find KA9Q-Radio 'pcmcat' binary! This may need to be compiled and installed.")
+        #     return False
+        # TBD - whatever we need for spectrum use.
+        # if not os.path.isfile('TBD'):
+        #     logging.critical("Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed.")
+        #     return False
 
-        return _ok
+
+        # Try and configure a channel at check_freq Hz
+        # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
+        _cmd = (
+            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"tune "
+            f"--samprate 48000 --mode iq "
+            f"--frequency {int(check_freq)} "
+            f"--ssrc {int(check_freq)}314 "
+            f"--radio {sdr_hostname}"
+        )
+
+        logging.debug(f"KA9Q - Testing using command: {_cmd}")
+
+        try:
+            _output = subprocess.check_output(
+                _cmd, shell=True, stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError as e:
+            # Something went wrong...
+
+            if e.returncode == 124:
+                logging.critical(
+                    f"KA9Q ({sdr_hostname}) - tune call failed with a timeout. Is the server running?"
+                )
+            elif e.returncode == 127:
+                logging.critical(
+                    f"KA9Q ({sdr_hostname}) - Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed."
+                )
+            else:
+                logging.critical(
+                    f"KA9Q ({sdr_hostname}) - tune call failed with return code {e.returncode}."
+                )
+                # Look at the error output in a bit more details.
+                #_output = e.output.decode("ascii")
+
+            # TODO - see if we can look in the output for any error messages.
+            return False
+        
+        # Now close the channel we just opened by setting the frequency to 0 Hz.
+        _cmd = (
+            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"tune "
+            f"--samprate 48000 --mode iq "
+            f"--frequency 0 "
+            f"--ssrc {int(check_freq)}314 "
+            f"--radio {sdr_hostname}"
+        )
+
+        logging.debug(f"KA9Q - Closing testing channel using command: {_cmd}")
+        try:
+            _output = subprocess.check_output(
+                _cmd, shell=True, stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError as e:
+            # Something went wrong...
+            logging.critical(
+                f"KA9Q ({sdr_hostname}) - tune call (closing channel) failed with return code {e.returncode}."
+            )
+            # Look at the error output in a bit more details.
+            #_output = e.output.decode("ascii")
+
+            # TODO - see if we can look in the output for any error messages.
+            return False
+
+        return True
 
     elif sdr_type == "SpyServer":
         # Test connectivity to a SpyServer by trying to grab some samples.
@@ -71,7 +146,7 @@ def test_sdr(
             f"{ss_iq_path} "
             f"-f {check_freq} "
             f"-s 48000 "
-            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null 2> /dev/null"
+            f"-r {sdr_hostname} -q {sdr_port} -n 48000 - > /dev/null"
         )
 
         logging.debug(f"SpyServer - Testing using command: {_cmd}")
@@ -85,6 +160,12 @@ def test_sdr(
             logging.critical(
                 f"SpyServer ({sdr_hostname}:{sdr_port}) - ss_iq call failed with return code {e.returncode}."
             )
+            # Look at the error output in a bit more details.
+            _output = e.output.decode("ascii")
+            if "outside currently allowed range" in _output:
+                logging.critical(
+                    f"SpyServer ({sdr_hostname}:{sdr_port}) - SpyServer does not cover required frequency {check_freq}, please check your SpyServer configuration!"
+                )
             return False
 
         return True
@@ -150,7 +231,7 @@ def get_sdr_name(
         return f"RTLSDR {rtl_device_idx}"
 
     elif sdr_type == "KA9Q":
-        return f"KA9Q {sdr_hostname}:{sdr_port}"
+        return f"KA9Q {sdr_hostname}"
     
     elif sdr_type == "SpyServer":
         return f"SpyServer {sdr_hostname}:{sdr_port}"
@@ -161,7 +242,9 @@ def get_sdr_name(
 
 def shutdown_sdr(
     sdr_type: str,
-    sdr_id: str
+    sdr_id: str,
+    sdr_hostname = "",
+    frequency: int = None
     ):
     """
     Function to trigger shutdown/cleanup of some SDR types.
@@ -172,8 +255,8 @@ def shutdown_sdr(
     """
 
     if sdr_type == "KA9Q":
-        # TODO - KA9Q Server channel cleanup.
-        logging.debug(f"TODO - Cleanup for SDR type {sdr_type}")
+        logging.debug(f"KA9Q - Closing Channel for {sdr_hostname} @ {frequency} Hz.")
+        ka9q_close_channel(sdr_hostname, frequency)
         pass
     else:
         logging.debug(f"No shutdown action required for SDR type {sdr_type}")
@@ -267,6 +350,14 @@ def get_sdr_iq_cmd(
             f"-s {int(sample_rate)} "
             f"-r {sdr_hostname} -q {sdr_port} - 2>/dev/null|"
         )
+
+        if dc_block:
+            _cmd += _dc_remove
+
+        return _cmd
+    
+    if sdr_type == "KA9Q":
+        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate)
 
         if dc_block:
             _cmd += _dc_remove
@@ -474,7 +565,7 @@ def get_power_spectrum(
         # Use rtl_power to obtain power spectral density data
 
         # Create filename to output to.
-        _log_filename = f"log_power_{rtl_device_idx}.csv"
+        _log_filename = os.path.join(autorx.logging_path, f"log_power_{rtl_device_idx}.csv")
         
         # If the output log file exists, remove it.
         if os.path.exists(_log_filename):
@@ -548,7 +639,7 @@ def get_power_spectrum(
         # Use a spyserver to obtain power spectral density data
 
         # Create filename to output to.
-        _log_filename = f"log_power_spyserver.csv"
+        _log_filename = os.path.join(autorx.logging_path, f"log_power_spyserver.csv")
         
         # If the output log file exists, remove it.
         if os.path.exists(_log_filename):
@@ -608,8 +699,9 @@ def get_power_spectrum(
 
     else:
         # Unsupported SDR Type
-        logging.critical(f"Get PSD - Unsupported SDR Type: {sdr_type}")
-        return (None, None, None)
+        logging.debug(f"Get PSD - Unsupported SDR Type: {sdr_type}")
+        return (np.array([0,1,2]),np.array([0,1,2]),1)
+        #return (None, None, None)
 
 if __name__ == "__main__":
 

@@ -43,7 +43,6 @@ auto_rx/fsk_demod
 auto_rx/imet1rs_dft
 auto_rx/iq_dec
 auto_rx/lms6Xmod
-auto_rx/lms6mod
 auto_rx/m10mod
 auto_rx/m20mod
 auto_rx/mk2a1680mod
@@ -61,7 +60,6 @@ mk2a_lms1680
 demod/dfm09ecc
 demod/mod/dfm09mod
 demod/mod/lms6Xmod
-demod/mod/lms6mod
 demod/mod/meisei100mod
 demod/mod/rs41mod
 demod/mod/rs92mod

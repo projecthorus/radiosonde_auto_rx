@@ -122,17 +122,29 @@
                             return cell.getValue().toFixed(3);
                         }},
                     {title:"Count", field:"lines", width:72, resizable:false, headerTooltip:"Received Lines of Telemetry"}, // 75
-                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height (m)",
+                    {title:"Last H", field:"min_height", width:75, resizable:false, headerTooltip:"Last Observed Height",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " m"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*3.28084.toFixed(0) + " ft";
+                            } else {
+                                return cell.getValue() + " m";
+                            }
                         }},
-                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range (km)",
+                    {title:"Last R", field:"last_range", width:75, resizable:false, headerTooltip:"Last Observed Range",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " km"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*0.621371.toFixed(0) + " mi";
+                            } else {
+                                return cell.getValue() + " km";
+                            }
                         }},
-                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range (km))",
+                    {title:"Max R", field:"max_range", width:73, resizable:false, headerTooltip:"Maximum Observed Range",
                         formatter:function(cell, formatterParams, onRendered){
-                            return cell.getValue() + " km"; //return the contents of the cell;
+                            if (getCookie('imperial') == 'true') {
+                                return cell.getValue()*0.621371.toFixed(0) + " mi";
+                            } else {
+                                return cell.getValue() + " km";
+                            }
                         }},
                     {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
@@ -169,6 +181,7 @@
                 $("#showsonde-skew").prop('disabled', true);
                 $("#hidesonde-skew").prop('disabled', true);
                 $("#download-logs").prop('disabled', true);
+                $("#generate-kml").prop('disabled', true);
             }
 
             async function enableMenu () {
@@ -182,6 +195,7 @@
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
                 $("#download-logs").prop('disabled', false);
+                $("#generate-kml").prop('disabled', false);
             }
 
             if ((window.innerWidth/window.innerHeight) < 1) {
@@ -963,6 +977,41 @@
                 downloadLogs();
             });
             
+            function generateKML() {
+                // Generate a KML file from a set of log files.
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    // Create the list of log files.
+                    _serial_list = [];
+                    for (let i = 0; i < selectedrows.length; i++){
+                        _serial_list.push(selectedrows[i]['serial']);
+                    }
+
+                    if(_serial_list.length>50){
+                        if (confirm("Warning - downloading lots of log may take some time. Are you sure?")) {
+                            // Just continue on.
+                        } else {
+                            return;
+                        }
+                    }
+
+                    if(_serial_list.length == table.getData().length){
+                        // Request all log files
+                        window.open("generate_kml" , '_blank');
+                    }else {
+                        // Just request the selected ones.
+                        // Convert the list to JSON, and then to base64
+                        b64 = btoa(JSON.stringify(_serial_list));
+                        // Make the request in a new tab
+                        window.open("generate_kml/"+b64 , '_blank');
+                    }
+                }
+            }
+
+            $("#generate-kml").click(function(){
+                generateKML();
+            });
+
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
             var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
@@ -1460,6 +1509,7 @@
                 <button id="showsonde-coverage" style="margin:3px auto">Plot Coverage</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
                 <button id="download-logs" style="margin:3px auto">Download Logs</button>
+                <button id="generate-kml" style="margin:3px auto">Generate KML</button>
             </div>
             <br>
             </div>

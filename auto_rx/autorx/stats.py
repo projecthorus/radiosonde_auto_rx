@@ -74,10 +74,10 @@ def radio_horizon_plot(log_files, min_range_km=10, max_range_km=1000, save_figur
     plt.grid()
 
 
-def normalised_snr(log_files, min_range_km=10, max_range_km=1000, maxsnr=False, meansnr=True, normalise=True):
+def normalised_snr(log_files, min_range_km=10, max_range_km=1000, maxsnr=False, meansnr=True, normalise=True, norm_range=50):
     """ Read in ALL log files and store snr data into a set of bins, normalised to 50km range. """
 
-    _norm_range = 50 # km
+    _norm_range = norm_range # km
 
     _snr_count = 0
 
@@ -198,6 +198,12 @@ if __name__ == "__main__":
         default=False,
         help="Generate Normalised SNR Map (Maximum SNR)"
     )
+    parser.add_argument(
+        "--normrange",
+        type=float,
+        default=50,
+        help="Normalistion Range (km, default=50)"
+    )
 
     parser.add_argument(
         "-v", "--verbose", help="Enable debug output.", action="store_true"
@@ -213,6 +219,8 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)s:%(message)s", level=_log_level
     )
 
+    autorx.logging_path = args.log
+
     # Read in the config and make it available to other functions
     _temp_cfg = read_auto_rx_config(args.config, no_sdr_test=True)
     autorx.config.global_config = _temp_cfg
@@ -220,7 +228,7 @@ if __name__ == "__main__":
 
     # Read in the log files.
     logging.info("Quick-Looking Log Files")
-    log_list = list_log_files(quicklook=True)
+    log_list = list_log_files(quicklook=True, custom_log_dir=args.log)
     logging.info(f"Loaded in {len(log_list)} log files.")
 
 
@@ -228,13 +236,13 @@ if __name__ == "__main__":
         radio_horizon_plot(log_list)
 
     if args.snrmap:
-        normalised_snr(log_list)
+        normalised_snr(log_list, norm_range=args.normrange)
     
     if args.snrmapmax:
         normalised_snr(log_list, meansnr=False, maxsnr=True, normalise=False)
 
     if args.snrmapmaxnorm:
-        normalised_snr(log_list, meansnr=False, maxsnr=True, normalise=True)
+        normalised_snr(log_list, meansnr=False, maxsnr=True, normalise=True, norm_range=args.normrange)
 
     plt.show()
 

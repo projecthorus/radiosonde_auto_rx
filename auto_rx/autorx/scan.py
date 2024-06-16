@@ -26,7 +26,7 @@ from .utils import (
     peak_decimation,
     timeout_cmd
 )
-from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum
+from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum, shutdown_sdr
 
 
 try:
@@ -434,6 +434,10 @@ def detect_sonde(
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
         ret_output = ret_output.decode("utf8")
+
+        # Release the SDR channel if necessary
+        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency)
+
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
         # logging.debug("Scanner - dfm_detect return code: %s" % e.returncode)
@@ -452,7 +456,7 @@ def detect_sonde(
     except Exception as e:
         # Something broke when running the detection function.
         logging.error(
-            f"Scanner ({_sdr_name}) - Error when running dft_detect - {sdr(e)}"
+            f"Scanner ({_sdr_name}) - Error when running dft_detect - {str(e)}"
         )
         return (None, 0.0)
 
@@ -616,6 +620,15 @@ def detect_sonde(
         # to do no whitening on the signal.
         _offset_est = 0.0
 
+    elif "WXRPN9" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde (PN9 Variant)! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXRPN9"
+        # Clear out the offset estimate for WxR-301's as it's not accurate
+        # to do no whitening on the signal.
+        _offset_est = 0.0
     else:
         _sonde_type = None
 
@@ -965,7 +978,7 @@ class SondeScanner(object):
             (_freq_decimate, _power_decimate) = peak_decimation(freq / 1e6, power, 10)
             scan_result["freq"] = list(_freq_decimate)
             scan_result["power"] = list(_power_decimate)
-            scan_result["timestamp"] = datetime.datetime.utcnow().isoformat()
+            scan_result["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             scan_result["peak_freq"] = []
             scan_result["peak_lvl"] = []
 

@@ -38,7 +38,6 @@ from autorx.scan import SondeScanner
 from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
-from autorx.habitat import HabitatUploader
 from autorx.aprs import APRSUploader
 from autorx.ozimux import OziUploader
 from autorx.sondehub import SondehubUploader
@@ -244,7 +243,7 @@ def start_decoder(freq, sonde_type, continuous=False):
             _exp_sonde_type = sonde_type
 
         if continuous:
-            _timeout = 0
+            _timeout = 3600*6 # 6 hours before a 'continuous' decoder gets restarted automatically.
         else:
             _timeout = config["rx_timeout"]
 
@@ -445,7 +444,8 @@ def clean_task_list():
 
             else:
                 # Shutdown the SDR, if required for the particular SDR type.
-                shutdown_sdr(config["sdr_type"], _task_sdr)
+                if _key != 'SCAN':
+                    shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_key)
                 # Release its associated SDR.
                 autorx.sdr_list[_task_sdr]["in_use"] = False
                 autorx.sdr_list[_task_sdr]["task"] = None
@@ -505,6 +505,12 @@ def stop_all():
     for _task in autorx.task_list.keys():
         try:
             autorx.task_list[_task]["task"].stop()
+
+            # Release the SDR channel if necessary
+            _task_sdr = autorx.task_list[_task]["device_idx"]
+            if _task != 'SCAN':
+                shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_task)
+
         except Exception as e:
             logging.error("Error stopping task - %s" % str(e))
 
@@ -759,9 +765,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # Copy out timeout value, and convert to seconds,
-    _timeout = args.timeout * 60
-
     # Copy out RS92 ephemeris value, if provided.
     if args.ephemeris != "None":
         rs92_ephemeris = args.ephemeris
@@ -784,7 +787,7 @@ def main():
     autorx.logging_path = logging_path
 
     # Configure logging
-    _log_suffix = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S_system.log")
+    _log_suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H%M%S_system.log")
     _log_path = os.path.join(logging_path, _log_suffix)
 
     system_log_enabled = False
@@ -819,6 +822,11 @@ def main():
     logging.getLogger("socketio").setLevel(logging.ERROR)
     logging.getLogger("engineio").setLevel(logging.ERROR)
     logging.getLogger("geventwebsocket").setLevel(logging.ERROR)
+
+    # Copy out timeout value, and convert to seconds.
+    if args.timeout > 0:
+        logging.info(f"Will shut down automatically after {args.timeout} minutes.")
+    _timeout = args.timeout * 60
 
     # Check all the RS utilities exist.
     logging.debug("Checking if required binaries exist")
@@ -925,30 +933,6 @@ def main():
 
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
-
-    # Habitat Uploader - DEPRECATED - Sondehub DB now in use (>1.5.0)
-    # if config["habitat_enabled"]:
-
-    #     if config["habitat_upload_listener_position"] is False:
-    #         _habitat_station_position = None
-    #     else:
-    #         _habitat_station_position = (
-    #             config["station_lat"],
-    #             config["station_lon"],
-    #             config["station_alt"],
-    #         )
-
-    #     _habitat = HabitatUploader(
-    #         user_callsign=config["habitat_uploader_callsign"],
-    #         user_antenna=config["habitat_uploader_antenna"],
-    #         station_position=_habitat_station_position,
-    #         synchronous_upload_time=config["habitat_upload_rate"],
-    #         callsign_validity_threshold=config["payload_id_valid"],
-    #         url=config["habitat_url"],
-    #     )
-
-    #     exporter_objects.append(_habitat)
-    #     exporter_functions.append(_habitat.add)
 
     # APRS Uploader
     if config["aprs_enabled"]:

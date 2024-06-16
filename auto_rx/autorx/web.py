@@ -8,19 +8,30 @@
 import base64
 import copy
 import datetime
+import glob
+import io
 import json
 import logging
+import os
 import random
 import requests
 import time
 import traceback
 import sys
+import xml.etree.ElementTree as ET
 import autorx
 import autorx.config
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
-from autorx.log_files import list_log_files, read_log_by_serial, zip_log_files
+from autorx.log_files import (
+    list_log_files,
+    read_log_by_serial,
+    zip_log_files,
+    log_files_to_kml,
+    coordinates_to_kml_placemark,
+    path_to_kml_placemark
+)
 from autorx.decode import SondeDecoder
 from queue import Queue
 from threading import Thread
@@ -28,15 +39,6 @@ import flask
 from flask import request, abort, make_response, send_file
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
-import re
-
-try:
-    from simplekml import Kml, AltitudeMode
-except ImportError:
-    print(
-        "Could not import simplekml! Try running: sudo pip3 install -r requirements.txt"
-    )
-    sys.exit(1)
 
 
 # Inhibit Flask warning message about running a development server... (we know!)
@@ -146,47 +148,60 @@ def flask_get_task_list():
 def flask_get_kml():
     """ Return KML with autorefresh """
 
-    _config = autorx.config.global_config
-    kml = Kml()
-    netlink = kml.newnetworklink(name="Radiosonde Auto-RX Live Telemetry")
-    netlink.open = 1
-    netlink.link.href = flask.request.url_root + "rs_feed.kml"
-    try:
-        netlink.link.refreshinterval = _config["kml_refresh_rate"]
-    except KeyError:
-        netlink.link.refreshinterval = 10
-    netlink.link.refreshmode = "onInterval"
-    return kml.kml(), 200, {"content-type": "application/vnd.google-earth.kml+xml"}
+    kml_root = ET.Element("kml", xmlns="http://www.opengis.net/kml/2.2")
+    kml_doc = ET.SubElement(kml_root, "Document")
+
+    network_link = ET.SubElement(kml_doc, "NetworkLink")
+
+    name = ET.SubElement(network_link, "name")
+    name.text = "Radiosonde Auto-RX Live Telemetry"
+
+    open = ET.SubElement(network_link, "open")
+    open.text = "1"
+
+    link = ET.SubElement(network_link, "Link")
+
+    href = ET.SubElement(link, "href")
+    href.text = flask.request.url_root + "rs_feed.kml"
+
+    refresh_mode = ET.SubElement(link, "refreshMode")
+    refresh_mode.text = "onInterval"
+
+    refresh_interval = ET.SubElement(link, "refreshInterval")
+    refresh_interval.text = str(autorx.config.global_config["kml_refresh_rate"])
+
+    kml_string = ET.tostring(kml_root, encoding="UTF-8", xml_declaration=True)
+    return kml_string, 200, {"content-type": "application/vnd.google-earth.kml+xml"}
 
 
 @app.route("/rs_feed.kml")
 def flask_get_kml_feed():
     """ Return KML with RS telemetry """
-    kml = Kml()
-    kml.resetidcounter()
-    kml.document.name = "Track"
-    kml.document.open = 1
+    kml_root = ET.Element("kml", xmlns="http://www.opengis.net/kml/2.2")
+    kml_doc = ET.SubElement(kml_root, "Document")
+
+    name = ET.SubElement(kml_doc, "name")
+    name.text = "Track"
+    open = ET.SubElement(kml_doc, "open")
+    open.text = "1"
+
     # Station Placemark
-    pnt = kml.newpoint(
-        name="Ground Station",
-        altitudemode=AltitudeMode.absolute,
+    kml_doc.append(coordinates_to_kml_placemark(
+        autorx.config.global_config["station_lat"],
+        autorx.config.global_config["station_lon"],
+        autorx.config.global_config["station_alt"],
+        name=autorx.config.global_config["habitat_uploader_callsign"],
         description="AutoRX Ground Station",
-    )
-    pnt.open = 1
-    pnt.iconstyle.icon.href = flask.request.url_root + "static/img/antenna-green.png"
-    pnt.coords = [
-        (
-            autorx.config.global_config["station_lon"],
-            autorx.config.global_config["station_lat"],
-            autorx.config.global_config["station_alt"],
-        )
-    ]
+        absolute=True,
+        icon=flask.request.url_root + "static/img/antenna-green.png"
+    ))
+
     for rs_id in flask_telemetry_store:
         try:
             coordinates = []
 
             for tp in flask_telemetry_store[rs_id]["track"].track_history:
-                coordinates.append((tp[2], tp[1], tp[3]))
+                coordinates.append((tp[1], tp[2], tp[3]))
 
             rs_data = """\
             {type}/{subtype}
@@ -205,56 +220,59 @@ def flask_get_kml_feed():
                 icon = flask.request.url_root + "static/img/parachute-green.png"
 
             # Add folder
-            fol = kml.newfolder(name=rs_id)
+            folder = ET.SubElement(kml_doc, "Folder", id=f"folder_{rs_id}")
+            name = ET.SubElement(folder, "name")
+            name.text = rs_id
+            open = ET.SubElement(folder, "open")
+            open.text = "1"
+
             # HAB Placemark
-            pnt = fol.newpoint(
+            folder.append(coordinates_to_kml_placemark(
+                flask_telemetry_store[rs_id]["latest_telem"]["lat"],
+                flask_telemetry_store[rs_id]["latest_telem"]["lon"],
+                flask_telemetry_store[rs_id]["latest_telem"]["alt"],
                 name=rs_id,
-                altitudemode=AltitudeMode.absolute,
-                description=rs_data.format(
-                    **flask_telemetry_store[rs_id]["latest_telem"]
-                ),
-            )
-            pnt.iconstyle.icon.href = icon
-            pnt.coords = [
+                description=rs_data.format(**flask_telemetry_store[rs_id]["latest_telem"]),
+                absolute=True,
+                icon=icon
+            ))
+
+            # Track
+            folder.append(path_to_kml_placemark(
+                coordinates,
+                name="Track",
+                absolute=True,
+                extrude=True
+            ))
+
+            # LOS line
+            coordinates = [
                 (
-                    flask_telemetry_store[rs_id]["latest_telem"]["lon"],
-                    flask_telemetry_store[rs_id]["latest_telem"]["lat"],
-                    flask_telemetry_store[rs_id]["latest_telem"]["alt"],
-                )
-            ]
-            linestring = fol.newlinestring(name="Track")
-            linestring.coords = coordinates
-            linestring.altitudemode = AltitudeMode.absolute
-            linestring.extrude = 1
-            linestring.stylemap.normalstyle.linestyle.color = "ff03bafc"
-            linestring.stylemap.highlightstyle.linestyle.color = "ff03bafc"
-            linestring.stylemap.normalstyle.polystyle.color = "AA03bafc"
-            linestring.stylemap.highlightstyle.polystyle.color = "CC03bafc"
-            # Add LOS line
-            linestring = fol.newlinestring(name="LOS")
-            linestring.altitudemode = AltitudeMode.absolute
-            linestring.coords = [
-                (
-                    autorx.config.global_config["station_lon"],
                     autorx.config.global_config["station_lat"],
+                    autorx.config.global_config["station_lon"],
                     autorx.config.global_config["station_alt"],
                 ),
                 (
-                    flask_telemetry_store[rs_id]["latest_telem"]["lon"],
                     flask_telemetry_store[rs_id]["latest_telem"]["lat"],
+                    flask_telemetry_store[rs_id]["latest_telem"]["lon"],
                     flask_telemetry_store[rs_id]["latest_telem"]["alt"],
                 ),
             ]
+            folder.append(path_to_kml_placemark(
+                coordinates,
+                name="LOS",
+                track_color="ffffffff",
+                absolute=True,
+                extrude=False
+            ))
+
         except Exception as e:
             logging.error(
                 "KML - Could not parse data from RS %s - %s" % (rs_id, str(e))
             )
 
-    return (
-        re.sub("<Document.*>", "<Document>", kml.kml()),
-        200,
-        {"content-type": "application/vnd.google-earth.kml+xml"},
-    )
+    kml_string = ET.tostring(kml_root, encoding="UTF-8", xml_declaration=True)
+    return kml_string, 200, {"content-type": "application/vnd.google-earth.kml+xml"}
 
 
 @app.route("/get_config")
@@ -335,19 +353,20 @@ def flask_get_log_by_serial_detail():
         return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
 
 
+@app.route("/export_all_log_files")
 @app.route("/export_log_files/<serialb64>")
-def flask_export_selected_log_files(serialb64):
+def flask_export_log_files(serialb64=None):
     """ 
     Zip and download a set of log files.
     The list of log files is provided in the URL as a base64-encoded JSON list.
     """
 
     try:
-        _serial_list = json.loads(base64.b64decode(serialb64))
+        _serial_list = json.loads(base64.b64decode(serialb64)) if serialb64 else None
 
         _zip = zip_log_files(_serial_list)
 
-        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+        _ts = datetime.datetime.strftime(datetime.datetime.now(datetime.timezone.utc), "%Y%m%d-%H%M%SZ")
 
         response = make_response(
             flask.send_file(
@@ -369,23 +388,41 @@ def flask_export_selected_log_files(serialb64):
         abort(400)
 
 
-@app.route("/export_all_log_files")
-def flask_export_all_log_files():
+@app.route("/generate_kml")
+@app.route("/generate_kml/<serialb64>")
+def flask_generate_kml(serialb64=None):
     """ 
-    Zip and download all log files. This may take some time.
+    Generate a KML file from a set of log files.
+    The list of log files is provided in the URL as a base64-encoded JSON list.
     """
 
     try:
-        _zip = zip_log_files()
+        if serialb64:
+            _serial_list = json.loads(base64.b64decode(serialb64))
+            _log_files = []
+            for _serial in _serial_list:
+                _log_mask = os.path.join(autorx.logging_path, f"*_*{_serial}_*_sonde.log")
+                _matching_files = glob.glob(_log_mask)
 
-        _ts = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y%m%d-%H%M%SZ")
+                if len(_matching_files) >= 1:
+                    _log_files.append(_matching_files[0])
+        else:
+            _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+            _log_files = glob.glob(_log_mask)
+
+        _kml_file = io.BytesIO()
+        _log_files.sort(reverse=True)
+        log_files_to_kml(_log_files, _kml_file)
+        _kml_file.seek(0)
+
+        _ts = datetime.datetime.strftime(datetime.datetime.now(datetime.timezone.utc), "%Y%m%d-%H%M%SZ")
 
         response = make_response(
             flask.send_file(
-                _zip,
-                mimetype="application/zip",
+                _kml_file,
+                mimetype="application/vnd.google-earth.kml+xml",
                 as_attachment=True,
-                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.zip",
+                download_name=f"autorx_logfiles_{autorx.config.global_config['habitat_uploader_callsign']}_{_ts}.kml",
             )
         )
 
@@ -396,7 +433,7 @@ def flask_export_all_log_files():
         return response
 
     except Exception as e:
-        logging.error("Web - Error handling Zip request:" + str(e))
+        logging.error("Web - Error handling KML request:" + str(e))
         abort(400)
 
 #
@@ -464,7 +501,11 @@ def flask_start_decoder():
 def flask_stop_decoder():
     """ Request that a decoder process be halted. 
     Example:
-    curl -d "freq=403250000" -X POST http://localhost:5000/stop_decoder
+
+    curl -d "freq=403250000&password=foobar" -X POST http://localhost:5000/stop_decoder
+
+    Stop decoder and lockout for temporary_block_time
+    curl -d "freq=403250000&password=foobar&lockout=1" -X POST http://localhost:5000/stop_decoder
     """
 
     if request.method == "POST" and autorx.config.global_config["web_control"]:
@@ -476,10 +517,15 @@ def flask_stop_decoder():
         ):
             _freq = float(request.form["freq"])
 
+            _lockout = False
+            if "lockout" in request.form:
+                if int(request.form["lockout"]) == 1:
+                    _lockout = True
+
             logging.info("Web - Got decoder stop request: %f" % (_freq))
 
             if _freq in autorx.task_list:
-                autorx.task_list[_freq]["task"].stop(nowait=True)
+                autorx.task_list[_freq]["task"].stop(nowait=True, temporary_lockout=_lockout)
                 return "OK"
             else:
                 # If we aren't running a decoder, 404.
@@ -621,7 +667,7 @@ class WebHandler(logging.Handler):
             # Convert log record into a dictionary
             log_data = {
                 "level": record.levelname,
-                "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "msg": record.msg,
             }
             # Emit to all socket.io clients

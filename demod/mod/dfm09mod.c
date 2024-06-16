@@ -704,6 +704,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
     ui32_t SN6, SN;
     ui8_t dfm6typ;
     ui8_t sn2_ch, sn_ch;
+    int dfm17_0xA = 0;
 
 
     conf_id = bits2val(conf_bits, 4);
@@ -777,9 +778,9 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                         gpx->SN = SN;
 
                         gpx->ptu_out = 0;
-                        if (sn_ch == 0xA /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; // <+> DFM-09
+                        if (sn_ch == 0xA /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; // <+> DFM-09 (T+) / <-> DFM-17 (T-)
                         if (sn_ch == 0xB /*&& (sn2_ch & 0xF) == 0xC*/) gpx->ptu_out = sn_ch; // <-> DFM-17
-                        if (sn_ch == 0xC) gpx->ptu_out = sn_ch; // <+> DFM-09P(?) , <-> DFM-17TU(?)
+                        if (sn_ch == 0xC) gpx->ptu_out = sn_ch; // <+> DFM-09P / <-> DFM-17TU
                         if (sn_ch == 0xD) gpx->ptu_out = sn_ch; // <-> DFM-17P(?)
                         // PS-15 ? (sn2_ch & 0xF) == 0x0 :  gpx->ptu_out = 0 // <-> PS-15
 
@@ -800,6 +801,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         ret = (gpx->sonde_typ & 0xF);
     }
 
+    // 23038743, 2307....
+    dfm17_0xA = (gpx->SN >= 23000000 && gpx->option.inv);  // detected Manchester type/polarity could depend on receiver/sdr
 
     if (conf_id >= 0 && conf_id <= 8 && ec == 0) {
         gpx->cfgchk24[conf_id] = 1;
@@ -827,6 +830,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
             gpx->sensortyp = 'P'; // gpx->meas24[0] > 2e5 ?
         }
         if ( ((gpx->ptu_out == 0xB || gpx->ptu_out == 0xC) && gpx->sensortyp == 'T') || gpx->ptu_out >= 0xD) gpx->Rf = 332e3; // DFM-17 ?
+        if (gpx->ptu_out == 0xA && gpx->sensortyp == 'T' && dfm17_0xA) gpx->Rf = 332e3; // DFM-17 ?
 
         if (gpx->ptu_out == 6 && (gpx->sonde_typ & 0xF) == 8) {
             gpx->sensortyp = 'P';
@@ -846,7 +850,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                 val = bits2val(conf_bits+8, 4*4);
                 gpx->status[1] = val/100.0;
             }
-            if (conf_id == 0x7+ofs && gpx->Rf > 300e3) { // DFM17 counter
+            if (conf_id == 0x7+ofs && gpx->Rf > 300e3) { // DFM17 counter (also DFM09?)
                 val = bits2val(conf_bits+8, 4*4);
                 gpx->status[2] = val/1.0; // sec counter
             }
@@ -862,6 +866,7 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
                             V/Ti    Tf012           Rf
         0xA     DFM-09      5/6     0,3,4   'T+'    220k
         0xC     DFM-09P     7/8     1,5,6   'P+'    220k
+        0xA     DFM-17      5/6     0,3,4   'T-'    332k
         0xB     DFM-17      5/6     0,3,4   'T-'    332k
         0xC     DFM-17TU    5/6     0,3,4   'T-'    332k
         0xD     DFM-17P     7/8     1,5,6   'P-'    332k
@@ -874,7 +879,8 @@ static int conf_out(gpx_t *gpx, ui8_t *conf_bits, int ec) {
         case 0x8: if (gpx->SN6)  gpx->dfmtyp = DFM_types[DFM06P]; //gpx->sensortyp == 'P'
                   else           gpx->dfmtyp = DFM_types[PS15];
                   break;
-        case 0xA: gpx->dfmtyp = DFM_types[DFM09];
+        case 0xA: if (dfm17_0xA) gpx->dfmtyp = DFM_types[DFM17];
+                  else           gpx->dfmtyp = DFM_types[DFM09];
                   break;
         case 0xB: gpx->dfmtyp = DFM_types[DFM17];
                   break;
@@ -1364,10 +1370,7 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "--ecc" ) == 0) ) { option_ecc = 1; }
         else if ( (strcmp(*argv, "--ecc2") == 0) ) { option_ecc = 2; }
-        else if ( (strcmp(*argv, "--ptu") == 0) ) {
-            option_ptu = 1;
-            //gpx.ptu_out = 1; // force ptu (non PS-15)
-        }
+        else if ( (strcmp(*argv, "--ptu") == 0) ) {  option_ptu = 1; }  //gpx.ptu_out = 1; // force ptu (non PS-15)
         else if ( (strcmp(*argv, "--spike") == 0) ) {
             spike = 1;
         }

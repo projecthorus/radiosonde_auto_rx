@@ -12,7 +12,7 @@
 import socket, json, sys, traceback
 from threading import Thread
 from dateutil.parser import parse
-from datetime import datetime, timedelta
+import datetime
 from io import StringIO
 import time
 
@@ -26,7 +26,7 @@ def fix_datetime(datetime_str, local_dt_str = None):
     '''
 
     if local_dt_str is None:
-        _now = datetime.utcnow()
+        _now = datetime.datetime.now(datetime.timezone.utc)
     else:
         _now = parse(local_dt_str)
 
@@ -54,18 +54,18 @@ def fix_datetime(datetime_str, local_dt_str = None):
         # We are within the window, and need to adjust the day backwards or forwards based on the sonde time.
         if _telem_dt.hour == 23 and _now.hour == 0:
             # Assume system clock running slightly fast, and subtract a day from the telemetry date.
-            _telem_dt = _telem_dt - timedelta(days=1)
+            _telem_dt = _telem_dt - datetime.timedelta(days=1)
 
         elif _telem_dt.hour == 00 and _now.hour == 23:
             # System clock running slow. Add a day.
-            _telem_dt = _telem_dt + timedelta(days=1)
+            _telem_dt = _telem_dt + datetime.timedelta(days=1)
 
         return _telem_dt
 
 def udp_listener_nmea_callback(info):
     ''' Handle a Payload Summary Message from UDPListener '''
 
-    dateRS = datetime.strptime(info['time'], '%H:%M:%S')
+    dateRS = datetime.datetime.strptime(info['time'], '%H:%M:%S')
 
     hms = dateRS.hour*10000.0+dateRS.minute*100.0+dateRS.second+dateRS.microsecond;
     dateNMEA = dateRS.year%100+dateRS.month*100+dateRS.day*10000

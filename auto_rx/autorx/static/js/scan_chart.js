@@ -97,13 +97,10 @@ function redraw_scan_chart(){
 
 	// Show the latest scan time.
 	if (getCookie('UTC') == 'false') {
-		temp_date = scan_chart_latest_timestamp;
-		temp_date = temp_date.slice(0, -3);
-		temp_date += "Z";
-		var date = new Date(temp_date);
+		var date = new Date(scan_chart_latest_timestamp);
 		var date_converted = date.toLocaleString(window.navigator.language,{hourCycle:'h23', year:"numeric", month:"2-digit", day:'2-digit', hour:'2-digit',minute:'2-digit', second:'2-digit'});
-		$('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
 	} else {
-		$('#scan_results').html('<b>Latest Scan:</b> ' + (scan_chart_latest_timestamp.slice(0, -3) + 'Z').replace("T", " ").replace("Z", "").slice(0, -4) + ' UTC');
+		var date_converted = scan_chart_latest_timestamp.slice(0, 19).replace("T", " ") + ' UTC'
 	}
+	$('#scan_results').html('<b>Latest Scan:</b> ' + date_converted);
 }

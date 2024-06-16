@@ -14,6 +14,7 @@ import logging
 import os.path
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -200,14 +201,17 @@ def log_quick_look(filename):
         return _output
 
 
-def list_log_files(quicklook=False):
+def list_log_files(quicklook=False, custom_log_dir=None):
     """ Look for all sonde log files within the logging directory """
 
     # Output list, which will contain one object per log file, ordered by time
     _output = []
 
     # Search for file matching the expected log file name
-    _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
+    if custom_log_dir:
+        _log_mask = os.path.join(custom_log_dir, "*_sonde.log")
+    else:
+        _log_mask = os.path.join(autorx.logging_path, "*_sonde.log")
     _log_files = glob.glob(_log_mask)
 
     # Sort alphanumerically, which will result in the entries being date ordered
@@ -516,6 +520,126 @@ def zip_log_files(serial_list=None):
 
     # Return the BytesIO object
     return data
+
+
+def coordinates_to_kml_placemark(lat, lon, alt,
+                                 name="Placemark Name",
+                                 description="Placemark Description",
+                                 absolute=False,
+                                 icon="https://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
+                                 scale=1.0):
+    """ Generate a generic placemark object """
+
+    placemark = ET.Element("Placemark")
+
+    pm_name = ET.SubElement(placemark, "name")
+    pm_name.text = name
+    pm_desc = ET.SubElement(placemark, "description")
+    pm_desc.text = description
+
+    style = ET.SubElement(placemark, "Style")
+    icon_style = ET.SubElement(style, "IconStyle")
+    icon_scale = ET.SubElement(icon_style, "scale")
+    icon_scale.text = str(scale)
+    pm_icon = ET.SubElement(icon_style, "Icon")
+    href = ET.SubElement(pm_icon, "href")
+    href.text = icon
+
+    point = ET.SubElement(placemark, "Point")
+    if absolute:
+        altitude_mode = ET.SubElement(point, "altitudeMode")
+        altitude_mode.text = "absolute"
+    coordinates = ET.SubElement(point, "coordinates")
+    coordinates.text = f"{lon:.6f},{lat:.6f},{alt:.6f}"
+
+    return placemark
+
+
+def path_to_kml_placemark(flight_path,
+                          name="Flight Path Name",
+                          track_color="ff03bafc",
+                          poly_color="8003bafc",
+                          track_width=2.0,
+                          absolute=True,
+                          extrude=True):
+    ''' Produce a placemark object from a flight path array '''
+
+    placemark = ET.Element("Placemark")
+
+    pm_name = ET.SubElement(placemark, "name")
+    pm_name.text = name
+
+    style = ET.SubElement(placemark, "Style")
+    line_style = ET.SubElement(style, "LineStyle")
+    color = ET.SubElement(line_style, "color")
+    color.text = track_color
+    width = ET.SubElement(line_style, "width")
+    width.text = str(track_width)
+    if extrude:
+        poly_style = ET.SubElement(style, "PolyStyle")
+        color = ET.SubElement(poly_style, "color")
+        color.text = poly_color
+        fill = ET.SubElement(poly_style, "fill")
+        fill.text = "1"
+        outline = ET.SubElement(poly_style, "outline")
+        outline.text = "1"
+
+    line_string = ET.SubElement(placemark, "LineString")
+    if absolute:
+        if extrude:
+            ls_extrude = ET.SubElement(line_string, "extrude")
+            ls_extrude.text = "1"
+        altitude_mode = ET.SubElement(line_string, "altitudeMode")
+        altitude_mode.text = "absolute"
+    else:
+        ls_tessellate = ET.SubElement(line_string, "tessellate")
+        ls_tessellate.text = "1"
+    coordinates = ET.SubElement(line_string, "coordinates")
+    coordinates.text = " ".join(f"{lon:.6f},{lat:.6f},{alt:.6f}" for lat, lon, alt in flight_path)
+
+    return placemark
+
+
+def _log_file_to_kml_folder(filename, absolute=True, extrude=True, last_only=False):
+    ''' Convert a single sonde log file to a KML Folder object '''
+
+    # Read file.
+    _flight_data = read_log_file(filename)
+
+    _flight_serial = _flight_data["serial"]
+    _landing_time = _flight_data["last_time"]
+    _landing_pos = _flight_data["path"][-1]
+
+    _folder = ET.Element("Folder")
+    _name = ET.SubElement(_folder, "name")
+    _name.text = _flight_serial
+
+    # Generate the placemark & flight track.
+    _folder.append(coordinates_to_kml_placemark(_landing_pos[0], _landing_pos[1], _landing_pos[2],
+                                                name=_flight_serial, description=_landing_time, absolute=absolute))
+    if not last_only:
+        _folder.append(path_to_kml_placemark(_flight_data["path"], name="Track",
+                                             absolute=absolute, extrude=extrude))
+
+    return _folder
+
+
+def log_files_to_kml(file_list, kml_file, absolute=True, extrude=True, last_only=False):
+    """ Convert a collection of log files to a KML file """
+
+    kml_root = ET.Element("kml", xmlns="http://www.opengis.net/kml/2.2")
+    kml_doc = ET.SubElement(kml_root, "Document")
+
+    for file in file_list:
+        logging.debug(f"Converting {file} to KML")
+        try:
+            kml_doc.append(_log_file_to_kml_folder(file, absolute=absolute,
+                                                   extrude=extrude, last_only=last_only))
+        except Exception:
+            logging.exception(f"Failed to convert {file} to KML")
+
+    tree = ET.ElementTree(kml_root)
+    tree.write(kml_file, encoding="UTF-8", xml_declaration=True)
 
 
 if __name__ == "__main__":

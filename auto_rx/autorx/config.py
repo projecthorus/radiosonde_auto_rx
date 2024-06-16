@@ -27,11 +27,10 @@ global_config = {
 # Web interface credentials
 web_password = "none"
 
-# Fixed minimum update rates for APRS & Habitat
-# These are set to avoid congestion on the APRS-IS network, and on the Habitat server
-# Please respect other users of these networks and leave these settings as they are.
+# Fixed minimum update rate for APRS
+# This is set to avoid congestion on the APRS-IS network
+# Please respect other users of the network and leave this setting as it is.
 MINIMUM_APRS_UPDATE_RATE = 30
-MINIMUM_HABITAT_UPDATE_RATE = 30
 
 
 def read_auto_rx_config(filename, no_sdr_test=False):
@@ -98,12 +97,9 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "radius_temporary_block": False,
         # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
         # Habitat Settings
-        "habitat_enabled": False,
-        "habitat_upload_rate": 30,
         "habitat_uploader_callsign": "SONDE_AUTO_RX",
         "habitat_uploader_antenna": "1/4-wave",
         "habitat_upload_listener_position": False,
-        "habitat_payload_callsign": "<id>",
         # APRS Settings
         "aprs_enabled": False,
         "aprs_upload_rate": 30,
@@ -166,12 +162,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "save_system_log": False,
         "enable_debug_logging": False,
         "save_cal_data": False,
-        # URL for the Habitat DB Server.
-        # As of July 2018 we send via sondehub.org, which will allow us to eventually transition away
-        # from using the habhub.org tracker, and leave it for use by High-Altitude Balloon Hobbyists.
-        # For now, sondehub.org just acts as a proxy to habhub.org.
-        # This setting is not exposed to users as it's only used for unit/int testing
-        "habitat_url": "https://habitat.sondehub.org/",
         # New Sondehub DB Settings
         "sondehub_enabled": True,
         "sondehub_upload_rate": 30,
@@ -298,12 +288,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["max_altitude"] = config.getint("filtering", "max_altitude")
         auto_rx_config["max_radius_km"] = config.getint("filtering", "max_radius_km")
 
-        # Habitat Settings
-        # Deprecated from v1.5.0
-        # auto_rx_config["habitat_enabled"] = config.getboolean(
-        #     "habitat", "habitat_enabled"
-        # )
-        # auto_rx_config["habitat_upload_rate"] = config.getint("habitat", "upload_rate")
         auto_rx_config["habitat_uploader_callsign"] = config.get(
             "habitat", "uploader_callsign"
         )
@@ -313,19 +297,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["habitat_uploader_antenna"] = config.get(
             "habitat", "uploader_antenna"
         ).strip()
-
-        # try:  # Use the default configuration if not found
-        #     auto_rx_config["habitat_url"] = config.get("habitat", "url")
-        # except:
-        #     pass
-
-        # Deprecated from v1.5.0
-        # if auto_rx_config["habitat_upload_rate"] < MINIMUM_HABITAT_UPDATE_RATE:
-        #     logging.warning(
-        #         "Config - Habitat Update Rate clipped to minimum of %d seconds. Please be respectful of other users of Habitat."
-        #         % MINIMUM_HABITAT_UPDATE_RATE
-        #     )
-        #     auto_rx_config["habitat_upload_rate"] = MINIMUM_HABITAT_UPDATE_RATE
 
         # APRS Settings
         auto_rx_config["aprs_enabled"] = config.getboolean("aprs", "aprs_enabled")
@@ -457,7 +428,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "MEISEI": True,
             "MTS01": False, # Until we test it
             "MRZ": False,  # .... except for the MRZ, until we know it works.
-            "WXR301": True, # No fsk_demod chain for this yet.
+            "WXR301": True,
+            "WXRPN9": True,
             "UDP": False,
         }
 
@@ -564,7 +536,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             logging.warning(
                 "Config - Did not find kml_refresh_rate setting, using default (10 seconds)."
             )
-            auto_rx_config["kml_refresh_rate"] = 11
+            auto_rx_config["kml_refresh_rate"] = 10
 
         # New Sondehub db Settings
         try:
@@ -867,7 +839,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 return None
 
             for _n in range(1, auto_rx_config["sdr_quantity"] + 1):
-                _sdr_name = f"KA9Q{_n:02d}"
+                _sdr_name = f"KA9Q-{_n:02d}"
                 auto_rx_config["sdr_settings"][_sdr_name] = {
                     "ppm": 0,
                     "gain": 0,
@@ -876,8 +848,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                     "task": None,
                 }
             
-            logging.critical("Config - KA9Q SDR Support not implemented yet - exiting.")
-            return None
         
         else:
             logging.critical(f"Config - Unknown SDR Type {auto_rx_config['sdr_type']} - exiting.")

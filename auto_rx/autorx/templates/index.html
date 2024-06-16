@@ -197,6 +197,10 @@
                 // There is Scan data ready for us!
                 // Grab the latest set of data.
                 $.getJSON("get_scan_data", function(data){
+                    if (data.freq.length == 0) {
+                        return;
+                    }
+
                     // Load the data into our data stores.
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
@@ -688,17 +692,6 @@
                         sonde_id_data.vel_v = sonde_id_data.vel_v.toFixed(1);
                         sonde_id_data.vel_h = (sonde_id_data.vel_h*3.6).toFixed(1);
 
-
-                        // Add a link to HabHub if we have habitat enabled.
-                        // if (autorx_config.sondehub_enabled == true) {
-                        //     sonde_id_data.id = "<a href='http://sondehub.org/" + sonde_id.replace(/^(DFM|M10|M20|IMET|IMET54|MRZ)-/,"") + "' target='_blank'>" + sonde_id  + "</a>";
-                        // // These links are only going to work for Vaisala radiosondes since the APRS callsign is never passed through to the web interface,
-                        // // and the APRS callsigns for everything other than RS41s and RS92s is different to the 'full' serials
-                        // } else if (autorx_config.aprs_enabled == true && autorx_config.aprs_server == "radiosondy.info") {
-                        //     sonde_id_data.id = "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + sonde_id + "' target='_blank'>" + sonde_id + "</a>";
-                        // } else if (autorx_config.aprs_enabled == true) {
-                        //     sonde_id_data.id = "<a href='https://aprs.fi/#!call=" + sonde_id + "&timerange=3600&tail=3600' target='_blank'>" + sonde_id + "</a>";
-                        // }
 
                         sonde_id_data.realid = sonde_id;
 
@@ -1672,6 +1665,7 @@
                 <option value="MRZ">MRZ-H1</option>
                 <option value="MTS01">MTS01</option>
                 <option value="WXR301">WXR301</option>
+                <option value="WXRPN9">WXR301 (PN9 variant)</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="start-decoder" onclick="start_decoder();">Start</button>
@@ -1683,6 +1677,9 @@
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="stop-decoder" onclick="stop_decoder();">Stop</button>
+            </div>
+            <div style="display:inline;vertical-align:middle;">
+                <button id="stop-decoder-lockout" onclick="stop_decoder_lockout();">Temp Block</button>
             </div>
             <h2>Scanner Control</h2>
             <p>Scanner</p>

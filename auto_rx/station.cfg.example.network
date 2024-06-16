@@ -22,8 +22,8 @@
 # 
 # EXPERIMENTAL / NOT IMPLEMENTED options:
 # SpyServer - Use an Airspy SpyServer
-# KA9Q - Use a KA9Q SDR Server (Not yet implemented)
-# WARNING: These are still under development and may not work.
+# KA9Q - Use a KA9Q-Radio Server 
+# WARNING: These are still under development and may not work correctly.
 #
 sdr_type = SpyServer
 
@@ -44,9 +44,9 @@ sdr_quantity = 5
 #
 # Network SDR Connection Details
 #
-# If using either a KA9Q or SpyServer network server, the hostname and port
-# of the server needs to be defined below. Usually this will be running on the
-# same machine as auto_rx, so the defaults are usually fine.
+# If using a spyserver, the hostname and port need to be defined below.
+# Is using KA9Q-Radio, the hostname of the 'radio' server (e.g. sonde.local) needs to be
+# defined, and the port number is unused.
 #
 sdr_hostname = localhost
 sdr_port = 5555
@@ -467,6 +467,7 @@ save_cal_data = False
 ###########################
 [web]
 # Server Host - Can be set to :: to listen on IPv6
+# Leave this at 0.0.0.0 to have the web server listen on all interfaces.
 web_host = 0.0.0.0
 # Server Port - Ports below 1024 can only be used if you run auto_rx as root (not recommended)
 web_port = 5000

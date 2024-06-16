@@ -223,7 +223,7 @@ class TelemetryLogger(object):
             else:
                 # Create a new log file.
                 _log_suffix = "%s_%s_%s_%d_sonde.log" % (
-                    datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+                    datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"),
                     _id,
                     _type,
                     int(telemetry["freq_float"] * 1e3),  # Convert frequency to kHz
@@ -287,7 +287,7 @@ class TelemetryLogger(object):
             _type += "-XDATA"
 
         _subframe_log_suffix = "%s_%s_%s_%d_subframe.bin" % (
-            datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
+            datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"),
             _id,
             _type,
             int(telemetry["freq_float"] * 1e3),  # Convert frequency to kHz

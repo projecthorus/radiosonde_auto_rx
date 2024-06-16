@@ -1,10 +1,8 @@
 
 /*
-    Malaysia
-    401100 kHz  (64kHz wide)
-    2023-05-12 ([ 4400]  12:20:37  alt: 12616.6  lat: 2.6785  lon: 101.5827)
-    2023-07-27 ([ 6402]  00:47:32  alt: 26835.9  lat: 2.6918  lon: 101.5025)
-    Weathex WxR-301D w/o PN9
+    Weathex WxR-301D (64kHz wide)
+    UAII2022 Lindenberg: w/ PN9, 5000 baud
+    Malaysia: w/o PN9, 4800 baud
 */
 
 #include <stdio.h>
@@ -38,25 +36,21 @@ int option_verbose = 0,
     wavloaded = 0;
 int wav_channel = 0;     // audio channel: left
 
+int option_pn9 = 0;
 
-#define BAUD_RATE  4800.0 // (4997.2) // 5000
+#define BAUD_RATE      4800.0
+#define BAUD_RATE_PN9  5000.0 //(4997.2) // 5000
 
 #define FRAMELEN    69 //64
 #define BITFRAMELEN (8*FRAMELEN)
-/*
-#define HEADLEN 56
-#define HEADOFS 0
-char header[] = "10101010""10101010""10101010"   // AA AA AA (preamble)
-                "11000001""10010100""11000001";  // C1 94 C1
-*/
-//preamble_header_sn1: 101010101010101010101010 1100000110010100110000011100011001111000 110001010110110111100100
-//preamble_header_sn2: 101010101010101010101010 1100000110010100110000011100011001111000 001100100110110111100100
-//preamble_header_sn3: 101010101010101010101010 1100000110010100110000011100011001111000 001010000110110111100100
 
-#define HEADLEN 40 //48
+#define HEADLEN 40
 #define HEADOFS 0
+char header_pn9[] = "10101010""10101010""10101010"//"10101010"      // AA AA AA  (preamble)
+                    "11000001""10010100"; //"11000001""11000110";   // C1 94 (C1 C6)
+
 char header[] = "10101010""10101010""10101010"       // AA AA AA (preamble)
-                "00101101""11010100"; //"10101010";  // 2D D4 55/AA
+                "00101101""11010100"; //"10101010";  // 2D D4 (55/AA)
 
 char buf[HEADLEN+1] = "xxxxxxxxxx\0";
 int bufpos = 0;
@@ -65,6 +59,7 @@ char frame_bits[BITFRAMELEN+1];
 ui8_t frame_bytes[FRAMELEN+1];
 ui8_t xframe[FRAMELEN+1];
 
+float baudrate = BAUD_RATE;
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -131,7 +126,7 @@ int read_wav_header(FILE *fp) {
 
     if (sample_rate == 900001) sample_rate -= 1;
 
-    samples_per_bit = sample_rate/(float)BAUD_RATE;
+    samples_per_bit = sample_rate/(float)baudrate;
 
     fprintf(stderr, "samples/bit: %.2f\n", samples_per_bit);
 
@@ -252,9 +247,9 @@ int f32soft_read(FILE *fp, float *s) {
 }
 
 
-int compare() {
+int compare(char *hdr) {
     int i=0;
-    while ((i < HEADLEN) && (buf[(bufpos+i) % HEADLEN] == header[HEADLEN+HEADOFS-1-i])) {
+    while ((i < HEADLEN) && (buf[(bufpos+i) % HEADLEN] == hdr[HEADLEN+HEADOFS-1-i])) {
         i++;
     }
     return i;
@@ -266,9 +261,9 @@ char inv(char c) {
     return c;
 }
 
-int compare2() {
+int compare2(char *hdr) {
     int i=0;
-    while ((i < HEADLEN) && (buf[(bufpos+i) % HEADLEN] == inv(header[HEADLEN+HEADOFS-1-i]))) {
+    while ((i < HEADLEN) && (buf[(bufpos+i) % HEADLEN] == inv(hdr[HEADLEN+HEADOFS-1-i]))) {
         i++;
     }
     return i;
@@ -307,8 +302,8 @@ int bits2bytes(char *bitstr, ui8_t *bytes) {
 // cf. https://www.ti.com/lit/an/swra322/swra322.pdf
 //     https://destevez.net/2019/07/lucky-7-decoded/
 //
-// counter low byte: frame[OFS+4] XOR 0xCC
-// zero bytes, frame[OFS+30]: 0C CA C9 FB 49 37 E5 A8
+// counter low byte: frame[ofs+4] XOR 0xCC
+// zero bytes, frame[ofs+30]: 0C CA C9 FB 49 37 E5 A8
 //
 ui8_t  PN9b[64] = { 0xFF, 0x87, 0xB8, 0x59, 0xB7, 0xA1, 0xCC, 0x24,
                     0x57, 0x5E, 0x4B, 0x9C, 0x0E, 0xE9, 0xEA, 0x50,
@@ -356,7 +351,10 @@ typedef struct {
 gpx_t gpx;
 
 
-#define OFS 6  // xPN9: OFS=8, different baud
+// xPN9: OFS=8, 5000 baud ; w/o PN9: OFS=6, 4800 baud
+#define OFS      6
+#define OFS_PN9  8
+int ofs = OFS;
 
 int print_frame() {
     int j;
@@ -366,12 +364,14 @@ int print_frame() {
 
     for (j = 0; j < FRAMELEN; j++) {
         ui8_t b = frame_bytes[j];
-        //if (j >= 6) b ^= PN9b[(j-6)%64]; // PN9 baud diff
+        if (option_pn9) {
+            if (j >= 6) b ^= PN9b[(j-6)%64];
+        }
         xframe[j] = b;
     }
 
-    chkval = xor8sum(xframe+OFS, 53);
-    chkdat = (xframe[OFS+53]<<8) | xframe[OFS+53+1];
+    chkval = xor8sum(xframe+ofs, 53);
+    chkdat = (xframe[ofs+53]<<8) | xframe[ofs+53+1];
     chk_ok = (chkdat == chkval);
 
     if (option_raw) {
@@ -398,12 +398,12 @@ int print_frame() {
         int val;
 
         // SN
-        sn = xframe[OFS] | (xframe[OFS+1]<<8) | (xframe[OFS+2]<<16) | (xframe[OFS+3]<<24);
+        sn = xframe[ofs] | (xframe[ofs+1]<<8) | (xframe[ofs+2]<<16) | (xframe[ofs+3]<<24);
 
         // counter
-        cnt = xframe[OFS+4] | (xframe[OFS+5]<<8);
+        cnt = xframe[ofs+4] | (xframe[ofs+5]<<8);
 
-        ui8_t frid = xframe[OFS+6];
+        ui8_t frid = xframe[ofs+6];
 
         if (frid == 1)
         {
@@ -436,7 +436,7 @@ int print_frame() {
 
             // time/UTC
             int hms;
-            hms = xframe[OFS+7] | (xframe[OFS+8]<<8) | (xframe[OFS+9]<<16);
+            hms = xframe[ofs+7] | (xframe[ofs+8]<<8) | (xframe[ofs+9]<<16);
             hms &= 0x3FFFF;
             //printf(" (%6d) ", hms);
             ui8_t h =  hms / 10000;
@@ -448,30 +448,35 @@ int print_frame() {
             gpx.sec = s;
 
             // alt
-            val = xframe[OFS+13] | (xframe[OFS+14]<<8) | (xframe[OFS+15]<<16);
+            val = xframe[ofs+13] | (xframe[ofs+14]<<8) | (xframe[ofs+15]<<16);
             val >>= 4;
             val &= 0x7FFFF; // int19 ?
             //if (val & 0x40000) val -= 0x80000; ?? or sign bit ?
             float alt = val / 10.0f;
             printf(" alt: %.1f ", alt);  // MSL
             gpx.alt = alt;
+            int val_alt = val;
 
             // lat
-            val = xframe[OFS+15] | (xframe[OFS+16]<<8) | (xframe[OFS+17]<<16) | (xframe[OFS+18]<<24);
+            val = xframe[ofs+15] | (xframe[ofs+16]<<8) | (xframe[ofs+17]<<16) | (xframe[ofs+18]<<24);
             val >>= 7;
             val &= 0x1FFFFFF; // int25 ?  ?? sign NMEA N/S ?
             //if (val & 0x1000000) val -= 0x2000000; // sign bit ?  (or 90 -> -90 wrap ?)
             float lat = val / 1e5f;
             printf(" lat: %.4f ", lat);
             gpx.lat = lat;
+            int val_lat = val;
 
             // lon
-            val = xframe[OFS+19] | (xframe[OFS+20]<<8) | (xframe[OFS+21]<<16)| (xframe[OFS+22]<<24);
+            val = xframe[ofs+19] | (xframe[ofs+20]<<8) | (xframe[ofs+21]<<16)| (xframe[ofs+22]<<24);
             val &= 0x3FFFFFF; // int26 ?  ?? sign NMEA E/W ?
             //if (val & 0x2000000) val -= 0x4000000; // or sign bit ?  (or 180 -> -180 wrap ?)
             float lon = val / 1e5f;
             printf(" lon: %.4f ", lon);
             gpx.lon = lon;
+            int val_lon = val;
+
+            int zero_pos = val_alt == 0 && val_lat == 0 && val_lon == 0;
 
             // checksum
             printf("  %s", chk_ok ? "[OK]" : "[NO]");
@@ -480,7 +485,7 @@ int print_frame() {
             printf("\n");
 
             // JSON
-            if (option_json && gpx.chk2ok) {
+            if (option_json && gpx.chk2ok && !zero_pos) {
                 if (gpx.chk1ok && gpx.sn2 == gpx.sn1 && gpx.cnt2 == gpx.cnt1) // double check, unreliable checksums
                 {
                     char *ver_jsn = NULL;
@@ -492,6 +497,10 @@ int print_frame() {
 
                     // if data from subframe1,
                     // check  gpx.chk1ok && gpx.sn1==gpx.sn2 && gpx.cnt1==gpx.cnt2
+
+                    if (option_pn9) {
+                        fprintf(stdout, ", \"subtype\": \"WXR_PN9\"");
+                    }
 
                     if (gpx.jsn_freq > 0) {
                         fprintf(stdout, ", \"freq\": %d", gpx.jsn_freq );
@@ -527,6 +536,7 @@ int main(int argc, char **argv) {
     int header_found = 0;
     int cfreq = -1;
 
+    char *hdr = header;
 
     fpname = argv[0];
     ++argv;
@@ -538,6 +548,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "       -b\n");
             return 0;
         }
+        else if   (strcmp(*argv, "--pn9") == 0) { option_pn9 = 1; }
         else if ( (strcmp(*argv, "-i") == 0) || (strcmp(*argv, "--invert") == 0) ) {
             option_inv = 1;
         }
@@ -575,6 +586,11 @@ int main(int argc, char **argv) {
     }
     if (!wavloaded) fp = stdin;
 
+    if (option_pn9) {
+        baudrate = BAUD_RATE_PN9;
+        hdr = header_pn9;
+        ofs = OFS_PN9;
+    }
 
     if ( !option_softin ) {
         i = read_wav_header(fp);
@@ -592,7 +608,7 @@ int main(int argc, char **argv) {
     {
         float s = 0.0f;
         int bit = 0;
-        sample_rate = BAUD_RATE;
+        sample_rate = baudrate;
         sample_count = 0;
 
         while (!f32soft_read(fp, &s)) {
@@ -605,12 +621,12 @@ int main(int argc, char **argv) {
 
             if (!header_found)
             {
-                h = compare(); //h2 = compare2();
+                h = compare(hdr); //h2 = compare2(hdr);
                 if ((h >= HEADLEN)) {
                     header_found = 1;
                     fflush(stdout);
                     if (option_timestamp) printf("<%8.3f> ", sample_count/(double)sample_rate);
-                    strncpy(frame_bits, header, HEADLEN);
+                    strncpy(frame_bits, hdr, HEADLEN);
                     bit_count += HEADLEN;
                     frames++;
                 }
@@ -649,12 +665,12 @@ int main(int argc, char **argv) {
 
                 if (!header_found)
                 {
-                    h = compare(); //h2 = compare2();
+                    h = compare(hdr); //h2 = compare2(hdr);
                     if ((h >= HEADLEN)) {
                         header_found = 1;
                         fflush(stdout);
                         if (option_timestamp) printf("<%8.3f> ", sample_count/(double)sample_rate);
-                        strncpy(frame_bits, header, HEADLEN);
+                        strncpy(frame_bits, hdr, HEADLEN);
                         bit_count += HEADLEN;
                         frames++;
                     }
