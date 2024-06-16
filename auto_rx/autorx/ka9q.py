@@ -119,9 +119,10 @@ def ka9q_get_iq_cmd(
     # Get the 'PCM' version of the server name, where as assume -pcm is added to the first part of the hostname.
     _pcm_host = sdr_hostname.split('.')[0] + "-pcm." + ".".join(sdr_hostname.split(".")[1:])
 
-    # pcmcat -2 -s 404090000 sonde-pcm.local
+    # Example: pcmcat -s 404090000 sonde-pcm.local
+    # -2 option was removed sometime in early 2024.
     _cmd = (
-        f"pcmcat -2 "
+        f"pcmcat "
         f"-s {int(frequency)} "
         f"{_pcm_host} |"
     )
