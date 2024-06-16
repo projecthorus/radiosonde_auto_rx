@@ -75,7 +75,7 @@ def test_sdr(
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
-            f"--ssrc {int(check_freq)} "
+            f"--ssrc {int(check_freq)}314 "
             f"--radio {sdr_hostname}"
         )
 
@@ -112,7 +112,7 @@ def test_sdr(
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency 0 "
-            f"--ssrc {int(check_freq)} "
+            f"--ssrc {int(check_freq)}314 "
             f"--radio {sdr_hostname}"
         )
 
