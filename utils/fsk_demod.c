@@ -77,12 +77,14 @@ int main(int argc,char *argv[]){
     int nsym = FSK_DEFAULT_NSYM;
     int mask = 0;
     int tx_tone_separation = 100;
+    int softinv = 0;
 
     int o = 0;
     int opt_idx = 0;
     while( o != -1 ){
         static struct option long_opts[] = {
             {"help",      no_argument,        0, 'h'},
+            {"softinv",   no_argument,        0, 'i'},
             {"conv",      required_argument,  0, 'p'},
             {"cs16",      no_argument,        0, 'c'},
             {"cu8",       no_argument,        0, 'd'},
@@ -96,7 +98,7 @@ int main(int argc,char *argv[]){
             {0, 0, 0, 0}
         };
 
-        o = getopt_long(argc,argv,"fhlp:cdt::sb:u:m",long_opts,&opt_idx);
+        o = getopt_long(argc,argv,"fhilp:cdt::sb:u:m",long_opts,&opt_idx);
 
         switch(o){
         case 'c':
@@ -109,6 +111,9 @@ int main(int argc,char *argv[]){
             break;
         case 'f':
             testframe_mode = 1;
+            break;
+        case 'i':
+            softinv = 1;
             break;
         case 't':
             enable_stats = 1;
@@ -415,6 +420,13 @@ int main(int argc,char *argv[]){
         }
 
         if(soft_dec_mode){
+            // Invert soft decision polarity.
+            if(softinv){
+                for(j=0; j<fsk->Nbits; j++) {
+                    sdbuf[j] = sdbuf[j]*-1.0;
+                }
+            }
+
             fwrite(sdbuf,sizeof(float),fsk->Nbits,fout);
         }else{
             fwrite(bitbuf,sizeof(uint8_t),fsk->Nbits,fout);
