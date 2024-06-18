@@ -992,7 +992,7 @@ class SondeDecoder(object):
                 self.raw_file_option = "--rawecc"
 
             decode_cmd = (
-                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option} 2>/dev/null"
+                f"./dfm09mod -vv --ecc --json --dist --auto --softin {self.raw_file_option} 2>/dev/null"
             )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
