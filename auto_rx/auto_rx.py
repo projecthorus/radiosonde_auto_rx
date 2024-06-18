@@ -631,7 +631,8 @@ def telemetry_filter(telemetry):
     vaisala_callsign_valid = re.match(r"[C-Z][\d][\d][\d]\d{4}", _serial)
 
     # Just make sure we're not getting the 'xxxxxxxx' unknown serial from the DFM decoder.
-    if "DFM" in telemetry["type"]:
+    # Also applies to PS15 sondes.
+    if "DFM" in telemetry["type"] or "PS15" in telemetry["type"]:
         dfm_callsign_valid = "x" not in _serial.split("-")[1]
     else:
         dfm_callsign_valid = False
