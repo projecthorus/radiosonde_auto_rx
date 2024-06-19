@@ -168,6 +168,18 @@ class SondehubUploader(object):
             # for our packets to pass the Sondehub z-check.
             self.slower_uploads = True
 
+        elif telemetry["type"] == "PS15":
+            _output["manufacturer"] = "Graw"
+            _output["type"] = "PS-15"
+            _output["subtype"] = "PS-15"
+            _output["serial"] = telemetry["id"].split("-")[1]
+            if "dfmcode" in telemetry:
+                _output["dfmcode"] = telemetry["dfmcode"]
+
+            # We are handling DFM packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"].startswith("M10") or telemetry["type"].startswith("M20"):
             _output["manufacturer"] = "Meteomodem"
             _output["type"] = telemetry["type"]
