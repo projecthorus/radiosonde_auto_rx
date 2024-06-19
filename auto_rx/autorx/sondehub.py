@@ -171,7 +171,7 @@ class SondehubUploader(object):
         elif telemetry["type"] == "PS15":
             _output["manufacturer"] = "Graw"
             _output["type"] = "PS-15"
-            _output["subtype"] = telemetry["type"]
+            _output["subtype"] = "PS-15"
             _output["serial"] = telemetry["id"].split("-")[1]
             if "dfmcode" in telemetry:
                 _output["dfmcode"] = telemetry["dfmcode"]
