@@ -977,7 +977,8 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+            # NOTE - Using inverted soft decision outputs, so DFM type detection works correctly.
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s -i --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
@@ -991,7 +992,7 @@ class SondeDecoder(object):
                 self.raw_file_option = "--rawecc"
 
             decode_cmd = (
-                f"./dfm09mod -vv --ecc --json --dist --auto --softin -i {self.raw_file_option} 2>/dev/null"
+                f"./dfm09mod -vv --ecc --json --dist --auto --softin {self.raw_file_option} 2>/dev/null"
             )
 
             # DFM sondes transmit continuously - average over the last 2 frames, and peak hold
