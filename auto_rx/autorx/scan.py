@@ -626,9 +626,7 @@ def detect_sonde(
             % (_sdr_name, _score, _offset_est)
         )
         _sonde_type = "WXRPN9"
-        # Clear out the offset estimate for WxR-301's as it's not accurate
-        # to do no whitening on the signal.
-        _offset_est = 0.0
+        
     else:
         _sonde_type = None
 
