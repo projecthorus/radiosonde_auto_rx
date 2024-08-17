@@ -14,7 +14,6 @@ from queue import Queue
 
 __version__ = "1.7.5-beta2"
 
-
 # Global Variables
 
 # RTLSDR Usage Register - This dictionary holds information about each SDR and its currently running Decoder / Scanner
