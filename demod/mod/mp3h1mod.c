@@ -967,7 +967,8 @@ int main(int argc, char **argv) {
             gpx.option.ptu = 1;
         }
         else if (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if (strcmp(*argv, "--softin") == 0)  { option_softin = 1; }  // float32 soft input
+        else if (strcmp(*argv, "--softinv") == 0) { option_softin = 2; }  // float32 inverted soft input
         else if (strcmp(*argv, "-d") == 0) {
             ++argv;
             if (*argv) {
@@ -1174,7 +1175,7 @@ int main(int argc, char **argv) {
         while ( 1 )
         {
             if (option_softin) {
-                header_found = find_softbinhead(fp, &hdb, &_mv);
+                header_found = find_softbinhead(fp, &hdb, &_mv, option_softin == 2);
             }
             else {                                                              // FM-audio:
                 header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
@@ -1200,9 +1201,9 @@ int main(int argc, char **argv) {
                         float s1 = 0.0;
                         float s2 = 0.0;
                         float s = 0.0;
-                        bitQ = f32soft_read(fp, &s1);
+                        bitQ = f32soft_read(fp, &s1, option_softin == 2);
                         if (bitQ != EOF) {
-                            bitQ = f32soft_read(fp, &s2);
+                            bitQ = f32soft_read(fp, &s2, option_softin == 2);
                             if (bitQ != EOF) {
                                 s = s2-s1; // integrate both symbols  // Manchester2=s2 (invert to Manchester1=s1 below)
                                 bit = (s>=0.0); // no soft decoding
