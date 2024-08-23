@@ -371,7 +371,8 @@ int main(int argc, char **argv) {
             spike = 1;
         }
         else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softin") == 0)  { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softinv") == 0) { option_softin = 2; }  // float32 inverted soft input
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
@@ -565,7 +566,7 @@ int main(int argc, char **argv) {
     while ( 1 )
     {
         if (option_softin) {
-            header_found = find_softbinhead(fp, &hdb, &_mv);
+            header_found = find_softbinhead(fp, &hdb, &_mv, option_softin == 2);
         }
         else {                                                              // FM-audio:
             header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
@@ -588,7 +589,7 @@ int main(int argc, char **argv) {
 
                 if (option_softin) {
                     float s = 0.0;
-                    bitQ = f32soft_read(fp, &s);
+                    bitQ = f32soft_read(fp, &s, option_softin == 2);
                     if (bitQ != EOF) {
                         bit = (s>=0.0);
                         hsbit.hb = bit;
