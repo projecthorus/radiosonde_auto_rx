@@ -438,6 +438,9 @@ rotator_homing_delay = 10
 # Rotator home azimuth/elevation, in degrees true.
 rotator_home_azimuth = 0.0
 rotator_home_elevation = 0.0
+# Azimuth-only rotator - set this to True if your rotator only moves in Azimuth
+# This will force all elevation settings to 0
+azimuth_only = False
 
 
 ###########

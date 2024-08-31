@@ -134,6 +134,7 @@ class Rotator(object):
         rotator_homing_enabled=False,
         rotator_homing_delay=10,
         rotator_home_position=[0.0, 0.0],
+        azimuth_only=False
     ):
         """ Start a new Rotator Control object. 
 
@@ -151,6 +152,7 @@ class Rotator(object):
                 and whenever no telemetry has been observed for <rotator_homing_delay> minutes.
             rotator_homing_delay (int): Move the rotator to a home position if no telemetry is received within X minutes.
             rotator_home_position (tuple): Rotator home position, as an [azimuth, elevation] list, in degrees (true).
+            azimuth_only (bool): If set, force all elevation data to 0.
 
         """
 
@@ -163,6 +165,7 @@ class Rotator(object):
         self.rotator_homing_enabled = rotator_homing_enabled
         self.rotator_homing_delay = rotator_homing_delay
         self.rotator_home_position = rotator_home_position
+        self.azimuth_only = azimuth_only
 
         # Latest telemetry.
         self.latest_telemetry = None
@@ -219,6 +222,11 @@ class Rotator(object):
         if (_azimuth_diff > 180.0):
             _azimuth_diff = abs(_azimuth_diff - 360.0)
 
+        # For azimuth-only rotators, we force elevation to 0, and ignore any incoming elevation data
+        # (which should be 0 anyway)
+        if self.azimuth_only:
+            _curr_el = 0.0
+            elevation = 0.0
 
         if (_azimuth_diff > self.rotator_update_threshold) or (
             abs(elevation - _curr_el) > self.rotator_update_threshold

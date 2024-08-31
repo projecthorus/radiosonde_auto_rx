@@ -336,8 +336,8 @@ class SondehubUploader(object):
             _output["snr"] = telemetry["snr"]
 
         if "f_centre" in telemetry:
-            _freq = round(telemetry["f_centre"] / 1e3) # Hz -> kHz
-            _output["frequency"] = _freq / 1e3 # kHz -> MHz
+            # Don't round the frequency to 1 kHz anymore! Let's make use of the full precision data...
+            _output["frequency"] = telemetry["f_centre"] / 1e6
         
         if "tx_frequency" in telemetry:
             _output["tx_frequency"] = telemetry["tx_frequency"] / 1e3 # kHz -> MHz

@@ -1009,6 +1009,7 @@ def main():
                 config["rotator_home_azimuth"],
                 config["rotator_home_elevation"],
             ],
+            azimuth_only=config["rotator_azimuth_only"]
         )
 
         exporter_objects.append(_rotator)

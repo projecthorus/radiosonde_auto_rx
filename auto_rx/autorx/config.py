@@ -148,6 +148,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "rotator_homing_delay": 10,
         "rotator_home_azimuth": 0,
         "rotator_home_elevation": 0,
+        "rotator_azimuth_only": False,
         # OziExplorer Settings
         "ozi_enabled": False,
         "ozi_update_rate": 5,
@@ -758,6 +759,15 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Missing save_cal_data option (new in v1.7.1), using default (False)"
             )
             auto_rx_config["save_cal_data"] = False
+
+        # 1.7.5 - Azimuth-Only Rotator configuration
+        try:
+            auto_rx_config['rotator_azimuth_only'] = config.getboolean(
+                "rotator", "azimuth_only"
+            )
+        except:
+            logging.debug("Config - Missing rotator azimuth_only option (new in v1.7.5), using default (False)")
+            auto_rx_config['rotator_azimuth_only'] = False
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
