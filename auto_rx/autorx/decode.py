@@ -1592,7 +1592,7 @@ class SondeDecoder(object):
 
                     # Overwrite the datetime field to make the email notifier happy
                     _telemetry['datetime_dt'] = datetime.datetime.now(datetime.timezone.utc)
-                    _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
+                    _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
 
                     # Send this to only the Email Notifier, if it exists.
                     for _exporter in self.exporters:
@@ -1667,7 +1667,7 @@ class SondeDecoder(object):
                 #_telemetry["subtype"] = self.sonde_type
 
             _telemetry["freq_float"] = self.sonde_freq / 1e6
-            _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
+            _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
 
             # Add in information about the SDR used.
             _telemetry["sdr_device_idx"] = self.rtl_device_idx
