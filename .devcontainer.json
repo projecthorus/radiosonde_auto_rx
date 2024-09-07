@@ -1,5 +1,0 @@
-{
-  "build": { "dockerfile": "Dockerfile.dev" },
-  "forwardPorts": [ 5000 ],
-  "runArgs": [ "--hostname=radiosonde_auto_rx", "--network=host", "--privileged" ]
-}
