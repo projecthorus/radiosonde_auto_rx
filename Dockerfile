@@ -7,12 +7,15 @@ FROM debian:bookworm-slim AS build
 RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
     build-essential \
     cmake \
     git \
     libatlas-base-dev \
     libsamplerate0-dev \
     libusb-1.0-0-dev \
+    ninja-build \
     pkg-config \
     python3 \
     python3-dev \
