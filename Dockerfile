@@ -1,18 +1,21 @@
 # -------------------
 # The build container
 # -------------------
-FROM debian:bullseye-slim AS build
+FROM debian:bookworm-slim AS build
 
 # Upgrade base packages.
 RUN apt-get update && \
   apt-get upgrade -y && \
   apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
     build-essential \
     cmake \
     git \
     libatlas-base-dev \
     libsamplerate0-dev \
     libusb-1.0-0-dev \
+    ninja-build \
     pkg-config \
     python3 \
     python3-dev \
@@ -26,8 +29,8 @@ COPY auto_rx/requirements.txt \
   /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Install Python packages.
-RUN --mount=type=cache,target=/root/.cache/pip pip3 install \
-  --user --no-warn-script-location --ignore-installed --no-binary numpy \
+RUN pip3 install \
+  --user --break-system-packages --no-warn-script-location --ignore-installed \
   -r /root/radiosonde_auto_rx/auto_rx/requirements.txt
 
 # Compile rtl-sdr from source.
@@ -54,7 +57,7 @@ RUN /bin/sh build.sh
 # -------------------------
 # The application container
 # -------------------------
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 EXPOSE 5000/tcp
 
