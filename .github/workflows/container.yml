@@ -3,6 +3,7 @@ name: Container image
 on:
   push:
     branches:
+      - 'master'
       - 'testing'
     tags:
       - 'v*'
