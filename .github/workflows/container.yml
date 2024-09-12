@@ -9,6 +9,8 @@ on:
       - 'v*'
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '25 4 * * 3'
 
 jobs:
   build:
