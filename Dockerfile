@@ -24,6 +24,12 @@ RUN apt-get update && \
     python3-wheel && \
   rm -rf /var/lib/apt/lists/*
 
+# Copy in existing wheels.
+COPY wheel[s]/ /root/.cache/pip/wheels/
+
+# No wheels might exist.
+RUN mkdir -p /root/.cache/pip/wheels/
+
 # Copy in requirements.txt.
 COPY auto_rx/requirements.txt \
   /root/radiosonde_auto_rx/auto_rx/requirements.txt
