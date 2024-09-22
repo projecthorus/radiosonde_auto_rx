@@ -152,8 +152,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # OziExplorer Settings
         "ozi_enabled": False,
         "ozi_update_rate": 5,
+        "ozi_host": "<broadcast>",
         "ozi_port": 55681,
         "payload_summary_enabled": False,
+        "payload_summary_host": "<broadcast>",
         "payload_summary_port": 55672,
         # Debugging settings
         "save_detection_audio": False,
