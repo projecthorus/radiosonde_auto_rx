@@ -976,7 +976,7 @@ def main():
         else:
             _ozi_host = None
 
-        if config["ozi_port"]:
+        if config["ozi_enabled"]: # Causes port to be set to None which disables the export.
             _ozi_port = config["ozi_port"]
         else:
             _ozi_port = None
@@ -986,7 +986,7 @@ def main():
         else:
             _summary_host = None
 
-        if config["payload_summary_port"]:
+        if config["payload_summary_enabled"]: # Causes port to be set to None which disables the export.
             _summary_port = config["payload_summary_port"]
         else:
             _summary_port = None

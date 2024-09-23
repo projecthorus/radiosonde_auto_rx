@@ -771,6 +771,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             logging.debug("Config - Missing rotator azimuth_only option (new in v1.7.5), using default (False)")
             auto_rx_config['rotator_azimuth_only'] = False
 
+        # 1.7.5 - Targeted summary output
+        try:
+            auto_rx_config["ozi_host"] = config.get("oziplotter", "ozi_host")
+            auto_rx_config["payload_summary_host"] = config.get("oziplotter", "payload_summary_host")
+        except:
+            logging.warning(
+                "Config - Missing ozi_host or payload_summary_host option (new in v1.7.5), using default (<broadcast>)"
+            )
+            auto_rx_config["ozi_host"] = "<broadcast>"
+            auto_rx_config["payload_summary_host"] = "<broadcast>"
+            
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
