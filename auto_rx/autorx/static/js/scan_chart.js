@@ -53,10 +53,13 @@ function setup_scan_chart(){
 	    axis:{
 	        x:{
 	            tick:{
-                    culling: {
-                        max: window.innerWidth > 1100 ? 10 : 4
-                    },
-	                format: function (x) { return x.toFixed(3); }
+                    values: [
+                        400, 400.5, 401, 401.5, 402, 402.5, 403,
+                        403.5, 404, 404.5, 405, 405.5, 406,
+                        1676, 1678, 1680, 1682, 1684, 1686, 1688,
+                        1690, 1692, 1694, 1696, 1698, 1700
+                    ],
+                    outer: false
 	            },
 	            label:"Frequency (MHz)"
 	        },
