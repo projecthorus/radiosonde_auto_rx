@@ -341,7 +341,11 @@ ozi_update_rate = 5
 # Note - this cannot be enabled in a multi-SDR configuration.
 ozi_enabled = False
 
-# OziMux UDP Broadcast output port.
+# OziMux UDP target host.
+# Defaults to broadcasting
+ozi_host = <broadcast>
+
+# OziMux UDP output port.
 # Set to 8942 to send packets directly into OziPlotter, or set to 55681 to send via OziMux
 ozi_port = 8942
 
@@ -349,6 +353,7 @@ ozi_port = 8942
 # Using this output allows multiple sondes to be plotted in Chasemapper.
 # As of 2019-05, this is enabled by default.
 payload_summary_enabled = True
+payload_summary_host = <broadcast>
 payload_summary_port = 55673
 
 
