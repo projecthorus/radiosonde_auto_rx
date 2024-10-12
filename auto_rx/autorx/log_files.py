@@ -53,8 +53,16 @@ def log_filename_to_stats(filename, quicklook=False):
         _fields = _basename.split("_")
 
         # First field is the date/time the sonde was first received.
-        _date_str = _fields[0] + "Z"
-        _date_dt = parse(_date_str)
+        _date_str = _fields[0]
+        _date_dt = datetime.datetime(
+            int(_date_str[0:4]),
+            int(_date_str[4:6]),
+            int(_date_str[6:8]),
+            int(_date_str[9:11]),
+            int(_date_str[11:13]),
+            int(_date_str[13:15]),
+            tzinfo=datetime.timezone.utc
+        )
 
         # Calculate age
         _age_td = _now_dt - _date_dt
