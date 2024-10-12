@@ -170,7 +170,11 @@ class Rotator(object):
         # Latest telemetry.
         self.latest_telemetry = None
         self.latest_telemetry_time = 0
+        self.last_telemetry_time = 0
         self.telem_lock = Lock()
+
+        # Homing state
+        self.rotator_homed = False
 
         # Input Queue.
         self.input_queue = Queue()
@@ -258,11 +262,13 @@ class Rotator(object):
 
     def home_rotator(self):
         """ Move the rotator to it's home position """
-        self.log_info("Moving rotator to home position.")
-        self.move_rotator(
-            azimuth=self.rotator_home_position[0],
-            elevation=self.rotator_home_position[1],
-        )
+        if not self.rotator_homed:
+            self.log_info("Moving rotator to home position.")
+            self.move_rotator(
+                azimuth=self.rotator_home_position[0],
+                elevation=self.rotator_home_position[1],
+            )
+            self.rotator_homed = True
 
     def rotator_update_thread(self):
         """ Rotator updater thread """
@@ -303,6 +309,11 @@ class Rotator(object):
                             self.log_error(
                                 "Station position is 0,0 - not moving rotator."
                             )
+                        # Check if this is a stale telemetry entry
+                        elif self.latest_telemetry_time == self.last_telemetry_time:
+                            self.log_debug(
+                                "Telemetry received is not new, not moving rotator."
+                            )
                         else:
                             # Otherwise, calculate the new azimuth/elevation.
                             _position = position_info(
@@ -315,8 +326,13 @@ class Rotator(object):
                                 _position["bearing"], _position["elevation"]
                             )
 
+                            self.rotator_homed = False
+
                 except Exception as e:
                     self.log_error("Error handling new telemetry - %s" % str(e))
+
+            # Update last telemetry time
+            self.last_telemetry_time = self.latest_telemetry_time
 
             # Wait until the next update time.
             _i = 0
