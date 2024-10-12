@@ -81,8 +81,13 @@ function pause_web_controls() {
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
     $("#sonde-type-select").prop('disabled', true);
-    $("#stop-frequency-select").prop('disabled', true);   
+    $("#stop-frequency-select").prop('disabled', true);
+    $("#azimuth-input").prop('disabled', true);
+    $("#elevation-input").prop('disabled', true);
+    $("#move-rotator").prop('disabled', true);
+    $("#home-rotator").prop('disabled', true);
 }
+
 
 function resume_web_controls() {
     $("#verify-password").prop('disabled', false);
@@ -93,7 +98,11 @@ function resume_web_controls() {
     $("#disable-scanner").prop('disabled', false);
     $("#frequency-input").prop('disabled', false);
     $("#sonde-type-select").prop('disabled', false);
-    $("#stop-frequency-select").prop('disabled', false);   
+    $("#stop-frequency-select").prop('disabled', false);
+    $("#azimuth-input").prop('disabled', false);
+    $("#elevation-input").prop('disabled', false);
+    $("#move-rotator").prop('disabled', false);
+    $("#home-rotator").prop('disabled', false);
 }
 
 
