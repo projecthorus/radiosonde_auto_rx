@@ -320,7 +320,7 @@ def shutdown_flask(shutdown_key):
 @app.route("/get_log_list")
 def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
-    return json.dumps(list_log_files(quicklook=True))
+    return json.dumps(list_log_files(quicklook=True), separators=(',', ':'))
 
 def flask_running():
     global flask_shutdown_key
