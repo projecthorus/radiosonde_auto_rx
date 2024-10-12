@@ -332,7 +332,7 @@ function move_rotator(){
 
     // Grab the az/el input
     _az = $('#azimuth-input').val();
-    _el = $('#azimuth-input').val();
+    _el = $('#elevation-input').val();
 
     // Parse to a float.
     _az_float = parseFloat(_az);
