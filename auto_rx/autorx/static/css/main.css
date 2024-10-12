@@ -204,7 +204,6 @@ button[disabled]{
 }
 
 #main {
-  transition: margin-left .5s;
   padding: 16px;
   padding-top: 5px;
   flex: auto;
