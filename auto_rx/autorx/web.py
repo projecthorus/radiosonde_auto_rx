@@ -623,11 +623,7 @@ def flask_move_rotator():
 
             logging.info("Web - Got rotator move request: %f, %f" % (_az, _el))
 
-            # Find correct exporter and run the move rotator command (there has to be a better way)
-            for exporter in autorx.exporter_objects:
-                if "move_rotator" in dir(exporter):
-                    exporter.move_rotator(_az, _el)
-                    exporter.rotator_homed = False
+            autorx.move_rotator(az=_az, el=_el)
 
             return "OK"
         else:
@@ -653,10 +649,7 @@ def flask_home_rotator():
 
             logging.info("Web - Got rotator home request")
 
-            # Find correct exporter and run the move rotator command (there has to be a better way)
-            for exporter in autorx.exporter_objects:
-                if "home_rotator" in dir(exporter):
-                    exporter.home_rotator()
+            autorx.move_rotator(home=True)
 
             return "OK"
         else:
