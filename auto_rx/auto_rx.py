@@ -708,21 +708,6 @@ def email_error(message="foo"):
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
 
-def move_rotator(az=0, el=0, home=False):
-    """Move rotator to specified position or trigger homing routine"""
-    global exporter_objects
-    
-    if home:
-        for _exporter in exporter_objects:
-            if "home_rotator" in dir(_exporter):
-                _exporter.home_rotator()
-                break
-    else:
-        for _exporter in exporter_objects:
-            if "move_rotator" in dir(_exporter):
-                _exporter.move_rotator(az, el)
-                break
-
 def main():
     """Main Loop"""
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
@@ -1040,6 +1025,8 @@ def main():
 
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
+
+        autorx.rotator_object = _rotator
 
     # Sondehub v2 Database
     if config["sondehub_enabled"]:

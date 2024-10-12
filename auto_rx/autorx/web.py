@@ -623,7 +623,9 @@ def flask_move_rotator():
 
             logging.info("Web - Got rotator move request: %f, %f" % (_az, _el))
 
-            autorx.move_rotator(az=_az, el=_el)
+            if autorx.rotator_object:
+                autorx.rotator_object.move_rotator(_az, _el)
+                autorx.rotator_object.rotator_homed = False
 
             return "OK"
         else:
@@ -649,7 +651,8 @@ def flask_home_rotator():
 
             logging.info("Web - Got rotator home request")
 
-            autorx.move_rotator(home=True)
+            if autorx.rotator_object:
+                autorx.rotator_object.home_rotator()
 
             return "OK"
         else:
