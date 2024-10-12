@@ -21,6 +21,7 @@ import sys
 import xml.etree.ElementTree as ET
 import autorx
 import autorx.config
+import autorx.rotator
 import autorx.scan
 from autorx.geometry import GenericTrack
 from autorx.utils import check_autorx_versions
@@ -597,6 +598,66 @@ def flask_enable_scanner():
     else:
         abort(403)
 
+
+@app.route("/move_rotator", methods=["POST"])
+def flask_move_rotator():
+    """ Move rotator to target az/el position by injecting telem packet in rotator queue
+    Example:
+    curl -d "az=180&el=15&password=foobar" -X POST http://localhost:5000/move_rotator
+    """
+
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
+
+            try:
+                _az = float(request.form["az"])
+                _el = float(request.form["el"])
+            except Exception as e:
+                logging.error("Web - Error in rotator move request: %s", str(e))
+                abort(500)
+
+            logging.info("Web - Got rotator move request: %f, %f" % (_az, _el))
+
+            # autorx.scan_results.put([[_freq, _type]])
+            # autorx.rotator.
+
+            return "OK"
+        else:
+            abort(403)
+
+    else:
+        abort(403)
+
+@app.route("/home_rotator", methods=["POST"])
+def flask_home_rotator():
+    """ Move rotator to target az/el position by injecting telem packet in rotator queue
+    Example:
+    curl -d "password=foobar" -X POST http://localhost:5000/home_rotator
+    """
+
+    if request.method == "POST" and autorx.config.global_config["web_control"]:
+        if "password" not in request.form:
+            abort(403)
+
+        if (request.form["password"] == autorx.config.web_password) and (
+            autorx.config.web_password != "none"
+        ):
+
+            logging.info("Web - Got rotator move request: %f, %f" % (_az, _el))
+
+            # autorx.scan_results.put([[_freq, _type]])
+
+            return "OK"
+        else:
+            abort(403)
+
+    else:
+        abort(403)
 
 #
 # SocketIO Events
