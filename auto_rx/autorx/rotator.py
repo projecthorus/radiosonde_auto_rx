@@ -298,7 +298,7 @@ class Rotator(object):
                     _telem_age = time.time() - _telem_time
 
                     # If the telemetry is older than our homing delay, move to our home position.
-                    if _telem_age > self.rotator_homing_delay * 60.0:
+                    if _telem_age > self.rotator_homing_delay * 60.0 and not self.rotator_homed:
                         self.home_rotator()
 
                     else:
