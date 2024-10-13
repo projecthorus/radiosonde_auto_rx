@@ -136,6 +136,11 @@ function verify_password(){
             $("#password-header").html("<h2>Password OK!</h2>");
             $("#password-field").hide().css("visibility", "hidden");
             $("#controls").show().css("visibility", "visible");
+            if(autorx_config["rotator_enabled"] == true) {
+                $("#rotatorControlForm").show().css("visibility","visible");
+            } else {
+                $("#rotatorControlForm").show().css("visibility","hidden");
+            }
         }
     ).fail(function(xhr, status, error){
         // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.

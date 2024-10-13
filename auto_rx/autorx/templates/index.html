@@ -1690,18 +1690,20 @@
                 <button id="disable-scanner" onclick="disable_scanner();">Disable</button>
             </div>
             <br>
-            <h2>Rotator Control</h2>
-            <p>Go To Position</p>
-            <input style="display:inline;vertical-align:middle;" type="text" id="azimuth-input" placeholder="Azimuth (degrees)">
-            <input style="display:inline;vertical-align:middle;" type="text" id="elevation-input" placeholder="Elevation (degrees)">
-            <div style="display:inline;vertical-align:middle;">
-                <button id="move-rotator" onclick="move_rotator();">Move</button>
+            <div id="rotatorControlForm">
+                <h2>Rotator Control</h2>
+                <p>Go To Position</p>
+                <input style="display:inline;vertical-align:middle;" type="text" id="azimuth-input" placeholder="Azimuth (degrees)">
+                <input style="display:inline;vertical-align:middle;" type="text" id="elevation-input" placeholder="Elevation (degrees)">
+                <div style="display:inline;vertical-align:middle;">
+                    <button id="move-rotator" onclick="move_rotator();">Move</button>
+                </div>
+                <br>
+                <div style="display:inline;vertical-align:middle;">
+                    <button id="home-rotator" onclick="home_rotator();">Home Rotator</button>
+                </div>
+                <br>
             </div>
-            <br>
-            <div style="display:inline;vertical-align:middle;">
-                <button id="home-rotator" onclick="home_rotator();">Home Rotator</button>
-            </div>
-            <br>
           </div>
         </div>
       </div>
