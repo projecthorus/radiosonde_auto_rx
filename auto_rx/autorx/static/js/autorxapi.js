@@ -139,7 +139,7 @@ function verify_password(){
             if(autorx_config["rotator_enabled"] == true) {
                 $("#rotatorControlForm").show().css("visibility","visible");
             } else {
-                $("#rotatorControlForm").show().css("visibility","hidden");
+                $("#rotatorControlForm").hide().css("visibility","hidden");
             }
         }
     ).fail(function(xhr, status, error){
