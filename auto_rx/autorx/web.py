@@ -625,7 +625,6 @@ def flask_move_rotator():
 
             if autorx.rotator_object:
                 autorx.rotator_object.move_rotator(_az, _el)
-                autorx.rotator_object.rotator_homed = False
 
             return "OK"
         else:
