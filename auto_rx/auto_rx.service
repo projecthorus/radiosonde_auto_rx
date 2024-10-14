@@ -1,6 +1,7 @@
 [Unit]
 Description=auto_rx
 After=syslog.target
+After=network.target
 
 [Service]
 # For running outside of a python virtual environment
@@ -16,5 +17,3 @@ SyslogIdentifier=auto_rx
 
 [Install]
 WantedBy=multi-user.target
-
-
