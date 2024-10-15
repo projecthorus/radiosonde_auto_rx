@@ -44,7 +44,7 @@ class OziUploader(object):
     ]
 
     # Extra fields we can pass on to other programs.
-    EXTRA_FIELDS = ["bt", "humidity", "sats", "batt", "snr", "fest", "f_centre", "ppm", "subtype", "sdr_device_idx", "vel_v", "vel_h"]
+    EXTRA_FIELDS = ["bt", "humidity", "pressure", "sats", "batt", "snr", "fest", "f_centre", "ppm", "subtype", "sdr_device_idx", "vel_v", "vel_h", "aux"]
 
     def __init__(
         self,
