@@ -81,8 +81,13 @@ function pause_web_controls() {
     $("#disable-scanner").prop('disabled', true);
     $("#frequency-input").prop('disabled', true);
     $("#sonde-type-select").prop('disabled', true);
-    $("#stop-frequency-select").prop('disabled', true);   
+    $("#stop-frequency-select").prop('disabled', true);
+    $("#azimuth-input").prop('disabled', true);
+    $("#elevation-input").prop('disabled', true);
+    $("#move-rotator").prop('disabled', true);
+    $("#home-rotator").prop('disabled', true);
 }
+
 
 function resume_web_controls() {
     $("#verify-password").prop('disabled', false);
@@ -93,7 +98,11 @@ function resume_web_controls() {
     $("#disable-scanner").prop('disabled', false);
     $("#frequency-input").prop('disabled', false);
     $("#sonde-type-select").prop('disabled', false);
-    $("#stop-frequency-select").prop('disabled', false);   
+    $("#stop-frequency-select").prop('disabled', false);
+    $("#azimuth-input").prop('disabled', false);
+    $("#elevation-input").prop('disabled', false);
+    $("#move-rotator").prop('disabled', false);
+    $("#home-rotator").prop('disabled', false);
 }
 
 
@@ -127,6 +136,11 @@ function verify_password(){
             $("#password-header").html("<h2>Password OK!</h2>");
             $("#password-field").hide().css("visibility", "hidden");
             $("#controls").show().css("visibility", "visible");
+            if(autorx_config["rotator_enabled"] == true) {
+                $("#rotatorControlForm").show().css("visibility","visible");
+            } else {
+                $("#rotatorControlForm").hide().css("visibility","hidden");
+            }
         }
     ).fail(function(xhr, status, error){
         // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
@@ -289,7 +303,7 @@ function start_decoder(){
     // Grab the selected type
     _type = $('#sonde-type-select').val();
 
-    // Parse to a floar.
+    // Parse to a float.
     _freq_float = parseFloat(_freq);
     if(_freq_float > autorx_config["max_freq"]){
         alert("Supplied frequency above maximum (" + autorx_config["max_freq"] + " MHz)");
@@ -308,6 +322,87 @@ function start_decoder(){
         {password: _api_password, freq: _freq_hz, type: _type},
         function(data){
             alert("Added requested decoder to results queue.")
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
+        }
+    ).fail(function(xhr, status, error){
+        console.log(error);
+        // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
+        if(error == "FORBIDDEN"){
+            $("#password-header").html("<h2>Incorrect Password</h2>");
+        }
+    });
+}
+
+function move_rotator(){
+    // Move rotator to requested position
+
+    // Re-verify the password. This will occur async, so wont stop the main request from going ahead,
+    // but will at least present an error for the user.
+    verify_password();
+
+    // Grab the password
+    _api_password = getCookie("password");
+
+    // Grab the az/el input
+    _az = $('#azimuth-input').val();
+    _el = $('#elevation-input').val();
+
+    // Parse to a float.
+    _az_float = parseFloat(_az);
+    if(_az_float > 360){
+        alert("Supplied azimuth above 360 degrees");
+        return;
+    }
+    if(_az_float < 0){
+        alert("Supplied azimuth below 0 degrees");
+        return;
+    }
+
+    _el_float = parseFloat(_el);
+    if(_el_float > 90){
+        alert("Supplied elevation above 360 degrees");
+        return;
+    }
+    if(_el_float < 0){
+        alert("Supplied elevation below 0 degrees");
+        return;
+    }
+
+    // Do the request
+    $.post(
+        "move_rotator", 
+        {password: _api_password, az: _az_float.toFixed(1), el: _el_float.toFixed(1)},
+        function(data){
+            alert("Moving rotator to " + _az + ", " + _el + ".");
+            pause_web_controls();
+            setTimeout(resume_web_controls,10000);
+        }
+    ).fail(function(xhr, status, error){
+        console.log(error);
+        // Otherwise, we probably got a 403 error (forbidden) which indicates the password was bad.
+        if(error == "FORBIDDEN"){
+            $("#password-header").html("<h2>Incorrect Password</h2>");
+        }
+    });
+}
+
+function home_rotator(){
+    // Home rotator
+
+    // Re-verify the password. This will occur async, so wont stop the main request from going ahead,
+    // but will at least present an error for the user.
+    verify_password();
+
+    // Grab the password
+    _api_password = getCookie("password");
+
+    // Do the request
+    $.post(
+        "home_rotator", 
+        {password: _api_password},
+        function(data){
+            alert("Homing rotator.");
             pause_web_controls();
             setTimeout(resume_web_controls,10000);
         }

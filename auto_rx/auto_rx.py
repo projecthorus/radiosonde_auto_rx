@@ -708,7 +708,6 @@ def email_error(message="foo"):
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
 
-
 def main():
     """Main Loop"""
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
@@ -1026,6 +1025,8 @@ def main():
 
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
+
+        autorx.rotator_object = _rotator
 
     # Sondehub v2 Database
     if config["sondehub_enabled"]:

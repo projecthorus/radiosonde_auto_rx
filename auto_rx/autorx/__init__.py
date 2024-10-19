@@ -44,5 +44,8 @@ scan_results = Queue()
 # Global scan inhibit flag, used by web interface.
 scan_inhibit = False
 
+# Rotator object
+rotator_object = None
+
 # Logging Directory
 logging_path = "./log/"
