@@ -98,7 +98,9 @@ RUN apt-get update && \
   rng-tools \
   sox \
   tini \
-  libbsd-dev \
+  libbsd0 \
+  avahi-utils \
+  libnss-mdns \
   avahi-utils \
   usbutils && \
   rm -rf /var/lib/apt/lists/*
@@ -123,6 +125,13 @@ RUN ln -s ss_client /opt/auto_rx/ss_iq && \
 COPY --from=build /root/ka9q-radio/tune /usr/local/bin/
 COPY --from=build /root/ka9q-radio/powers /usr/local/bin/
 COPY --from=build /root/ka9q-radio/pcmcat /usr/local/bin/
+
+# Allow mDNS resolution for ka9q-radio utilities
+RUN sed -i -e 's/files dns/files mdns4_minimal [NOTFOUND=return] dns/g' /etc/nsswitch.conf
+
+# NOTE: These volume flags must be set for avahi to talk to the local host:
+# -v /var/run/dbus:/var/run/dbus
+# -v /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
 
 # Set the working directory.
 WORKDIR /opt/auto_rx
