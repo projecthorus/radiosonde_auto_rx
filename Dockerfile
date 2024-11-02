@@ -21,7 +21,21 @@ RUN apt-get update && \
     python3-dev \
     python3-pip \
     python3-setuptools \
-    python3-wheel && \
+    python3-wheel \
+    libairspy-dev \
+    libairspyhf-dev \
+    libavahi-client-dev \
+    libbsd-dev \
+    libfftw3-dev \
+    libhackrf-dev \
+    libiniparser-dev \
+    libncurses5-dev \
+    libopus-dev \
+    librtlsdr-dev \
+    portaudio19-dev \
+    libasound2-dev \
+    uuid-dev \
+    rsync && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy in existing wheels.
@@ -53,6 +67,11 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
   cd /root/spyserver_client && \
   make
 
+# Compile ka9q-radio from source
+RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
+  cd /root/ka9q-radio && \
+  make -f Makefile.linux
+
 # Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
 
@@ -78,6 +97,8 @@ RUN apt-get update && \
   rng-tools \
   sox \
   tini \
+  libbsd-dev \
+  avahi-utils \
   usbutils && \
   rm -rf /var/lib/apt/lists/*
 
@@ -96,6 +117,11 @@ COPY --from=build /root/radiosonde_auto_rx/auto_rx/ /opt/auto_rx/
 COPY --from=build /root/spyserver_client/ss_client /opt/auto_rx/
 RUN ln -s ss_client /opt/auto_rx/ss_iq && \
   ln -s ss_client /opt/auto_rx/ss_power
+
+# Copy ka9q-radio utilities 
+COPY --from=build /root/ka9q-radio/tune /usr/local/bin/
+COPY --from=build /root/ka9q-radio/powers /usr/local/bin/
+COPY --from=build /root/ka9q-radio/pcmcat /usr/local/bin/
 
 # Set the working directory.
 WORKDIR /opt/auto_rx
