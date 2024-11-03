@@ -22,20 +22,11 @@ RUN apt-get update && \
     python3-pip \
     python3-setuptools \
     python3-wheel \
-    libairspy-dev \
-    libairspyhf-dev \
     libavahi-client-dev \
     libbsd-dev \
     libfftw3-dev \
-    libhackrf-dev \
     libiniparser-dev \
-    libncurses5-dev \
-    libopus-dev \
-    librtlsdr-dev \
-    portaudio19-dev \
-    libasound2-dev \
-    uuid-dev \
-    rsync && \
+    libopus-dev && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy in existing wheels.
@@ -71,7 +62,7 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
   git checkout 770f988955a0dfb380b71d4cf58529cc6f824e67 && \
-  make -f Makefile.linux
+  make -f Makefile.linux tune powers pcmcat
 
 # Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
