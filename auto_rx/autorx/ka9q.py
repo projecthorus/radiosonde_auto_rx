@@ -26,7 +26,7 @@ def ka9q_setup_channel(
         f"--mode iq "
         f"--low {int(sample_rate) / (-2.4)} --high {int(sample_rate) / 2.4} "
         f"--frequency {int(frequency)} "
-        f"--ssrc {int(frequency)} "
+        f"--ssrc {round(frequency / 1000)}01 "
         f"--radio {sdr_hostname}"
     )
 
@@ -71,7 +71,7 @@ def ka9q_close_channel(
         f"--samprate 48000 "
         f"--mode iq "
         f"--frequency 0 "
-        f"--ssrc {int(frequency)} "
+        f"--ssrc {round(frequency / 1000)}01 "
         f"--radio {sdr_hostname}"
     )
 

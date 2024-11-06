@@ -75,7 +75,7 @@ def test_sdr(
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
-            f"--ssrc {int(check_freq)}314 "
+            f"--ssrc {round(check_freq / 1000)}02 "
             f"--radio {sdr_hostname}"
         )
 
@@ -112,7 +112,7 @@ def test_sdr(
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency 0 "
-            f"--ssrc {int(check_freq)}314 "
+            f"--ssrc {round(check_freq / 1000)}02 "
             f"--radio {sdr_hostname}"
         )
 
@@ -772,7 +772,7 @@ def get_power_spectrum(
         _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
         _center_freq = (frequency_start + frequency_stop) / 2
         _bins = ((frequency_stop - frequency_start) / step) + 1 # 3001 for 2.4MHz @ 800Hz bins/steps
-        _ssrc = _center_freq * 1000 + 314
+        _ssrc = f"{round(_center_freq / 1000)}03"
 
         _powers_cmd = (
             f"{_timeout_cmd} {ka9q_powers_path} "
