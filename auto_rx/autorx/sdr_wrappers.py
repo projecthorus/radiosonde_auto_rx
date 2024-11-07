@@ -771,7 +771,7 @@ def get_power_spectrum(
 
         _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
         _center_freq = (frequency_start + frequency_stop) / 2
-        _bins = ((frequency_stop - frequency_start) / step) + 1 # 3001 for 2.4MHz @ 800Hz bins/steps
+        _bins = int((frequency_stop - frequency_start) / step) + 1 # 3001 for 2.4MHz @ 800Hz bins/steps
         _ssrc = f"{round(_center_freq / 1000)}03"
 
         _powers_cmd = (
