@@ -124,7 +124,7 @@ def ka9q_get_iq_cmd(
     # -2 option was removed sometime in early 2024.
     _cmd = (
         f"pcmcat "
-        f"-s {int(frequency)} "
+        f"-s {round(frequency / 1000)}01 "
         f"{_pcm_host} |"
     )
 
