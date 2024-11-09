@@ -23,7 +23,8 @@ def test_sdr(
     sdr_port = 5555,
     ss_iq_path = "./ss_iq",
     ss_power_path = "./ss_power",
-    check_freq = 401500000
+    check_freq = 401500000,
+    timeout = 5
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -71,7 +72,7 @@ def test_sdr(
         # Try and configure a channel at check_freq Hz
         # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
         _cmd = (
-            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
@@ -108,7 +109,7 @@ def test_sdr(
         
         # Now close the channel we just opened by setting the frequency to 0 Hz.
         _cmd = (
-            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency 0 "
@@ -142,7 +143,7 @@ def test_sdr(
             return False
 
         _cmd = (
-            f"{timeout_cmd()} 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
+            f"{timeout_cmd()} {timeout} "  # Add a timeout, because connections to non-existing IPs seem to block.
             f"{ss_iq_path} "
             f"-f {check_freq} "
             f"-s 48000 "
