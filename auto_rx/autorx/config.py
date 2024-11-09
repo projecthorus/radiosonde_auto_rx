@@ -854,7 +854,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             _sdr_ok = test_sdr(
                 sdr_type=auto_rx_config["sdr_type"],
                 sdr_hostname=auto_rx_config["sdr_hostname"],
-                sdr_port=auto_rx_config["sdr_port"]
+                sdr_port=auto_rx_config["sdr_port"],
+                timeout=60
             )
 
             if not _sdr_ok:
