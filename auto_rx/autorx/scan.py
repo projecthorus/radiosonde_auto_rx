@@ -330,7 +330,8 @@ def detect_sonde(
             bias = bias,
             sdr_hostname = sdr_hostname,
             sdr_port = sdr_port,
-            ss_iq_path = ss_iq_path
+            ss_iq_path = ss_iq_path,
+            scan = True
         )
 
         # rx_test_command = (
