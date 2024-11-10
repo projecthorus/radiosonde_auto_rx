@@ -245,7 +245,8 @@ def shutdown_sdr(
     sdr_type: str,
     sdr_id: str,
     sdr_hostname = "",
-    frequency: int = None
+    frequency: int = None,
+    scan: bool = False,
     ):
     """
     Function to trigger shutdown/cleanup of some SDR types.
@@ -257,7 +258,7 @@ def shutdown_sdr(
 
     if sdr_type == "KA9Q":
         logging.debug(f"KA9Q - Closing Channel for {sdr_hostname} @ {frequency} Hz.")
-        ka9q_close_channel(sdr_hostname, frequency)
+        ka9q_close_channel(sdr_hostname, frequency, scan)
         pass
     else:
         logging.debug(f"No shutdown action required for SDR type {sdr_type}")
@@ -279,7 +280,8 @@ def get_sdr_iq_cmd(
     bias = False,
     sdr_hostname = "",
     sdr_port = 5555,
-    ss_iq_path = "./ss_iq"
+    ss_iq_path = "./ss_iq",
+    scan = False
 ):
     """
     Get a command-line argument to get IQ (signed 16-bit) from a SDR
@@ -301,6 +303,7 @@ def get_sdr_iq_cmd(
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
+    scan (bool): Create unique SSRC for scan attempts
 
     Arguments for SpyServer Client:
     ss_iq_path (str): Path to spyserver IQ client utility.
@@ -358,7 +361,7 @@ def get_sdr_iq_cmd(
         return _cmd
     
     if sdr_type == "KA9Q":
-        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate)
+        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate, scan)
 
         if dc_block:
             _cmd += _dc_remove
