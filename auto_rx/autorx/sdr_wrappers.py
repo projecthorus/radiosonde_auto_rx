@@ -245,7 +245,8 @@ def shutdown_sdr(
     sdr_type: str,
     sdr_id: str,
     sdr_hostname = "",
-    frequency: int = None
+    frequency: int = None,
+    scan: bool = False,
     ):
     """
     Function to trigger shutdown/cleanup of some SDR types.
@@ -257,7 +258,7 @@ def shutdown_sdr(
 
     if sdr_type == "KA9Q":
         logging.debug(f"KA9Q - Closing Channel for {sdr_hostname} @ {frequency} Hz.")
-        ka9q_close_channel(sdr_hostname, frequency)
+        ka9q_close_channel(sdr_hostname, frequency, scan)
         pass
     else:
         logging.debug(f"No shutdown action required for SDR type {sdr_type}")

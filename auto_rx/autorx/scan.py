@@ -437,7 +437,7 @@ def detect_sonde(
         ret_output = ret_output.decode("utf8")
 
         # Release the SDR channel if necessary
-        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency)
+        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
