@@ -1076,36 +1076,6 @@ def position_info(listener, balloon):
     }
 
 
-def peak_decimation(freq, power, factor):
-    """ Peak-preserving Decimation.
-
-    Args:
-        freq (list): Frequency Data.
-        power (list): Power data.
-        factor (int): Decimation factor.
-
-    Returns:
-        tuple: (freq, power)
-    """
-
-    _out_len = len(freq) // factor
-
-    _freq_out = []
-    _power_out = []
-
-    try:
-        for i in range(_out_len):
-            _f_slice = freq[i * factor : i * factor + factor]
-            _p_slice = power[i * factor : i * factor + factor]
-
-            _freq_out.append(_f_slice[np.argmax(_p_slice)])
-            _power_out.append(_p_slice.max())
-    except:
-        pass
-
-    return (_freq_out, _power_out)
-
-
 if __name__ == "__main__":
     import sys
 

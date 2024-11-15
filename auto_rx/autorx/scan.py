@@ -20,10 +20,6 @@ from threading import Thread, Lock
 from types import FunctionType, MethodType
 from .utils import (
     detect_peaks,
-    rtlsdr_test,
-    reset_rtlsdr_by_serial,
-    reset_all_rtlsdrs,
-    peak_decimation,
     timeout_cmd
 )
 from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum, shutdown_sdr
