@@ -536,7 +536,7 @@ def read_ka9q_power_log(log_filename, sdr_name):
             continue
 
         # Split line into fields.
-        fields = line.split(",", 5)
+        fields = line.rstrip().split(",", 5)
 
         if len(fields) < 5:
             logging.error(
