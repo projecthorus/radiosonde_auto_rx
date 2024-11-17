@@ -44,6 +44,9 @@ function setup_scan_chart(){
 	scan_chart_obj = c3.generate({
 	    bindto: '#scan_chart',
 	    data: scan_chart_spectra,
+        transition: {
+            duration: 0
+        },
         tooltip: {
             format: {
                 title: function (d) { return (Math.round(d * 1000) / 1000) + " MHz"; },
