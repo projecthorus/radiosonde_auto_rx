@@ -11,7 +11,7 @@ function update_task_list(){
 
         for (_task in data){
             // Append the current task to the task list.
-            if(_task.includes("SPY")){
+            if(_task.includes("SPY") || _task.includes("KA9Q")){
                 task_detail = _task + " - "
             }else{
                 task_detail = "SDR:" + _task + " - "
