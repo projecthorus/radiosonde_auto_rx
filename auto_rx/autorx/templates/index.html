@@ -740,6 +740,11 @@
                 }
                 mymap.invalidateSize();
             }
+
+            table.on("pageLoaded", function(pageno) {
+                mymap.invalidateSize();
+            });
+
             // Invalidate map size to fix problems with elements resizing.
             mymap.invalidateSize();
 
