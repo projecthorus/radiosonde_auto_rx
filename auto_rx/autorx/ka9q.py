@@ -141,6 +141,7 @@ def ka9q_get_iq_cmd(
     _cmd = (
         f"pcmcat "
         f"-s {round(frequency / 1000)}{ssrc} "
+        f"-b 1 "
         f"{_pcm_host} |"
     )
 
