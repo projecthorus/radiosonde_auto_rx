@@ -51,6 +51,7 @@
                     $('#main span').css('color', 'black')
                 }
                 $('#main p').css('color', 'black')
+                $('#main details').css('color', 'black')
                 $('.modal-content p').css('color', 'black')
                 $('.modal-content h2').css('color', 'black')
                 $('.modal-content span').css('color', 'black')
@@ -77,6 +78,7 @@
                     $('#main span').css('color', 'white')
                 }
                 $('#main p').css('color', 'white')
+                $('#main details').css('color', 'white')
                 $('.modal-content p').css('color', 'white')
                 $('.modal-content h2').css('color', 'white')
                 $('.modal-content span').css('color', 'white')
@@ -457,6 +459,10 @@
                     $('#paginationSelector option[value="3"]').attr("selected",true);
                 }
             }
+
+            $("#tasking").on("toggle", function() {
+                mymap.invalidateSize();
+            })
 
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
@@ -1628,7 +1634,10 @@
         </div>
         <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
         <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Station: <span id="station_callsign">???</span></p>
-        <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Tasking: <span id="task_status"></span></p>
+        <details id="tasking" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+            <summary id="summary_element">Tasking: <span id="task_summary"></span></summary>
+            <span id="task_details"></span>
+        </details>
         <div id="tableid">
             <div id="telem_table"></div>
         </div>

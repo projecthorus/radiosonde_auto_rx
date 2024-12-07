@@ -61,17 +61,10 @@
 .icon-angle-down:before { content: '\f107'; } /* '' */
 .icon-history:before { content: '\f1da'; } /* '' */
 
-
-#task_status {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 2px;
-}
-
 .sdrinfo-element {
-	margin: 0px 4px;
-	padding: 4px;
-	
+	display: inline-block;
+	margin: 0.1em;
+	padding: 0.1em 0.2em;	
 	border: 2px solid rgb(135, 135, 135);
-	border-radius: 1px;
+	border-radius: 4px;
 }
