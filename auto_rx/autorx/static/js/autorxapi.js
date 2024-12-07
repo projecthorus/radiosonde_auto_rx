@@ -3,13 +3,16 @@
 function update_task_list(){
     // Grab the latest task list.
     $.getJSON("get_task_list", function(data){
-        var task_info = "";
+        var task_summary = "";
+        var task_details = "";
+        var num_tasks = 0;
 
         $('#stop-frequency-select').children().remove();
 
         added_decoders = false;
 
         for (_task in data){
+            num_tasks += 1;
             // Append the current task to the task list.
             if(_task.includes("SPY") || _task.includes("KA9Q")){
                 task_detail = _task + " - "
@@ -26,6 +29,7 @@ function update_task_list(){
 
                 added_decoders = true;
 
+                task_icon = "🟢";
                 task_detail += (parseFloat( data[_task]["freq"] )/1e6).toFixed(3);
 
                 if (data[_task].hasOwnProperty("type")){
@@ -34,13 +38,16 @@ function update_task_list(){
                 
             } else {
                 if(data[_task]["task"] == "Scanning"){
+                    task_icon = "🔵";
                     task_detail += "Scan";
                 } else {
+                    task_icon = "⚪";
                     task_detail += "Idle";
                 }
             }
 
-            task_info += "<div class='sdrinfo-element'>" + task_detail + "</div>"
+            task_summary += "<span title='" + task_detail + "'>" + task_icon + "</span>"
+            task_details += "<span class='sdrinfo-element'>" + task_icon + " " + task_detail + "</span>"
         }
 
         if(added_decoders == false){
@@ -51,7 +58,15 @@ function update_task_list(){
         }
         
         // Update page with latest task.
-        $('#task_status').html(task_info);
+        if (num_tasks <= 3) {
+            $('#summary_element').css("display", "block");
+            $('#task_summary').html(task_details);
+            $('#task_details').html("");
+        } else {
+            $('#summary_element').css("display", "list-item");
+            $('#task_summary').html(task_summary);
+            $('#task_details').html(task_details);
+        }
         
         setTimeout(resume_web_controls,2000);
     });
