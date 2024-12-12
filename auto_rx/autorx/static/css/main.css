@@ -377,6 +377,11 @@ input:checked + .slider:before {
     color:inherit;
 }
 
+#telem_table {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
 /* Modal Header */
 .modal-header {
   padding: 2px 16px;

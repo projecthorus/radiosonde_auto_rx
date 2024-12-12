@@ -16,6 +16,9 @@ function setup_scan_chart(){
 	        ['x_spectra',autorx_config.min_freq, autorx_config.max_freq],
 	        ['Spectra',0,0]
 	    ],
+		colors: {
+			Spectra: "#2f77b4"
+		},
 	    type:'line'
 	};
 
@@ -27,6 +30,9 @@ function setup_scan_chart(){
 	        ['x_peaks',0],
 	        ['Peaks',0]
 	    ],
+		colors: {
+			Peaks: "#ff7f0e"
+		},
 	    type:'scatter'
 	};
 
@@ -38,6 +44,9 @@ function setup_scan_chart(){
 	        ['x_thresh',autorx_config.min_freq, autorx_config.max_freq],
 	        ['Threshold',autorx_config.snr_threshold,autorx_config.snr_threshold]
 	    ],
+		colors: {
+			Threshold: "#2ca02c"
+		},
 	    type:'line'
 	};
 
@@ -70,6 +79,12 @@ function setup_scan_chart(){
 	            label:"Power (dB - Uncalibrated)"
 	        }
 	    },
+		size: {
+			height: 200
+		},
+		legend: {
+			show: false
+		},
 	    point:{r:10}
 	});
 }
