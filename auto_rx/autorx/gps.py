@@ -59,10 +59,13 @@ def get_ephemeris(destination="ephemeris.dat"):
 
 
 def get_almanac(destination="almanac.txt", timeout=20):
-    """ Download the latest GPS almanac file from the US Coast Guard website. """
+    """ 
+    Download the latest GPS almanac file from the US Coast Guard website. 
+    URL updated 2024-12-12
+    """
     try:
         _r = requests.get(
-            "https://www.navcen.uscg.gov/?pageName=currentAlmanac&format=sem",
+            "https://www.navcen.uscg.gov/sites/default/files/gps/almanac/current_sem.al3",
             timeout=timeout,
         )
         data = _r.text
