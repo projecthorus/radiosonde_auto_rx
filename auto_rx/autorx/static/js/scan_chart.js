@@ -91,7 +91,7 @@ function setup_scan_chart(){
 
 function redraw_scan_chart(){
 	// Plot the updated data.
-	if(scan_chart_last_drawn === scan_chart_latest_timestamp){
+	if(!scan_chart_latest_timestamp || scan_chart_last_drawn === scan_chart_latest_timestamp){
 		// No need to re-draw.
 		//console.log("No need to re-draw.");
 		return;
