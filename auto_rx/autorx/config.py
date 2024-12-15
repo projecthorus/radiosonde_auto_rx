@@ -148,11 +148,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "rotator_homing_delay": 10,
         "rotator_home_azimuth": 0,
         "rotator_home_elevation": 0,
+        "rotator_azimuth_only": False,
         # OziExplorer Settings
         "ozi_enabled": False,
         "ozi_update_rate": 5,
+        "ozi_host": "<broadcast>",
         "ozi_port": 55681,
         "payload_summary_enabled": False,
+        "payload_summary_host": "<broadcast>",
         "payload_summary_port": 55672,
         # Debugging settings
         "save_detection_audio": False,
@@ -759,6 +762,26 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["save_cal_data"] = False
 
+        # 1.7.5 - Azimuth-Only Rotator configuration
+        try:
+            auto_rx_config['rotator_azimuth_only'] = config.getboolean(
+                "rotator", "azimuth_only"
+            )
+        except:
+            logging.debug("Config - Missing rotator azimuth_only option (new in v1.7.5), using default (False)")
+            auto_rx_config['rotator_azimuth_only'] = False
+
+        # 1.7.5 - Targeted summary output
+        try:
+            auto_rx_config["ozi_host"] = config.get("oziplotter", "ozi_host")
+            auto_rx_config["payload_summary_host"] = config.get("oziplotter", "payload_summary_host")
+        except:
+            logging.warning(
+                "Config - Missing ozi_host or payload_summary_host option (new in v1.7.5), using default (<broadcast>)"
+            )
+            auto_rx_config["ozi_host"] = "<broadcast>"
+            auto_rx_config["payload_summary_host"] = "<broadcast>"
+            
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
@@ -810,6 +833,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 ss_iq_path=auto_rx_config["ss_iq_path"],
                 ss_power_path=auto_rx_config["ss_power_path"],
                 check_freq=1e6*(auto_rx_config["max_freq"]+auto_rx_config["min_freq"])/2.0,
+                timeout=60
             )
 
             if not _sdr_ok:
@@ -831,7 +855,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             _sdr_ok = test_sdr(
                 sdr_type=auto_rx_config["sdr_type"],
                 sdr_hostname=auto_rx_config["sdr_hostname"],
-                sdr_port=auto_rx_config["sdr_port"]
+                sdr_port=auto_rx_config["sdr_port"],
+                timeout=60
             )
 
             if not _sdr_ok:

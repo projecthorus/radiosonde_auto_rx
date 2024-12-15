@@ -17,11 +17,11 @@
 
     <!-- Import local libraries -->
     <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet-providers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/L.TileLayer.NoGap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scan_chart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/c3.min.js') }}"></script>
@@ -51,6 +51,7 @@
                     $('#main span').css('color', 'black')
                 }
                 $('#main p').css('color', 'black')
+                $('#main details').css('color', 'black')
                 $('.modal-content p').css('color', 'black')
                 $('.modal-content h2').css('color', 'black')
                 $('.modal-content span').css('color', 'black')
@@ -77,6 +78,7 @@
                     $('#main span').css('color', 'white')
                 }
                 $('#main p').css('color', 'white')
+                $('#main details').css('color', 'white')
                 $('.modal-content p').css('color', 'white')
                 $('.modal-content h2').css('color', 'white')
                 $('.modal-content span').css('color', 'white')
@@ -458,6 +460,10 @@
                 }
             }
 
+            $("#tasking").on("toggle", function() {
+                mymap.invalidateSize();
+            })
+
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
@@ -466,7 +472,7 @@
                 pagination:"local",
                 paginationSize:pagination_size,
                 layout:"fitDataFill",
-                resizableColumns:"header",
+                columnDefaults:{resizable:"header"},
                 layoutColumnsOnNewData:true,
                 columns:[ //Define Table Columns
                     {title:"SDR", field:"sdr_device_idx", headerSort:true},
@@ -586,50 +592,51 @@
                     {title:"Other", field:"other", width:140, headerSort:false},
                     {title:"Real ID", field:"realid", visible:false}
                 ],
-                rowContext:function(e, row){
-                    e.preventDefault();
-                    //Highlight Sonde on map when row selected
-                    for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
-                        console.log(Object.keys(sonde_positions)[i]);
-                        if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
-                            sonde_positions[Object.keys(sonde_positions)[i]]['path'].setStyle({
-                              color: sonde_positions[Object.keys(sonde_positions)[i]]['colour']
-                            });
-                            if (sonde_positions[Object.keys(sonde_positions)[i]]['latest_data']['vel_v'] < 0){
-                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeDescentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
-                            }else{
-                                sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
-                            }
+            });
+
+            table.on("rowContext", function(e, row){
+                e.preventDefault();
+                //Highlight Sonde on map when row selected
+                for (var i = 0; i < Object.keys(sonde_positions).length; i++) {
+                    console.log(Object.keys(sonde_positions)[i]);
+                    if (Object.keys(sonde_positions)[i] != row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")) {
+                        sonde_positions[Object.keys(sonde_positions)[i]]['path'].setStyle({
+                            color: sonde_positions[Object.keys(sonde_positions)[i]]['colour']
+                        });
+                        if (sonde_positions[Object.keys(sonde_positions)[i]]['latest_data']['vel_v'] < 0){
+                            sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeDescentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
+                        }else{
+                            sonde_positions[Object.keys(sonde_positions)[i]].marker.setIcon(sondeAscentIcons[sonde_positions[Object.keys(sonde_positions)[i]]['colour']]);
                         }
                     }
-
-                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
-                        selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
-                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
-                          color: 'white'
-                        });
-                        /*
-                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
-                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
-                        }else{
-                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
-                        }
-                        */
-                    } else {
-                        selected_sonde = "";
-                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
-                          color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
-                        });
-                        /*
-                        if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
-                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
-                        }else{
-                            sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
-                        }
-                        */
-                    }
-
                 }
+
+                if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path']['options']['color'] != 'white') {
+                    selected_sonde = row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "");
+                    sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                        color: 'white'
+                    });
+                    /*
+                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons['white']);
+                    }else{
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons['white']);
+                    }
+                    */
+                } else {
+                    selected_sonde = "";
+                    sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['path'].setStyle({
+                        color: sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']
+                    });
+                    /*
+                    if (sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['latest_data']['vel_v'] < 0){
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeDescentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                    }else{
+                        sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")].marker.setIcon(sondeAscentIcons[sonde_positions[row['_row']['data']['id'].replace(/(<([^>]+)>)/gi, "")]['colour']]);
+                    }
+                    */
+                }
+
             });
 
             // Update Tabulator table.
@@ -728,14 +735,22 @@
                         telem_data.push(sonde_id_data);
                     });
                 }
-                table.updateOrAddData(telem_data);
+                if (telem_data.length > 0) {
+                    table.updateOrAddData(telem_data);
+                }
                 // Hide table page navigation if only one page.
                 if(table.getPageMax() == 1){
                     $(".tabulator-footer").hide();
                 }else{
                     $(".tabulator-footer").show();
                 }
+                mymap.invalidateSize();
             }
+
+            table.on("pageLoaded", function(pageno) {
+                mymap.invalidateSize();
+            });
+
             // Invalidate map size to fix problems with elements resizing.
             mymap.invalidateSize();
 
@@ -1087,147 +1102,149 @@
               }
             });
 
-            // Runs once at page load to set which Tabulator columns to show/hide per set cookies
-            for (i = 0; i < 19; i++) {
-                var show = getCookie("col"+i);
-                if (show == 'false') {
-                    document.getElementById("checkbox" + i).checked = false;
-                    switch(i) {
-                        case 0:
-                            table.hideColumn("sdr_device_idx");
-                            break;
-                        case 1:
-                            table.hideColumn("age");
-                            break;
-                        case 2:
-                            table.hideColumn("type");
-                            break;
-                        case 3:
-                            table.hideColumn("freq");
-                            break;
-                        case 4:
-                            table.hideColumn("id");
-                            break;
-                        case 5:
-                            table.hideColumn("datetime");
-                            break;
-                        case 6:
-                            table.hideColumn("frame");
-                            break;
-                        case 7:
-                            table.hideColumn("lat");
-                            break;
-                        case 8:
-                            table.hideColumn("lon");
-                            break;
-                        case 9:
-                            table.hideColumn("alt");
-                            break;
-                        case 10:
-                            table.hideColumn("vel_h");
-                            break;
-                        case 11:
-                            table.hideColumn("vel_v");
-                            break;
-                        case 12:
-                            table.hideColumn("temp");
-                            break;
-                        case 13:
-                            table.hideColumn("humidity");
-                            break;
-                        case 14:
-                            table.hideColumn("azimuth");
-                            break;
-                        case 15:
-                            table.hideColumn("elevation");
-                            break;
-                        case 16:
-                            table.hideColumn("range");
-                            break;
-                        case 17:
-                            table.hideColumn("snr");
-                            break;
-                        case 18:
-                            table.hideColumn("other");
-                            break;
-                    }
-                } else if (show == 'true') {
-                    document.getElementById("checkbox" + i).checked = true;
-                } else {
-                    if ($( window ).width() > 1200) {
-                        document.getElementById("checkbox" + i).checked = true;
-                    } else { // If no cookies are set on mobile device show limited number for better experience.
-                        if ([1,4,9,16].includes(i)) {
-                            setCookie("col" + i, 'true', 365);
-                            document.getElementById("checkbox" + i).checked = true;
+            table.on("tableBuilt", function() {
+                // Runs once at page load to set which Tabulator columns to show/hide per set cookies
+                for (i = 0; i < 19; i++) {
+                    var show = getCookie("col"+i);
+                    if (show == 'false') {
+                        document.getElementById("checkbox" + i).checked = false;
+                        switch(i) {
+                            case 0:
+                                table.hideColumn("sdr_device_idx");
+                                break;
+                            case 1:
+                                table.hideColumn("age");
+                                break;
+                            case 2:
+                                table.hideColumn("type");
+                                break;
+                            case 3:
+                                table.hideColumn("freq");
+                                break;
+                            case 4:
+                                table.hideColumn("id");
+                                break;
+                            case 5:
+                                table.hideColumn("datetime");
+                                break;
+                            case 6:
+                                table.hideColumn("frame");
+                                break;
+                            case 7:
+                                table.hideColumn("lat");
+                                break;
+                            case 8:
+                                table.hideColumn("lon");
+                                break;
+                            case 9:
+                                table.hideColumn("alt");
+                                break;
+                            case 10:
+                                table.hideColumn("vel_h");
+                                break;
+                            case 11:
+                                table.hideColumn("vel_v");
+                                break;
+                            case 12:
+                                table.hideColumn("temp");
+                                break;
+                            case 13:
+                                table.hideColumn("humidity");
+                                break;
+                            case 14:
+                                table.hideColumn("azimuth");
+                                break;
+                            case 15:
+                                table.hideColumn("elevation");
+                                break;
+                            case 16:
+                                table.hideColumn("range");
+                                break;
+                            case 17:
+                                table.hideColumn("snr");
+                                break;
+                            case 18:
+                                table.hideColumn("other");
+                                break;
                         }
-                        if ([0,2,3,5,6,7,8,10,11,12,13,14,15,17,18].includes(i)) {
-                            setCookie("col" + i, 'false', 365);
-                            document.getElementById("checkbox" + i).checked = false;
-                            switch(i) {
-                                case 0:
-                                    table.hideColumn("sdr_device_idx");
-                                    break;
-                                case 1:
-                                    table.hideColumn("age");
-                                    break;
-                                case 2:
-                                    table.hideColumn("type");
-                                    break;
-                                case 3:
-                                    table.hideColumn("freq");
-                                    break;
-                                case 4:
-                                    table.hideColumn("id");
-                                    break;
-                                case 5:
-                                    table.hideColumn("datetime");
-                                    break;
-                                case 6:
-                                    table.hideColumn("frame");
-                                    break;
-                                case 7:
-                                    table.hideColumn("lat");
-                                    break;
-                                case 8:
-                                    table.hideColumn("lon");
-                                    break;
-                                case 9:
-                                    table.hideColumn("alt");
-                                    break;
-                                case 10:
-                                    table.hideColumn("vel_h");
-                                    break;
-                                case 11:
-                                    table.hideColumn("vel_v");
-                                    break;
-                                case 12:
-                                    table.hideColumn("temp");
-                                    break;
-                                case 13:
-                                    table.hideColumn("humidity");
-                                    break;
-                                case 14:
-                                    table.hideColumn("azimuth");
-                                    break;
-                                case 15:
-                                    table.hideColumn("elevation");
-                                    break;
-                                case 16:
-                                    table.hideColumn("range");
-                                    break;
-                                case 17:
-                                    table.hideColumn("snr");
-                                    break;
-                                case 18:
-                                    table.hideColumn("other");
-                                    break;
+                    } else if (show == 'true') {
+                        document.getElementById("checkbox" + i).checked = true;
+                    } else {
+                        if ($( window ).width() > 1200) {
+                            document.getElementById("checkbox" + i).checked = true;
+                        } else { // If no cookies are set on mobile device show limited number for better experience.
+                            if ([1,4,9,16].includes(i)) {
+                                setCookie("col" + i, 'true', 365);
+                                document.getElementById("checkbox" + i).checked = true;
+                            }
+                            if ([0,2,3,5,6,7,8,10,11,12,13,14,15,17,18].includes(i)) {
+                                setCookie("col" + i, 'false', 365);
+                                document.getElementById("checkbox" + i).checked = false;
+                                switch(i) {
+                                    case 0:
+                                        table.hideColumn("sdr_device_idx");
+                                        break;
+                                    case 1:
+                                        table.hideColumn("age");
+                                        break;
+                                    case 2:
+                                        table.hideColumn("type");
+                                        break;
+                                    case 3:
+                                        table.hideColumn("freq");
+                                        break;
+                                    case 4:
+                                        table.hideColumn("id");
+                                        break;
+                                    case 5:
+                                        table.hideColumn("datetime");
+                                        break;
+                                    case 6:
+                                        table.hideColumn("frame");
+                                        break;
+                                    case 7:
+                                        table.hideColumn("lat");
+                                        break;
+                                    case 8:
+                                        table.hideColumn("lon");
+                                        break;
+                                    case 9:
+                                        table.hideColumn("alt");
+                                        break;
+                                    case 10:
+                                        table.hideColumn("vel_h");
+                                        break;
+                                    case 11:
+                                        table.hideColumn("vel_v");
+                                        break;
+                                    case 12:
+                                        table.hideColumn("temp");
+                                        break;
+                                    case 13:
+                                        table.hideColumn("humidity");
+                                        break;
+                                    case 14:
+                                        table.hideColumn("azimuth");
+                                        break;
+                                    case 15:
+                                        table.hideColumn("elevation");
+                                        break;
+                                    case 16:
+                                        table.hideColumn("range");
+                                        break;
+                                    case 17:
+                                        table.hideColumn("snr");
+                                        break;
+                                    case 18:
+                                        table.hideColumn("other");
+                                        break;
+                                }
                             }
                         }
                     }
                 }
-            }
-            table.redraw();
+                table.redraw();
+            });
         });
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
@@ -1255,7 +1272,7 @@
                     document.getElementById("main").style.marginLeft = "350px";
                     document.getElementById("mySidenav").style.borderRadius = "0px 25px 25px 0px";
                     mymap.invalidateSize();
-                    setTimeout(scan_chart_obj.resize,500);
+                    scan_chart_obj.flush();
                 } else { // Fullsize on mobile.
                     x.style.display = "block";
                     y.style.display = "none";
@@ -1271,7 +1288,7 @@
                 document.getElementById("mySidenav").style.width = 0;
                 document.getElementById("main").style.marginLeft = 0;
                 mymap.invalidateSize();
-                setTimeout(scan_chart_obj.resize,500);
+                scan_chart_obj.flush();
             }
         }
 
@@ -1287,7 +1304,7 @@
                     document.getElementById("main").style.marginRight = "350px";
                     document.getElementById("mySettings").style.borderRadius = "25px 0px 0px 25px";
                     mymap.invalidateSize();
-                    setTimeout(scan_chart_obj.resize,500);
+                    scan_chart_obj.flush();
                     setTimeout(showDown,500);
                 } else { // Fullsize on mobile.
                     y.style.display = "none";
@@ -1302,7 +1319,7 @@
                 document.getElementById("mySettings").style.width = 0;
                 document.getElementById("main").style.marginRight = 0;
                 mymap.invalidateSize();
-                setTimeout(scan_chart_obj.resize,500);
+                scan_chart_obj.flush();
                 setTimeout(showDown,500);
             }
         }
@@ -1338,7 +1355,7 @@
              setCookie("scan", 'true', 365);
              mymap.invalidateSize();
              redraw_scan_chart();
-             setTimeout(scan_chart_obj.resize,500);
+             scan_chart_obj.flush();
            }
         }
 
@@ -1617,12 +1634,14 @@
         </div>
         <span style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);" id="footertext"></span>
         <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Station: <span id="station_callsign">???</span></p>
-        <p style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">Tasking: <span id="task_status"></span></p>
+        <details id="tasking" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+            <summary id="summary_element">Tasking: <span id="task_summary"></span></summary>
+            <span id="task_details"></span>
+        </details>
         <div id="tableid">
             <div id="telem_table"></div>
         </div>
         <div id="scanid">
-            <h2>Scan Results</h2>
             <div id='scan_results'>No scan data yet...</div>
             <div id="scan_chart" style="width:100%;"></div>
         </div>
@@ -1688,6 +1707,21 @@
             </div>
             <div style="display:inline;vertical-align:middle;">
                 <button id="disable-scanner" onclick="disable_scanner();">Disable</button>
+            </div>
+            <br>
+            <div id="rotatorControlForm">
+                <h2>Rotator Control</h2>
+                <p>Go To Position</p>
+                <input style="display:inline;vertical-align:middle;" type="text" id="azimuth-input" placeholder="Azimuth (degrees)">
+                <input style="display:inline;vertical-align:middle;" type="text" id="elevation-input" placeholder="Elevation (degrees)">
+                <div style="display:inline;vertical-align:middle;">
+                    <button id="move-rotator" onclick="move_rotator();">Move</button>
+                </div>
+                <br>
+                <div style="display:inline;vertical-align:middle;">
+                    <button id="home-rotator" onclick="home_rotator();">Home Rotator</button>
+                </div>
+                <br>
             </div>
           </div>
         </div>

@@ -16,16 +16,23 @@ from .utils import timeout_cmd
 def ka9q_setup_channel(
     sdr_hostname,
     frequency,
-    sample_rate
+    sample_rate,
+    scan
 ):
+    if scan:
+        ssrc="04"
+    else:
+        ssrc="01"
+
     # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
     _cmd = (
         f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
         f"tune "
         f"--samprate {int(sample_rate)} "
         f"--mode iq "
+        f"--low {int(int(sample_rate) / (-2.4))} --high {int(int(sample_rate) / 2.4)} "
         f"--frequency {int(frequency)} "
-        f"--ssrc {int(frequency)} "
+        f"--ssrc {round(frequency / 1000)}{ssrc} "
         f"--radio {sdr_hostname}"
     )
 
@@ -61,8 +68,13 @@ def ka9q_setup_channel(
 
 def ka9q_close_channel(
     sdr_hostname,
-    frequency
+    frequency,
+    scan
 ):
+    if scan:
+        ssrc="04"
+    else:
+        ssrc="01"
 
     _cmd = (
         f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
@@ -70,7 +82,7 @@ def ka9q_close_channel(
         f"--samprate 48000 "
         f"--mode iq "
         f"--frequency 0 "
-        f"--ssrc {int(frequency)} "
+        f"--ssrc {round(frequency / 1000)}{ssrc} "
         f"--radio {sdr_hostname}"
     )
 
@@ -107,11 +119,16 @@ def ka9q_close_channel(
 def ka9q_get_iq_cmd(
         sdr_hostname,
         frequency,
-        sample_rate
+        sample_rate,
+        scan
 ):
+    if scan:
+        ssrc="04"
+    else:
+        ssrc="01"
     
     # We need to setup a channel before we can use it!
-    _setup_success = ka9q_setup_channel(sdr_hostname, frequency, sample_rate)
+    _setup_success = ka9q_setup_channel(sdr_hostname, frequency, sample_rate, scan)
 
     if not _setup_success:
         logging.critical(f"KA9Q ({sdr_hostname}) - Could not setup rx channel! Decoder will likely timeout.")
@@ -123,7 +140,8 @@ def ka9q_get_iq_cmd(
     # -2 option was removed sometime in early 2024.
     _cmd = (
         f"pcmcat "
-        f"-s {int(frequency)} "
+        f"-s {round(frequency / 1000)}{ssrc} "
+        f"-b 1 "
         f"{_pcm_host} |"
     )
 

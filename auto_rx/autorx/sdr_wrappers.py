@@ -23,7 +23,8 @@ def test_sdr(
     sdr_port = 5555,
     ss_iq_path = "./ss_iq",
     ss_power_path = "./ss_power",
-    check_freq = 401500000
+    check_freq = 401500000,
+    timeout = 5
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -71,11 +72,11 @@ def test_sdr(
         # Try and configure a channel at check_freq Hz
         # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
         _cmd = (
-            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
-            f"--ssrc {int(check_freq)}314 "
+            f"--ssrc {round(check_freq / 1000)}02 "
             f"--radio {sdr_hostname}"
         )
 
@@ -108,11 +109,11 @@ def test_sdr(
         
         # Now close the channel we just opened by setting the frequency to 0 Hz.
         _cmd = (
-            f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+            f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
             f"--frequency 0 "
-            f"--ssrc {int(check_freq)}314 "
+            f"--ssrc {round(check_freq / 1000)}02 "
             f"--radio {sdr_hostname}"
         )
 
@@ -142,7 +143,7 @@ def test_sdr(
             return False
 
         _cmd = (
-            f"{timeout_cmd()} 10 "  # Add a timeout, because connections to non-existing IPs seem to block.
+            f"{timeout_cmd()} {timeout} "  # Add a timeout, because connections to non-existing IPs seem to block.
             f"{ss_iq_path} "
             f"-f {check_freq} "
             f"-s 48000 "
@@ -244,7 +245,8 @@ def shutdown_sdr(
     sdr_type: str,
     sdr_id: str,
     sdr_hostname = "",
-    frequency: int = None
+    frequency: int = None,
+    scan: bool = False,
     ):
     """
     Function to trigger shutdown/cleanup of some SDR types.
@@ -256,7 +258,7 @@ def shutdown_sdr(
 
     if sdr_type == "KA9Q":
         logging.debug(f"KA9Q - Closing Channel for {sdr_hostname} @ {frequency} Hz.")
-        ka9q_close_channel(sdr_hostname, frequency)
+        ka9q_close_channel(sdr_hostname, frequency, scan)
         pass
     else:
         logging.debug(f"No shutdown action required for SDR type {sdr_type}")
@@ -278,7 +280,8 @@ def get_sdr_iq_cmd(
     bias = False,
     sdr_hostname = "",
     sdr_port = 5555,
-    ss_iq_path = "./ss_iq"
+    ss_iq_path = "./ss_iq",
+    scan = False
 ):
     """
     Get a command-line argument to get IQ (signed 16-bit) from a SDR
@@ -300,6 +303,7 @@ def get_sdr_iq_cmd(
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
+    scan (bool): Create unique SSRC for scan attempts
 
     Arguments for SpyServer Client:
     ss_iq_path (str): Path to spyserver IQ client utility.
@@ -357,7 +361,7 @@ def get_sdr_iq_cmd(
         return _cmd
     
     if sdr_type == "KA9Q":
-        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate)
+        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate, scan)
 
         if dc_block:
             _cmd += _dc_remove
@@ -502,6 +506,65 @@ def read_rtl_power_log(log_filename, sdr_name):
 
     return (freq, power, freq_step)
 
+def read_ka9q_power_log(log_filename, sdr_name):
+    """
+    Read in a ka9q log output file.
+
+    Arguments:
+    log_filename (str): Filename to read
+    sdr_name (str): SDR name used for logging errors.
+    """
+
+    # OK, now try to read in the saved data.
+    # Output buffers.
+    freq = np.array([])
+    power = np.array([])
+
+    freq_step = 0
+
+    # Open file.
+    f = open(log_filename, "r")
+
+    # ka9q powers log files are csv's, with the first 5 fields in each line describing the time and frequency scan parameters
+    # for the remaining fields, which contain the power samples.
+
+    burn_line = True
+
+    for line in f:
+        if burn_line:
+            burn_line = False
+            continue
+
+        # Split line into fields.
+        fields = line.rstrip().split(",", 5)
+
+        if len(fields) < 5:
+            logging.error(
+                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
+            )
+            raise Exception(
+                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
+            )
+
+        start_datetime = fields[0]
+        start_freq = float(fields[1])
+        stop_freq = float(fields[2])
+        freq_step = float(fields[3])
+        n_samples = int(fields[4])
+        # freq_range = np.arange(start_freq,stop_freq,freq_step)
+        samples = np.fromstring(fields[5], sep=",")
+        freq_range = np.linspace(start_freq, stop_freq, len(samples))
+
+        # Add frequency range and samples to output buffers.
+        freq = np.append(freq, freq_range)
+        power = np.append(power, samples)
+
+    f.close()
+
+    power = np.nan_to_num(power)
+
+    return (freq, power, freq_step)
+
 
 def get_power_spectrum(
     sdr_type: str,
@@ -516,7 +579,8 @@ def get_power_spectrum(
     bias = False,
     sdr_hostname = "",
     sdr_port = 5555,
-    ss_power_path = "./ss_power"
+    ss_power_path = "./ss_power",
+    ka9q_powers_path = "powers"
 ):
     """
     Get power spectral density data from a SDR.
@@ -545,6 +609,8 @@ def get_power_spectrum(
     ss_power_path (str): Path to spyserver power utility.
     ss_iq_path (str): Path to spyserver IQ client utility.
 
+    Arguments for KA9Q Client:
+    ka9q_powers_path (str): Path to KA9Q Radio powers utility.
 
     Returns:
     (freq, power, step) Tuple
@@ -696,6 +762,66 @@ def get_power_spectrum(
             return (None, None, None)
 
         return read_rtl_power_log(_log_filename, _sdr_name)
+
+    elif sdr_type == "KA9Q":
+        # Use powers to obtain power spectral density data
+
+        # Create filename to output to.
+        _log_filename = os.path.join(autorx.logging_path, f"log_power_{rtl_device_idx}.csv")
+        
+        # If the output log file exists, remove it.
+        if os.path.exists(_log_filename):
+            os.remove(_log_filename)
+
+        _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
+        _center_freq = (frequency_start + frequency_stop) / 2
+        _bins = int((frequency_stop - frequency_start) / step) + 1 # 3001 for 2.4MHz @ 800Hz bins/steps
+        _ssrc = f"{round(_center_freq / 1000)}03"
+
+        _powers_cmd = (
+            f"LANG=C " # temporary workaround for https://github.com/ka9q/ka9q-radio/pull/65#issuecomment-2480243690
+            f"{_timeout_cmd} {ka9q_powers_path} "
+            f"{sdr_hostname} "
+            f"-f {_center_freq} "
+            f"-w {step} "
+            f"-b {_bins} "
+            f"-i {integration_time} "
+            f"-s {_ssrc} "
+            f"-c 2 " # burn the first scan result due to no dwelling
+            f"> {_log_filename}"
+        )
+
+        _sdr_name = get_sdr_name(
+            sdr_type=sdr_type,
+            rtl_device_idx=rtl_device_idx,
+            sdr_hostname=sdr_hostname,
+            sdr_port=sdr_port
+            )
+
+        logging.info(f"Scanner ({_sdr_name}) - Running frequency scan.")
+        logging.debug(
+            f"Scanner ({_sdr_name}) - Running command: {_powers_cmd}"
+        )
+
+        try:
+            _output = subprocess.check_output(
+                _powers_cmd, shell=True, stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError as e:
+            # Something went wrong...
+            logging.critical(
+                f"Scanner ({_sdr_name}) - ka9q powers call failed with return code {e.returncode}."
+            )
+            # Look at the error output in a bit more details.
+            _output = e.output.decode("ascii")
+            # Something else odd happened, dump the entire error output to the log for further analysis.
+            logging.critical(
+                f"Scanner ({_sdr_name}) - ka9q powers reported error: {_output}"
+            )
+
+            return (None, None, None)
+
+        return read_ka9q_power_log(_log_filename, _sdr_name)
 
     else:
         # Unsupported SDR Type

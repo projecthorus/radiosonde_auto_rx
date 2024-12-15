@@ -283,6 +283,26 @@ static int crc32ok(ui8_t *bytes, int len) {
     return 0;
 }
 
+static ui32_t crc32_802(ui8_t *msg, int len) {
+    ui32_t poly32 = 0x04C11DB7;  // CRC32 802-3 (Ethernet) normal
+    ui32_t rem = 0x0;
+    ui32_t out = 0x63D60875;
+    ui32_t crc = 0;
+    int i, j;
+    for (i = 0; i < len; i++) {
+        rem ^= (msg[i] << 24);
+        for (j = 0; j < 8; j++) {
+            if (rem & (1 << 31)) {
+                rem = (rem << 1) ^ poly32;
+            }
+            else {
+                rem <<= 1;
+            }
+        }
+    }
+    return rem ^ out;
+}
+
 /* ------------------------------------------------------------------------------------ */
 
 static ui32_t u4be(ui8_t *bytes) {  // 32bit unsigned int
@@ -323,6 +343,21 @@ static ui16_t u2be(ui8_t *bytes) {  // 16bit unsigned int
 #define pos_STATUS    0x2A  // 2 byte
 #define pos_F8        0x52  // 1 byte
 #define pos_CNT11     0x5E  // 1 byte
+
+#define pos_CRC32CONT 0x34  // 4 byte
+
+
+static int crc32ok_cont(ui8_t *bytes) {
+    ui8_t m4[pos_CRC32CONT] = {0};
+    ui32_t crc32dat = u4be(bytes+pos_CRC32CONT);
+    ui32_t crc32val = 0;
+    int i, j;
+    for (i = 0; i < pos_CRC32CONT/4; i++) {
+        for (j = 0; j < 4; j++) m4[4*i+j] = bytes[4*i+3-j];
+    }
+    crc32val = crc32_802(m4, pos_CRC32CONT);
+    return crc32val == crc32dat;
+}
 
 
 static int get_SN(gpx_t *gpx) {
@@ -456,21 +491,19 @@ static int reset_gpx(gpx_t *gpx) {
 
 /* ------------------------------------------------------------------------------------ */
 
-static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc_std) {
+static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_tlm, int ecc_std) {
 
     int prnGPS = 0,
         prnPTU = 0,
         prnSTS = 0;
     int ptu1e9 = 0;
     int tp_err = 0;
-    int pos_ok = 0,
-        frm_ok = 0,
+    int frm_ok = 0,
         crc_ok = 0,
         std_ok = 0;
     int rs_type = 54;
 
     crc_ok = crc32ok(gpx->frame, len);
-    pos_ok = (ecc_frm >= 0  &&  len > pos_STATUS+2);
     frm_ok = (ecc_frm >= 0  &&  len > pos_F8);
 
     reset_gpx(gpx);
@@ -520,16 +553,15 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc
         }
 
         if ( crc_ok ) fprintf(stdout, " [OK]");  // std frame: frame[104..105]==0x4000 ?
-        else {
-            if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");
-            else if ( ecc_std == 0 ) {    // full frame: pos_F8_full==pos_F8_std+11 ?
-                fprintf(stdout, " [ok]");
+        else {                                   // continuous frame: pos_F8_full==pos_F8_std+11 ?
+            crc_ok = crc32ok_cont(gpx->frame);
+            if ( crc_ok ) fprintf(stdout, " [ok]");
+            else if ( ecc_std == 0 ) {
+                fprintf(stdout, " [oo]");
                 std_ok = 1;
             }
-            else {
-                fprintf(stdout, " [no]");
-                std_ok = 0;
-            }
+            else if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");
+            else fprintf(stdout, " [no]");
         }
 
         // (imet54:GPS+PTU) status: 003E , (imet50:GPS); 0030
@@ -540,7 +572,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc
         // error correction
         if (gpx->option.ecc && ecc_frm != 0) {
             fprintf(stdout, " #  (%d)", ecc_frm);
-            if (gpx->option.vbs) fprintf(stdout, " [%d]", ecc_gps);
+            if (gpx->option.vbs) fprintf(stdout, " [%d]", ecc_tlm);
         }
 
         fprintf(stdout, "\n");
@@ -586,6 +618,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_gps, int ecc
 static void print_frame(gpx_t *gpx, int len, int b2B) {
     int i, j;
     int ecc_frm = 0, ecc_gps = 0, ecc_std = 0;
+    int ecc_tlm = 0;
     ui8_t bits8n1[BITFRAME_LEN+10]; // (RAW)BITFRAME_LEN
     ui8_t bits[BITFRAME_LEN]; // 8/10 (RAW)BITFRAME_LEN
     ui8_t nib[FRAME_LEN];
@@ -613,15 +646,17 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
 
         ecc_frm = 0;
         ecc_gps = 0;
+        ecc_tlm = 0;
         ecc_std = 0;
-        for (j = 0; j < len/8; j++) { // alt. only GPS block
+        for (j = 0; j < 2*pos_CRC32CONT; j++) { // alt. only GPS block  // len/8
             ecc_frm += ec[j];
             if (ec[j] > 0x10) ecc_frm = -1;
-            if (j < pos_GPSalt+4+8) ecc_gps = ecc_frm;
-            if (j < 2*FRMBYTE_STD)  ecc_std = ecc_frm;
+            if (j < 2*(pos_GPSalt+4)) ecc_gps = ecc_frm;
+            if (j < 2*(pos_STATUS+2)) ecc_tlm = ecc_frm;
+            if (j < 2*pos_CRC32CONT)  ecc_std = ecc_frm;  // pos_STATUS < pos_CRC32CONT < FRMBYTE_STD
             if (ecc_frm < 0) break;
         }
-        if (j < 2*FRMBYTE_STD) ecc_std = -1;
+        if (j < 2*pos_CRC32CONT) ecc_std = -1;
     }
     else {
         ecc_frm = -2; // TODO: parse ecc-info from raw file
@@ -630,7 +665,7 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
 
     if (gpx->option.raw)
     {
-        int crc_ok = crc32ok(gpx->frame, len);
+        int crc_ok = crc32ok(gpx->frame, len/16);
 
         for (i = 0; i < len/16; i++) {
             fprintf(stdout, "%02X", gpx->frame[i]);
@@ -642,24 +677,31 @@ static void print_frame(gpx_t *gpx, int len, int b2B) {
         }
 
         if ( crc_ok ) fprintf(stdout, " [OK]");  // std frame: frame[104..105]==0x4000 ?
-        else {
-            if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");  // full frame: pos_F8_full==pos_F8_std+11 ?
-            else if ( ecc_std == 0 ) fprintf(stdout, " [ok]");
-            else                     fprintf(stdout, " [no]");
+        else {                                   // continuous frame: pos_F8_full==pos_F8_std+11 ?
+            crc_ok = crc32ok_cont(gpx->frame);
+            if ( crc_ok ) fprintf(stdout, " [ok]");
+            else if ( ecc_std == 0 ) {
+                fprintf(stdout, " [oo]");
+            }
+            else if (gpx->frame[pos_F8] == 0xF8) fprintf(stdout, " [NO]");
+            else fprintf(stdout, " [no]");
         }
+        // [ok] # (-1):
+        // CRC32 more reliable than CRC16
+        // ecc_frm=-1 => errors in parity only ?  (JSON output only if crc_ok and ecc_frm >= 0)
         if (gpx->option.ecc && ecc_frm != 0) {
             fprintf(stdout, " # (%d)", ecc_frm);
-            fprintf(stdout, " [%d]", ecc_gps);
+            fprintf(stdout, " [%d]", ecc_tlm);
         }
         fprintf(stdout, "\n");
 
         if (gpx->option.slt /*&& gpx->option.jsn*/) {
-            print_position(gpx, len/16, ecc_frm, ecc_gps, ecc_std);
+            print_position(gpx, len/16, ecc_frm, ecc_tlm, ecc_std);
         }
     }
     else
     {
-        print_position(gpx, len/16, ecc_frm, ecc_gps, ecc_std);
+        print_position(gpx, len/16, ecc_frm, ecc_tlm, ecc_std);
     }
 }
 
@@ -752,7 +794,8 @@ int main(int argc, char *argv[]) {
         else if   (strcmp(*argv, "--silent") == 0) { gpx.option.slt = 1; }
         else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
         else if   (strcmp(*argv, "--auto") == 0) { gpx.option.aut = 1; }
-        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softin") == 0)  { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softinv") == 0) { option_softin = 2; }  // float32 inverted soft input
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
             if (*argv) {
@@ -964,7 +1007,7 @@ int main(int argc, char *argv[]) {
         while ( 1 )
         {
             if (option_softin) {
-                header_found = find_softbinhead(fp, &hdb, &_mv);
+                header_found = find_softbinhead(fp, &hdb, &_mv, option_softin == 2);
             }
             else {                                                              // FM-audio:
                 header_found = find_header(&dsp, thres, 4, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
@@ -987,7 +1030,7 @@ int main(int argc, char *argv[]) {
                 {
                     if (option_softin) {
                         float s = 0.0;
-                        bitQ = f32soft_read(fp, &s);
+                        bitQ = f32soft_read(fp, &s, option_softin == 2);
                         if (bitQ != EOF) {
                             bit = (s>=0.0);
                             hsbit.hb = bit;
@@ -1023,7 +1066,7 @@ int main(int argc, char *argv[]) {
                 while ( 0 && bitpos < 4*BITFRAME_LEN/3 ) {
                     if (option_softin) {
                         float s = 0.0;
-                        bitQ = f32soft_read(fp, &s);
+                        bitQ = f32soft_read(fp, &s, option_softin == 2);
                     }
                     else {
                         bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=1

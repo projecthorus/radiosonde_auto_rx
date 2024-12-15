@@ -16,6 +16,9 @@ function setup_scan_chart(){
 	        ['x_spectra',autorx_config.min_freq, autorx_config.max_freq],
 	        ['Spectra',0,0]
 	    ],
+		colors: {
+			Spectra: "#2f77b4"
+		},
 	    type:'line'
 	};
 
@@ -27,6 +30,9 @@ function setup_scan_chart(){
 	        ['x_peaks',0],
 	        ['Peaks',0]
 	    ],
+		colors: {
+			Peaks: "#ff7f0e"
+		},
 	    type:'scatter'
 	};
 
@@ -38,12 +44,18 @@ function setup_scan_chart(){
 	        ['x_thresh',autorx_config.min_freq, autorx_config.max_freq],
 	        ['Threshold',autorx_config.snr_threshold,autorx_config.snr_threshold]
 	    ],
+		colors: {
+			Threshold: "#2ca02c"
+		},
 	    type:'line'
 	};
 
 	scan_chart_obj = c3.generate({
 	    bindto: '#scan_chart',
 	    data: scan_chart_spectra,
+        transition: {
+            duration: 0
+        },
         tooltip: {
             format: {
                 title: function (d) { return (Math.round(d * 1000) / 1000) + " MHz"; },
@@ -53,10 +65,13 @@ function setup_scan_chart(){
 	    axis:{
 	        x:{
 	            tick:{
-                    culling: {
-                        max: window.innerWidth > 1100 ? 10 : 4
-                    },
-	                format: function (x) { return x.toFixed(3); }
+                    values: [
+                        400, 400.5, 401, 401.5, 402, 402.5, 403,
+                        403.5, 404, 404.5, 405, 405.5, 406,
+                        1676, 1678, 1680, 1682, 1684, 1686, 1688,
+                        1690, 1692, 1694, 1696, 1698, 1700
+                    ],
+                    outer: false
 	            },
 	            label:"Frequency (MHz)"
 	        },
@@ -64,13 +79,19 @@ function setup_scan_chart(){
 	            label:"Power (dB - Uncalibrated)"
 	        }
 	    },
+		size: {
+			height: 200
+		},
+		legend: {
+			show: false
+		},
 	    point:{r:10}
 	});
 }
 
 function redraw_scan_chart(){
 	// Plot the updated data.
-	if(scan_chart_last_drawn === scan_chart_latest_timestamp){
+	if(!scan_chart_latest_timestamp || scan_chart_last_drawn === scan_chart_latest_timestamp){
 		// No need to re-draw.
 		//console.log("No need to re-draw.");
 		return;

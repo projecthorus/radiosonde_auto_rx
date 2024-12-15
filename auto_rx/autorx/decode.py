@@ -422,7 +422,7 @@ class SondeDecoder(object):
                         self.log_error(
                             "Could not obtain GPS ephemeris or almanac data."
                         )
-                        return None
+                        return (None, None, None)
                     else:
                         _rs92_gps_data = "-a almanac.txt --gpsepoch 2"  # Note - This will need to be updated in... 19 years.
                 else:
@@ -1385,7 +1385,7 @@ class SondeDecoder(object):
             self.rx_frequency = self.sonde_freq
 
         else:
-            return None
+            return (None, None, None)
 
         return (demod_cmd, decode_cmd, demod_stats)
 
@@ -1592,7 +1592,7 @@ class SondeDecoder(object):
 
                     # Overwrite the datetime field to make the email notifier happy
                     _telemetry['datetime_dt'] = datetime.datetime.now(datetime.timezone.utc)
-                    _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
+                    _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
 
                     # Send this to only the Email Notifier, if it exists.
                     for _exporter in self.exporters:
@@ -1667,7 +1667,7 @@ class SondeDecoder(object):
                 #_telemetry["subtype"] = self.sonde_type
 
             _telemetry["freq_float"] = self.sonde_freq / 1e6
-            _telemetry["freq"] = "%.3f MHz" % (self.sonde_freq / 1e6)
+            _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
 
             # Add in information about the SDR used.
             _telemetry["sdr_device_idx"] = self.rtl_device_idx

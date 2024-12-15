@@ -17,11 +17,11 @@
     
     <!-- Import local libraries -->
     <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet-providers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/Leaflet.fullscreen.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/leaflet.edgebuffer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/L.TileLayer.NoGap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/d3.3.5.3.min.js') }}" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
@@ -90,15 +90,7 @@
             var table = new Tabulator("#sonde-list-table", {
                 data:table_data,           //load row data from array
                 layout:"fitColumns",     //fit columns to width of table
-                selectable:true,
-                tooltips:function(cell){
-
-                        if (cell.getField() == "short_type"){
-                            return cell.getData().type;
-                        } else{
-                            return false;
-                        }
-                    },
+                selectableRows:true,
                 columns:[                 //define the table columns
                     {title:"Date", field:"datetime", width:160, resizable:false, formatter:function(cell, formatterParams, onRendered){
                         if (getCookie('UTC') == 'false') {
@@ -115,7 +107,9 @@
                         },
                         headerTooltip:"First Observed Date/Time"
                     },
-                    {title:"Type", field:"short_type", width:85, resizable:false}, // 90
+                    {title:"Type", field:"short_type", width:85, resizable:false, tooltip:function(e, cell, onRendered){
+                        return cell.getData().type;
+                    }}, // 90
                     {title:"Serial", field:"serial", width:90, resizable:false}, // 105
                     {title:"Freq", field:"freq", width:65, resizable:false, headerTooltip:"Frequency (MHz)",
                         formatter:function(cell, formatterParams, onRendered){
@@ -146,7 +140,7 @@
                                 return cell.getValue() + " km";
                             }
                         }},
-                    {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
+                    {formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
                 rowSelected:function(row){
                     mymap.eachLayer(function(layer){
@@ -1271,92 +1265,93 @@
                 adjustNav();
 	        });
 
-	        // Runs once at page load to set which Tabulator columns to show/hide per set cookies
-            for (i = 0; i < 8; i++) {
-                var show = getCookie("sonde_list_col"+i);
-                if (show == 'false') {
-                    document.getElementById("checkbox" + i).checked = false;
-                    switch(i) {
-                        case 0:
-                            table.hideColumn("datetime");
-                            break;
-                        case 1:
-                            table.hideColumn("short_type");
-                            break;
-                        case 2:
-                            table.hideColumn("serial");
-                            break;
-                        case 3:
-                            table.hideColumn("freq");
-                            break;
-                        case 4:
-                            table.hideColumn("lines");
-                            break;
-                        case 5:
-                            table.hideColumn("min_height");
-                            break;
-                        case 6:
-                            table.hideColumn("last_range");
-                            break;
-                        case 7:
-                            table.hideColumn("max_range");
-                            break;
-                    }
-                } else if (show == 'true') {
-                    document.getElementById("checkbox" + i).checked = true;
-                } else {
-                    if ($( window ).width() > 1200) {
-                        document.getElementById("checkbox" + i).checked = true;
-                    } else { // If no cookies are set on mobile device show limited number for better experience.
-                        if ([0,1].includes(i)) {
-                            setCookie("sonde_list_col" + i, 'true', 365);
-                            document.getElementById("checkbox" + i).checked = true;
+            table.on("tableBuilt", function() {
+                // Runs once at page load to set which Tabulator columns to show/hide per set cookies
+                for (i = 0; i < 8; i++) {
+                    var show = getCookie("sonde_list_col"+i);
+                    if (show == 'false') {
+                        document.getElementById("checkbox" + i).checked = false;
+                        switch(i) {
+                            case 0:
+                                table.hideColumn("datetime");
+                                break;
+                            case 1:
+                                table.hideColumn("short_type");
+                                break;
+                            case 2:
+                                table.hideColumn("serial");
+                                break;
+                            case 3:
+                                table.hideColumn("freq");
+                                break;
+                            case 4:
+                                table.hideColumn("lines");
+                                break;
+                            case 5:
+                                table.hideColumn("min_height");
+                                break;
+                            case 6:
+                                table.hideColumn("last_range");
+                                break;
+                            case 7:
+                                table.hideColumn("max_range");
+                                break;
                         }
-                        if ([2,3,4,5,6,7].includes(i)) {
-                            setCookie("sonde_list_col" + i, 'false', 365);
-                            document.getElementById("checkbox" + i).checked = false;
-                            switch(i) {
-                                case 0:
-                                    table.hideColumn("datetime");
-                                    break;
-                                case 1:
-                                    table.hideColumn("short_type");
-                                    break;
-                                case 2:
-                                    table.hideColumn("serial");
-                                    break;
-                                case 3:
-                                    table.hideColumn("freq");
-                                    break;
-                                case 4:
-                                    table.hideColumn("lines");
-                                    break;
-                                case 5:
-                                    table.hideColumn("min_height");
-                                    break;
-                                case 6:
-                                    table.hideColumn("last_range");
-                                    break;
-                                case 7:
-                                    table.hideColumn("max_range");
-                                    break;
+                    } else if (show == 'true') {
+                        document.getElementById("checkbox" + i).checked = true;
+                    } else {
+                        if ($( window ).width() > 1200) {
+                            document.getElementById("checkbox" + i).checked = true;
+                        } else { // If no cookies are set on mobile device show limited number for better experience.
+                            if ([0,1].includes(i)) {
+                                setCookie("sonde_list_col" + i, 'true', 365);
+                                document.getElementById("checkbox" + i).checked = true;
+                            }
+                            if ([2,3,4,5,6,7].includes(i)) {
+                                setCookie("sonde_list_col" + i, 'false', 365);
+                                document.getElementById("checkbox" + i).checked = false;
+                                switch(i) {
+                                    case 0:
+                                        table.hideColumn("datetime");
+                                        break;
+                                    case 1:
+                                        table.hideColumn("short_type");
+                                        break;
+                                    case 2:
+                                        table.hideColumn("serial");
+                                        break;
+                                    case 3:
+                                        table.hideColumn("freq");
+                                        break;
+                                    case 4:
+                                        table.hideColumn("lines");
+                                        break;
+                                    case 5:
+                                        table.hideColumn("min_height");
+                                        break;
+                                    case 6:
+                                        table.hideColumn("last_range");
+                                        break;
+                                    case 7:
+                                        table.hideColumn("max_range");
+                                        break;
+                                }
                             }
                         }
                     }
                 }
-            }
-	    
-            sonde_list_width = 0;
-            var columns = table.getColumns();
-            for (i = 0; i < columns.length; i++){
-                if(columns[i]._column.visible){
-                    sonde_list_width += columns[i]._column.width;
+            
+                sonde_list_width = 0;
+                var columns = table.getColumns();
+                for (i = 0; i < columns.length; i++){
+                    if(columns[i]._column.visible){
+                        sonde_list_width += columns[i]._column.width;
+                    }
                 }
-            }
-            if(sonde_list_width<160) sonde_list_width=160;
-            adjustNav();
-            table.redraw();
-	    
+                if(sonde_list_width<160) sonde_list_width=160;
+                adjustNav();
+                table.redraw();
+            });
         });
 
         // Function to open/close left log menu along with adjusting other elements so they render correctly.
@@ -1513,7 +1508,7 @@
             </div>
             <br>
             </div>
-            <div id="sonde-list-table"></div>       
+            <div id="sonde-list-table" style="height:100%"></div>       
         </div>
 
     <!-- Wrapper for settings sidebar -->   

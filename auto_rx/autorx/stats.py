@@ -29,7 +29,6 @@ import matplotlib.pyplot as plt
 from dateutil.parser import parse
 from autorx.utils import (
     short_type_lookup,
-    readable_timedelta,
     strip_sonde_serial,
     position_info,
 )
@@ -228,7 +227,7 @@ if __name__ == "__main__":
 
     # Read in the log files.
     logging.info("Quick-Looking Log Files")
-    log_list = list_log_files(quicklook=True, custom_log_dir=args.log)
+    log_list = list_log_files(quicklook=True, stats_fields=True, custom_log_dir=args.log)
     logging.info(f"Loaded in {len(log_list)} log files.")
 
 

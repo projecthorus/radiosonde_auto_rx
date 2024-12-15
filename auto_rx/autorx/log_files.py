@@ -22,14 +22,13 @@ from dateutil.parser import parse
 from autorx.utils import (
     short_type_lookup,
     short_short_type_lookup,
-    readable_timedelta,
     strip_sonde_serial,
     position_info,
 )
 from autorx.geometry import GenericTrack, getDensity
 
 
-def log_filename_to_stats(filename, quicklook=False):
+def log_filename_to_stats(filename, quicklook=False, stats_fields=False):
     """ Attempt to extract information about a log file from a supplied filename """
     # Example log file name: 20210430-235413_IMET-89F2720A_IMET_401999_sonde.log
     # ./log/20200320-063233_R2230624_RS41_402500_sonde.log
@@ -53,12 +52,16 @@ def log_filename_to_stats(filename, quicklook=False):
         _fields = _basename.split("_")
 
         # First field is the date/time the sonde was first received.
-        _date_str = _fields[0] + "Z"
-        _date_dt = parse(_date_str)
-
-        # Calculate age
-        _age_td = _now_dt - _date_dt
-        _time_delta = readable_timedelta(_age_td)
+        _date_str = _fields[0]
+        _date_dt = datetime.datetime(
+            int(_date_str[0:4]),
+            int(_date_str[4:6]),
+            int(_date_str[6:8]),
+            int(_date_str[9:11]),
+            int(_date_str[11:13]),
+            int(_date_str[13:15]),
+            tzinfo=datetime.timezone.utc
+        )
 
         # Re-format date
         _date_str2 = _date_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -76,7 +79,6 @@ def log_filename_to_stats(filename, quicklook=False):
 
         _output = {
             "datetime": _date_str2,
-            "age": _time_delta,
             "serial": _serial,
             "type": _type_str,
             "short_type": _short_type,
@@ -86,15 +88,16 @@ def log_filename_to_stats(filename, quicklook=False):
 
         if quicklook:
             try:
-                _quick = log_quick_look(filename)
+                _quick = log_quick_look(filename, stats_fields=stats_fields)
                 if _quick:
                     _output["first"] = _quick["first"]
                     _output["last"] = _quick["last"]
-                    _output["has_snr"] = _quick["has_snr"]
                     _output["max_range"] = int(max(_output["first"]["range_km"],_output["last"]["range_km"]))
                     _output["last_range"] = int(_output["last"]["range_km"])
                     _output["min_height"] = int(_output["last"]["alt"])
-                    _output["freq"] = _quick["first"]["freq"]
+                    if stats_fields:
+                        _output["has_snr"] = _quick["has_snr"]
+
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
 
@@ -105,7 +108,7 @@ def log_filename_to_stats(filename, quicklook=False):
         return None
 
 
-def log_quick_look(filename):
+def log_quick_look(filename, stats_fields=False):
     """ Attempt to read in the first and last line in a log file, and return the first/last position observed. """
 
     _filesize = os.path.getsize(filename)
@@ -134,7 +137,6 @@ def log_quick_look(filename):
         _first_lat = float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
-        _first_freq = float(_fields[13])
         _pos_info = position_info(
             (
                 autorx.config.global_config["station_lat"],
@@ -148,11 +150,11 @@ def log_quick_look(filename):
             "lat": _first_lat,
             "lon": _first_lon,
             "alt": _first_alt,
-            "range_km": _pos_info["straight_distance"] / 1000.0,
-            "bearing": _pos_info["bearing"],
-            "elevation": _pos_info["elevation"],
-            "freq": _first_freq,
+            "range_km": round(_pos_info["straight_distance"] / 1000.0, 1),
+            "bearing": round(_pos_info["bearing"], 1),
         }
+        if stats_fields:
+            _output["first"]["elevation"] = _pos_info["elevation"]
     except Exception as e:
         # Couldn't read the first line, so likely no data.
         return None
@@ -188,10 +190,11 @@ def log_quick_look(filename):
             "lat": _last_lat,
             "lon": _last_lon,
             "alt": _last_alt,
-            "range_km": _pos_info["straight_distance"] / 1000.0,
-            "bearing": _pos_info["bearing"],
-            "elevation": _pos_info["elevation"],
+            "range_km": round(_pos_info["straight_distance"] / 1000.0, 1),
+            "bearing": round(_pos_info["bearing"], 1),
         }
+        if stats_fields:
+            _output["last"]["elevation"] = _pos_info["elevation"]
         return _output
     except Exception as e:
         # Couldn't read in the last line for some reason.
@@ -201,7 +204,7 @@ def log_quick_look(filename):
         return _output
 
 
-def list_log_files(quicklook=False, custom_log_dir=None):
+def list_log_files(quicklook=False, stats_fields=False, custom_log_dir=None):
     """ Look for all sonde log files within the logging directory """
 
     # Output list, which will contain one object per log file, ordered by time
@@ -220,7 +223,7 @@ def list_log_files(quicklook=False, custom_log_dir=None):
     _log_files.reverse()
 
     for _file in _log_files:
-        _entry = log_filename_to_stats(_file, quicklook=quicklook)
+        _entry = log_filename_to_stats(_file, quicklook=quicklook, stats_fields=stats_fields)
         if _entry:
             _output.append(_entry)
 

@@ -336,8 +336,8 @@ class SondehubUploader(object):
             _output["snr"] = telemetry["snr"]
 
         if "f_centre" in telemetry:
-            _freq = round(telemetry["f_centre"] / 1e3) # Hz -> kHz
-            _output["frequency"] = _freq / 1e3 # kHz -> MHz
+            # Don't round the frequency to 1 kHz anymore! Let's make use of the full precision data...
+            _output["frequency"] = telemetry["f_centre"] / 1e6
         
         if "tx_frequency" in telemetry:
             _output["tx_frequency"] = telemetry["tx_frequency"] / 1e3 # kHz -> MHz
@@ -451,10 +451,28 @@ class SondehubUploader(object):
                 continue
 
             elif (_req.status_code == 201) or (_req.status_code == 202):
-                self.log_debug(
-                    "Sondehub reported issue when adding packets to DB. Status Code: %d %s."
-                    % (_req.status_code, _req.text)
-                )
+                # A 202 return code means there was some kind of data issue.
+                # We expect a response of the form {"message": "error message", "errors":[], "warnings":[]}
+                try:
+                    _resp_json = _req.json()
+                    
+                    for _error in _resp_json['errors']:
+                        if 'z-check' not in _error["error_message"]:
+                            self.log_error("Payload data error: " + _error["error_message"])
+                        else:
+                            self.log_debug("Payload data error: " + _error["error_message"])
+                        if 'payload' in _error:
+                            self.log_debug("Payload data associated with error: " + str(_error['payload']))
+                    
+                    for _warning in _resp_json['warnings']:
+                        self.log_warning("Payload data warning: " + _warning["warning_message"])
+                        if 'payload' in _warning:
+                            self.log_debug("Payload data associated with warning: " + str(_warning['payload']))
+                    
+                except Exception as e:
+                    self.log_error("Error when parsing 202 response as JSON: %s" % str(e))
+                    self.log_debug("Content of 202 response: %s" % _req.text)
+
                 _upload_success = True
                 break
 
@@ -576,6 +594,12 @@ class SondehubUploader(object):
         """
         logging.error("Sondehub Uploader - %s" % line)
 
+    def log_warning(self, line):
+        """ Helper function to log an error message with a descriptive heading. 
+        Args:
+            line (str): Message to be logged.
+        """
+        logging.warning("Sondehub Uploader - %s" % line)
 
 if __name__ == "__main__":
     # Test Script

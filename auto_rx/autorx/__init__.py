@@ -12,7 +12,7 @@ from queue import Queue
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.7.4"
+__version__ = "1.8.0"
 
 # Global Variables
 
@@ -43,6 +43,9 @@ task_list = {}
 scan_results = Queue()
 # Global scan inhibit flag, used by web interface.
 scan_inhibit = False
+
+# Rotator object
+rotator_object = None
 
 # Logging Directory
 logging_path = "./log/"

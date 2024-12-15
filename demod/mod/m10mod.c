@@ -1232,7 +1232,8 @@ int main(int argc, char **argv) {
         }
         else if   (strcmp(*argv, "--chk3") == 0) { option_chk = 3; }
         else if   (strcmp(*argv, "--ch2") == 0) { sel_wavch = 1; }  // right channel (default: 0=left)
-        else if   (strcmp(*argv, "--softin") == 0) { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softin") == 0)  { option_softin = 1; }  // float32 soft input
+        else if   (strcmp(*argv, "--softinv") == 0) { option_softin = 2; }  // float32 inverted soft input
         else if   (strcmp(*argv, "--silent") == 0) { gpx.option.slt = 1; }
         else if   (strcmp(*argv, "--ths") == 0) {
             ++argv;
@@ -1429,7 +1430,7 @@ int main(int argc, char **argv) {
         while ( 1 )
         {
             if (option_softin) {
-                header_found = find_softbinhead(fp, &hdb, &_mv);
+                header_found = find_softbinhead(fp, &hdb, &_mv, option_softin == 2);
             }
             else {                                                              // FM-audio:
                 header_found = find_header(&dsp, thres, 2, bitofs, dsp.opt_dc); // optional 2nd pass: dc=0
@@ -1456,9 +1457,9 @@ int main(int argc, char **argv) {
                         float s1 = 0.0;
                         float s2 = 0.0;
                         float s = 0.0;
-                        bitQ = f32soft_read(fp, &s1);
+                        bitQ = f32soft_read(fp, &s1, option_softin == 2);
                         if (bitQ != EOF) {
-                            bitQ = f32soft_read(fp, &s2);
+                            bitQ = f32soft_read(fp, &s2, option_softin == 2);
                             if (bitQ != EOF) {
                                 s = s2-s1; // integrate both symbols  // only 2nd Manchester symbol: s2
                                 bit = (s>=0.0); // no soft decoding
@@ -1495,7 +1496,7 @@ int main(int argc, char **argv) {
                     while ( bitpos < 5*BITFRAME_LEN ) {
                         if (option_softin) {
                             float s = 0.0;
-                            bitQ = f32soft_read(fp, &s);
+                            bitQ = f32soft_read(fp, &s, option_softin == 2);
                         }
                         else {
                             bitQ = read_slbit(&dsp, &bit, 0, bitofs, bitpos, -1, 0); // symlen=2

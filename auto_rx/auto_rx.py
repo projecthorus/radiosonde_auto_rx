@@ -708,7 +708,6 @@ def email_error(message="foo"):
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
 
-
 def main():
     """Main Loop"""
     global config, exporter_objects, exporter_functions, logging_level, rs92_ephemeris, gpsd_adaptor, email_exporter
@@ -971,18 +970,30 @@ def main():
 
     # OziExplorer
     if config["ozi_enabled"] or config["payload_summary_enabled"]:
-        if config["ozi_enabled"]:
+        if config["ozi_host"]:
+            _ozi_host = config["ozi_host"]
+        else:
+            _ozi_host = None
+
+        if config["ozi_enabled"]: # Causes port to be set to None which disables the export.
             _ozi_port = config["ozi_port"]
         else:
             _ozi_port = None
 
-        if config["payload_summary_enabled"]:
+        if config["payload_summary_host"]:
+            _summary_host = config["payload_summary_host"]
+        else:
+            _summary_host = None
+
+        if config["payload_summary_enabled"]: # Causes port to be set to None which disables the export.
             _summary_port = config["payload_summary_port"]
         else:
             _summary_port = None
 
         _ozimux = OziUploader(
+            ozimux_host=_ozi_host,
             ozimux_port=_ozi_port,
+            payload_summary_host=_summary_host,
             payload_summary_port=_summary_port,
             update_rate=config["ozi_update_rate"],
             station=config["habitat_uploader_callsign"],
@@ -1009,10 +1020,13 @@ def main():
                 config["rotator_home_azimuth"],
                 config["rotator_home_elevation"],
             ],
+            azimuth_only=config["rotator_azimuth_only"]
         )
 
         exporter_objects.append(_rotator)
         exporter_functions.append(_rotator.add)
+
+        autorx.rotator_object = _rotator
 
     # Sondehub v2 Database
     if config["sondehub_enabled"]:

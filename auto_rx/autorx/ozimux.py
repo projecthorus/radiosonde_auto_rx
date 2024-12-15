@@ -44,11 +44,13 @@ class OziUploader(object):
     ]
 
     # Extra fields we can pass on to other programs.
-    EXTRA_FIELDS = ["bt", "humidity", "sats", "batt", "snr", "fest", "f_centre", "ppm", "subtype", "sdr_device_idx"]
+    EXTRA_FIELDS = ["bt", "humidity", "pressure", "sats", "batt", "snr", "fest", "f_centre", "ppm", "subtype", "sdr_device_idx", "vel_v", "vel_h", "aux"]
 
     def __init__(
         self,
+        ozimux_host="<broadcast>",
         ozimux_port=None,
+        payload_summary_host="<broadcast>",
         payload_summary_port=None,
         update_rate=5,
         station="auto_rx",
@@ -56,12 +58,16 @@ class OziUploader(object):
         """ Initialise an OziUploader Object.
 
         Args:
+            ozimux_host (str): UDP host to push ozimux/oziplotter messages to.
             ozimux_port (int): UDP port to push ozimux/oziplotter messages to. Set to None to disable.
+            payload_summary_host (str): UDP host to push payload summary messages to.
             payload_summary_port (int): UDP port to push payload summary messages to. Set to None to disable.
             update_rate (int): Time in seconds between updates.
         """
 
+        self.ozimux_host = ozimux_host
         self.ozimux_port = ozimux_port
+        self.payload_summary_host = payload_summary_host
         self.payload_summary_port = payload_summary_port
         self.update_rate = update_rate
         self.station = station
@@ -106,7 +112,7 @@ class OziUploader(object):
 
             try:
                 _ozisock.sendto(
-                    _sentence.encode("ascii"), ("<broadcast>", self.ozimux_port)
+                    _sentence.encode("ascii"), (self.ozimux_host, self.ozimux_port)
                 )
             # Catch any socket errors, that may occur when attempting to send to a broadcast address
             # when there is no network connected. In this case, re-try and send to localhost instead.
@@ -184,7 +190,7 @@ class OziUploader(object):
             try:
                 _s.sendto(
                     json.dumps(packet).encode("ascii"),
-                    ("<broadcast>", self.payload_summary_port),
+                    (self.payload_summary_host, self.payload_summary_port),
                 )
             # Catch any socket errors, that may occur when attempting to send to a broadcast address
             # when there is no network connected. In this case, re-try and send to localhost instead.

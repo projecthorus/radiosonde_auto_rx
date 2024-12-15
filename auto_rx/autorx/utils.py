@@ -368,24 +368,6 @@ def generate_aprs_id(sonde_data):
         return _object_name
 
 
-def readable_timedelta(duration: timedelta):
-    """
-    Convert a timedelta into a readable string.
-    From: https://codereview.stackexchange.com/a/245215
-    """
-    data = {}
-    data["months"], remaining = divmod(duration.total_seconds(), 2_592_000)
-    data["days"], remaining = divmod(remaining, 86_400)
-    data["hours"], remaining = divmod(remaining, 3_600)
-    data["minutes"], _foo = divmod(remaining, 60)
-
-    time_parts = [f"{round(value)} {name}" for name, value in data.items() if value > 0]
-    if time_parts:
-        return " ".join(time_parts)
-    else:
-        return "below 1 second"
-
-
 class AsynchronousFileReader(threading.Thread):
     """ Asynchronous File Reader
     Helper class to implement asynchronous reading of a file
@@ -1092,36 +1074,6 @@ def position_info(listener, balloon):
         "elevation": degrees(elevation),
         "elevation_radians": elevation,
     }
-
-
-def peak_decimation(freq, power, factor):
-    """ Peak-preserving Decimation.
-
-    Args:
-        freq (list): Frequency Data.
-        power (list): Power data.
-        factor (int): Decimation factor.
-
-    Returns:
-        tuple: (freq, power)
-    """
-
-    _out_len = len(freq) // factor
-
-    _freq_out = []
-    _power_out = []
-
-    try:
-        for i in range(_out_len):
-            _f_slice = freq[i * factor : i * factor + factor]
-            _p_slice = power[i * factor : i * factor + factor]
-
-            _freq_out.append(_f_slice[np.argmax(_p_slice)])
-            _power_out.append(_p_slice.max())
-    except:
-        pass
-
-    return (_freq_out, _power_out)
 
 
 if __name__ == "__main__":
