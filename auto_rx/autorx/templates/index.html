@@ -1287,7 +1287,7 @@
                 myDiv.scrollTop = 0;
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     x.style.display = "none";
-                    if (getCookie('map') == true) {
+                    if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                         y.style.display = "block";
                     }
                     document.getElementById("mySidenav").style.width = "350px";
@@ -1304,7 +1304,7 @@
                 }
             } else {
                 x.style.display = "none";
-                if (getCookie('map') == true) {
+                if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                     y.style.display = "block";
                 }
                 document.getElementById("mySidenav").style.width = 0;
@@ -1319,7 +1319,7 @@
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
-                    if (getCookie('map') == true) {
+                    if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                         y.style.display = "block";
                     }
                     document.getElementById("mySettings").style.width = "350px";
@@ -1335,7 +1335,7 @@
                     document.getElementById("mySettings").style.borderRadius = "0px";
                 }
             } else {
-                if (getCookie('map') == true) {
+                if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                     y.style.display = "block";
                 }
                 document.getElementById("mySettings").style.width = 0;
