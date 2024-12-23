@@ -311,18 +311,18 @@
             });
 
             // Check if user has preffered map visiblity.
-            if (getCookie('map') == 'true' || getCookie('map') == null) {
-                document.getElementById("mapid_details").setAttribute("open", true) ;
-            } else {
+            if (getCookie('map') == 'false') {
                 document.getElementById("mapid_details").removeAttribute("open") ;
                 document.getElementById("mapid").style.display = "none";
+            } else {
+                document.getElementById("mapid_details").setAttribute("open", true) ;
             }
 
             // Check if user has preffered table visiblity.
-            if (getCookie('table') == 'true' || getCookie('table') == null) {
-                document.getElementById("tableid").setAttribute("open", true) ;
-            } else {
+            if (getCookie('table') == 'false') {
                 document.getElementById("tableid").removeAttribute("open") ;
+            } else {
+                document.getElementById("tableid").setAttribute("open", true) ;
             }
 
             // Check if user has preffered follow latest sonde selection.
