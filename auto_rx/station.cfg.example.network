@@ -20,12 +20,11 @@
 #
 # RTLSDR - Use one or more RTLSDRs
 # 
-# EXPERIMENTAL / NOT IMPLEMENTED options:
+# Network SDR Server options:
 # SpyServer - Use an Airspy SpyServer
 # KA9Q - Use a KA9Q-Radio Server 
-# WARNING: These are still under development and may not work correctly.
 #
-sdr_type = SpyServer
+sdr_type = KA9Q
 
 
 #
@@ -38,7 +37,7 @@ sdr_type = SpyServer
 # If SDR type is either KA9Q or SpyServer, this defines the maximum number of parallel
 # decoding/scan tasks. On a RPi 4, ~5 tasks are possible.
 #
-sdr_quantity = 5
+sdr_quantity = 10
 
 
 #
@@ -48,7 +47,7 @@ sdr_quantity = 5
 # Is using KA9Q-Radio, the hostname of the 'radio' server (e.g. sonde.local) needs to be
 # defined, and the port number is unused.
 #
-sdr_hostname = localhost
+sdr_hostname = sonde.local
 sdr_port = 5555
 
 #
@@ -141,7 +140,7 @@ always_decode = []
 # STATION LOCATION #
 ####################
 # Used by the Sondehub Uploader, APRS Uploader, and by Rotator Control
-# Lat/Lon in decimal degrees, altitude in metres.
+# Lat/Lon in decimal degrees, altitude in metres (AMSL).
 # Note: You do not need to specify your home station accurately if you don't want to!
 # Feel free to use a position somewhere near your general area, that doesn't identify your home location.
 #
@@ -550,8 +549,8 @@ scan_delay = 10
 quantization = 10000
 # Decoder Spacing Limit - Only start a new decoder if it is separated from an existing decoder by at least
 # this value (Hz). This helps avoid issues where a drifting radiosonde is detected on two adjacent channels.
-# If you regularly encounter radiosondes on adjacent (10kHz) channels, then set this value to 5000.
-decoder_spacing_limit = 15000
+# For Network SDR systems, we set this to a lower value than the usual default of 15 kHz, as we have better channel filtering.
+decoder_spacing_limit = 5000
 # Temporary Block Time (minutes) - How long to block encrypted or otherwise non-decodable sondes for.
 temporary_block_time = 120
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.

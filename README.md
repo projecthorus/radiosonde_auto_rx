@@ -40,6 +40,8 @@ Improvements from the upstream RS codebase will be merged into this codebase whe
 Please consider joining the Google Group to receive updates on new software features:
 https://groups.google.com/forum/#!forum/radiosonde_auto_rx
 
+We also have a channel in the SondeHub Discord server: https://sondehub.org/go/discord
+
 ## Presentations
 * Linux.conf.au 2019 - https://www.youtube.com/watch?v=YBy-bXEWZeM
 * UKHAS Conference 2019 - [Presented via Skype](https://youtu.be/azDJmMywBgw?t=643) which had some audio issues at the start. Slides [here](https://rfhead.net/sondes/auto_rx_presentation_UKHAS2019.pdf).

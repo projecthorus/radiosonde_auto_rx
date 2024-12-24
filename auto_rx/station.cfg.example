@@ -19,10 +19,9 @@
 #
 # RTLSDR - Use one or more RTLSDRs
 # 
-# EXPERIMENTAL / NOT IMPLEMENTED options:
+# Network SDR Server options:
 # SpyServer - Use an Airspy SpyServer
 # KA9Q - Use a KA9Q-Radio Server 
-# WARNING: These are still under development and may not work correctly.
 #
 sdr_type = RTLSDR
 
@@ -140,7 +139,7 @@ always_decode = []
 # STATION LOCATION #
 ####################
 # Used by the Sondehub Uploader, APRS Uploader, and by Rotator Control
-# Lat/Lon in decimal degrees, altitude in metres.
+# Lat/Lon in decimal degrees, altitude in metres (AMSL).
 # Note: You do not need to specify your home station accurately if you don't want to!
 # Feel free to use a position somewhere near your general area, that doesn't identify your home location.
 #
