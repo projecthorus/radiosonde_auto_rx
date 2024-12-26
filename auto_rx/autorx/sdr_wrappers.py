@@ -24,7 +24,7 @@ def test_sdr(
     ss_iq_path = "./ss_iq",
     ss_power_path = "./ss_power",
     check_freq = 401500000,
-    timeout = 5
+    timeout = 20
 ):
     """
     Test the prescence / functionality of a SDR.
