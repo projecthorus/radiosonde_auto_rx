@@ -718,7 +718,7 @@ def lsusb():
 
         depth = 1 + len(indent_match.group(1)) / 2
         if depth > len(depth_stack):
-            logging.debug('lsusb parsing error: unexpected indentation: "%s"', line)
+            #logging.debug('lsusb parsing error: unexpected indentation: "%s"', line)
             continue
 
         while depth < len(depth_stack):
@@ -743,7 +743,7 @@ def lsusb():
             depth_stack.append(new_entry)
             continue
 
-        logging.debug('lsusb parsing error: unrecognized line: "%s"', line)
+        #logging.debug('lsusb parsing error: unrecognized line: "%s"', line)
 
     if device:
         devices.append(device)
