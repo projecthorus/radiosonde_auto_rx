@@ -60,8 +60,8 @@ def test_sdr(
         # if not os.path.isfile('tune'):
         #     logging.critical("Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed.")
         #     return False
-        # if not os.path.isfile('pcmcat'):
-        #     logging.critical("Could not find KA9Q-Radio 'pcmcat' binary! This may need to be compiled and installed.")
+        # if not os.path.isfile('pcmrecord'):
+        #     logging.critical("Could not find KA9Q-Radio 'pcmrecord' binary! This may need to be compiled and installed.")
         #     return False
         # TBD - whatever we need for spectrum use.
         # if not os.path.isfile('TBD'):
