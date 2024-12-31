@@ -26,6 +26,7 @@ RUN apt-get update && \
     libbsd-dev \
     libfftw3-dev \
     libiniparser-dev \
+    libogg-dev \
     libopus-dev && \
   rm -rf /var/lib/apt/lists/*
 
