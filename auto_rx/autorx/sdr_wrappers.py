@@ -781,7 +781,6 @@ def get_power_spectrum(
         _ssrc = f"{round(_center_freq / 1000)}03"
 
         _powers_cmd = (
-            f"LANG=C " # temporary workaround for https://github.com/ka9q/ka9q-radio/pull/65#issuecomment-2480243690
             f"{_timeout_cmd} {ka9q_powers_path} "
             f"{sdr_hostname} "
             f"-f {_center_freq} "
