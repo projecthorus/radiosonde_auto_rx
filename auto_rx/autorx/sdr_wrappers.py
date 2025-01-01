@@ -60,8 +60,8 @@ def test_sdr(
         # if not os.path.isfile('tune'):
         #     logging.critical("Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed.")
         #     return False
-        # if not os.path.isfile('pcmcat'):
-        #     logging.critical("Could not find KA9Q-Radio 'pcmcat' binary! This may need to be compiled and installed.")
+        # if not os.path.isfile('pcmrecord'):
+        #     logging.critical("Could not find KA9Q-Radio 'pcmrecord' binary! This may need to be compiled and installed.")
         #     return False
         # TBD - whatever we need for spectrum use.
         # if not os.path.isfile('TBD'):
@@ -781,7 +781,6 @@ def get_power_spectrum(
         _ssrc = f"{round(_center_freq / 1000)}03"
 
         _powers_cmd = (
-            f"LANG=C " # temporary workaround for https://github.com/ka9q/ka9q-radio/pull/65#issuecomment-2480243690
             f"{_timeout_cmd} {ka9q_powers_path} "
             f"{sdr_hostname} "
             f"-f {_center_freq} "
