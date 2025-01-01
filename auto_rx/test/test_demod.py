@@ -209,7 +209,7 @@ processing_type = {
     },
     'rs41_fsk_demod_soft_centre': {
         # Keep signal centred.
-        'demod' : "| csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b -10000 -u 10000 -s --stats=5 2 48000 4800 - - 2>stats.txt |",
+        'demod' : "| csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b -10000 -u 10000 -s --mask 4800 --stats=5 2 48000 4800 - - 2>stats.txt |",
 
         # Decode using rs41ecc
         'decode': "../rs41mod --ecc --ptu --crc --softin -i --json 2>/dev/null",
@@ -270,6 +270,32 @@ processing_type = {
     'm10_fsk_demod_soft_centre': {
         # Shift up to ~24 khz, and then pass into fsk_demod.
         'demod' : "| csdr convert_f_s16 | ../tsrc - - 0.50083333333 -c | ../fsk_demod --cs16 -b -10000 -p 5 -u 10000 -s --stats=5 2 48080 9616 - - 2>stats.txt |",
+        'decode': "../m10mod --json --softin -i -vvv 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep aprsid | wc -l",
+        'files' : "./generated/m10*"
+    },
+    'm10_fsk_demod_soft_centre_48000': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr convert_f_s16 | ../tsrc - - 0.500 -c | ../fsk_demod --cs16 -b -10000 -p 5 -u 10000 -s --stats=5 2 48000 9600 - - 2>stats.txt |",
+        'decode': "../m10mod --json --softin -i -vvv 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep aprsid | wc -l",
+        'files' : "./generated/m10*"
+    },
+
+    'm10_fsk_demod_soft_centre_48000_2': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr convert_f_s16 | ../tsrc - - 0.500 -c | ../fsk_demod --cs16 -b -10000 -p 5 -u 10000 -s --stats=5 2 48080 9616 - - 2>stats.txt |",
+        'decode': "../m10mod --json --softin -i -vvv 2>/dev/null",
+        # Count the number of telemetry lines.
+        "post_process" : "| grep aprsid | wc -l",
+        'files' : "./generated/m10*"
+    },
+
+    'm10_fsk_demod_soft_centre_96200': {
+        # Shift up to ~24 khz, and then pass into fsk_demod.
+        'demod' : "| csdr convert_f_s16 | ../tsrc - - 1.0020833333333334 -c | ../fsk_demod --cs16 -b -10000 -p 10 -u 10000 -s --stats=5 2 96200 9620 - - 2>stats.txt |",
         'decode': "../m10mod --json --softin -i -vvv 2>/dev/null",
         # Count the number of telemetry lines.
         "post_process" : "| grep aprsid | wc -l",
