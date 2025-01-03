@@ -288,13 +288,7 @@ def detect_sonde(
             _if_bw = 64
         else:
             _iq_bw = 48000
-            _if_bw = 20
-
-            # Try and avoid the RTLSDR 403.2 MHz spur.
-            # Note that this is only goign to work if we are detecting on 403.210 or 403.190 MHz.
-            if (abs(403200000 - frequency) < 20000) and (sdr_type == "RTLSDR"):
-                logging.debug("Scanner - Narrowing detection IF BW to avoid RTLSDR spur.")
-                _if_bw = 15
+            _if_bw = 15
         
     else:
         # 1680 MHz sondes
