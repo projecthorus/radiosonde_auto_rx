@@ -507,12 +507,12 @@
                         _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
 
                         // Add Sondehub Link
-                        _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
+                        _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}' width='14' height='16'/>" + "</a>";
 
                         // Add Radiosondy Link
                         if(_cell_data.aprsid != null){
                             _aprs_id = _cell_data.aprsid.trim();
-                            _id += "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + _aprs_id + "' title='View on Radiosondy.info' target='_blank'>" + "<img src='{{ url_for('static', filename='img/radiosondy.png')}}'/>" + "</a>";
+                            _id += "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + _aprs_id + "' title='View on Radiosondy.info' target='_blank'>" + "<img src='{{ url_for('static', filename='img/radiosondy.png')}}' width='17' height='16'/>" + "</a>";
 
                         } else {
                             _aprs_id = null;
