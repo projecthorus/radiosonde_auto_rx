@@ -62,10 +62,10 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
 # Compile ka9q-radio from source
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
-  git checkout 08142683dbc398087a5b7d384b1a36bb24b1eca3 && \
+  git checkout 854ef7510a125a95312dabc285c1ba8371f675f2 && \
   make \
     -f Makefile.linux \
-    "COPTS=-std=gnu11 -pthread -Wall -funsafe-math-optimizations -fno-math-errno -fcx-limited-range -D_GNU_SOURCE=1" \
+    ARCHOPTS= \
     tune powers pcmrecord
 
 # Copy in radiosonde_auto_rx.
