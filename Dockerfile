@@ -62,7 +62,7 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
 # Compile ka9q-radio from source
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
-  git checkout 854ef7510a125a95312dabc285c1ba8371f675f2 && \
+  git checkout ca8c687479b8aa965e749ec2a365ce41ba50f96b && \
   make \
     -f Makefile.linux \
     ARCHOPTS= \
