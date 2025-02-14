@@ -1135,7 +1135,7 @@ static int get_posdatetime(gpx_t *gpx, int pos_posdatetime) {
     // ublox M10 UBX-NAV-POSECEF (0x01 0x01) ?
     err |= get_ECEFkoord(gpx, pos_posdatetime+2); // plausibility-check: altitude, if ecef=(0,0,0)
 
-    // ublox M10 UBX-NAV-PVT (0x01 0x07) ? (UTC?)
+    // ublox M10 UBX-NAV-PVT (0x01 0x07) ? (UTC)
     // date
     gpx->jahr  = gpx->frame[pos_posdatetime+20] | gpx->frame[pos_posdatetime+21]<<8;
     gpx->monat = gpx->frame[pos_posdatetime+22];
@@ -1144,6 +1144,8 @@ static int get_posdatetime(gpx_t *gpx, int pos_posdatetime) {
     gpx->std = gpx->frame[pos_posdatetime+24];
     gpx->min = gpx->frame[pos_posdatetime+25];
     gpx->sek = gpx->frame[pos_posdatetime+26];
+    if (gpx->frame[pos_posdatetime+27] < 100) gpx->sek += gpx->frame[pos_posdatetime+27]/100.0;
+    //
     gpx->isUTC = 1;
 
     ///TODO: numSV/fixOK
@@ -2024,8 +2026,8 @@ static int prn_gpspos(gpx_t *gpx) {
 static int prn_posdatetime(gpx_t *gpx) {
     //Gps2Date(gpx);
     //fprintf(stdout, "%s ", weekday[gpx->wday]);
-    fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%02d",
-            gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, (int)gpx->sek);
+    fprintf(stdout, "%04d-%02d-%02d %02d:%02d:%05.2f",
+            gpx->jahr, gpx->monat, gpx->tag, gpx->std, gpx->min, gpx->sek);
     //if (gpx->option.vbs == 3) fprintf(stdout, " (W %d)", gpx->week);
     fprintf(stdout, " ");
 
@@ -2372,7 +2374,7 @@ static int print_position(gpx_t *gpx, int ec) {
                             fprintf(stdout, ", \"tx_frequency\": %d", gpx->freq );
                         }
 
-                        // Reference time/position      (fw 0x50dd: datetime UTC ?)
+                        // Reference time/position      (fw 0x50dd: datetime UTC)
                         fprintf(stdout, ", \"ref_datetime\": \"%s\"", gpx->isUTC ? "UTC" : "GPS" ); // {"GPS", "UTC"} GPS-UTC=leap_sec
                         fprintf(stdout, ", \"ref_position\": \"%s\"", "GPS" ); // {"GPS", "MSL"} GPS=ellipsoid , MSL=geoid
 
