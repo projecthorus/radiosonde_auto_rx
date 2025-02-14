@@ -65,7 +65,7 @@ RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   git checkout d0febaa033e1d53b9b53078cfe17457ac3676d20 && \
   make \
     -f Makefile.linux \
-    "COPTS=-std=gnu11 -pthread -Wall -funsafe-math-optimizations -fno-math-errno -fcx-limited-range -D_GNU_SOURCE=1" \
+    ARCHOPTS= \
     tune powers pcmrecord
 
 # Copy in radiosonde_auto_rx.
