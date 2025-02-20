@@ -1,0 +1,8 @@
+#!/bin/sh
+set -ex
+mkdir /sdrplaylib || true
+/sdrplay/SDRplay_RSP_API-Linux-*.run --noexec --target /sdrplaylib/
+cp /sdrplaylib/`dpkg --print-architecture`/*.so.* /usr/local/lib/libsdrplay_api.so
+ldconfig
+/sdrplaylib/`dpkg --print-architecture`/sdrplay_apiService &
+/usr/local/bin/radiod /config/sdrplayd.conf

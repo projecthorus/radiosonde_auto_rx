@@ -1,0 +1,116 @@
+# -------------------
+# The build container
+# -------------------
+FROM debian:bookworm-slim AS build
+
+# Upgrade base packages.
+RUN apt-get update && \
+  apt-get upgrade -y && \
+  apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
+    build-essential \
+    cmake \
+    git \
+    libatlas-base-dev \
+    ninja-build \
+    pkg-config \
+    libavahi-client-dev \
+    libiniparser-dev \
+    libogg-dev \
+    libopus-dev \
+    ca-certificates \
+    libusb-dev \
+    libusb-1.0-0-dev \
+    libncurses5-dev \
+    libfftw3-dev \
+    libbsd-dev \
+    libhackrf-dev \
+    libairspy-dev \
+    libairspyhf-dev \
+    librtlsdr-dev \
+    libiniparser-dev \
+    portaudio19-dev \
+    uuid-dev \
+    libsamplerate-dev \
+    libliquid-dev \
+    avahi-daemon \
+    libgnutls28-dev \
+    libgcrypt20-dev \
+    curl && \
+  rm -rf /var/lib/apt/lists/*
+
+# get sdrplay files for .h file. this isn't included in the final artefact so we aren't distributing it - just linking against
+RUN sh -c 'curl https://www.sdrplay.com/software/SDRplay_RSP_API-Linux-3.15.2.run -o /SDRplay_RSP_API-Linux-3.15.2.run && \
+  chmod a+x /SDRplay_RSP_API-Linux-3.15.2.run && \
+  /SDRplay_RSP_API-Linux-3.15.2.run --noexec --target /sdrplaylib/ && \
+  cp /sdrplaylib/`dpkg --print-architecture`/*.so.* /usr/local/lib/libsdrplay_api.so && \
+  ldconfig && \
+  cp /sdrplaylib/inc/*.h /usr/local/include/'
+
+# Compile ka9q-radio from source
+RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
+  cd /root/ka9q-radio && \
+  git checkout d0febaa033e1d53b9b53078cfe17457ac3676d20 && \
+  make \
+    -f Makefile.linux SDRPLAY=1 \
+    ARCHOPTS= 
+
+# -------------------------
+# The application container
+# -------------------------
+FROM debian:bookworm-slim
+
+# Upgrade base packages and install application dependencies.
+RUN apt-get update && \
+  apt-get upgrade -y && \
+  apt-get install -y --no-install-recommends \
+  libatlas3-base \
+  libatomic1 \
+  libsamplerate0 \
+  python3 \
+  rng-tools \
+  sox \
+  tini \
+  libbsd0 \
+  avahi-utils \
+  libnss-mdns \
+  avahi-daemon \
+  avahi-utils \
+  libopus0 \
+  libogg0 \
+  libusb-1.0-0  \
+  libncurses5 \
+  libfftw3-bin \
+  libbsd0 \
+  libhackrf0 \
+  libairspy0  \
+  libairspyhf1 \
+  librtlsdr0 \
+  libiniparser1 \
+  libportaudio2 \
+  libuuid1 \
+  libsamplerate0 \
+  libliquid1 \
+  libgnutls-openssl27 \
+  libgcrypt20  \
+  usbutils && \
+  rm -rf /var/lib/apt/lists/*
+
+# Copy ka9q-radio utilities 
+COPY --from=build /root/ka9q-radio/*.so /usr/local/lib/ka9q-radio/
+COPY --from=build /root/ka9q-radio/radiod /usr/local/bin/
+COPY --from=build /root/ka9q-radio/share/* /usr/local/share/ka9q-radio/
+
+# Setup sdrplay specific entrypoint
+COPY ./entrypoint.sh.sdrplay /entrypoint.sh
+RUN chmod a+x /entrypoint.sh
+
+# Allow mDNS resolution for ka9q-radio utilities
+RUN sed -i -e 's/files dns/files mdns4_minimal [NOTFOUND=return] dns/g' /etc/nsswitch.conf
+
+# Use tini as init.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Run auto_rx.py.
+CMD ["/entrypoint.sh"]
