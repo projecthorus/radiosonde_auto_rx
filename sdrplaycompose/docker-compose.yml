@@ -1,0 +1,30 @@
+services:
+  radiod:
+    image: radiod
+    network_mode: host
+    devices:
+      - "/dev/bus/usb"
+    privileged: true # the radiod server scheduler needs something privledged. I think maybe high precision timers?
+    volumes:
+      - ./radiod_config/:/config/
+      - ./sdrplay:/sdrplay
+      - ./wisdom/nwisdom:/etc/fftw/wisdomf
+      - radiod-lib:/var/lib/ka9q-radio/
+      - avahi-daemon:/var/run/avahi-daemon
+  autorx:
+    image: ghcr.io/projecthorus/radiosonde_auto_rx:latest
+    network_mode: host
+    volumes:
+      - ./radiosonde_auto_rx/log/:/opt/auto_rx/log/
+      - ./radiosonde_auto_rx/station.cfg:/opt/auto_rx/station.cfg:ro
+      - avahi-daemon:/var/run/avahi-daemon #share the avahi daemon with the radiod server so we only need a single one running with loopback
+
+  wisdom: # this has sdrplay specific values - needs to be run once on target machine
+    profiles: [wisdom]
+    image: radiod
+    command: fftwf-wisdom -v -T 1 -o /wisdom/nwisdom cof250000 cob2400 cob1250 cob1202 cob1200'
+    volumes:
+      - ./wisdom:/wisdom
+volumes:
+  radiod-lib:
+  avahi-daemon:

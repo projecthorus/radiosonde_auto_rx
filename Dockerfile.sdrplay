@@ -105,6 +105,7 @@ COPY --from=build /root/ka9q-radio/share/* /usr/local/share/ka9q-radio/
 # Setup sdrplay specific entrypoint
 COPY ./entrypoint.sh.sdrplay /entrypoint.sh
 RUN chmod a+x /entrypoint.sh
+RUN mkdir /run/dbus/
 
 # Allow mDNS resolution for ka9q-radio utilities
 RUN sed -i -e 's/files dns/files mdns4_minimal [NOTFOUND=return] dns/g' /etc/nsswitch.conf

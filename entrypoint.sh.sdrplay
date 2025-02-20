@@ -5,4 +5,6 @@ mkdir /sdrplaylib || true
 cp /sdrplaylib/`dpkg --print-architecture`/*.so.* /usr/local/lib/libsdrplay_api.so
 ldconfig
 /sdrplaylib/`dpkg --print-architecture`/sdrplay_apiService &
+dbus-daemon --system --fork
+avahi-daemon &
 /usr/local/bin/radiod /config/sdrplayd.conf
