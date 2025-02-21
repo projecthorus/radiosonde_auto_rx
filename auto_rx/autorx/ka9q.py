@@ -17,7 +17,8 @@ def ka9q_setup_channel(
     sdr_hostname,
     frequency,
     sample_rate,
-    scan
+    scan,
+    channel_filter = None
 ):
     if scan:
         ssrc="04"
@@ -25,12 +26,20 @@ def ka9q_setup_channel(
         ssrc="01"
 
     # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
+
+    if channel_filter:
+        _low = int(channel_filter * -1.0)
+        _high = int(channel_filter)
+    else:
+        _low = int(int(sample_rate) / (-2.4))
+        _high = int(int(sample_rate) / 2.4)
+
     _cmd = (
         f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
         f"tune "
         f"--samprate {int(sample_rate)} "
         f"--mode iq "
-        f"--low {int(int(sample_rate) / (-2.4))} --high {int(int(sample_rate) / 2.4)} "
+        f"--low {_low} --high {_high} "
         f"--frequency {int(frequency)} "
         f"--ssrc {round(frequency / 1000)}{ssrc} "
         f"--radio {sdr_hostname}"
@@ -120,7 +129,8 @@ def ka9q_get_iq_cmd(
         sdr_hostname,
         frequency,
         sample_rate,
-        scan
+        scan,
+        channel_filter = None
 ):
     if scan:
         ssrc="04"
@@ -128,7 +138,7 @@ def ka9q_get_iq_cmd(
         ssrc="01"
     
     # We need to setup a channel before we can use it!
-    _setup_success = ka9q_setup_channel(sdr_hostname, frequency, sample_rate, scan)
+    _setup_success = ka9q_setup_channel(sdr_hostname, frequency, sample_rate, scan, channel_filter)
 
     if not _setup_success:
         logging.critical(f"KA9Q ({sdr_hostname}) - Could not setup rx channel! Decoder will likely timeout.")
@@ -136,12 +146,13 @@ def ka9q_get_iq_cmd(
     # Get the 'PCM' version of the server name, where as assume -pcm is added to the first part of the hostname.
     _pcm_host = sdr_hostname.split('.')[0] + "-pcm." + ".".join(sdr_hostname.split(".")[1:])
 
-    # Example: pcmcat -s 404090000 sonde-pcm.local
+    # Example: pcmrecord --ssrc 404090001 --catmode --raw sonde-pcm.local
     # -2 option was removed sometime in early 2024.
     _cmd = (
-        f"pcmcat "
-        f"-s {round(frequency / 1000)}{ssrc} "
-        f"-b 1 "
+        f"pcmrecord "
+        f"--ssrc {round(frequency / 1000)}{ssrc} "
+        f"--catmode "
+        f"--raw "
         f"{_pcm_host} |"
     )
 

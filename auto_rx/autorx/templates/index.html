@@ -213,7 +213,7 @@
                     scan_chart_latest_timestamp = data.timestamp;
 
                     // Do not update the scan plot if the tab is hidden, or we have the scan plot hidden.
-                    if( (document.visibilityState == "hidden") || (document.getElementById("showscanbutton").checked == false) ){
+                    if( (document.visibilityState == "hidden") || (document.getElementById("scanid").hasAttribute("open") == false) ){
                         return;
                     } else {
                         redraw_scan_chart(data);
@@ -224,7 +224,7 @@
             });
 
             document.addEventListener("visibilitychange", () => {
-                if (document.visibilityState === "visible" && document.getElementById("showscanbutton").checked) {
+                if (document.visibilityState === "visible" && document.getElementById("scanid").hasAttribute("open")) {
                     redraw_scan_chart();
                 }
             });
@@ -312,18 +312,17 @@
 
             // Check if user has preffered map visiblity.
             if (getCookie('map') == 'false') {
-                document.getElementById("showmapbutton").checked = false;
+                document.getElementById("mapid_details").removeAttribute("open") ;
                 document.getElementById("mapid").style.display = "none";
             } else {
-                document.getElementById("showmapbutton").checked = true;
+                document.getElementById("mapid_details").setAttribute("open", true) ;
             }
 
             // Check if user has preffered table visiblity.
             if (getCookie('table') == 'false') {
-                document.getElementById("showtablebutton").checked = false;
-                document.getElementById("tableid").style.display = "none";
+                document.getElementById("tableid").removeAttribute("open") ;
             } else {
-                document.getElementById("showtablebutton").checked = true;
+                document.getElementById("tableid").setAttribute("open", true) ;
             }
 
             // Check if user has preffered follow latest sonde selection.
@@ -360,11 +359,9 @@
 
             // Check if user has preffered scan chart visiblity.
             if (getCookie('scan') == 'true') {
-                document.getElementById("showscanbutton").checked = true;
-                document.getElementById("scanid").style.display = "block";
+                document.getElementById("scanid").setAttribute("open", true) ;
             } else {
-                document.getElementById("showscanbutton").checked = false;
-                document.getElementById("scanid").style.display = "none";
+                document.getElementById("scanid").removeAttribute("open") ;
             }
 
             // Check if user has dark mode set.
@@ -464,6 +461,31 @@
                 mymap.invalidateSize();
             })
 
+            $("#tableid").on("toggle", function() {
+                mymap.invalidateSize();
+                setCookie("table", $("#tableid").prop("open"), 365);
+            })
+
+            $("#scanid").on("toggle", function() {
+                mymap.invalidateSize();
+                setCookie("scan", $("#scanid").prop("open"), 365);
+                if ($("#scanid").prop("open")) {
+                    redraw_scan_chart();
+                    scan_chart_obj.flush();
+                }
+            })
+
+            $("#mapid_details").on("toggle", function() {
+                mymap.invalidateSize();
+                setCookie("map", $("#mapid_details").prop("open"), 365);
+                if ($("#mapid_details").prop("open")) {
+                    document.getElementById("mapid").style.display = "block";
+                    mymap.invalidateSize();
+                } else {
+                    document.getElementById("mapid").style.display = "none";
+                }
+            })
+
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
@@ -485,12 +507,12 @@
                         _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
 
                         // Add Sondehub Link
-                        _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}'/>" + "</a>";
+                        _id += "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}' width='14' height='16'/>" + "</a>";
 
                         // Add Radiosondy Link
                         if(_cell_data.aprsid != null){
                             _aprs_id = _cell_data.aprsid.trim();
-                            _id += "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + _aprs_id + "' title='View on Radiosondy.info' target='_blank'>" + "<img src='{{ url_for('static', filename='img/radiosondy.png')}}'/>" + "</a>";
+                            _id += "<a href='https://radiosondy.info/sonde_archive.php?sondenumber=" + _aprs_id + "' title='View on Radiosondy.info' target='_blank'>" + "<img src='{{ url_for('static', filename='img/radiosondy.png')}}' width='17' height='16'/>" + "</a>";
 
                         } else {
                             _aprs_id = null;
@@ -1265,7 +1287,7 @@
                 myDiv.scrollTop = 0;
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
                     x.style.display = "none";
-                    if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                    if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                         y.style.display = "block";
                     }
                     document.getElementById("mySidenav").style.width = "350px";
@@ -1282,7 +1304,7 @@
                 }
             } else {
                 x.style.display = "none";
-                if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                     y.style.display = "block";
                 }
                 document.getElementById("mySidenav").style.width = 0;
@@ -1297,7 +1319,7 @@
             var y = document.getElementById('mapid');
             if (document.getElementById("mySettings").style.width == "0px" || document.getElementById("mySettings").style.width == 0) {
                 if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
-                    if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                    if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                         y.style.display = "block";
                     }
                     document.getElementById("mySettings").style.width = "350px";
@@ -1313,7 +1335,7 @@
                     document.getElementById("mySettings").style.borderRadius = "0px";
                 }
             } else {
-                if (getCookie('map') == true || document.getElementById("showmapbutton").checked == true) {
+                if (getCookie('map') == true || document.getElementById("mapid_details").hasAttribute("open")) {
                     y.style.display = "block";
                 }
                 document.getElementById("mySettings").style.width = 0;
@@ -1332,50 +1354,12 @@
             }
         }
 
-        // Show/hide map on button press and update cookies.
-        function showMap(element) {
-           if (element.checked == false) {
-             document.getElementById("mapid").style.display = "none";
-             setCookie("map", 'false', 365);
-           } else {
-             document.getElementById("mapid").style.display = "block";
-             setCookie("map", 'true', 365);
-             mymap.invalidateSize();
-           }
-        }
-
-        // Show/hide scan chart on button press and update cookies.
-        function showScan(element) {
-           if (element.checked == false) {
-             document.getElementById("scanid").style.display = "none";
-             setCookie("scan", 'false', 365);
-             mymap.invalidateSize();
-           } else {
-             document.getElementById("scanid").style.display = "block";
-             setCookie("scan", 'true', 365);
-             mymap.invalidateSize();
-             redraw_scan_chart();
-             scan_chart_obj.flush();
-           }
-        }
-
         // Enable/disable auto follow on button press and update cookies.
         function autoFollow(element) {
            if (element.checked == false) {
              setCookie("follow", 'false', 365);
            } else {
              setCookie("follow", 'true', 365);
-           }
-        }
-
-        // Show/hide table on button press and update cookies.
-        function showTable(element) {
-           if (element.checked == false) {
-             document.getElementById("tableid").style.display = "none";
-             setCookie("table", 'false', 365);
-           } else {
-             document.getElementById("tableid").style.display = "block";
-             setCookie("table", 'true', 365);
            }
         }
 
@@ -1493,36 +1477,6 @@
                   <label> Other</label><br><br>
               </form>
               <div style="margin-left:40px;">
-                  <h2 style="display:inline;vertical-align:middle;">Show Table</h2>
-                  &nbsp;
-                  <div style="display:inline;vertical-align:middle;">
-                  <label class="switch">
-                    <input type="checkbox" onchange="showTable(this)" id="showtablebutton">
-                    <span class="slider round"></span>
-                  </label>
-                  </div>
-                  <br>
-                  <br>
-                  <h2 style="display:inline;vertical-align:middle;">Show Scan Plot</h2>
-                  &nbsp;
-                  <div style="display:inline;vertical-align:middle;">
-                  <label class="switch">
-                    <input type="checkbox" onchange="showScan(this)" id="showscanbutton">
-                    <span class="slider round"></span>
-                  </label>
-                  </div>
-                  <br>
-                  <br>
-                  <h2 style="display:inline;vertical-align:middle;">Show Map</h2>
-                  &nbsp;
-                  <div style="display:inline;vertical-align:middle;">
-                  <label class="switch">
-                    <input type="checkbox" onchange="showMap(this)" id="showmapbutton">
-                    <span class="slider round"></span>
-                  </label>
-                  </div>
-                  <br>
-                  <br>
                   <h2 style="display:inline;vertical-align:middle;">Dark Mode</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
@@ -1638,14 +1592,19 @@
             <summary id="summary_element">Tasking: <span id="task_summary"></span></summary>
             <span id="task_details"></span>
         </details>
-        <div id="tableid">
+        <details id="tableid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+            <summary id="summary_element_telem_table">Telemetry</summary>
             <div id="telem_table"></div>
-        </div>
-        <div id="scanid">
+        </details>
+        <details id="scanid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+            <summary id="summary_element_scan_plot">Scan Plot</summary>
             <div id='scan_results'>No scan data yet...</div>
             <div id="scan_chart" style="width:100%;"></div>
-        </div>
+        </details>
         <br>
+        <details id="mapid_details" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+            <summary id="summary_element_map">Map</summary>
+        </details>
         <div id="mapid"></div>
         <i id="myBtn1" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
         <a href="historical.html" id="myBtn2"><i class="icon-history" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>

@@ -24,7 +24,7 @@ def test_sdr(
     ss_iq_path = "./ss_iq",
     ss_power_path = "./ss_power",
     check_freq = 401500000,
-    timeout = 5
+    timeout = 20
 ):
     """
     Test the prescence / functionality of a SDR.
@@ -60,8 +60,8 @@ def test_sdr(
         # if not os.path.isfile('tune'):
         #     logging.critical("Could not find KA9Q-Radio 'tune' binary! This may need to be compiled and installed.")
         #     return False
-        # if not os.path.isfile('pcmcat'):
-        #     logging.critical("Could not find KA9Q-Radio 'pcmcat' binary! This may need to be compiled and installed.")
+        # if not os.path.isfile('pcmrecord'):
+        #     logging.critical("Could not find KA9Q-Radio 'pcmrecord' binary! This may need to be compiled and installed.")
         #     return False
         # TBD - whatever we need for spectrum use.
         # if not os.path.isfile('TBD'):
@@ -281,7 +281,8 @@ def get_sdr_iq_cmd(
     sdr_hostname = "",
     sdr_port = 5555,
     ss_iq_path = "./ss_iq",
-    scan = False
+    scan = False,
+    channel_filter = None
 ):
     """
     Get a command-line argument to get IQ (signed 16-bit) from a SDR
@@ -303,7 +304,8 @@ def get_sdr_iq_cmd(
     Arguments for KA9Q SDR Server / SpyServer:
     sdr_hostname (str): Hostname of KA9Q Server
     sdr_port (int): Port number of KA9Q Server
-    scan (bool): Create unique SSRC for scan attempts
+    scan (bool): Create unique SSRC for scan attempts (KA9Q Only)
+    channel_filter (int/float): Set a high/lowpass frequency for a KA9Q channel.
 
     Arguments for SpyServer Client:
     ss_iq_path (str): Path to spyserver IQ client utility.
@@ -361,9 +363,9 @@ def get_sdr_iq_cmd(
         return _cmd
     
     if sdr_type == "KA9Q":
-        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate, scan)
+        _cmd = ka9q_get_iq_cmd(sdr_hostname, frequency, sample_rate, scan, channel_filter)
 
-        if dc_block:
+        if dc_block and ("KA9Q" not in sdr_type):
             _cmd += _dc_remove
 
         return _cmd
@@ -779,7 +781,6 @@ def get_power_spectrum(
         _ssrc = f"{round(_center_freq / 1000)}03"
 
         _powers_cmd = (
-            f"LANG=C " # temporary workaround for https://github.com/ka9q/ka9q-radio/pull/65#issuecomment-2480243690
             f"{_timeout_cmd} {ka9q_powers_path} "
             f"{sdr_hostname} "
             f"-f {_center_freq} "

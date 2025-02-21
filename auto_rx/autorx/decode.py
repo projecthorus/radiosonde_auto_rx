@@ -829,9 +829,10 @@ class SondeDecoder(object):
             _baud_rate = 4800
             _sample_rate = 48000 # 10x Oversampling
 
-            # Limit FSK estimator window to roughly +/- 10 kHz
-            _lower = -10000
-            _upper = 10000
+            # Limit FSK estimator window to roughly +/- 5 kHz
+            _lower = -5000
+            _upper = 5000
+
 
             demod_cmd = get_sdr_iq_cmd(
                 sdr_type = self.sdr_type,
@@ -844,14 +845,17 @@ class SondeDecoder(object):
                 ppm = self.ppm,
                 gain = self.gain,
                 bias = self.bias,
-                dc_block = True
+                dc_block = True,
+                channel_filter = 5000 # +/- 5 kHz channel filter.
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
             if self.save_decode_iq:
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+            # Use a 4800 Hz mask estimator to better avoid adjacent sonde issues.
+            # Also seems to give a small performance bump.
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --mask 4800 --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
@@ -949,15 +953,9 @@ class SondeDecoder(object):
             _baud_rate = 2500
             _sample_rate = 50000 # 10x Oversampling
 
-            # Limit FSK estimator window to roughly +/- 10 kHz
-            _lower = -10000
-            _upper = 10000
-
-            if (abs(403200000 - self.sonde_freq) < 20000) and (self.sdr_type == "RTLSDR"):
-                # Narrow up the frequency estimator window if we are close to
-                # the 403.2 MHz RTLSDR Spur.
-                _lower = -8000
-                _upper = 8000
+            # Limit FSK estimator window to roughly +/- 5 kHz
+            _lower = -5000
+            _upper = 5000
 
             demod_cmd = get_sdr_iq_cmd(
                 sdr_type = self.sdr_type,
@@ -970,7 +968,8 @@ class SondeDecoder(object):
                 ppm = self.ppm,
                 gain = self.gain,
                 bias = self.bias,
-                dc_block = True
+                dc_block = True,
+                channel_filter = 5000
             )
 
             # Add in tee command to save IQ to disk if debugging is enabled.
@@ -978,6 +977,7 @@ class SondeDecoder(object):
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
             # NOTE - Using inverted soft decision outputs, so DFM type detection works correctly.
+            # No mask estimator - DFMs seem to decode better without it!
             demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s -i --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
