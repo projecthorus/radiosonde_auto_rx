@@ -433,6 +433,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "MRZ": False,  # .... except for the MRZ, until we know it works.
             "WXR301": True,
             "WXRPN9": True,
+            "IMETWIDE": False,
             "UDP": False,
         }
 
