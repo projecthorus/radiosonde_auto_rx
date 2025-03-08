@@ -133,7 +133,7 @@ always_scan = []
 
 # always_decode - Always-running decoders. Only possible in a multi-SDR (or network-based SDR) system.
 # List must be in the form: [[401.5,"RS41"], [402.5,"DFM"], [400.5,"M10"], [400.5,"IMET"]]
-# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01
+# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01
 always_decode = []
 
 ####################
