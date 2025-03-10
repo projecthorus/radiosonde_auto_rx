@@ -430,17 +430,36 @@ def clean_task_list():
                     autorx.task_list["SCAN"]["task"].add_temporary_block(_key)
 
             if _exit_state == "FAILED SDR":
-                # The SDR was not able to be recovered after many attempts.
-                # Remove it from the SDR list and flag an error.
-                autorx.sdr_list.pop(_task_sdr)
-                _error_msg = (
-                    "Task Manager - Removed SDR %s from SDR list due to repeated failures."
-                    % (str(_task_sdr))
-                )
-                logging.error(_error_msg)
+                # The SDR was not able to be recovered after many (usually 5) attempts.
 
-                # Send email if configured.
-                email_error(_error_msg)
+                if config["sdr_type"] == "RTLSDR":
+                    # If we are using RTLSDRs, then if we're at this point there's nothing more we can do
+                    # to recover them, so we remove it from our SDR list.
+                    autorx.sdr_list.pop(_task_sdr)
+                    _error_msg = (
+                        "Task Manager - Removed SDR %s from SDR list due to repeated failures."
+                        % (str(_task_sdr))
+                    )
+
+                    logging.error(_error_msg)
+
+                    # Send email if configured.
+                    email_error(_error_msg)
+
+                else:
+                    # If we're using either KA9Q-Radio or a Spyserver, then we shouldn't remove the 'pseudo'-SDR 
+                    # entries from our list, and instead wait for the server to come back.
+                    _error_msg = f"Task Manager - Ongoing issue with {config['sdr_type']} server connection ({str(_task_sdr)}). Please check the logs."
+                    logging.error(_error_msg)
+                    # Don't send an email for this one yet... need to think about error email rate limiting.
+
+                    # Shutdown the SDR, if required for the particular SDR type.
+                    if _key != 'SCAN':
+                        shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_key)
+                    # Release its associated SDR.
+                    autorx.sdr_list[_task_sdr]["in_use"] = False
+                    autorx.sdr_list[_task_sdr]["task"] = None
+
 
             else:
                 # Shutdown the SDR, if required for the particular SDR type.

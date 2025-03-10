@@ -840,7 +840,7 @@ class SondeScanner(object):
             # If we have hit the maximum number of permissable errors, quit.
             if self.error_retries > self.SONDE_SCANNER_MAX_ERRORS:
                 self.log_error(
-                    "Exceeded maximum number of consecutive RTLSDR errors. Closing scan thread."
+                    "Exceeded maximum number of consecutive SDR errors. Closing scan thread."
                 )
                 break
 
