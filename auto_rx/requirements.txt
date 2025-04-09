@@ -1,6 +1,7 @@
 python-dateutil
 flask
 flask-socketio
+flask-cors
 numpy
 requests
 semver

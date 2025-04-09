@@ -38,6 +38,7 @@ from queue import Queue
 from threading import Thread
 import flask
 from flask import request, abort, make_response, send_file
+from flask_cors import CORS
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -56,9 +57,10 @@ app.jinja_env.auto_reload = True
 flask_app_thread = None
 # A key that needs to be matched to allow shutdown.
 flask_shutdown_key = None
-
+# allow all CORS:
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
 # SocketIO instance
-socketio = SocketIO(app, async_mode="threading")
+socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
 
 # Global store of telemetry data, which we will add data to and manage.
 # Under each key (which will be the sonde ID), we will have a dictionary containing:
