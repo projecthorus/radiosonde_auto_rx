@@ -268,6 +268,13 @@ table {
   color: black;
 }
 
+.skewt .hwtlogo {
+  position: relative;
+  margin-top: 0px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 #myBtn1 {
   cursor: pointer;
   position: absolute;
@@ -287,6 +294,14 @@ table {
   position: absolute;
   right: 6vh;
   right: calc(8vh + 36px);
+  color: white;
+}
+
+#myBtn4 {
+  cursor: pointer;
+  position: absolute;
+  right: 6vh;
+  right: calc(12vh + 48px);
   color: white;
 }
 

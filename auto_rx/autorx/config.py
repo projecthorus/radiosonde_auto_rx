@@ -121,6 +121,12 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "web_control": False,
         # "web_password": "none",  # Commented out to ensure warning message is shown
         #'kml_refresh_rate': 10,
+        # Heywhatsthat settings,
+        "hwt_terrain_url": "https://www.heywhatsthat.com/bin/profile-0904.cgi?src=sondehub&curvature=1&axes=1&los=1&greatcircle=1&metric=1&refraction=&exaggeration=",
+        "hwt_lat": 0.0,
+        "hwt_lon": 0.0,
+        "hwt_alt": 0.0,
+
         # Advanced Parameters
         "search_step": 800,
         "snr_threshold": 10,
@@ -396,6 +402,29 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["web_port"] = config.getint("web", "web_port")
         auto_rx_config["web_archive_age"] = config.getint("web", "archive_age")
 
+        # Heywhatsthat settings.
+        if config.has_section("heywhatsthat"):
+            if config.has_option("heywhatsthat", "terrain_url"):
+                auto_rx_config["hwt_terrain_url"] = config.get("heywhatsthat", "terrain_url")
+            auto_rx_config["hwt_lat"] = config.getfloat("heywhatsthat", "hwt_lat")
+            auto_rx_config["hwt_lon"] = config.getfloat("heywhatsthat", "hwt_lon")
+            auto_rx_config["hwt_alt"] = config.getfloat("heywhatsthat", "hwt_alt")
+            if auto_rx_config["hwt_lat"] > 90.0 or auto_rx_config["hwt_lat"] < -90.0:
+                logging.critical("Config - Invalid HWT Latitude! (Outside +/- 90 degrees!)")
+                return None
+
+            if auto_rx_config["hwt_lon"] > 180.0 or auto_rx_config["hwt_lon"] < -180.0:
+                logging.critical("Config - Invalid HWT Longitude! (Outside +/- 180 degrees!)")
+                return None
+        else:
+            logging.warning(
+                "Config - Did not find heywhatsthat options, using defaults"
+            )
+            auto_rx_config["hwt_lat"] = auto_rx_config["station_lat"];
+            auto_rx_config["hwt_lon"] = auto_rx_config["station_lon"];
+            auto_rx_config["hwt_alt"] = auto_rx_config["station_alt"];
+
+        # Save audio/iq settings.
         auto_rx_config["save_detection_audio"] = config.getboolean(
             "debugging", "save_detection_audio"
         )

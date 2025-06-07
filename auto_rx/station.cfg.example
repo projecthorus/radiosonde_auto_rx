@@ -496,6 +496,18 @@ web_password = none
 kml_refresh_rate = 10
 
 
+############################
+# HEYWHATSTHAT INTEGRATION #
+############################
+# Used ONLY for heywhatsthat terrain profile requests.
+# Lat/Lon in decimal degrees, altitude in metres.
+# Note: You can specify this accurately as its NOT uploaded to sondehub
+[heywhatsthat]
+hwt_lat = 0.0
+hwt_lon = 0.0
+hwt_alt = 0.0
+
+
 ##################
 # DEBUG SETTINGS #
 ##################
