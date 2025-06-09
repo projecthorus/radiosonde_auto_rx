@@ -486,6 +486,24 @@
                 }
             })
 
+            $(document).on('keydown', function(event) {
+                if (event.key === 't' || event.keyCode === 84) { // Check for 't'
+                    $("#tableid").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+                if (event.key === 's' || event.keyCode === 83) { // Check for 's'
+                    $("#scanid").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+                if (event.key === 'm' || event.keyCode === 77) { // Check for 'm'
+                    $("#mapid_details").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+            });
+
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
