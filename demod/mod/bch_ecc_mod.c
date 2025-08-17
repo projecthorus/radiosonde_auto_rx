@@ -708,7 +708,38 @@ static void prn_table(void) {
 
 
 INCSTAT
-int rs_init_RS255(RS_t *RS) {
+int rs_init_RS(RS_t *RS) {
+    GF_t *gf = &RS->GF;
+    int i, check_gen;
+    ui8_t Xalp[MAX_DEG+1];
+
+    check_gen = GF_genTab(gf);
+
+    for (i = 0; i <= MAX_DEG; i++) RS->g[i] = 0;
+    for (i = 0; i <= MAX_DEG; i++) Xalp[i] = 0;
+
+    // beta=alpha^p primitive root of g(X)
+    // beta^ip=alpha
+    for (i = 1; i < gf->ord-1; i++) {
+        if ( (RS->p * i) % (gf->ord-1) == 1 ) {
+            RS->ip = i;
+            break;
+        }
+    }
+
+    // g(X)=(X-(alpha^p)^b)...(X-(alpha^p)^(b+2t-1))
+    RS->g[0] = 0x01;
+    Xalp[1] = 0x01; // X
+    for (i = 0; i < 2*RS->t; i++) {
+        Xalp[0] = gf->exp_a[(RS->p*(RS->b+i)) % (gf->ord-1)];  // Xalp[0..1]: X - (alpha^p)^(b+i)
+        poly_mul(gf, RS->g, Xalp, RS->g);
+    }
+
+    return check_gen;
+}
+
+INCSTAT
+int rs_init_RS255(RS_t *RS) { // RS(255, 231)
     GF_t *gf = &RS->GF;
     int i, check_gen;
     ui8_t Xalp[MAX_DEG+1];
@@ -732,7 +763,7 @@ int rs_init_RS255(RS_t *RS) {
 }
 
 INCSTAT
-int rs_init_RS255ccsds(RS_t *RS) {
+int rs_init_RS255ccsds(RS_t *RS) { // RS(255, 223)
     GF_t *gf = &RS->GF;
     int i, check_gen;
     ui8_t Xalp[MAX_DEG+1];

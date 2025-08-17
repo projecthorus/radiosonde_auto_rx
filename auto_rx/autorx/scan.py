@@ -618,7 +618,14 @@ def detect_sonde(
             % (_sdr_name, _score, _offset_est)
         )
         _sonde_type = "WXRPN9"
-        
+    
+    elif "RD94RD41" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a RD94 or RD41 Dropsonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (_sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "RD94RD41"
+
     else:
         _sonde_type = None
 
