@@ -42,7 +42,8 @@ VALID_SONDE_TYPES = [
     "UDP",
     "WXR301",
     "WXRPN9",
-    "IMETWIDE"
+    "IMETWIDE",
+    "RD94RD41"
 ]
 
 # Known 'Drifty' Radiosonde types
@@ -124,7 +125,8 @@ class SondeDecoder(object):
         "UDP",
         "WXR301",
         "WXRPN9",
-        "IMETWIDE"
+        "IMETWIDE",
+        "RD94RD41"
     ]
 
     def __init__(
@@ -834,7 +836,7 @@ class SondeDecoder(object):
         """ Generate the shell command which runs the relevant radiosonde decoder - Experimental Decoders
 
         Returns:
-            Tuple(str, str, FSKDemodState) / None: The demod & decoder commands, and a FSKDemodStats object to process the demodulator statistics.
+            Tuple(str, str, FSKDemodStats) / None: The demod & decoder commands, and a FSKDemodStats object to process the demodulator statistics.
 
         """
 
@@ -974,6 +976,49 @@ class SondeDecoder(object):
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
+            self.rx_frequency = self.sonde_freq
+
+        elif self.sonde_type == "RD94RD41":
+            # RD94 / RD41 Dropsondes
+            _baud_rate = 4800
+            
+            _sample_rate = 48000
+            _lower = -20000
+            _upper = 20000
+
+
+            demod_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias,
+                dc_block = True
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
+
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sample_rate,
+                _baud_rate,
+            )
+
+            decode_cmd = (
+                "./rd94rd41drop --json --softin 2>/dev/null"
+            )
+
+            # RD94/RD41s transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
@@ -1647,9 +1692,10 @@ class SondeDecoder(object):
                 )
                 return False
 
-            if self.udp_mode:
-                # If we are accepting sondes via UDP, we make use of the 'type' field provided by
-                # the decoder.
+            if self.udp_mode or (self.sonde_type == "RD94RD41"):
+                # Cases where we need to accept a type field from the decoder
+                # - UDP mode, where we could be getting packets from multiple decoders.
+                # - Dropsonde decoder, which decodes both RD94 and RD41 dropsondes.
                 self.sonde_type = _telemetry["type"]
 
                 # If frequency has been provided, make used of it.
@@ -1808,6 +1854,17 @@ class SondeDecoder(object):
                 _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
+
+            # Dropsonde actions
+            # Same datetime issues as other sondes (no date provided)
+            if (self.sonde_type == "RD94") or (self.sonde_type == "RD41"):
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+                # Re-generate the datetime string.
+                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+
 
             # RS41 Subframe Data Actions
             # We only upload the subframe data once.
