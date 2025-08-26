@@ -885,9 +885,9 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
-            # Use a 4800 Hz mask estimator to better avoid adjacent sonde issues.
-            # Also seems to give a small performance bump.
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --mask 4800 --stats=%d 2 %d %d - -" % (
+            # Updated 2025-08-26 to bump mask estimator to 5000 Hz, increase timing estimator duration, and change oversampling rate
+            # From controlled testing this seems to improve weak signal performance.
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --mask 5000 --nsym=300 -p 5 --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
@@ -1015,7 +1015,7 @@ class SondeDecoder(object):
             )
 
             decode_cmd = (
-                "./rd94rd41drop --json --softin 2>/dev/null"
+                "./rd94rd41drop --json --softinv 2>/dev/null"
             )
 
             # RD94/RD41s transmit continuously - average over the last 2 frames, and use a mean

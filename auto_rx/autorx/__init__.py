@@ -12,7 +12,7 @@ from queue import Queue
 # MINOR - New sonde type support, other fairly big changes that may result in telemetry or config file incompatability issus.
 # PATCH - Small changes, or minor feature additions.
 
-__version__ = "1.8.2-beta4"
+__version__ = "1.8.2-beta5"
 
 # Global Variables
 
