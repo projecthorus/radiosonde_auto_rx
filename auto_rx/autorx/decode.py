@@ -224,6 +224,9 @@ class SondeDecoder(object):
         self.raw_file = None
         self.wideband_sondes = wideband_sondes
 
+        # Last decoded position of this sonde
+        self.last_position = None
+
         # Raw hex filename
         if self.save_raw_hex:
             _outfilename = f"{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')}_{self.sonde_type}_{int(self.sonde_freq)}.raw"
@@ -1929,6 +1932,24 @@ class SondeDecoder(object):
                 self.decoder_running = False
                 return False
 
+            # Run telemetry through real time filter
+            if self.last_position is not None:
+                distance = position_info(
+                    (self.last_position[0], self.last_position[1], 0),
+                    (_telemetry["latitude"], _telemetry["longitude"], 0)
+                )["great_circle_distance"] # distance is in metres
+                time_diff = time.time() - self.last_position[2] # seconds
+
+                velocity = distance / time_diff # m/s
+
+                if velocity > 300:
+                    _telem_ok = False
+
+                    # Reset last position to prevent an endless chain of rejecting telemetry
+                    self.last_position = None
+
+                # Check passed, update last position and continue processing
+                self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
