@@ -148,6 +148,8 @@ class SondeDecoder(object):
         exporter=None,
         timeout=180,
         telem_filter=None,
+        enable_realtime_filter=True,
+        max_velocity=300,
         rs92_ephemeris=None,
         rs41_drift_tweak=False,
         experimental_decoder=False,
@@ -216,6 +218,8 @@ class SondeDecoder(object):
         self.save_decode_iq = save_decode_iq
 
         self.telem_filter = telem_filter
+        self.enable_realtime_filter = enable_realtime_filter
+        self.max_velocity = max_velocity
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
@@ -1932,24 +1936,25 @@ class SondeDecoder(object):
                 self.decoder_running = False
                 return False
 
-            # Run telemetry through real time filter
-            if self.last_position is not None:
-                distance = position_info(
-                    (self.last_position[0], self.last_position[1], 0),
-                    (_telemetry["latitude"], _telemetry["longitude"], 0)
-                )["great_circle_distance"] # distance is in metres
-                time_diff = time.time() - self.last_position[2] # seconds
+            # Run telemetry through real-time filter
+            if self.enable_realtime_filter:
+                if self.last_position is not None:
+                    distance = position_info(
+                        (self.last_position[0], self.last_position[1], 0),
+                        (_telemetry["latitude"], _telemetry["longitude"], 0)
+                    )["great_circle_distance"] # distance is in metres
+                    time_diff = time.time() - self.last_position[2] # seconds
 
-                velocity = distance / time_diff # m/s
+                    velocity = distance / time_diff # m/s
 
-                if velocity > 300:
-                    _telem_ok = False
+                    if velocity > self.max_velocity:
+                        _telem_ok = False
 
-                    # Reset last position to prevent an endless chain of rejecting telemetry
-                    self.last_position = None
+                        # Reset last position to prevent an endless chain of rejecting telemetry
+                        self.last_position = None
 
-                # Check passed, update last position and continue processing
-                self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
+                    # Check passed, update last position and continue processing
+                    self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
