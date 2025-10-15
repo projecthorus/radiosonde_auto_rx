@@ -1936,8 +1936,8 @@ class SondeDecoder(object):
                 self.decoder_running = False
                 return False
 
-            # Run telemetry through real-time filter
-            if self.enable_realtime_filter:
+            # Run telemetry from DFM sondes through real-time filter
+            if self.enable_realtime_filter and (_telemetry["type"][:3] == "DFM"):
                 if self.last_position is not None:
                     distance = position_info(
                         (self.last_position[0], self.last_position[1], 0),
