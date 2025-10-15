@@ -1937,7 +1937,7 @@ class SondeDecoder(object):
                 return False
 
             # Run telemetry from DFM sondes through real-time filter
-            if self.enable_realtime_filter and (_telemetry["type"].startswith("DFM")):
+            if self.enable_realtime_filter and (_telemetry["model"].startswith("DFM")):
                 # If sonde has already been received, calculate velocity
                 velocity = 0
                 if _telemetry["callsign"] in self.last_positions.keys():
