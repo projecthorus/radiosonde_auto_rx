@@ -1937,13 +1937,13 @@ class SondeDecoder(object):
                 return False
 
             # Run telemetry from DFM sondes through real-time filter
-            if self.enable_realtime_filter and (_telemetry["type"][:3] == "DFM"):
-                if self.last_position is not None:
+            if self.enable_realtime_filter and (_telemetry["type"][:3] == "DFM") and (self.last_position is not None):
+                if self.last_position[0] == _telemetry["callsign"]:
                     distance = position_info(
-                        (self.last_position[0], self.last_position[1], 0),
+                        (self.last_position[1], self.last_position[2], 0),
                         (_telemetry["latitude"], _telemetry["longitude"], 0)
                     )["great_circle_distance"] # distance is in metres
-                    time_diff = time.time() - self.last_position[2] # seconds
+                    time_diff = time.time() - self.last_position[3] # seconds
 
                     velocity = distance / time_diff # m/s
 
@@ -1954,7 +1954,15 @@ class SondeDecoder(object):
                         self.last_position = None
                     else:
                         # Check passed, update last position and continue processing
-                        self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
+                        self.last_position = (
+                            _telemetry["callsign"],
+                            _telemetry["latitude"],
+                            _telemetry["longitude"],
+                            time.time()
+                        )
+                else:
+                    # If serial is not the same as last packet, reset real-time filter
+                    self.last_position = None
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
