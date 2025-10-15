@@ -1952,9 +1952,9 @@ class SondeDecoder(object):
 
                         # Reset last position to prevent an endless chain of rejecting telemetry
                         self.last_position = None
-
-                    # Check passed, update last position and continue processing
-                    self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
+                    else:
+                        # Check passed, update last position and continue processing
+                        self.last_position = (_telemetry["latitude"], _telemetry["longitude"], time.time())
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
