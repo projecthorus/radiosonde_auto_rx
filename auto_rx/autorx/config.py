@@ -789,10 +789,10 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # Real time filtering
         try:
             auto_rx_config["enable_realtime_filter"] = config.getboolean("filtering", "enable_realtime_filter")
-            auto_rx_config["max_velocity"] = config.getboolean("filtering", "max_velocity")
+            auto_rx_config["max_velocity"] = config.getint("filtering", "max_velocity")
         except:
             logging.warning(
-                "Config - MIssing enable_realtime_filter or max_velocity option, using default (enabled, 300m/s)"
+                "Config - Missing enable_realtime_filter or max_velocity option, using default (enabled, 300m/s)"
             )
             auto_rx_config["enable_realtime_filter"] = True
             auto_rx_config["max_velocity"] = 300

@@ -1954,6 +1954,7 @@ class SondeDecoder(object):
                 # Check if velocity is higher than allowed maximum
                 if velocity > self.max_velocity:
                     _telem_ok = False
+                    self.log_debug(f"Dropped packet - Velocity ({velocity}) exceeds max ({self.max_velocity}).")
 
                     # Reset last position to prevent an endless chain of rejecting telemetry
                     del self.last_positions[_telemetry["callsign"]]
