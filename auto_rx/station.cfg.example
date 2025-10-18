@@ -645,3 +645,13 @@ radius_temporary_block = False
 # This helps catch glitches around 00Z UTC from iMet & LMS6 sondes, and bad CRC checks from
 # DFM sondes.
 sonde_time_threshold = 3
+
+# Wether to perform real-time velocity filtering
+# This filter calculates the velocity between the previous decoded telemetry frame and
+# newly received frames, and discards them if it is faster than the velocity configured below.
+# This helps discard the frame with invalid GPS data that DFM sondes transmit once per flight.
+enable_realtime_filter = True
+
+# Maximum velocity in metres per second for sondes to be discarded in the real-time filter
+max_velocity = 300
+

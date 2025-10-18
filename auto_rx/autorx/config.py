@@ -96,6 +96,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "min_radius_km": 0,
         "radius_temporary_block": False,
         # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
+        "enable_realtime_filter": True,
+        "max_velocity": 300,
         # Habitat Settings
         "habitat_uploader_callsign": "SONDE_AUTO_RX",
         "habitat_uploader_antenna": "1/4-wave",
@@ -783,6 +785,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["ozi_host"] = "<broadcast>"
             auto_rx_config["payload_summary_host"] = "<broadcast>"
+
+        # Real time filtering
+        try:
+            auto_rx_config["enable_realtime_filter"] = config.getboolean("filtering", "enable_realtime_filter")
+            auto_rx_config["max_velocity"] = config.getboolean("filtering", "max_velocity")
+        except:
+            logging.warning(
+                "Config - MIssing enable_realtime_filter or max_velocity option, using default (enabled, 300m/s)"
+            )
+            auto_rx_config["enable_realtime_filter"] = True
+            auto_rx_config["max_velocity"] = 300
             
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:

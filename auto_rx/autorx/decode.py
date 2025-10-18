@@ -148,6 +148,8 @@ class SondeDecoder(object):
         exporter=None,
         timeout=180,
         telem_filter=None,
+        enable_realtime_filter=True,
+        max_velocity=300,
         rs92_ephemeris=None,
         rs41_drift_tweak=False,
         experimental_decoder=False,
@@ -216,6 +218,8 @@ class SondeDecoder(object):
         self.save_decode_iq = save_decode_iq
 
         self.telem_filter = telem_filter
+        self.enable_realtime_filter = enable_realtime_filter
+        self.max_velocity = max_velocity
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
@@ -223,6 +227,9 @@ class SondeDecoder(object):
         self.save_raw_hex = save_raw_hex
         self.raw_file = None
         self.wideband_sondes = wideband_sondes
+
+        # Last decoded position of this sonde
+        self.last_positions = {}
 
         # Raw hex filename
         if self.save_raw_hex:
@@ -1929,6 +1936,40 @@ class SondeDecoder(object):
                 self.decoder_running = False
                 return False
 
+            # Run telemetry from DFM sondes through real-time filter
+            if self.enable_realtime_filter and (_telemetry["model"].startswith("DFM")):
+                # If sonde has already been received, calculate velocity
+                velocity = 0
+                if _telemetry["callsign"] in self.last_positions.keys():
+                    _last_position = self.last_positions[_telemetry["callsign"]]
+
+                    distance = position_info(
+                        (_last_position[0], _last_position[1], 0),
+                        (_telemetry["latitude"], _telemetry["longitude"], 0)
+                    )["great_circle_distance"] # distance is in metres
+                    time_diff = time.time() - _last_position[2] # seconds
+
+                    velocity = distance / time_diff # m/s
+
+                # Check if velocity is higher than allowed maximum
+                if velocity > self.max_velocity:
+                    _telem_ok = False
+
+                    # Reset last position to prevent an endless chain of rejecting telemetry
+                    del self.last_positions[_telemetry["callsign"]]
+                else:
+                    # Check passed, update last position and continue processing
+                    self.last_positions[_telemetry["callsign"]] = (
+                        _telemetry["latitude"],
+                        _telemetry["longitude"],
+                        time.time()
+                    )
+            
+            # Garbage collect last_positions list
+            for serial, position in self.last_positions.items():
+                # If last position packet was more than 3 hours ago, delete it from list
+                if time.time()-position[2] > 3*60*60:
+                    del self.last_positions[serial]
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:
