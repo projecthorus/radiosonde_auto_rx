@@ -1940,12 +1940,12 @@ class SondeDecoder(object):
             if self.enable_realtime_filter and (_telemetry["type"].startswith("DFM")):
                 # If sonde has already been received, calculate velocity
                 velocity = 0
-                if _telemetry["callsign"] in self.last_positions.keys():
-                    _last_position = self.last_positions[_telemetry["callsign"]]
+                if _telemetry['id'] in self.last_positions.keys():
+                    _last_position = self.last_positions[_telemetry['id']]
 
                     distance = position_info(
                         (_last_position[0], _last_position[1], 0),
-                        (_telemetry["latitude"], _telemetry["longitude"], 0)
+                        (_telemetry["lat"], _telemetry["lon"], 0)
                     )["great_circle_distance"] # distance is in metres
                     time_diff = time.time() - _last_position[2] # seconds
 
@@ -1957,12 +1957,12 @@ class SondeDecoder(object):
                     self.log_debug(f"Dropped packet - Velocity ({velocity}) exceeds max ({self.max_velocity}).")
 
                     # Reset last position to prevent an endless chain of rejecting telemetry
-                    del self.last_positions[_telemetry["callsign"]]
+                    del self.last_positions[_telemetry['id']]
                 else:
                     # Check passed, update last position and continue processing
-                    self.last_positions[_telemetry["callsign"]] = (
-                        _telemetry["latitude"],
-                        _telemetry["longitude"],
+                    self.last_positions[_telemetry['id']] = (
+                        _telemetry["lat"],
+                        _telemetry["lon"],
                         time.time()
                     )
             
