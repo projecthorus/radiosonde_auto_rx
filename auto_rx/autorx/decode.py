@@ -1967,10 +1967,14 @@ class SondeDecoder(object):
                     )
             
             # Garbage collect last_positions list
+            keys_to_delete = []
             for serial, position in self.last_positions.items():
                 # If last position packet was more than 3 hours ago, delete it from list
                 if time.time()-position[2] > 3*60*60:
-                    del self.last_positions[serial]
+                    keys_to_delete.append(serial)
+                    
+            for serial in keys_to_delete:
+                del self.last_positions[serial]
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:

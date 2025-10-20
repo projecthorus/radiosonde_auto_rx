@@ -645,7 +645,7 @@ radius_temporary_block = False
 # DFM sondes.
 sonde_time_threshold = 3
 
-# Wether to perform real-time velocity filtering
+# Whether to perform real-time velocity filtering
 # This filter calculates the velocity between the previous decoded telemetry frame and
 # newly received frames, and discards them if it is faster than the velocity configured below.
 # This helps discard the frame with invalid GPS data that DFM sondes transmit once per flight.
