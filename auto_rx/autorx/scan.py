@@ -1131,7 +1131,7 @@ class SondeScanner(object):
                 # Limit based on CPU cores (each detection runs dft_detect subprocess)
                 max_concurrent = cpu_count
 
-                self.log_info(f"KA9Q: Using concurrent peak detection (max_concurrent={max_concurrent}, cpu_count={cpu_count})")
+                self.log_info(f"KA9Q: Using concurrent peak detection with {max_concurrent} workers")
 
                 detections = run_async_scan(
                     peak_frequencies=peak_frequencies,
