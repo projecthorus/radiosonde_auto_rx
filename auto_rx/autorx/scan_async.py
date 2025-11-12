@@ -42,7 +42,7 @@ async def detect_sonde_async(
     Async version of detect_sonde that uses asyncio subprocess for non-blocking execution.
 
     This allows multiple frequency detections to run concurrently instead of sequentially,
-    dramatically reducing scan time on single-core systems like Raspberry Pi Zero W.
+    dramatically reducing scan time when using KA9Q-radio.
 
     Returns:
         Tuple[Optional[str], float]: (sonde_type, frequency_offset) or (None, 0.0)
@@ -303,13 +303,13 @@ async def scan_peaks_concurrent(
     """
     Scan multiple peaks concurrently instead of sequentially.
 
-    This is the KEY optimization for Pi Zero W - instead of scanning 10 peaks
-    sequentially (100+ seconds), we scan them with limited concurrency.
+    This is the KEY optimization for KA9Q-radio - instead of scanning peaks
+    sequentially, we scan them with limited concurrency using KA9Q's virtual channels.
 
     Args:
         peak_frequencies: List of frequencies to scan
         max_concurrent: Maximum number of concurrent detection tasks (default: 2)
-                       Set to 1 for Pi Zero W, 2-4 for faster systems
+                       Tune based on CPU cores and system resources
         **detect_kwargs: Arguments passed to detect_sonde_async
 
     Returns:
