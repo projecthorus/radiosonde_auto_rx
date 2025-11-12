@@ -1073,26 +1073,27 @@ def main():
     if args.type != None:
         handle_scan_results()
 
-    # Loop - Optimized to use event-driven queue instead of pure polling
+    # Loop - Event-driven processing with periodic maintenance
     while True:
-        # OPTIMIZATION: Use blocking queue get with timeout instead of sleep
-        # This allows immediate response to scan results while still doing periodic cleanup
-        try:
-            # Wait for scan result with timeout (replaces pure 2s sleep)
-            # If result arrives, it will be processed by handle_scan_results() below
-            result = autorx.scan_results.get(timeout=2.0)
-            # Put it back so handle_scan_results() can process it with all safety checks
-            autorx.scan_results.put(result)
-        except Empty:
-            # Queue.get timeout - this is normal, means no scan results for 2s
-            # Continue to cleanup tasks
-            pass
+        # Process any scan results in the queue
+        # handle_scan_results() checks qsize and processes all available results
+        handle_scan_results()
 
-        # Check for finished tasks (runs every 2s when queue is empty, or after processing result)
+        # Check for finished tasks
         clean_task_list()
 
-        # Handle scan results with all safety checks (temporary blocks, spacing, allocation, etc.)
-        handle_scan_results()
+        # Wait for new scan results or timeout after 2 seconds
+        # This allows immediate response when results arrive while still doing periodic cleanup
+        try:
+            # Block until result arrives or timeout
+            result = autorx.scan_results.get(timeout=2.0)
+            # Put it back for handle_scan_results() to process on next loop iteration
+            # This maintains the existing queue processing logic without changes
+            autorx.scan_results.put(result)
+        except Empty:
+            # Timeout - normal condition when no scan results for 2s
+            # Loop will continue to next iteration for periodic maintenance
+            pass
 
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!

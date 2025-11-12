@@ -173,6 +173,7 @@ async def detect_sonde_async(
     )
 
     process = None
+    ret_output = ""
     try:
         _start = time.time()
 
@@ -403,12 +404,14 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
         asyncio.get_running_loop()
         # An event loop is running - we can't use asyncio.run() here
         # Solution: Run the async code in a separate thread with its own event loop
+        # Note: We create the coroutine inside the worker thread to avoid cross-thread issues
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(
-                asyncio.run,
+        def run_in_thread():
+            return asyncio.run(
                 scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
             )
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_in_thread)
             return future.result()
     except RuntimeError:
         # No event loop running - we can use asyncio.run() directly

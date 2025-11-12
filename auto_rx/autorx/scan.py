@@ -1169,7 +1169,9 @@ class SondeScanner(object):
                         return _search_results
 
             except Exception as e:
+                import traceback
                 self.log_error(f"Async scanning failed: {e}, falling back to sequential")
+                self.log_debug(f"Async scan traceback: {traceback.format_exc()}")
 
         # Standard sequential scanning (for RTLSDR, SpyServer, or single peaks)
         else:
