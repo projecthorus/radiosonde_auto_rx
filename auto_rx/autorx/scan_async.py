@@ -14,11 +14,26 @@
 import asyncio
 import logging
 import os
+import shlex
 import time
 from typing import Optional, Tuple
+import threading
 
 # Lazy imports to avoid dependency issues at module load time
 # These will be imported when functions are actually called
+
+# Lock to protect concurrent shutdown_sdr calls
+# Key: (sdr_type, device_idx, hostname) -> Lock
+_sdr_locks = {}
+_sdr_locks_lock = threading.Lock()
+
+def _get_sdr_lock(sdr_type, device_idx, hostname):
+    """Get or create a lock for a specific SDR device"""
+    key = (sdr_type, device_idx, hostname)
+    with _sdr_locks_lock:
+        if key not in _sdr_locks:
+            _sdr_locks[key] = threading.Lock()
+        return _sdr_locks[key]
 
 
 async def detect_sonde_async(
@@ -55,7 +70,6 @@ async def detect_sonde_async(
         get_sdr_name,
         shutdown_sdr,
     )
-    from .utils import timeout_cmd
 
     # Determine detection mode based on frequency band
     if frequency < 1000e6:
@@ -82,9 +96,8 @@ async def detect_sonde_async(
     # Build the detection command
     if _mode == "IQ":
         # IQ decoding
-        rx_test_command = f"{timeout_cmd()} {dwell_time * 2} "
-
-        rx_test_command += get_sdr_iq_cmd(
+        # Note: We rely on asyncio.wait_for for timeout, not external timeout_cmd
+        rx_test_command = get_sdr_iq_cmd(
             sdr_type=sdr_type,
             frequency=frequency,
             sample_rate=_iq_bw,
@@ -106,19 +119,19 @@ async def detect_sonde_async(
                 autorx.logging_path,
                 f"detect_IQ_{frequency}_{_iq_bw}_{str(rtl_device_idx)}.raw",
             )
-            rx_test_command += f" tee {detect_iq_path} |"
+            rx_test_command += f" tee {shlex.quote(detect_iq_path)} |"
 
+        dft_detect_path = os.path.join(rs_path, "dft_detect")
         rx_test_command += (
-            os.path.join(rs_path, "dft_detect")
+            shlex.quote(dft_detect_path)
             + " -t %d --iq --bw %d --dc - %d 16 2>/dev/null"
             % (dwell_time, _if_bw, _iq_bw)
         )
 
     elif _mode == "FM":
         # FM decoding
-        rx_test_command = f"{timeout_cmd()} {dwell_time * 2} "
-
-        rx_test_command += get_sdr_fm_cmd(
+        # Note: We rely on asyncio.wait_for for timeout, not external timeout_cmd
+        rx_test_command = get_sdr_fm_cmd(
             sdr_type=sdr_type,
             frequency=frequency,
             filter_bandwidth=_rx_bw,
@@ -141,10 +154,11 @@ async def detect_sonde_async(
                 autorx.logging_path,
                 f"detect_audio_{frequency}_{str(rtl_device_idx)}.wav",
             )
-            rx_test_command += f" tee {detect_audio_path} |"
+            rx_test_command += f" tee {shlex.quote(detect_audio_path)} |"
 
+        dft_detect_path = os.path.join(rs_path, "dft_detect")
         rx_test_command += (
-            os.path.join(rs_path, "dft_detect") + " -t %d 2>/dev/null" % dwell_time
+            shlex.quote(dft_detect_path) + " -t %d 2>/dev/null" % dwell_time
         )
 
     _sdr_name = get_sdr_name(
@@ -158,6 +172,7 @@ async def detect_sonde_async(
         f"Scanner ({_sdr_name}) - Using async detection command: {rx_test_command}"
     )
 
+    process = None
     try:
         _start = time.time()
 
@@ -181,20 +196,15 @@ async def detect_sonde_async(
             logging.error(f"Scanner ({_sdr_name}) - dft_detect timed out on {frequency/1e6:.3f} MHz.")
             return (None, 0.0)
 
-        # Release the SDR channel if necessary
-        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
-
         _runtime = time.time() - _start
 
         # Check return code
-        if process.returncode == 124:
-            logging.error(f"Scanner ({_sdr_name}) - dft_detect timed out.")
-            raise IOError("Possible SDR lockup.")
-        elif process.returncode == 0 or process.returncode is None:
+        # Note: No longer checking for code 124 since we removed external timeout wrapper
+        if process.returncode == 0 or process.returncode is None:
             # Success - sonde detected
             pass
         elif process.returncode >= 2:
-            # Error but we have output
+            # Error but we have output - try to parse anyway
             pass
         else:
             # No sonde detected
@@ -208,6 +218,24 @@ async def detect_sonde_async(
             f"Scanner ({_sdr_name}) - Error when running dft_detect - {str(e)}"
         )
         return (None, 0.0)
+    finally:
+        # Always clean up: kill subprocess if still running and release SDR
+        if process is not None:
+            try:
+                if process.returncode is None:
+                    # Process still running - kill it
+                    process.kill()
+                    await process.wait()
+            except Exception as e:
+                logging.debug(f"Scanner ({_sdr_name}) - Error killing process: {e}")
+
+        # Release the SDR channel with locking to prevent race conditions
+        try:
+            sdr_lock = _get_sdr_lock(sdr_type, rtl_device_idx, sdr_hostname)
+            with sdr_lock:
+                shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
+        except Exception as e:
+            logging.debug(f"Scanner ({_sdr_name}) - Error releasing SDR: {e}")
 
     # Parse output
     if ret_output is None or ret_output == "":
@@ -370,16 +398,20 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
             # ... other args
         )
     """
-    # Get or create event loop
+    # Check if there's already an event loop running
     try:
-        loop = asyncio.get_running_loop()
-        # We're already in an async context - this shouldn't happen in current code
-        # but handle it gracefully
-        return asyncio.create_task(
-            scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
-        )
+        asyncio.get_running_loop()
+        # An event loop is running - we can't use asyncio.run() here
+        # Solution: Run the async code in a separate thread with its own event loop
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                asyncio.run,
+                scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
+            )
+            return future.result()
     except RuntimeError:
-        # Not in async context - create new event loop
+        # No event loop running - we can use asyncio.run() directly
         return asyncio.run(
             scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
         )

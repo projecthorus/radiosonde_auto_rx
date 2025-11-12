@@ -681,7 +681,8 @@ class SondeScanner(object):
         temporary_block_list={},
         temporary_block_time=60,
         ngp_tweak=False,
-        wideband_sondes=False
+        wideband_sondes=False,
+        max_async_scan_workers=4
     ):
         """Initialise a Sonde Scanner Object.
 
@@ -771,6 +772,7 @@ class SondeScanner(object):
         self.callback = callback
         self.save_detection_audio = save_detection_audio
         self.wideband_sondes = wideband_sondes
+        self.max_async_scan_workers = max_async_scan_workers
 
         # Temporary block list.
         self.temporary_block_list = temporary_block_list.copy()
@@ -1128,8 +1130,12 @@ class SondeScanner(object):
 
                 # With KA9Q, we can use multiple virtual channels concurrently
                 # The scanner creates temporary KA9Q channels that don't consume task slots
-                # Limit based on CPU cores (each detection runs dft_detect subprocess)
-                max_concurrent = cpu_count
+                # Cap concurrency to min of: configured max, CPU cores, and number of peaks
+                max_concurrent = min(
+                    self.max_async_scan_workers,
+                    cpu_count,
+                    len(peak_frequencies)
+                )
 
                 self.log_info(f"KA9Q: Using concurrent peak detection with {max_concurrent} workers")
 

@@ -27,7 +27,7 @@ import time
 import traceback
 import os
 from dateutil.parser import parse
-from queue import Queue
+from queue import Queue, Empty
 
 if sys.version_info < (3, 6):
     print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
@@ -183,6 +183,7 @@ def start_scanner():
             wideband_sondes=config["wideband_sondes"],
             temporary_block_list=temporary_block_list,
             temporary_block_time=config["temporary_block_time"],
+            max_async_scan_workers=config["max_async_scan_workers"],
         )
 
         # Add a reference into the sdr_list entry
@@ -1077,26 +1078,20 @@ def main():
         # OPTIMIZATION: Use blocking queue get with timeout instead of sleep
         # This allows immediate response to scan results while still doing periodic cleanup
         try:
-            # Wait for scan result with timeout (replaces handle_scan_results polling)
-            # If result arrives, process immediately without 2s delay
+            # Wait for scan result with timeout (replaces pure 2s sleep)
+            # If result arrives, it will be processed by handle_scan_results() below
             result = autorx.scan_results.get(timeout=2.0)
-
-            # Process the scan result immediately
-            if result is not None:
-                if isinstance(result, list):
-                    for res in result:
-                        if len(res) == 2:
-                            start_decoder(res[0], res[1])
-
-        except Exception as e:
-            # Queue.get timeout or other error - this is normal, means no scan results for 2s
+            # Put it back so handle_scan_results() can process it with all safety checks
+            autorx.scan_results.put(result)
+        except Empty:
+            # Queue.get timeout - this is normal, means no scan results for 2s
             # Continue to cleanup tasks
             pass
 
         # Check for finished tasks (runs every 2s when queue is empty, or after processing result)
         clean_task_list()
 
-        # Also handle any remaining scan results in queue (batch process if multiple arrived)
+        # Handle scan results with all safety checks (temporary blocks, spacing, allocation, etc.)
         handle_scan_results()
 
         if len(autorx.sdr_list) == 0:
