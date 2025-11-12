@@ -1125,11 +1125,13 @@ class SondeScanner(object):
             try:
                 import os
                 cpu_count = os.cpu_count() or 1
-                # With KA9Q, we can use multiple virtual channels
-                # Limit based on CPU and configured SDR quantity
-                max_concurrent = min(4, max(2, cpu_count))
 
-                self.log_info(f"KA9Q: Using concurrent peak detection (max_concurrent={max_concurrent})")
+                # With KA9Q, we can use multiple virtual channels concurrently
+                # The scanner creates temporary KA9Q channels that don't consume task slots
+                # Limit based on CPU cores (each detection runs dft_detect subprocess)
+                max_concurrent = cpu_count
+
+                self.log_info(f"KA9Q: Using concurrent peak detection (max_concurrent={max_concurrent}, cpu_count={cpu_count})")
 
                 detections = run_async_scan(
                     peak_frequencies=peak_frequencies,
