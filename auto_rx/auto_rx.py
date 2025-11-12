@@ -1081,7 +1081,9 @@ def main():
             # Block until result arrives or timeout
             result = autorx.scan_results.get(timeout=2.0)
             # Put it back for handle_scan_results() to process
-            # We do this to maintain the existing queue processing logic
+            # Note: This get/put pattern allows us to block-wait for queue activity while
+            # maintaining handle_scan_results()'s existing logic (which checks qsize and processes all items).
+            # Alternative approach would be to refactor handle_scan_results to accept items directly.
             autorx.scan_results.put(result)
         except Empty:
             # Timeout - normal condition when no scan results for 2s
