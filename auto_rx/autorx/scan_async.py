@@ -242,10 +242,16 @@ async def detect_sonde_async(
                 logging.debug(f"Scanner ({_sdr_name}) - Error killing process: {e}")
 
         # Release the SDR channel with locking to prevent race conditions
+        # Run shutdown_sdr in executor to avoid blocking the event loop
         try:
             sdr_lock = _get_sdr_lock(sdr_type, rtl_device_idx, sdr_hostname)
-            with sdr_lock:
-                shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
+            loop = asyncio.get_event_loop()
+
+            def release_sdr():
+                with sdr_lock:
+                    shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
+
+            await loop.run_in_executor(None, release_sdr)
         except Exception as e:
             logging.debug(f"Scanner ({_sdr_name}) - Error releasing SDR: {e}")
 
@@ -362,26 +368,43 @@ async def scan_peaks_concurrent(
     async def detect_with_semaphore(freq):
         """Wrapper to limit concurrency"""
         async with semaphore:
-            detected, offset_est = await detect_sonde_async(
-                frequency=freq,
-                **detect_kwargs
-            )
-            if detected:
-                # Quantize the detected frequency with offset to 1 kHz
-                freq_corrected = round((freq + offset_est) / 1000.0) * 1000.0
-                return (freq_corrected, detected)
-            return None
+            try:
+                detected, offset_est = await detect_sonde_async(
+                    frequency=freq,
+                    **detect_kwargs
+                )
+                if detected:
+                    # Quantize the detected frequency with offset to 1 kHz
+                    freq_corrected = round((freq + offset_est) / 1000.0) * 1000.0
+                    return (freq_corrected, detected)
+                return None
+            except asyncio.CancelledError:
+                # Task was cancelled - clean exit
+                logging.debug(f"Detection task for {freq/1e6:.3f} MHz cancelled")
+                raise
 
     # Create tasks for all peaks
-    tasks = [detect_with_semaphore(float(freq)) for freq in peak_frequencies]
+    tasks = [asyncio.create_task(detect_with_semaphore(float(freq))) for freq in peak_frequencies]
 
-    # Wait for all to complete
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        # Wait for all to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    except asyncio.CancelledError:
+        # If we're cancelled, cancel all subtasks
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        # Wait for all cancellations to complete
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
 
     # Filter out None results and exceptions
     detections = []
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, asyncio.CancelledError):
+            # Task was cancelled, skip it
+            continue
+        elif isinstance(result, Exception):
             logging.error(f"Detection task failed: {result}")
         elif result is not None:
             detections.append(result)
