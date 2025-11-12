@@ -210,8 +210,8 @@ async def detect_sonde_async(
             # Success - sonde detected
             pass
         elif process.returncode is None:
-            # Unusual - returncode should be set after communicate()
-            logging.warning(f"Scanner ({_sdr_name}) - process returncode is None after completion")
+            # Defensive: returncode should always be set after communicate(), but handle None gracefully
+            logging.warning(f"Scanner ({_sdr_name}) - process returncode is None after completion (unexpected)")
         elif process.returncode >= 2:
             # Error but we have output - try to parse anyway
             if stderr_output:
@@ -411,8 +411,24 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
         )
     """
     # Check if there's already an event loop running
+    # Note: Python 3.6 compatible - get_running_loop() was added in 3.7
+    loop_running = False
     try:
-        asyncio.get_running_loop()
+        # Python 3.7+
+        loop = asyncio.get_running_loop()
+        loop_running = True
+    except AttributeError:
+        # Python 3.6 fallback
+        try:
+            loop = asyncio.get_event_loop()
+            loop_running = loop.is_running()
+        except RuntimeError:
+            loop_running = False
+    except RuntimeError:
+        # No running loop (Python 3.7+)
+        loop_running = False
+
+    if loop_running:
         # An event loop is running - we can't use asyncio.run() here
         # Solution: Run the async code in a separate thread with its own event loop
         # Note: We create the coroutine inside the worker thread to avoid cross-thread issues
@@ -424,7 +440,7 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(run_in_thread)
             return future.result()
-    except RuntimeError:
+    else:
         # No event loop running - we can use asyncio.run() directly
         return asyncio.run(
             scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
