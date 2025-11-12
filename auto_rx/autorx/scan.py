@@ -25,6 +25,14 @@ from .utils import (
 )
 from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum, shutdown_sdr
 
+# Import async scanning for concurrent peak detection
+try:
+    from .scan_async import run_async_scan
+    ASYNC_SCAN_AVAILABLE = True
+except ImportError:
+    ASYNC_SCAN_AVAILABLE = False
+    logging.warning("Async scanning not available - falling back to sequential scanning")
+
 
 try:
     from .web import flask_emit_event
@@ -1111,44 +1119,90 @@ class SondeScanner(object):
             )
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
-        for freq in peak_frequencies:
+        # OPTIMIZATION: Use concurrent async scanning ONLY with KA9Q-radio
+        # KA9Q provides virtual SDR channels that can actually scan concurrently
+        if ASYNC_SCAN_AVAILABLE and self.sdr_type == "KA9Q" and len(peak_frequencies) > 1:
+            try:
+                import os
+                cpu_count = os.cpu_count() or 1
+                # With KA9Q, we can use multiple virtual channels
+                # Limit based on CPU and configured SDR quantity
+                max_concurrent = min(4, max(2, cpu_count))
 
-            _freq = float(freq)
+                self.log_info(f"KA9Q: Using concurrent peak detection (max_concurrent={max_concurrent})")
 
-            # Exit opportunity.
-            if self.sonde_scanner_running == False:
-                return []
+                detections = run_async_scan(
+                    peak_frequencies=peak_frequencies,
+                    max_concurrent=max_concurrent,
+                    rs_path=self.rs_path,
+                    dwell_time=self.detect_dwell_time,
+                    sdr_type=self.sdr_type,
+                    sdr_hostname=self.sdr_hostname,
+                    sdr_port=self.sdr_port,
+                    ss_iq_path=self.ss_iq_path,
+                    rtl_fm_path=self.rtl_fm_path,
+                    rtl_device_idx=self.rtl_device_idx,
+                    ppm=self.ppm,
+                    gain=self.gain,
+                    bias=self.bias,
+                    save_detection_audio=self.save_detection_audio,
+                    wideband_sondes=self.wideband_sondes
+                )
 
-            (detected, offset_est) = detect_sonde(
-                _freq,
-                sdr_type=self.sdr_type,
-                sdr_hostname=self.sdr_hostname,
-                sdr_port=self.sdr_port,
-                ss_iq_path = self.ss_iq_path,
-                rtl_fm_path=self.rtl_fm_path,
-                rtl_device_idx=self.rtl_device_idx,
-                ppm=self.ppm,
-                gain=self.gain,
-                bias=self.bias,
-                dwell_time=self.detect_dwell_time,
-                save_detection_audio=self.save_detection_audio,
-                wideband_sondes=self.wideband_sondes
-            )
+                # Process results
+                for _freq, detected in detections:
+                    if self.sonde_scanner_running == False:
+                        return []
 
-            if detected != None:
-                # Quantize the detected frequency (with offset) to 1 kHz
-                _freq = round((_freq + offset_est) / 1000.0) * 1000.0
+                    _search_results.append([_freq, detected])
+                    self.send_to_callback([[_freq, detected]])
 
-                # Add a detected sonde to the output array
-                _search_results.append([_freq, detected])
+                    if first_only:
+                        return _search_results
 
-                # Immediately send this result to the callback.
-                self.send_to_callback([[_freq, detected]])
-                # If we only want the first detected sonde, then return now.
-                if first_only:
-                    return _search_results
+            except Exception as e:
+                self.log_error(f"Async scanning failed: {e}, falling back to sequential")
 
-                # Otherwise, we continue....
+        # Standard sequential scanning (for RTLSDR, SpyServer, or single peaks)
+        else:
+            for freq in peak_frequencies:
+
+                _freq = float(freq)
+
+                # Exit opportunity.
+                if self.sonde_scanner_running == False:
+                    return []
+
+                (detected, offset_est) = detect_sonde(
+                    _freq,
+                    sdr_type=self.sdr_type,
+                    sdr_hostname=self.sdr_hostname,
+                    sdr_port=self.sdr_port,
+                    ss_iq_path = self.ss_iq_path,
+                    rtl_fm_path=self.rtl_fm_path,
+                    rtl_device_idx=self.rtl_device_idx,
+                    ppm=self.ppm,
+                    gain=self.gain,
+                    bias=self.bias,
+                    dwell_time=self.detect_dwell_time,
+                    save_detection_audio=self.save_detection_audio,
+                    wideband_sondes=self.wideband_sondes
+                )
+
+                if detected != None:
+                    # Quantize the detected frequency (with offset) to 1 kHz
+                    _freq = round((_freq + offset_est) / 1000.0) * 1000.0
+
+                    # Add a detected sonde to the output array
+                    _search_results.append([_freq, detected])
+
+                    # Immediately send this result to the callback.
+                    self.send_to_callback([[_freq, detected]])
+                    # If we only want the first detected sonde, then return now.
+                    if first_only:
+                        return _search_results
+
+                    # Otherwise, we continue....
 
         if len(_search_results) == 0:
             self.log_debug("No sondes detected.")

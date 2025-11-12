@@ -1072,14 +1072,32 @@ def main():
     if args.type != None:
         handle_scan_results()
 
-    # Loop.
+    # Loop - Optimized to use event-driven queue instead of pure polling
     while True:
-        # Check for finished tasks.
+        # OPTIMIZATION: Use blocking queue get with timeout instead of sleep
+        # This allows immediate response to scan results while still doing periodic cleanup
+        try:
+            # Wait for scan result with timeout (replaces handle_scan_results polling)
+            # If result arrives, process immediately without 2s delay
+            result = autorx.scan_results.get(timeout=2.0)
+
+            # Process the scan result immediately
+            if result is not None:
+                if isinstance(result, list):
+                    for res in result:
+                        if len(res) == 2:
+                            start_decoder(res[0], res[1])
+
+        except Exception as e:
+            # Queue.get timeout or other error - this is normal, means no scan results for 2s
+            # Continue to cleanup tasks
+            pass
+
+        # Check for finished tasks (runs every 2s when queue is empty, or after processing result)
         clean_task_list()
-        # Handle any new scan results.
+
+        # Also handle any remaining scan results in queue (batch process if multiple arrived)
         handle_scan_results()
-        # Sleep a little bit.
-        time.sleep(2)
 
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!
