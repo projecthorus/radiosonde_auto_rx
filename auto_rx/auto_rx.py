@@ -27,7 +27,7 @@ import time
 import traceback
 import os
 from dateutil.parser import parse
-from queue import Queue
+from queue import Queue, Empty
 
 if sys.version_info < (3, 6):
     print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
@@ -183,6 +183,7 @@ def start_scanner():
             wideband_sondes=config["wideband_sondes"],
             temporary_block_list=temporary_block_list,
             temporary_block_time=config["temporary_block_time"],
+            max_async_scan_workers=config["max_async_scan_workers"],
         )
 
         # Add a reference into the sdr_list entry
@@ -1103,14 +1104,28 @@ def main():
     if args.type != None:
         handle_scan_results()
 
-    # Loop.
+    # Loop - Event-driven processing with periodic maintenance
     while True:
-        # Check for finished tasks.
-        clean_task_list()
-        # Handle any new scan results.
+        # Wait for new scan results or timeout after 2 seconds
+        # This allows immediate response when results arrive while still doing periodic cleanup
+        try:
+            # Block until result arrives or timeout
+            result = autorx.scan_results.get(timeout=2.0)
+            # Put it back for handle_scan_results() to process
+            # Note: This get/put pattern allows us to block-wait for queue activity while
+            # maintaining handle_scan_results()'s existing logic (which checks qsize and processes all items).
+            # Alternative approach would be to refactor handle_scan_results to accept items directly.
+            autorx.scan_results.put(result)
+        except Empty:
+            # Timeout - normal condition when no scan results for 2s
+            pass
+
+        # Process any scan results in the queue (including the one we just got, if any)
+        # handle_scan_results() checks qsize and processes all available results
         handle_scan_results()
-        # Sleep a little bit.
-        time.sleep(2)
+
+        # Check for finished tasks
+        clean_task_list()
 
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!

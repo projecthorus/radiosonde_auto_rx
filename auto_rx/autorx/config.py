@@ -139,6 +139,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "temporary_block_time": 60,
         "rs41_drift_tweak": False,
         "decoder_stats": False,
+        "max_async_scan_workers": 4,
         "ngp_tweak": False,
         # Rotator Settings
         "enable_rotator": False,
@@ -369,6 +370,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         auto_rx_config["synchronous_upload"] = config.getboolean(
             "advanced", "synchronous_upload"
         )
+
+        # Max async scan workers - validate and cap to reasonable limits
+        _max_workers = config.getint("advanced", "max_async_scan_workers")
+        if _max_workers < 1:
+            logging.warning(f"Config - max_async_scan_workers must be at least 1, setting to 1")
+            _max_workers = 1
+        elif _max_workers > 32:
+            logging.warning(f"Config - max_async_scan_workers capped at 32 (was {_max_workers})")
+            _max_workers = 32
+        auto_rx_config["max_async_scan_workers"] = _max_workers
 
         # Rotator Settings
         auto_rx_config["rotator_enabled"] = config.getboolean(

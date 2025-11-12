@@ -553,6 +553,10 @@ quantization = 10000
 decoder_spacing_limit = 5000
 # Temporary Block Time (minutes) - How long to block encrypted or otherwise non-decodable sondes for.
 temporary_block_time = 120
+# Maximum Async Scan Workers - How many concurrent peak detection tasks to run during scanning.
+# This only applies to KA9Q (allows true concurrent scanning with virtual channels).
+# Valid range: 1-32. Automatically capped at CPU core count. Default is 4 (conservative).
+max_async_scan_workers = 4
 # Upload when (seconds_since_utc_epoch%upload_rate) == 0. Otherwise just delay upload_rate seconds between uploads.
 # Setting this to True with multple uploaders should give a higher chance of all uploaders uploading the same frame,
 # however the upload_rate should not be set too low, else there may be a chance of missing upload slots.
