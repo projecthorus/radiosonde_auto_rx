@@ -1075,25 +1075,24 @@ def main():
 
     # Loop - Event-driven processing with periodic maintenance
     while True:
-        # Process any scan results in the queue
-        # handle_scan_results() checks qsize and processes all available results
-        handle_scan_results()
-
-        # Check for finished tasks
-        clean_task_list()
-
         # Wait for new scan results or timeout after 2 seconds
         # This allows immediate response when results arrive while still doing periodic cleanup
         try:
             # Block until result arrives or timeout
             result = autorx.scan_results.get(timeout=2.0)
-            # Put it back for handle_scan_results() to process on next loop iteration
-            # This maintains the existing queue processing logic without changes
+            # Put it back for handle_scan_results() to process
+            # We do this to maintain the existing queue processing logic
             autorx.scan_results.put(result)
         except Empty:
             # Timeout - normal condition when no scan results for 2s
-            # Loop will continue to next iteration for periodic maintenance
             pass
+
+        # Process any scan results in the queue (including the one we just got, if any)
+        # handle_scan_results() checks qsize and processes all available results
+        handle_scan_results()
+
+        # Check for finished tasks
+        clean_task_list()
 
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!

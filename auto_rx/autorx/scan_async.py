@@ -27,6 +27,10 @@ import threading
 _sdr_locks = {}
 _sdr_locks_lock = threading.Lock()
 
+# Timeout multiplier for subprocess detection
+# We give subprocess dwell_time * this value to complete
+DETECTION_TIMEOUT_MULTIPLIER = 2.5
+
 def _get_sdr_lock(sdr_type, device_idx, hostname):
     """Get or create a lock for a specific SDR device"""
     key = (sdr_type, device_idx, hostname)
@@ -182,15 +186,16 @@ async def detect_sonde_async(
         process = await asyncio.create_subprocess_shell(
             rx_test_command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
         )
 
         # Wait for completion with timeout
         try:
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(), timeout=dwell_time * 2.5
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=dwell_time * DETECTION_TIMEOUT_MULTIPLIER
             )
             ret_output = stdout.decode("utf8")
+            stderr_output = stderr.decode("utf8") if stderr else ""
         except asyncio.TimeoutError:
             process.kill()
             await process.wait()
@@ -201,17 +206,23 @@ async def detect_sonde_async(
 
         # Check return code
         # Note: No longer checking for code 124 since we removed external timeout wrapper
-        if process.returncode == 0 or process.returncode is None:
+        if process.returncode == 0:
             # Success - sonde detected
             pass
+        elif process.returncode is None:
+            # Unusual - returncode should be set after communicate()
+            logging.warning(f"Scanner ({_sdr_name}) - process returncode is None after completion")
         elif process.returncode >= 2:
             # Error but we have output - try to parse anyway
-            pass
+            if stderr_output:
+                logging.debug(f"Scanner ({_sdr_name}) - dft_detect stderr: {stderr_output.strip()}")
         else:
             # No sonde detected
             logging.debug(
                 f"Scanner ({_sdr_name}) - dft_detect exited in {_runtime:.1f}s with return code {process.returncode}."
             )
+            if stderr_output:
+                logging.debug(f"Scanner ({_sdr_name}) - dft_detect stderr: {stderr_output.strip()}")
             return (None, 0.0)
 
     except Exception as e:
