@@ -273,49 +273,67 @@ async def detect_sonde_async(
         )
         return (None, 0.0)
 
-    # Threshold checks based on sonde type
+    # Sonde type detection logic - matches sequential scanning behavior in scan.py
+    # Note: Sequential scanning accepts all detections regardless of score, as the
+    # decoders themselves do final validation. We match that behavior here.
     _detected = None
 
-    # Different thresholds for different sonde types
     if _type == "RS41":
-        if _score > 0.5:
-            _detected = "RS41"
+        _detected = "RS41"
     elif _type == "RS92":
-        if _score > 0.3:
-            _detected = "RS92"
+        _detected = "RS92"
     elif _type == "DFM":
-        if _score > 0.4:
-            _detected = "DFM"
+        _detected = "DFM"
     elif _type == "M10":
-        if _score > 0.4:
-            _detected = "M10"
+        _detected = "M10"
     elif _type == "M20":
-        if _score > 0.4:
-            _detected = "M20"
-    elif _type == "IMET":
-        if _score > 0.4:
-            _detected = "IMET"
+        _detected = "M20"
+    elif _type == "IMET4":
+        _detected = "IMET"
+    elif _type == "IMET1":
+        # Wideband iMet sonde - treat as IMET4
+        _detected = "IMET"
+    elif _type == "IMETafsk":
+        # Unsupported iMet variant
+        _detected = "IMET1"
     elif _type == "IMET5":
-        if _score > 0.4:
-            _detected = "IMET5"
-    elif _type == "MK2LMS":
-        if _score > 0.5:
-            _detected = "MK2LMS"
-    elif _type == "LMS":
-        if _score > 0.5:
-            _detected = "LMS"
-    elif _type == "MEISEI":
-        if _score > 0.4:
-            _detected = "MEISEI"
+        _detected = "IMET5"
+    elif _type == "LMS6":
+        _detected = "LMS6"
+    elif _type == "C34":
+        _detected = "C34C50"
     elif _type == "MRZ":
-        if _score > 0.4:
+        # Handle inverted signals
+        if _score < 0:
+            _detected = "-MRZ"
+        else:
             _detected = "MRZ"
+    elif _type == "MK2LMS":
+        # 1680 MHz LMS6 - handle inverted signals
+        if _score < 0:
+            _detected = "-MK2LMS"
+        else:
+            _detected = "MK2LMS"
+    elif _type == "MEISEI":
+        # Handle inverted signals
+        if _score < 0:
+            _detected = "-MEISEI"
+        else:
+            _detected = "MEISEI"
     elif _type == "MTS01":
-        if _score > 0.4:
+        # Handle inverted signals
+        if _score < 0:
+            _detected = "-MTS01"
+        else:
             _detected = "MTS01"
-    elif _type == "WXSONDE":
-        if _score > 0.4:
-            _detected = "WXSONDE"
+    elif _type == "WXR301":
+        _detected = "WXR301"
+        # Clear out offset estimate as it's not accurate for WxR-301
+        _offset_est = 0.0
+    elif _type == "WXRPN9":
+        _detected = "WXRPN9"
+    elif _type == "RD94RD41":
+        _detected = "RD94RD41"
 
     if _detected:
         logging.info(
@@ -323,8 +341,9 @@ async def detect_sonde_async(
         )
         return (_detected, _offset_est)
     else:
+        # Unknown or unsupported sonde type
         logging.debug(
-            f"Scanner ({_sdr_name}) - {_type} score {_score:.2f} below threshold on {frequency/1e6:.3f} MHz"
+            f"Scanner ({_sdr_name}) - Unknown type '{_type}' with score {_score:.2f} on {frequency/1e6:.3f} MHz"
         )
         return (None, 0.0)
 
