@@ -22,22 +22,9 @@ import threading
 # Lazy imports to avoid dependency issues at module load time
 # These will be imported when functions are actually called
 
-# Lock to protect concurrent shutdown_sdr calls
-# Key: (sdr_type, device_idx, hostname) -> Lock
-_sdr_locks = {}
-_sdr_locks_lock = threading.Lock()
-
 # Timeout multiplier for subprocess detection
 # We give subprocess dwell_time * this value to complete
 DETECTION_TIMEOUT_MULTIPLIER = 2.5
-
-def _get_sdr_lock(sdr_type, device_idx, hostname):
-    """Get or create a lock for a specific SDR device"""
-    key = (sdr_type, device_idx, hostname)
-    with _sdr_locks_lock:
-        if key not in _sdr_locks:
-            _sdr_locks[key] = threading.Lock()
-        return _sdr_locks[key]
 
 
 async def detect_sonde_async(
@@ -241,16 +228,17 @@ async def detect_sonde_async(
             except Exception as e:
                 logging.debug(f"Scanner ({_sdr_name}) - Error killing process: {e}")
 
-        # Release the SDR channel with locking to prevent race conditions
-        # Run shutdown_sdr in executor to avoid blocking the event loop
+        # Always release the SDR channel, even on failure
+        # Each frequency uses a unique SSRC, so concurrent cleanup calls don't conflict
+        # We run this in an executor to avoid blocking the event loop with subprocess calls
         try:
-            sdr_lock = _get_sdr_lock(sdr_type, rtl_device_idx, sdr_hostname)
             loop = asyncio.get_event_loop()
 
             def release_sdr():
-                with sdr_lock:
-                    shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
+                shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
+            # Run in executor and wait for completion
+            # This is safe because each frequency has a unique SSRC - no lock needed
             await loop.run_in_executor(None, release_sdr)
         except Exception as e:
             logging.debug(f"Scanner ({_sdr_name}) - Error releasing SDR: {e}")
