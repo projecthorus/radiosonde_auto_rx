@@ -243,90 +243,9 @@ async def detect_sonde_async(
         except Exception as e:
             logging.debug(f"Scanner ({_sdr_name}) - Error releasing SDR: {e}")
 
-    # Parse output
-    if ret_output is None or ret_output == "":
-        return (None, 0.0)
-
-    # Split the line into sonde type and correlation score
-    _fields = ret_output.split(":")
-
-    if len(_fields) < 2:
-        logging.error(
-            f"Scanner ({_sdr_name}) - malformed output from dft_detect: {ret_output.strip()}"
-        )
-        return (None, 0.0)
-
-    _type = _fields[0]
-    _score = _fields[1]
-
-    # Detect any frequency correction information
-    try:
-        if "," in _score:
-            _offset_est = float(_score.split(",")[1].split("Hz")[0].strip())
-            _score = float(_score.split(",")[0].strip())
-        else:
-            _score = float(_score.strip())
-            _offset_est = 0.0
-    except Exception as e:
-        logging.error(
-            f"Scanner ({_sdr_name}) - Error parsing dft_detect output: {ret_output.strip()}"
-        )
-        return (None, 0.0)
-
-    # Threshold checks based on sonde type
-    _detected = None
-
-    # Different thresholds for different sonde types
-    if _type == "RS41":
-        if _score > 0.5:
-            _detected = "RS41"
-    elif _type == "RS92":
-        if _score > 0.3:
-            _detected = "RS92"
-    elif _type == "DFM":
-        if _score > 0.4:
-            _detected = "DFM"
-    elif _type == "M10":
-        if _score > 0.4:
-            _detected = "M10"
-    elif _type == "M20":
-        if _score > 0.4:
-            _detected = "M20"
-    elif _type == "IMET":
-        if _score > 0.4:
-            _detected = "IMET"
-    elif _type == "IMET5":
-        if _score > 0.4:
-            _detected = "IMET5"
-    elif _type == "MK2LMS":
-        if _score > 0.5:
-            _detected = "MK2LMS"
-    elif _type == "LMS":
-        if _score > 0.5:
-            _detected = "LMS"
-    elif _type == "MEISEI":
-        if _score > 0.4:
-            _detected = "MEISEI"
-    elif _type == "MRZ":
-        if _score > 0.4:
-            _detected = "MRZ"
-    elif _type == "MTS01":
-        if _score > 0.4:
-            _detected = "MTS01"
-    elif _type == "WXSONDE":
-        if _score > 0.4:
-            _detected = "WXSONDE"
-
-    if _detected:
-        logging.info(
-            f"Scanner ({_sdr_name}) - Detected {_detected} on {frequency/1e6:.3f} MHz (score: {_score:.2f}, offset: {_offset_est:.0f} Hz) in {_runtime:.1f}s"
-        )
-        return (_detected, _offset_est)
-    else:
-        logging.debug(
-            f"Scanner ({_sdr_name}) - {_type} score {_score:.2f} below threshold on {frequency/1e6:.3f} MHz"
-        )
-        return (None, 0.0)
+    # Parse output using shared function from scan.py to ensure consistency
+    from .scan import parse_dft_detect_output
+    return parse_dft_detect_output(ret_output, _sdr_name)
 
 
 async def scan_peaks_concurrent(
