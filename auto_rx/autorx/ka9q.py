@@ -49,8 +49,14 @@ def ka9q_setup_channel(
 
     try:
         _output = subprocess.check_output(
-            _cmd, shell=True, stderr=subprocess.STDOUT
+            _cmd, shell=True, stderr=subprocess.STDOUT, timeout=10
         )
+    except subprocess.TimeoutExpired:
+        logging.critical(
+            f"KA9Q ({sdr_hostname}) - tune call timed out while opening channel (Python timeout). "
+            "This indicates the subprocess.check_output call itself hung."
+        )
+        return False
     except subprocess.CalledProcessError as e:
         # Something went wrong...
 
@@ -99,8 +105,14 @@ def ka9q_close_channel(
 
     try:
         _output = subprocess.check_output(
-            _cmd, shell=True, stderr=subprocess.STDOUT
+            _cmd, shell=True, stderr=subprocess.STDOUT, timeout=10
         )
+    except subprocess.TimeoutExpired:
+        logging.critical(
+            f"KA9Q ({sdr_hostname}) - tune call timed out while closing channel (Python timeout). "
+            "This indicates the subprocess.check_output call itself hung."
+        )
+        return False
     except subprocess.CalledProcessError as e:
         # Something went wrong...
 

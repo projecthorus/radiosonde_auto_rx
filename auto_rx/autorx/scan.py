@@ -428,15 +428,13 @@ def detect_sonde(
         f"Scanner ({_sdr_name})- Attempting sonde detection on {frequency/1e6 :.3f} MHz"
     )
 
+    ret_output = ""
     try:
         FNULL = open(os.devnull, "w")
         _start = time.time()
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
         ret_output = ret_output.decode("utf8")
-
-        # Release the SDR channel if necessary
-        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
@@ -459,6 +457,9 @@ def detect_sonde(
             f"Scanner ({_sdr_name}) - Error when running dft_detect - {str(e)}"
         )
         return (None, 0.0)
+    finally:
+        # Always release the SDR channel, even on failure
+        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
     _runtime = time.time() - _start
     logging.debug(
@@ -1130,6 +1131,7 @@ class SondeScanner(object):
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
         # OPTIMIZATION: Use concurrent async scanning ONLY with KA9Q-radio
         # KA9Q provides virtual SDR channels that can actually scan concurrently
+        _use_async_scanning = False
         if ASYNC_SCAN_AVAILABLE and self.sdr_type == "KA9Q" and len(peak_frequencies) > 1:
             try:
                 import os
@@ -1175,13 +1177,17 @@ class SondeScanner(object):
                     if first_only:
                         return _search_results
 
+                # Async scanning completed successfully
+                _use_async_scanning = True
+
             except Exception as e:
                 import traceback
                 self.log_error(f"Async scanning failed: {e}, falling back to sequential")
                 self.log_debug(f"Async scan traceback: {traceback.format_exc()}")
+                # Fall through to sequential scanning below
 
-        # Standard sequential scanning (for RTLSDR, SpyServer, or single peaks)
-        else:
+        # Standard sequential scanning (for RTLSDR, SpyServer, single peaks, or async fallback)
+        if not _use_async_scanning:
             for freq in peak_frequencies:
 
                 _freq = float(freq)
