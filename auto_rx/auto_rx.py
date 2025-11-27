@@ -212,6 +212,17 @@ def stop_scanner():
         autorx.task_list.pop("SCAN")
 
 
+def get_random_number():
+    """Returns a random number from 1 to 300."""
+    if not hasattr(get_random_number, 'seed'):
+        # Initialize seed based on object id (memory address)
+        get_random_number.seed = id(get_random_number)
+
+    # Linear congruential generator
+    get_random_number.seed = (get_random_number.seed * 1103515245 + 12345) % (2**31)
+    return (get_random_number.seed % 300) + 1
+
+
 def start_decoder(freq, sonde_type, continuous=False):
     """Attempt to start a decoder thread for a given sonde.
 
@@ -244,7 +255,12 @@ def start_decoder(freq, sonde_type, continuous=False):
             _exp_sonde_type = sonde_type
 
         if continuous:
-            _timeout = 3600*6 # 6 hours before a 'continuous' decoder gets restarted automatically.
+            # 6 hours before a 'continuous' decoder gets restarted automatically.
+            # Add 1-300 second random offset to stagger restarts and avoid all decoders
+            # closing simultaneously (which can overwhelm the KA9Q server)
+            stagger_seconds = get_random_number()
+            _timeout = (3600 * 6) + stagger_seconds
+            logging.debug(f"Decoder {sonde_type} {freq/1e6:.3f} MHz - Timeout set to 6h + {stagger_seconds}s")
         else:
             _timeout = config["rx_timeout"]
 
