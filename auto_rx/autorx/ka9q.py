@@ -153,7 +153,11 @@ def ka9q_get_iq_cmd(
     _setup_success = ka9q_setup_channel(sdr_hostname, frequency, sample_rate, scan, channel_filter)
 
     if not _setup_success:
-        logging.critical(f"KA9Q ({sdr_hostname}) - Could not setup rx channel! Decoder will likely timeout.")
+        logging.critical(f"KA9Q ({sdr_hostname}) - Could not setup rx channel!")
+        # For scanning, raise an exception so async scanning can handle it gracefully
+        # For decoders, just log and continue (decoder will timeout and be handled elsewhere)
+        if scan:
+            raise IOError(f"Failed to setup KA9Q channel at {frequency} Hz")
 
     # Get the 'PCM' version of the server name, where as assume -pcm is added to the first part of the hostname.
     _pcm_host = sdr_hostname.split('.')[0] + "-pcm." + ".".join(sdr_hostname.split(".")[1:])
