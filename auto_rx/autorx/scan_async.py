@@ -26,6 +26,16 @@ import threading
 # We give subprocess dwell_time * this value to complete
 DETECTION_TIMEOUT_MULTIPLIER = 2.5
 
+# Timeout for process.wait() after sending kill signal
+# Process should exit almost immediately after SIGKILL, so 3 seconds is generous
+PROCESS_WAIT_TIMEOUT = 3.0
+
+# Timeout for SDR cleanup (shutdown_sdr has internal 10s timeout, give a bit more)
+SDR_CLEANUP_TIMEOUT = 15.0
+
+# Timeout for SDR setup (ka9q_setup_channel has internal 10s timeout, give a bit more)
+SDR_SETUP_TIMEOUT = 15.0
+
 
 async def detect_sonde_async(
     frequency: int,
@@ -85,23 +95,41 @@ async def detect_sonde_async(
             _rx_bw = 250000
 
     # Build the detection command
+    # Note: get_sdr_iq_cmd/get_sdr_fm_cmd can block (ka9q_setup_channel uses subprocess)
+    # so we run them in an executor to avoid blocking the event loop
+    try:
+        loop = asyncio.get_running_loop()  # Python 3.7+, preferred
+    except RuntimeError:
+        loop = asyncio.get_event_loop()  # Fallback
+
     if _mode == "IQ":
         # IQ decoding
         # Note: We rely on asyncio.wait_for for timeout, not external timeout_cmd
-        rx_test_command = get_sdr_iq_cmd(
-            sdr_type=sdr_type,
-            frequency=frequency,
-            sample_rate=_iq_bw,
-            rtl_device_idx=rtl_device_idx,
-            rtl_fm_path=rtl_fm_path,
-            ppm=ppm,
-            gain=gain,
-            bias=bias,
-            sdr_hostname=sdr_hostname,
-            sdr_port=sdr_port,
-            ss_iq_path=ss_iq_path,
-            scan=True,
-        )
+        logging.debug(f"Scanner - Setting up KA9Q channel for {frequency/1e6:.3f} MHz")
+        try:
+            rx_test_command = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: get_sdr_iq_cmd(
+                        sdr_type=sdr_type,
+                        frequency=frequency,
+                        sample_rate=_iq_bw,
+                        rtl_device_idx=rtl_device_idx,
+                        rtl_fm_path=rtl_fm_path,
+                        ppm=ppm,
+                        gain=gain,
+                        bias=bias,
+                        sdr_hostname=sdr_hostname,
+                        sdr_port=sdr_port,
+                        ss_iq_path=ss_iq_path,
+                        scan=True,
+                    )
+                ),
+                timeout=SDR_SETUP_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            logging.error(f"Scanner - KA9Q channel setup timed out after {SDR_SETUP_TIMEOUT}s for {frequency/1e6:.3f} MHz")
+            raise
 
         # Saving of Debug audio, if enabled
         if save_detection_audio:
@@ -122,20 +150,27 @@ async def detect_sonde_async(
     elif _mode == "FM":
         # FM decoding
         # Note: We rely on asyncio.wait_for for timeout, not external timeout_cmd
-        rx_test_command = get_sdr_fm_cmd(
-            sdr_type=sdr_type,
-            frequency=frequency,
-            filter_bandwidth=_rx_bw,
-            sample_rate=48000,
-            highpass=20,
-            lowpass=None,
-            rtl_device_idx=rtl_device_idx,
-            rtl_fm_path=rtl_fm_path,
-            ppm=ppm,
-            gain=gain,
-            bias=bias,
-            sdr_hostname="",
-            sdr_port=1234,
+        # get_sdr_fm_cmd doesn't block for KA9Q, but we add timeout for consistency
+        rx_test_command = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: get_sdr_fm_cmd(
+                    sdr_type=sdr_type,
+                    frequency=frequency,
+                    filter_bandwidth=_rx_bw,
+                    sample_rate=48000,
+                    highpass=20,
+                    lowpass=None,
+                    rtl_device_idx=rtl_device_idx,
+                    rtl_fm_path=rtl_fm_path,
+                    ppm=ppm,
+                    gain=gain,
+                    bias=bias,
+                    sdr_hostname="",
+                    sdr_port=1234,
+                )
+            ),
+            timeout=SDR_SETUP_TIMEOUT
         )
 
         # Saving of Debug audio, if enabled
@@ -170,6 +205,7 @@ async def detect_sonde_async(
 
         # Use asyncio.create_subprocess_shell for non-blocking execution
         # This allows multiple detections to run concurrently
+        logging.debug(f"Scanner ({_sdr_name}) - Starting detection subprocess for {frequency/1e6:.3f} MHz")
         process = await asyncio.create_subprocess_shell(
             rx_test_command,
             stdout=asyncio.subprocess.PIPE,
@@ -185,7 +221,10 @@ async def detect_sonde_async(
             stderr_output = stderr.decode("utf8") if stderr else ""
         except asyncio.TimeoutError:
             process.kill()
-            await process.wait()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=PROCESS_WAIT_TIMEOUT)
+            except asyncio.TimeoutError:
+                logging.warning(f"Scanner ({_sdr_name}) - Process did not exit within {PROCESS_WAIT_TIMEOUT}s after kill")
             logging.error(f"Scanner ({_sdr_name}) - dft_detect timed out on {frequency/1e6:.3f} MHz.")
             return (None, 0.0)
 
@@ -224,7 +263,10 @@ async def detect_sonde_async(
                 if process.returncode is None:
                     # Process still running - kill it
                     process.kill()
-                    await process.wait()
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=PROCESS_WAIT_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        logging.warning(f"Scanner ({_sdr_name}) - Process did not exit within {PROCESS_WAIT_TIMEOUT}s after kill (cleanup)")
             except Exception as e:
                 logging.debug(f"Scanner ({_sdr_name}) - Error killing process: {e}")
 
@@ -232,14 +274,19 @@ async def detect_sonde_async(
         # Each frequency uses a unique SSRC, so concurrent cleanup calls don't conflict
         # We run this in an executor to avoid blocking the event loop with subprocess calls
         try:
-            loop = asyncio.get_event_loop()
-
+            logging.debug(f"Scanner ({_sdr_name}) - Cleaning up SDR channel for {frequency/1e6:.3f} MHz")
             def release_sdr():
                 shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
-            # Run in executor and wait for completion
-            # This is safe because each frequency has a unique SSRC - no lock needed
-            await loop.run_in_executor(None, release_sdr)
+            # Run in executor with timeout - shutdown_sdr has internal 10s timeout
+            # Reuse the loop variable from earlier in the function
+            await asyncio.wait_for(
+                loop.run_in_executor(None, release_sdr),
+                timeout=SDR_CLEANUP_TIMEOUT
+            )
+            logging.debug(f"Scanner ({_sdr_name}) - SDR cleanup completed for {frequency/1e6:.3f} MHz")
+        except asyncio.TimeoutError:
+            logging.warning(f"Scanner ({_sdr_name}) - SDR cleanup timed out for {frequency/1e6:.3f} MHz")
         except Exception as e:
             logging.debug(f"Scanner ({_sdr_name}) - Error releasing SDR: {e}")
 
@@ -272,14 +319,19 @@ async def scan_peaks_concurrent(
     # Create a semaphore to limit concurrent operations
     semaphore = asyncio.Semaphore(max_concurrent)
 
+    logging.info(f"Async scan starting: {len(peak_frequencies)} frequencies with max_concurrent={max_concurrent}")
+
     async def detect_with_semaphore(freq):
         """Wrapper to limit concurrency"""
         async with semaphore:
             try:
+                _task_start = time.time()
                 detected, offset_est = await detect_sonde_async(
                     frequency=freq,
                     **detect_kwargs
                 )
+                _task_time = time.time() - _task_start
+                logging.debug(f"Detection task for {freq/1e6:.3f} MHz completed in {_task_time:.1f}s")
                 if detected:
                     # Quantize the detected frequency with offset to 1 kHz
                     freq_corrected = round((freq + offset_est) / 1000.0) * 1000.0
@@ -293,6 +345,7 @@ async def scan_peaks_concurrent(
     # Create tasks for all peaks
     tasks = [asyncio.create_task(detect_with_semaphore(float(freq))) for freq in peak_frequencies]
 
+    _scan_start = time.time()
     try:
         # Wait for all to complete
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -315,6 +368,9 @@ async def scan_peaks_concurrent(
             logging.error(f"Detection task failed: {result}")
         elif result is not None:
             detections.append(result)
+
+    _scan_time = time.time() - _scan_start
+    logging.info(f"Async scan completed: {len(detections)} detections from {len(peak_frequencies)} frequencies in {_scan_time:.1f}s")
 
     return detections
 
@@ -340,6 +396,23 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
             # ... other args
         )
     """
+    # Calculate a reasonable global timeout as a safety net
+    # Time per task: dwell_time * timeout_multiplier + setup/cleanup overhead
+    dwell_time = detect_kwargs.get('dwell_time', 10)
+    time_per_task = dwell_time * DETECTION_TIMEOUT_MULTIPLIER + SDR_CLEANUP_TIMEOUT + 10  # +10 for setup
+    num_batches = (len(peak_frequencies) + max_concurrent - 1) // max_concurrent
+    global_timeout = num_batches * time_per_task + 60  # +60 buffer
+
+    async def run_with_timeout():
+        try:
+            return await asyncio.wait_for(
+                scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs),
+                timeout=global_timeout
+            )
+        except asyncio.TimeoutError:
+            logging.error(f"Async scan timed out after {global_timeout:.0f}s - possible hang detected")
+            return []
+
     # Check if there's already an event loop running
     # Note: Python 3.6 compatible - get_running_loop() was added in 3.7
     loop_running = False
@@ -363,15 +436,19 @@ def run_async_scan(peak_frequencies: list, max_concurrent: int = 2, **detect_kwa
         # Solution: Run the async code in a separate thread with its own event loop
         # Note: We create the coroutine inside the worker thread to avoid cross-thread issues
         import concurrent.futures
+        logging.debug(f"Async scan: Running in separate thread (event loop already running)")
         def run_in_thread():
-            return asyncio.run(
-                scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
-            )
+            return asyncio.run(run_with_timeout())
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(run_in_thread)
-            return future.result()
+            # Add timeout to future.result() to prevent indefinite blocking
+            # Use global_timeout + 10s buffer to allow internal timeout to fire first
+            try:
+                return future.result(timeout=global_timeout + 10)
+            except concurrent.futures.TimeoutError:
+                logging.error(f"Async scan thread timed out after {global_timeout + 10:.0f}s - thread may be hung")
+                return []
     else:
         # No event loop running - we can use asyncio.run() directly
-        return asyncio.run(
-            scan_peaks_concurrent(peak_frequencies, max_concurrent, **detect_kwargs)
-        )
+        logging.debug(f"Async scan: Running directly (no event loop running)")
+        return asyncio.run(run_with_timeout())
