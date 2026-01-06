@@ -1629,10 +1629,6 @@ class SondeDecoder(object):
 
         else:
 
-            # QI - Override for some RS41-SGM testing.
-            data = """{ "type": "RS41", "frame": 2163, "id": "R0230556", "datetime": "0000-00-00T00:00:00.000Z", "lat": 0.00000, "lon": 0.00000, "alt": 0.00000, "vel_h": 0.00000, "heading": 0.00000, "vel_v": 0.00000, "sats": 0, "bt": 65535, "batt": 2.80, "subtype": "RS41-SGM", "encrypted": true, "ref_datetime": "GPS", "ref_position": "GPS", "version": "1.8.2-beta16" }"""
-            data = data.encode()
-
             try:
                 _telemetry = json.loads(data.decode("ascii"))
             except Exception as e:
