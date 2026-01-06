@@ -125,6 +125,11 @@ class SondehubUploader(object):
             ),
         }
 
+        # Discard encrypted sonde data silently
+        if 'encrypted' in telemetry:
+            if telemetry['encrypted']:
+                return None
+
         # Mandatory Fields
         # Datetime
         try:

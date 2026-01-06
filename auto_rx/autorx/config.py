@@ -173,6 +173,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "sondehub_upload_rate": 30,
         # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
         "wideband_sondes": False, # Wideband sonde detection / decoding
+        "close_on_encrypted": True,
     }
 
     try:
@@ -797,7 +798,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["ozi_host"] = "<broadcast>"
             auto_rx_config["payload_summary_host"] = "<broadcast>"
 
-        # Real time filtering
+        # 1.8.2 - Real time filtering
         try:
             auto_rx_config["enable_realtime_filter"] = config.getboolean("filtering", "enable_realtime_filter")
             auto_rx_config["max_velocity"] = config.getint("filtering", "max_velocity")
@@ -808,6 +809,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config["enable_realtime_filter"] = True
             auto_rx_config["max_velocity"] = 300
             
+        # 1.8.2 - Alternate behaviour for encrypted RS41-SGM sondes
+        try:
+            auto_rx_config["close_on_encrypted"] = config.getboolean(
+                "advanced", "close_on_encrypted"
+            )
+        except:
+            logging.warning(
+                "Config - Missing close_on_encrypted option (new in v1.8.2), using default (True)"
+            )
+            auto_rx_config["close_on_encrypted"] = True
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config

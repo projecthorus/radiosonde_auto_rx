@@ -292,7 +292,8 @@ def start_decoder(freq, sonde_type, continuous=False):
             rs41_drift_tweak=config["rs41_drift_tweak"],
             experimental_decoder=config["experimental_decoders"][_exp_sonde_type],
             save_raw_hex=config["save_raw_hex"],
-            wideband_sondes=config["wideband_sondes"]
+            wideband_sondes=config["wideband_sondes"],
+            close_on_encrypted=config["close_on_encrypted"]
         )
         autorx.sdr_list[_device_idx]["task"] = autorx.task_list[freq]["task"]
 

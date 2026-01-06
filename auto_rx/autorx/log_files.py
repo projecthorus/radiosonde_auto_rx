@@ -97,6 +97,9 @@ def log_filename_to_stats(filename, quicklook=False, stats_fields=False):
                     _output["min_height"] = int(_output["last"]["alt"])
                     if stats_fields:
                         _output["has_snr"] = _quick["has_snr"]
+                else:
+                    logging.warning(f"No valid positional data when quicklooking {filename}.")
+                    return None
 
             except Exception as e:
                 logging.error(f"Could not quicklook file {filename}: {str(e)}")
@@ -137,6 +140,13 @@ def log_quick_look(filename, stats_fields=False):
         _first_lat = float(_fields[3])
         _first_lon = float(_fields[4])
         _first_alt = float(_fields[5])
+
+        # Ignore log files where the first lat/lon are 0.0/0.0. 
+        # This *should* only be encrypted radiosondes. 
+        # Returning None here results in this file not showing up in the historical page log list.
+        if _first_lat == 0.0 and _first_lon == 0.0:
+            return None
+
         _pos_info = position_info(
             (
                 autorx.config.global_config["station_lat"],
@@ -290,7 +300,8 @@ def read_log_file(filename, skewt_decimation=10):
 
     else:
         # Grab everything
-        _data = np.genfromtxt(_file, dtype=None, encoding="ascii", delimiter=",")
+        #_data = np.genfromtxt(_file, dtype=None, encoding="ascii", delimiter=",")
+        _data = np.genfromtxt(_file, dtype=None, delimiter=",")
 
     _file.close()
 
