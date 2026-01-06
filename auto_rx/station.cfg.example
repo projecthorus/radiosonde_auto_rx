@@ -621,6 +621,12 @@ ngp_tweak = False
 # be degradation in detection and decode performance. 
 wideband_sondes = False
 
+# Encrypted RS41-SGM handling:
+# When an encrypted RS41-SGM is detected:
+# True - auto_rx will close the decoder and lock-out the frequency for `temporary_block_time` minutes.
+# False - auto_rx will continue decoding this sonde, including writing a log file, but will not upload telemetry anywhere.
+# The default for this is True, as it can tie up SDRs un-necessarily. Not as big of an issue for a KA9Q-radio station.
+close_on_encrypted = True
 
 ######################
 # POSITION FILTERING #

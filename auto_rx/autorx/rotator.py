@@ -194,6 +194,11 @@ class Rotator(object):
                 self.log_error("JSON object missing required field %s" % _field)
                 return
 
+        # Discard encrypted sonde data silently
+        if 'encrypted' in telemetry:
+            if telemetry['encrypted']:
+                return None
+
         # Update the latest telemetry store.
         self.telem_lock.acquire()
         try:

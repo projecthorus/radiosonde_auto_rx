@@ -154,7 +154,8 @@ class SondeDecoder(object):
         rs41_drift_tweak=False,
         experimental_decoder=False,
         save_raw_hex=False,
-        wideband_sondes=False
+        wideband_sondes=False,
+        close_on_encrypted=True
     ):
         """ Initialise and start a Sonde Decoder.
 
@@ -194,6 +195,8 @@ class SondeDecoder(object):
             experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
             save_raw_hex (bool): If True, save the raw hex output from the decoder to a file.
             wideband_sondes (bool): If True, use a wider bandwidth for iMet sondes. Does not affect settings for any other radiosonde types.
+            close_on_encrypted (bool): If True, close the decoder when an encrypted sonde is detected, resulting in the frequency being locked out.
+                    If False, we continue to pass data through the processing chain, but with different behaviour (e.g. no sondehub upload)
         """
         # Thread running flag
         self.decoder_running = True
@@ -227,6 +230,7 @@ class SondeDecoder(object):
         self.save_raw_hex = save_raw_hex
         self.raw_file = None
         self.wideband_sondes = wideband_sondes
+        self.close_on_encrypted = close_on_encrypted
 
         # Last decoded position of this sonde
         self.last_positions = {}
@@ -1624,6 +1628,7 @@ class SondeDecoder(object):
                 return
 
         else:
+
             try:
                 _telemetry = json.loads(data.decode("ascii"))
             except Exception as e:
@@ -1663,31 +1668,37 @@ class SondeDecoder(object):
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
             # Check for an encrypted flag, and check if it is set.
-            # Currently encrypted == true indicates an encrypted RS41-SGM. There's no point
-            # trying to decode this, so we close the decoder at this point.
+            # Currently encrypted == true indicates an encrypted RS41-SGM. 
+            data_not_encrypted = True
             if "encrypted" in _telemetry:
                 if _telemetry["encrypted"]:
-                    self.log_error(
-                        "Radiosonde %s has encrypted telemetry (Possible encrypted RS41-SGM)! We cannot decode this, closing decoder."
-                        % _telemetry["id"]
-                    )
-
-                    # Overwrite the datetime field to make the email notifier happy
+                    data_not_encrypted = False
+                    # We need to overwrite the datetime field to make downstream things happy. A bit silly, but this is a bit of a hack.
                     _telemetry['datetime_dt'] = datetime.datetime.now(datetime.timezone.utc)
-                    _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
+                    _telemetry['datetime'] = _telemetry['datetime_dt'].isoformat()
+                    _telemetry['subtype'] = _telemetry['subtype'] + "-Encrypted"
 
-                    # Send this to only the Email Notifier, if it exists.
-                    for _exporter in self.exporters:
-                        try:
-                            if _exporter.__self__.__module__ == EmailNotification.__module__:
-                                _exporter(_telemetry)
-                        except Exception as e:
-                            self.log_error("Exporter Error %s" % str(e))
+                    if self.close_on_encrypted:
+                        self.log_error(
+                            "Radiosonde %s has encrypted telemetry (Probably encrypted RS41-SGM)! We cannot decode this, closing decoder."
+                            % _telemetry["id"]
+                        )
+                        # Send this to only the Email Notifier, if it exists.
+                        # Need to make the frequency change 
+                        _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
+                        for _exporter in self.exporters:
+                            try:
+                                if _exporter.__self__.__module__ == EmailNotification.__module__:
+                                    _exporter(_telemetry)
+                            except Exception as e:
+                                self.log_error("Exporter Error %s" % str(e))
 
-                    # Close the decoder.
-                    self.exit_state = "Encrypted"
-                    self.decoder_running = False
-                    return False
+                        # Close the decoder.
+                        self.exit_state = "Encrypted"
+                        self.decoder_running = False
+                        return False
+
+                    # Otherwise, it's goign to get passed along as normal.
 
             # Check the datetime field is parseable.
             try:
@@ -1919,8 +1930,9 @@ class SondeDecoder(object):
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
             # By default, we will assume the telemetry is OK.
+            # We bypass the filter for encrypted telemetry, which contains almost all-zero data and doesn't get uploaded anywhere.
             _telem_ok = "OK"
-            if self.telem_filter is not None:
+            if (self.telem_filter is not None) and data_not_encrypted:
                 try:
                     _telem_ok = self.telem_filter(_telemetry)
                 except Exception as e:
