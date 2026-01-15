@@ -20,6 +20,7 @@ import time
 import numpy as np
 import semver
 import shutil
+import sys
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
