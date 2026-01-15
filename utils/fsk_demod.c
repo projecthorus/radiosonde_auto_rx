@@ -54,7 +54,7 @@ int main(int argc,char *argv[]){
     struct FSK *fsk;
     struct MODEM_STATS stats;
     int Fs,Rs,M,P,stats_ctr,stats_loop;
-    long sample_count;
+    long sample_count = 0;
     float loop_time;
     int enable_stats = 0;
     FILE *fin,*fout;
@@ -365,8 +365,8 @@ int main(int argc,char *argv[]){
                 fprintf(stderr,"{");
                 time_t seconds  = time(NULL);
 
-                fprintf(stderr,"\"secs\": %ld, \"samples\": %ld, \"EbNodB\": %5.1f, \"ppm\": %4d,",seconds, sample_count, stats.snr_est, (int)fsk->ppm);
-                float *f_est;
+                // Cast some values to avoid problems if time is long long
+                fprintf(stderr,"\"secs\": %lld, \"samples\": %lld, \"EbNodB\": %5.1f, \"ppm\": %4d,",(long long)seconds, (long long)sample_count, stats.snr_est, (int)fsk->ppm);                float *f_est;
                 if (fsk->freq_est_type)
                     f_est = fsk->f2_est;
                 else
