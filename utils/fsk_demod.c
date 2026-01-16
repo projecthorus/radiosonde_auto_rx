@@ -365,7 +365,8 @@ int main(int argc,char *argv[]){
                 fprintf(stderr,"{");
 
                 // Cast some values to avoid problems if time is long long
-                fprintf(stderr,"\"samples\": %ld, \"EbNodB\": %5.1f, \"ppm\": %4d,", sample_count, stats.snr_est, (int)fsk->ppm);                float *f_est;
+                fprintf(stderr,"\"samples\": %ld, \"EbNodB\": %5.1f, \"ppm\": %4d,", sample_count, stats.snr_est, (int)fsk->ppm);                
+                float *f_est;
                 if (fsk->freq_est_type)
                     f_est = fsk->f2_est;
                 else
