@@ -43,4 +43,7 @@ mv ../demod/mod/iq_dec .
 mv ../weathex/weathex301d .
 mv ../dropsonde/rd94rd41drop .
 
+# Match user name in systemd service: no more need to use a text editor
+sed -i "s/pi/$(whoami)/g" auto_rx.service
+
 echo "Done!"
