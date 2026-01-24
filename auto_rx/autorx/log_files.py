@@ -299,9 +299,26 @@ def read_log_file(filename, skewt_decimation=10):
         )
 
     else:
-        # Grab everything
-        #_data = np.genfromtxt(_file, dtype=None, encoding="ascii", delimiter=",")
-        _data = np.genfromtxt(_file, dtype=None, delimiter=",")
+        # Newer fields
+        # timestamp,serial,frame,lat,lon,alt,vel_v,vel_h,heading,temp,humidity,pressure,type,freq_mhz,snr,f_error_hz,sats,batt_v,burst_timer,aux_data
+
+        # There is a behaviour change between numpy <2.3 and >=2.3 (tested between 1.26.4 and 2.3.4)
+        # Numpy will no longer allow 'upgrading' a dtype from np.integer to a string type during type inference.
+        # This was deprecated in v2.3.0 - https://numpy.org/devdocs/release/2.3.0-notes.html#expired-deprecations
+        # "Converting np.complex, np.integer, np.signedinteger, np.unsignedinteger, np.generic to a dtype errors (deprecated since 1.19)"
+
+        # A common example of this is the burst-timer field, which is set to -1 if there is no burst timer data,
+        # but then gets set to a time (HH:MM:SS) when there is burst timer data.
+
+        # The workaround now is to ignore the burst_timer and aux_data fields, and look at a better way of representing missing data in log files in the future. 
+
+        _data = np.genfromtxt(
+            _file, 
+            dtype=None, 
+            encoding="ascii", 
+            delimiter=",", 
+            usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17))
+
 
     _file.close()
 

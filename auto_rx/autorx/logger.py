@@ -178,15 +178,15 @@ class TelemetryLogger(object):
                     "%H:%M:%S", time.gmtime(telemetry["bt"])
                 )
             else:
-                _log_line += ",-1"
+                _log_line += ","
         else:
-            _log_line += ",-1"
+            _log_line += ","
 
         # Add Aux data, if it exists.
         if "aux" in telemetry:
             _log_line += ",%s" % telemetry["aux"].strip()
         else:
-            _log_line += ",-1"
+            _log_line += ","
 
         # Terminate the log line.
         _log_line += "\n"
