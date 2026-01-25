@@ -49,7 +49,7 @@ RUN pip3 install \
 RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
   mkdir -p /root/librtlsdr/build && \
   cd /root/librtlsdr/build && \
-  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
+  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -DDETACH_KERNEL_DRIVER=ON -Wno-dev ../ && \
   make && \
   make install && \
   rm -rf /root/librtlsdr
