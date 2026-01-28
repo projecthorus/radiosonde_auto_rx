@@ -970,7 +970,7 @@
                 // Are we currently following any other sondes?
                 if (sonde_currently_following == "none"){
                     // If not, follow this one... unless it's encrypted
-                    if (!msg.latest_data.encrypted){
+                    if (!msg.hasOwnProperty('encrypted') || msg.encrypted === false){
                         sonde_currently_following = msg.id;
                     }
                 }
