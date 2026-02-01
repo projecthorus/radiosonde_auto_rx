@@ -27,7 +27,7 @@ import time
 import traceback
 import os
 from dateutil.parser import parse
-from queue import Queue
+from queue import Queue, Empty
 
 if sys.version_info < (3, 6):
     print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
@@ -183,6 +183,7 @@ def start_scanner():
             wideband_sondes=config["wideband_sondes"],
             temporary_block_list=temporary_block_list,
             temporary_block_time=config["temporary_block_time"],
+            max_async_scan_workers=config["max_async_scan_workers"],
         )
 
         # Add a reference into the sdr_list entry
@@ -209,6 +210,17 @@ def stop_scanner():
         autorx.sdr_list[_scan_sdr]["task"] = None
         # Remove the scanner task from the task list
         autorx.task_list.pop("SCAN")
+
+
+def get_random_number():
+    """Returns a random number from 1 to 300."""
+    if not hasattr(get_random_number, 'seed'):
+        # Initialize seed based on object id (memory address)
+        get_random_number.seed = id(get_random_number)
+
+    # Linear congruential generator
+    get_random_number.seed = (get_random_number.seed * 1103515245 + 12345) % (2**31)
+    return (get_random_number.seed % 300) + 1
 
 
 def start_decoder(freq, sonde_type, continuous=False):
@@ -243,7 +255,12 @@ def start_decoder(freq, sonde_type, continuous=False):
             _exp_sonde_type = sonde_type
 
         if continuous:
-            _timeout = 3600*6 # 6 hours before a 'continuous' decoder gets restarted automatically.
+            # 6 hours before a 'continuous' decoder gets restarted automatically.
+            # Add 1-300 second random offset to stagger restarts and avoid all decoders
+            # closing simultaneously (which can overwhelm the KA9Q server)
+            stagger_seconds = get_random_number()
+            _timeout = (3600 * 6) + stagger_seconds
+            logging.debug(f"Decoder {sonde_type} {freq/1e6:.3f} MHz - Timeout set to 6h + {stagger_seconds}s")
         else:
             _timeout = config["rx_timeout"]
 
@@ -269,11 +286,14 @@ def start_decoder(freq, sonde_type, continuous=False):
             exporter=exporter_functions,
             timeout=_timeout,
             telem_filter=telemetry_filter,
+            enable_realtime_filter=config["enable_realtime_filter"],
+            max_velocity=config["max_velocity"],
             rs92_ephemeris=rs92_ephemeris,
             rs41_drift_tweak=config["rs41_drift_tweak"],
             experimental_decoder=config["experimental_decoders"][_exp_sonde_type],
             save_raw_hex=config["save_raw_hex"],
-            wideband_sondes=config["wideband_sondes"]
+            wideband_sondes=config["wideband_sondes"],
+            close_on_encrypted=config["close_on_encrypted"]
         )
         autorx.sdr_list[_device_idx]["task"] = autorx.task_list[freq]["task"]
 
@@ -430,17 +450,36 @@ def clean_task_list():
                     autorx.task_list["SCAN"]["task"].add_temporary_block(_key)
 
             if _exit_state == "FAILED SDR":
-                # The SDR was not able to be recovered after many attempts.
-                # Remove it from the SDR list and flag an error.
-                autorx.sdr_list.pop(_task_sdr)
-                _error_msg = (
-                    "Task Manager - Removed SDR %s from SDR list due to repeated failures."
-                    % (str(_task_sdr))
-                )
-                logging.error(_error_msg)
+                # The SDR was not able to be recovered after many (usually 5) attempts.
 
-                # Send email if configured.
-                email_error(_error_msg)
+                if config["sdr_type"] == "RTLSDR":
+                    # If we are using RTLSDRs, then if we're at this point there's nothing more we can do
+                    # to recover them, so we remove it from our SDR list.
+                    autorx.sdr_list.pop(_task_sdr)
+                    _error_msg = (
+                        "Task Manager - Removed SDR %s from SDR list due to repeated failures."
+                        % (str(_task_sdr))
+                    )
+
+                    logging.error(_error_msg)
+
+                    # Send email if configured.
+                    email_error(_error_msg)
+
+                else:
+                    # If we're using either KA9Q-Radio or a Spyserver, then we shouldn't remove the 'pseudo'-SDR 
+                    # entries from our list, and instead wait for the server to come back.
+                    _error_msg = f"Task Manager - Ongoing issue with {config['sdr_type']} server connection ({str(_task_sdr)}). Please check the logs."
+                    logging.error(_error_msg)
+                    # Don't send an email for this one yet... need to think about error email rate limiting.
+
+                    # Shutdown the SDR, if required for the particular SDR type.
+                    if _key != 'SCAN':
+                        shutdown_sdr(config["sdr_type"], _task_sdr, sdr_hostname=config["sdr_hostname"], frequency=_key)
+                    # Release its associated SDR.
+                    autorx.sdr_list[_task_sdr]["in_use"] = False
+                    autorx.sdr_list[_task_sdr]["task"] = None
+
 
             else:
                 # Shutdown the SDR, if required for the particular SDR type.
@@ -649,12 +688,19 @@ def telemetry_filter(telemetry):
     else:
         mrz_callsign_valid = False
 
+    # Dropsonde checks - filter out uninitialised dropsondes (all zero serial - 000000000)
+    if "RD41" in telemetry['type'] or "RD94" in telemetry["type"]:
+        dropsonde_callsign_valid = _serial != "000000000"
+    else:
+        dropsonde_callsign_valid = False
+
     # If Vaisala or DFMs, check the callsigns are valid. If M10/M20, iMet, MTS01 or LMS6, just pass it through - we get callsigns immediately and reliably from these.
     if (
         vaisala_callsign_valid
         or dfm_callsign_valid
         or meisei_callsign_valid
         or mrz_callsign_valid
+        or dropsonde_callsign_valid
         or ("M10" in telemetry["type"])
         or ("M20" in telemetry["type"])
         or ("LMS" in telemetry["type"])
@@ -671,6 +717,9 @@ def telemetry_filter(telemetry):
 
         if "MRZ" in telemetry["id"]:
             _id_msg += " Note: MRZ sondes may take a while to get an ID."
+
+        if "RD41" in telemetry["type"] or "RD94" in telemetry["type"]:
+            _id_msg += " Note: This may be an uninitialised dropsonde."
 
         logging.warning(_id_msg)
         return False
@@ -738,7 +787,7 @@ def main():
         "--type",
         type=str,
         default=None,
-        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI, MRZ)",
+        help="Immediately start a decoder for a provided sonde type (Valid Types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, LMS6, MK2LMS, MEISEI, MRZ, RD94RD41)",
     )
     parser.add_argument(
         "-t",
@@ -1072,14 +1121,28 @@ def main():
     if args.type != None:
         handle_scan_results()
 
-    # Loop.
+    # Loop - Event-driven processing with periodic maintenance
     while True:
-        # Check for finished tasks.
-        clean_task_list()
-        # Handle any new scan results.
+        # Wait for new scan results or timeout after 2 seconds
+        # This allows immediate response when results arrive while still doing periodic cleanup
+        try:
+            # Block until result arrives or timeout
+            result = autorx.scan_results.get(timeout=2.0)
+            # Put it back for handle_scan_results() to process
+            # Note: This get/put pattern allows us to block-wait for queue activity while
+            # maintaining handle_scan_results()'s existing logic (which checks qsize and processes all items).
+            # Alternative approach would be to refactor handle_scan_results to accept items directly.
+            autorx.scan_results.put(result)
+        except Empty:
+            # Timeout - normal condition when no scan results for 2s
+            pass
+
+        # Process any scan results in the queue (including the one we just got, if any)
+        # handle_scan_results() checks qsize and processes all available results
         handle_scan_results()
-        # Sleep a little bit.
-        time.sleep(2)
+
+        # Check for finished tasks
+        clean_task_list()
 
         if len(autorx.sdr_list) == 0:
             # No Functioning SDRs!

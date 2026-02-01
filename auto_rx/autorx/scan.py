@@ -25,6 +25,14 @@ from .utils import (
 )
 from .sdr_wrappers import test_sdr, reset_sdr, get_sdr_name, get_sdr_iq_cmd, get_sdr_fm_cmd, get_power_spectrum, shutdown_sdr
 
+# Import async scanning for concurrent peak detection
+try:
+    from .scan_async import run_async_scan
+    ASYNC_SCAN_AVAILABLE = True
+except ImportError:
+    ASYNC_SCAN_AVAILABLE = False
+    logging.warning("Async scanning not available - falling back to sequential scanning")
+
 
 try:
     from .web import flask_emit_event
@@ -214,6 +222,192 @@ def read_rtl_power(filename):
     power = np.nan_to_num(power)
 
     return (freq, power, freq_step)
+
+
+def parse_dft_detect_output(ret_output, sdr_name):
+    """
+    Parse dft_detect output and return detected sonde type and offset.
+
+    This function is shared between synchronous and async scanning to ensure
+    consistent detection logic.
+
+    Args:
+        ret_output (str): Raw output from dft_detect
+        sdr_name (str): SDR name for logging
+
+    Returns:
+        tuple: (sonde_type, offset_est) or (None, 0.0) if no sonde detected
+    """
+    # Check for no output from dft_detect.
+    if ret_output is None or ret_output == "":
+        return (None, 0.0)
+
+    # Split the line into sonde type and correlation score.
+    _fields = ret_output.split(":")
+
+    if len(_fields) < 2:
+        logging.error(
+            "Scanner - malformed output from dft_detect: %s" % ret_output.strip()
+        )
+        return (None, 0.0)
+
+    _type = _fields[0]
+    _score = _fields[1]
+
+    # Detect any frequency correction information:
+    try:
+        if "," in _score:
+            _offset_est = float(_score.split(",")[1].split("Hz")[0].strip())
+            _score = float(_score.split(",")[0].strip())
+        else:
+            _score = float(_score.strip())
+            _offset_est = 0.0
+    except Exception as e:
+        logging.error(
+            "Scanner - Error parsing dft_detect output: %s" % ret_output.strip()
+        )
+        return (None, 0.0)
+
+    _sonde_type = None
+
+    if "RS41" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a RS41! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "RS41"
+    elif "RS92" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a RS92! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "RS92"
+    elif "DFM" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a DFM Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "DFM"
+    elif "M10" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a M10 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "M10"
+    elif "M20" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "M20"
+    elif "IMET4" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a iMet-4 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "IMET"
+    elif "IMET1" in _type:
+        # This could actually be a wideband iMet sonde. We treat this as a IMET4.
+        logging.debug(
+            "Scanner (%s) - Possible detection of a Wideband iMet Sonde! (Type %s) (Score: %.2f)"
+            % (sdr_name, _type, _score)
+        )
+        # Override the type to IMET4.
+        _sonde_type = "IMET"
+    elif "IMETafsk" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)"
+            % (sdr_name, _type, _score)
+        )
+        _sonde_type = "IMET1"
+    elif "IMET5" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a iMet-54 Sonde! (Score: %.2f)"
+            % (sdr_name, _score)
+        )
+        _sonde_type = "IMET5"
+    elif "LMS6" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "LMS6"
+    elif "C34" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Meteolabor C34/C50 Sonde! (Not yet supported...) (Score: %.2f)"
+            % (sdr_name, _score)
+        )
+        _sonde_type = "C34C50"
+    elif "MRZ" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Meteo-Radiy MRZ Sonde! (Score: %.2f)"
+            % (sdr_name, _score)
+        )
+        if _score < 0:
+            _sonde_type = "-MRZ"
+        else:
+            _sonde_type = "MRZ"
+
+    elif "MK2LMS" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        if _score < 0:
+            _sonde_type = "-MK2LMS"
+        else:
+            _sonde_type = "MK2LMS"
+
+    elif "MEISEI" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Meisei Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        # Not currently sure if we expect to see inverted Meisei sondes.
+        if _score < 0:
+            _sonde_type = "-MEISEI"
+        else:
+            _sonde_type = "MEISEI"
+
+    elif "MTS01" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Meteosis MTS01 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        # Not currently sure if we expect to see inverted Meteosis sondes.
+        if _score < 0:
+            _sonde_type = "-MTS01"
+        else:
+            _sonde_type = "MTS01"
+
+    elif "WXR301" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXR301"
+        # Clear out the offset estimate for WxR-301's as it's not accurate
+        # to do no whitening on the signal.
+        _offset_est = 0.0
+
+    elif "WXRPN9" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a Weathex WxR-301D Sonde (PN9 Variant)! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "WXRPN9"
+
+    elif "RD94RD41" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a RD94 or RD41 Dropsonde! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "RD94RD41"
+
+    else:
+        _sonde_type = None
+
+    return (_sonde_type, _offset_est)
 
 
 def detect_sonde(
@@ -420,15 +614,13 @@ def detect_sonde(
         f"Scanner ({_sdr_name})- Attempting sonde detection on {frequency/1e6 :.3f} MHz"
     )
 
+    ret_output = ""
     try:
         FNULL = open(os.devnull, "w")
         _start = time.time()
         ret_output = subprocess.check_output(rx_test_command, shell=True, stderr=FNULL)
         FNULL.close()
         ret_output = ret_output.decode("utf8")
-
-        # Release the SDR channel if necessary
-        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
     except subprocess.CalledProcessError as e:
         # dft_detect returns a code of 1 if no sonde is detected.
@@ -451,178 +643,17 @@ def detect_sonde(
             f"Scanner ({_sdr_name}) - Error when running dft_detect - {str(e)}"
         )
         return (None, 0.0)
+    finally:
+        # Always release the SDR channel, even on failure
+        shutdown_sdr(sdr_type, rtl_device_idx, sdr_hostname, frequency, scan=True)
 
     _runtime = time.time() - _start
     logging.debug(
         "Scanner - dft_detect exited in %.1f seconds with return code 1." % _runtime
     )
 
-    # Check for no output from dft_detect.
-    if ret_output is None or ret_output == "":
-        # logging.error("Scanner - dft_detect returned no output?")
-        return (None, 0.0)
-
-    # Split the line into sonde type and correlation score.
-    _fields = ret_output.split(":")
-
-    if len(_fields) < 2:
-        logging.error(
-            "Scanner - malformed output from dft_detect: %s" % ret_output.strip()
-        )
-        return (None, 0.0)
-
-    _type = _fields[0]
-    _score = _fields[1]
-
-    # Detect any frequency correction information:
-    try:
-        if "," in _score:
-            _offset_est = float(_score.split(",")[1].split("Hz")[0].strip())
-            _score = float(_score.split(",")[0].strip())
-        else:
-            _score = float(_score.strip())
-            _offset_est = 0.0
-
-        
-    except Exception as e:
-        logging.error(
-            "Scanner - Error parsing dft_detect output: %s" % ret_output.strip()
-        )
-        return (None, 0.0)
-
-    _sonde_type = None
-
-    if "RS41" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a RS41! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "RS41"
-    elif "RS92" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a RS92! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "RS92"
-    elif "DFM" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a DFM Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "DFM"
-    elif "M10" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a M10 Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "M10"
-    elif "M20" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "M20"
-    elif "IMET4" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a iMet-4 Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "IMET"
-    elif "IMET1" in _type:
-        # This could actually be a wideband iMet sonde. We treat this as a IMET4.
-        logging.debug(
-            "Scanner (%s) - Possible detection of a Wideband iMet Sonde! (Type %s) (Score: %.2f)"
-            % (_sdr_name, _type, _score)
-        )
-        # Override the type to IMET4.
-        _sonde_type = "IMET"
-    elif "IMETafsk" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a iMet Sonde! (Type %s - Unsupported) (Score: %.2f)"
-            % (_sdr_name, _type, _score)
-        )
-        _sonde_type = "IMET1"
-    elif "IMET5" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a iMet-54 Sonde! (Score: %.2f)"
-            % (_sdr_name, _score)
-        )
-        _sonde_type = "IMET5"
-    elif "LMS6" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a LMS6 Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "LMS6"
-    elif "C34" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Meteolabor C34/C50 Sonde! (Not yet supported...) (Score: %.2f)"
-            % (_sdr_name, _score)
-        )
-        _sonde_type = "C34C50"
-    elif "MRZ" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Meteo-Radiy MRZ Sonde! (Score: %.2f)"
-            % (_sdr_name, _score)
-        )
-        if _score < 0:
-            _sonde_type = "-MRZ"
-        else:
-            _sonde_type = "MRZ"
-
-    elif "MK2LMS" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a 1680 MHz LMS6 Sonde (MK2A Telemetry)! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        if _score < 0:
-            _sonde_type = "-MK2LMS"
-        else:
-            _sonde_type = "MK2LMS"
-
-    elif "MEISEI" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Meisei Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        # Not currently sure if we expect to see inverted Meisei sondes.
-        if _score < 0:
-            _sonde_type = "-MEISEI"
-        else:
-            _sonde_type = "MEISEI"
-
-    elif "MTS01" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Meteosis MTS01 Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        # Not currently sure if we expect to see inverted Meteosis sondes.
-        if _score < 0:
-            _sonde_type = "-MTS01"
-        else:
-            _sonde_type = "MTS01"
-
-    elif "WXR301" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Weathex WxR-301D Sonde! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "WXR301"
-        # Clear out the offset estimate for WxR-301's as it's not accurate
-        # to do no whitening on the signal.
-        _offset_est = 0.0
-
-    elif "WXRPN9" in _type:
-        logging.debug(
-            "Scanner (%s) - Detected a Weathex WxR-301D Sonde (PN9 Variant)! (Score: %.2f, Offset: %.1f Hz)"
-            % (_sdr_name, _score, _offset_est)
-        )
-        _sonde_type = "WXRPN9"
-        
-    else:
-        _sonde_type = None
-
-    return (_sonde_type, _offset_est)
+    # Use shared parsing function to ensure consistency with async scanning
+    return parse_dft_detect_output(ret_output, _sdr_name)
 
 
 #
@@ -673,7 +704,8 @@ class SondeScanner(object):
         temporary_block_list={},
         temporary_block_time=60,
         ngp_tweak=False,
-        wideband_sondes=False
+        wideband_sondes=False,
+        max_async_scan_workers=4
     ):
         """Initialise a Sonde Scanner Object.
 
@@ -763,6 +795,7 @@ class SondeScanner(object):
         self.callback = callback
         self.save_detection_audio = save_detection_audio
         self.wideband_sondes = wideband_sondes
+        self.max_async_scan_workers = max_async_scan_workers
 
         # Temporary block list.
         self.temporary_block_list = temporary_block_list.copy()
@@ -840,7 +873,7 @@ class SondeScanner(object):
             # If we have hit the maximum number of permissable errors, quit.
             if self.error_retries > self.SONDE_SCANNER_MAX_ERRORS:
                 self.log_error(
-                    "Exceeded maximum number of consecutive RTLSDR errors. Closing scan thread."
+                    "Exceeded maximum number of consecutive SDR errors. Closing scan thread."
                 )
                 break
 
@@ -1111,44 +1144,103 @@ class SondeScanner(object):
             )
 
         # Run rs_detect on each peak frequency, to determine if there is a sonde there.
-        for freq in peak_frequencies:
+        # OPTIMIZATION: Use concurrent async scanning ONLY with KA9Q-radio
+        # KA9Q provides virtual SDR channels that can actually scan concurrently
+        _use_async_scanning = False
+        if ASYNC_SCAN_AVAILABLE and self.sdr_type == "KA9Q" and len(peak_frequencies) > 1:
+            try:
+                import os
+                cpu_count = os.cpu_count() or 1
 
-            _freq = float(freq)
+                # With KA9Q, we can use multiple virtual channels concurrently
+                # The scanner creates temporary KA9Q channels that don't consume task slots
+                # Cap concurrency to min of: configured max, CPU cores, and number of peaks
+                max_concurrent = min(
+                    self.max_async_scan_workers,
+                    cpu_count,
+                    len(peak_frequencies)
+                )
 
-            # Exit opportunity.
-            if self.sonde_scanner_running == False:
-                return []
+                self.log_info(f"KA9Q: Using concurrent peak detection with {max_concurrent} workers")
 
-            (detected, offset_est) = detect_sonde(
-                _freq,
-                sdr_type=self.sdr_type,
-                sdr_hostname=self.sdr_hostname,
-                sdr_port=self.sdr_port,
-                ss_iq_path = self.ss_iq_path,
-                rtl_fm_path=self.rtl_fm_path,
-                rtl_device_idx=self.rtl_device_idx,
-                ppm=self.ppm,
-                gain=self.gain,
-                bias=self.bias,
-                dwell_time=self.detect_dwell_time,
-                save_detection_audio=self.save_detection_audio,
-                wideband_sondes=self.wideband_sondes
-            )
+                detections = run_async_scan(
+                    peak_frequencies=peak_frequencies,
+                    max_concurrent=max_concurrent,
+                    rs_path=self.rs_path,
+                    dwell_time=self.detect_dwell_time,
+                    sdr_type=self.sdr_type,
+                    sdr_hostname=self.sdr_hostname,
+                    sdr_port=self.sdr_port,
+                    ss_iq_path=self.ss_iq_path,
+                    rtl_fm_path=self.rtl_fm_path,
+                    rtl_device_idx=self.rtl_device_idx,
+                    ppm=self.ppm,
+                    gain=self.gain,
+                    bias=self.bias,
+                    save_detection_audio=self.save_detection_audio,
+                    wideband_sondes=self.wideband_sondes
+                )
 
-            if detected != None:
-                # Quantize the detected frequency (with offset) to 1 kHz
-                _freq = round((_freq + offset_est) / 1000.0) * 1000.0
+                # Process results
+                for _freq, detected in detections:
+                    if self.sonde_scanner_running == False:
+                        return []
 
-                # Add a detected sonde to the output array
-                _search_results.append([_freq, detected])
+                    _search_results.append([_freq, detected])
+                    self.send_to_callback([[_freq, detected]])
 
-                # Immediately send this result to the callback.
-                self.send_to_callback([[_freq, detected]])
-                # If we only want the first detected sonde, then return now.
-                if first_only:
-                    return _search_results
+                    if first_only:
+                        return _search_results
 
-                # Otherwise, we continue....
+                # Async scanning completed successfully
+                _use_async_scanning = True
+
+            except Exception as e:
+                import traceback
+                self.log_error(f"Async scanning failed: {e}, falling back to sequential")
+                self.log_debug(f"Async scan traceback: {traceback.format_exc()}")
+                # Fall through to sequential scanning below
+
+        # Standard sequential scanning (for RTLSDR, SpyServer, single peaks, or async fallback)
+        if not _use_async_scanning:
+            for freq in peak_frequencies:
+
+                _freq = float(freq)
+
+                # Exit opportunity.
+                if self.sonde_scanner_running == False:
+                    return []
+
+                (detected, offset_est) = detect_sonde(
+                    _freq,
+                    sdr_type=self.sdr_type,
+                    sdr_hostname=self.sdr_hostname,
+                    sdr_port=self.sdr_port,
+                    ss_iq_path = self.ss_iq_path,
+                    rtl_fm_path=self.rtl_fm_path,
+                    rtl_device_idx=self.rtl_device_idx,
+                    ppm=self.ppm,
+                    gain=self.gain,
+                    bias=self.bias,
+                    dwell_time=self.detect_dwell_time,
+                    save_detection_audio=self.save_detection_audio,
+                    wideband_sondes=self.wideband_sondes
+                )
+
+                if detected != None:
+                    # Quantize the detected frequency (with offset) to 1 kHz
+                    _freq = round((_freq + offset_est) / 1000.0) * 1000.0
+
+                    # Add a detected sonde to the output array
+                    _search_results.append([_freq, detected])
+
+                    # Immediately send this result to the callback.
+                    self.send_to_callback([[_freq, detected]])
+                    # If we only want the first detected sonde, then return now.
+                    if first_only:
+                        return _search_results
+
+                    # Otherwise, we continue....
 
         if len(_search_results) == 0:
             self.log_debug("No sondes detected.")

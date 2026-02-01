@@ -41,7 +41,9 @@ VALID_SONDE_TYPES = [
     "MTS01",
     "UDP",
     "WXR301",
-    "WXRPN9"
+    "WXRPN9",
+    "IMETWIDE",
+    "RD94RD41"
 ]
 
 # Known 'Drifty' Radiosonde types
@@ -122,7 +124,9 @@ class SondeDecoder(object):
         "MTS01",
         "UDP",
         "WXR301",
-        "WXRPN9"
+        "WXRPN9",
+        "IMETWIDE",
+        "RD94RD41"
     ]
 
     def __init__(
@@ -144,11 +148,14 @@ class SondeDecoder(object):
         exporter=None,
         timeout=180,
         telem_filter=None,
+        enable_realtime_filter=True,
+        max_velocity=300,
         rs92_ephemeris=None,
         rs41_drift_tweak=False,
         experimental_decoder=False,
         save_raw_hex=False,
-        wideband_sondes=False
+        wideband_sondes=False,
+        close_on_encrypted=True
     ):
         """ Initialise and start a Sonde Decoder.
 
@@ -188,6 +195,8 @@ class SondeDecoder(object):
             experimental_decoder (bool): If True, use the experimental fsk_demod-based decode chain.
             save_raw_hex (bool): If True, save the raw hex output from the decoder to a file.
             wideband_sondes (bool): If True, use a wider bandwidth for iMet sondes. Does not affect settings for any other radiosonde types.
+            close_on_encrypted (bool): If True, close the decoder when an encrypted sonde is detected, resulting in the frequency being locked out.
+                    If False, we continue to pass data through the processing chain, but with different behaviour (e.g. no sondehub upload)
         """
         # Thread running flag
         self.decoder_running = True
@@ -212,6 +221,8 @@ class SondeDecoder(object):
         self.save_decode_iq = save_decode_iq
 
         self.telem_filter = telem_filter
+        self.enable_realtime_filter = enable_realtime_filter
+        self.max_velocity = max_velocity
         self.timeout = timeout
         self.rs92_ephemeris = rs92_ephemeris
         self.rs41_drift_tweak = rs41_drift_tweak
@@ -219,6 +230,10 @@ class SondeDecoder(object):
         self.save_raw_hex = save_raw_hex
         self.raw_file = None
         self.wideband_sondes = wideband_sondes
+        self.close_on_encrypted = close_on_encrypted
+
+        # Last decoded position of this sonde
+        self.last_positions = {}
 
         # Raw hex filename
         if self.save_raw_hex:
@@ -562,6 +577,34 @@ class SondeDecoder(object):
             # iMet-4 (IMET1RS) decoder
             decode_cmd += f"./imet4iq --iq 0.0 --lpIQ --dc - {_sample_rate} 16 --json {_wideband} 2>/dev/null"
 
+        elif self.sonde_type == "IMETWIDE":
+            # iMet-1/ 4 Sondes, Forced wideband decode version.
+
+            # Set sonde type back to IMET so other iMet-specific handling actions work.
+            self.sonde_type = "IMET"
+
+            _sample_rate = 96000
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save audio to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
+
+            # iMet-4 (IMET1RS) decoder
+            decode_cmd += f"./imet4iq --iq 0.0 --lpIQ --dc - {_sample_rate} 16 --json --imet1 2>/dev/null"
+
         elif self.sonde_type == "IMET5":
             # iMet-54 Sondes
 
@@ -804,7 +847,7 @@ class SondeDecoder(object):
         """ Generate the shell command which runs the relevant radiosonde decoder - Experimental Decoders
 
         Returns:
-            Tuple(str, str, FSKDemodState) / None: The demod & decoder commands, and a FSKDemodStats object to process the demodulator statistics.
+            Tuple(str, str, FSKDemodStats) / None: The demod & decoder commands, and a FSKDemodStats object to process the demodulator statistics.
 
         """
 
@@ -853,9 +896,9 @@ class SondeDecoder(object):
             if self.save_decode_iq:
                 demod_cmd += f" tee {self.save_decode_iq_path} |"
 
-            # Use a 4800 Hz mask estimator to better avoid adjacent sonde issues.
-            # Also seems to give a small performance bump.
-            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --mask 4800 --stats=%d 2 %d %d - -" % (
+            # Updated 2025-08-26 to bump mask estimator to 5000 Hz, increase timing estimator duration, and change oversampling rate
+            # From controlled testing this seems to improve weak signal performance.
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --mask 5000 --nsym=300 -p 5 --stats=%d 2 %d %d - -" % (
                 _lower,
                 _upper,
                 _stats_rate,
@@ -944,6 +987,49 @@ class SondeDecoder(object):
             )
 
             # RS92s transmit continuously - average over the last 2 frames, and use a mean
+            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
+            self.rx_frequency = self.sonde_freq
+
+        elif self.sonde_type == "RD94RD41":
+            # RD94 / RD41 Dropsondes
+            _baud_rate = 4800
+            
+            _sample_rate = 48000
+            _lower = -20000
+            _upper = 20000
+
+
+            demod_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias,
+                dc_block = True
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                demod_cmd += f" tee {self.save_decode_iq_path} |"
+
+            demod_cmd += "./fsk_demod --cs16 -b %d -u %d -s --stats=%d 2 %d %d - -" % (
+                _lower,
+                _upper,
+                _stats_rate,
+                _sample_rate,
+                _baud_rate,
+            )
+
+            decode_cmd = (
+                "./rd94rd41drop --json --softinv 2>/dev/null"
+            )
+
+            # RD94/RD41s transmit continuously - average over the last 2 frames, and use a mean
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
@@ -1542,6 +1628,7 @@ class SondeDecoder(object):
                 return
 
         else:
+
             try:
                 _telemetry = json.loads(data.decode("ascii"))
             except Exception as e:
@@ -1581,31 +1668,37 @@ class SondeDecoder(object):
                     _telemetry[_field] = self.DECODER_OPTIONAL_FIELDS[_field]
 
             # Check for an encrypted flag, and check if it is set.
-            # Currently encrypted == true indicates an encrypted RS41-SGM. There's no point
-            # trying to decode this, so we close the decoder at this point.
+            # Currently encrypted == true indicates an encrypted RS41-SGM. 
+            data_not_encrypted = True
             if "encrypted" in _telemetry:
                 if _telemetry["encrypted"]:
-                    self.log_error(
-                        "Radiosonde %s has encrypted telemetry (Possible encrypted RS41-SGM)! We cannot decode this, closing decoder."
-                        % _telemetry["id"]
-                    )
-
-                    # Overwrite the datetime field to make the email notifier happy
+                    data_not_encrypted = False
+                    # We need to overwrite the datetime field to make downstream things happy. A bit silly, but this is a bit of a hack.
                     _telemetry['datetime_dt'] = datetime.datetime.now(datetime.timezone.utc)
-                    _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
+                    _telemetry['datetime'] = _telemetry['datetime_dt'].isoformat()
+                    _telemetry['subtype'] = _telemetry['subtype'] + "-Encrypted"
 
-                    # Send this to only the Email Notifier, if it exists.
-                    for _exporter in self.exporters:
-                        try:
-                            if _exporter.__self__.__module__ == EmailNotification.__module__:
-                                _exporter(_telemetry)
-                        except Exception as e:
-                            self.log_error("Exporter Error %s" % str(e))
+                    if self.close_on_encrypted:
+                        self.log_error(
+                            "Radiosonde %s has encrypted telemetry (Probably encrypted RS41-SGM)! We cannot decode this, closing decoder."
+                            % _telemetry["id"]
+                        )
+                        # Send this to only the Email Notifier, if it exists.
+                        # Need to make the frequency change 
+                        _telemetry["freq"] = "%.4f MHz" % (self.sonde_freq / 1e6)
+                        for _exporter in self.exporters:
+                            try:
+                                if _exporter.__self__.__module__ == EmailNotification.__module__:
+                                    _exporter(_telemetry)
+                            except Exception as e:
+                                self.log_error("Exporter Error %s" % str(e))
 
-                    # Close the decoder.
-                    self.exit_state = "Encrypted"
-                    self.decoder_running = False
-                    return False
+                        # Close the decoder.
+                        self.exit_state = "Encrypted"
+                        self.decoder_running = False
+                        return False
+
+                    # Otherwise, it's goign to get passed along as normal.
 
             # Check the datetime field is parseable.
             try:
@@ -1617,9 +1710,10 @@ class SondeDecoder(object):
                 )
                 return False
 
-            if self.udp_mode:
-                # If we are accepting sondes via UDP, we make use of the 'type' field provided by
-                # the decoder.
+            if self.udp_mode or (self.sonde_type == "RD94RD41"):
+                # Cases where we need to accept a type field from the decoder
+                # - UDP mode, where we could be getting packets from multiple decoders.
+                # - Dropsonde decoder, which decodes both RD94 and RD41 dropsondes.
                 self.sonde_type = _telemetry["type"]
 
                 # If frequency has been provided, make used of it.
@@ -1779,6 +1873,17 @@ class SondeDecoder(object):
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
 
+            # Dropsonde actions
+            # Same datetime issues as other sondes (no date provided)
+            if (self.sonde_type == "RD94") or (self.sonde_type == "RD41"):
+                # Fix up the time.
+                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
+                # Re-generate the datetime string.
+                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+
+
             # RS41 Subframe Data Actions
             # We only upload the subframe data once.
             if 'rs41_calconf51x16' in _telemetry:
@@ -1825,8 +1930,9 @@ class SondeDecoder(object):
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
             # By default, we will assume the telemetry is OK.
+            # We bypass the filter for encrypted telemetry, which contains almost all-zero data and doesn't get uploaded anywhere.
             _telem_ok = "OK"
-            if self.telem_filter is not None:
+            if (self.telem_filter is not None) and data_not_encrypted:
                 try:
                     _telem_ok = self.telem_filter(_telemetry)
                 except Exception as e:
@@ -1842,6 +1948,45 @@ class SondeDecoder(object):
                 self.decoder_running = False
                 return False
 
+            # Run telemetry from DFM sondes through real-time filter
+            if self.enable_realtime_filter and (_telemetry["type"].startswith("DFM")):
+                # If sonde has already been received, calculate velocity
+                velocity = 0
+                if _telemetry['id'] in self.last_positions.keys():
+                    _last_position = self.last_positions[_telemetry['id']]
+
+                    distance = position_info(
+                        (_last_position[0], _last_position[1], 0),
+                        (_telemetry["lat"], _telemetry["lon"], 0)
+                    )["great_circle_distance"] # distance is in metres
+                    time_diff = time.time() - _last_position[2] # seconds
+
+                    velocity = distance / time_diff # m/s
+
+                # Check if velocity is higher than allowed maximum
+                if velocity > self.max_velocity:
+                    _telem_ok = False
+                    self.log_debug(f"Dropped packet - Velocity ({velocity}) exceeds max ({self.max_velocity}).")
+
+                    # Reset last position to prevent an endless chain of rejecting telemetry
+                    del self.last_positions[_telemetry['id']]
+                else:
+                    # Check passed, update last position and continue processing
+                    self.last_positions[_telemetry['id']] = (
+                        _telemetry["lat"],
+                        _telemetry["lon"],
+                        time.time()
+                    )
+            
+            # Garbage collect last_positions list
+            keys_to_delete = []
+            for serial, position in self.last_positions.items():
+                # If last position packet was more than 3 hours ago, delete it from list
+                if time.time()-position[2] > 3*60*60:
+                    keys_to_delete.append(serial)
+                    
+            for serial in keys_to_delete:
+                del self.last_positions[serial]
 
             # If the telemetry is OK, send to the exporter functions (if we have any).
             if self.exporters is None:

@@ -486,6 +486,24 @@
                 }
             })
 
+            $(document).on('keydown', function(event) {
+                if (event.key === 't' || event.keyCode === 84) { // Check for 't'
+                    $("#tableid").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+                if (event.key === 's' || event.keyCode === 83) { // Check for 's'
+                    $("#scanid").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+                if (event.key === 'm' || event.keyCode === 77) { // Check for 'm'
+                    $("#mapid_details").prop("open", function(index, value) {
+                        return !value;
+                    });
+                }
+            });
+
             // Create Tabulator table.
             table = new Tabulator("#telem_table", {
                 index:"realid",
@@ -749,6 +767,12 @@
                             sonde_id_data.other += sonde_id_data.batt.toFixed(1) + " V";
                         }
 
+                        if (sonde_id_data.hasOwnProperty('encrypted')){
+                            if(sonde_id_data.encrypted === true){
+                                sonde_id_data.other += " Encrypted";
+                            }
+                        }
+
                         if (sonde_id_data.hasOwnProperty('aux')){
                             sonde_id_data.type += "-XDATA";
                         }
@@ -890,6 +914,7 @@
 
                     colour_idx = (colour_idx+1)%colour_values.length;
                     // If this is our first sonde since the browser has been opened, follow it.
+                    // QI - Unsure this actually does anything anymore
                     if (Object.keys(sonde_positions).length == 1){
                         sonde_positions[msg.id].following = true;
                     }
@@ -944,8 +969,10 @@
 
                 // Are we currently following any other sondes?
                 if (sonde_currently_following == "none"){
-                    // If not, follow this one!
-                    sonde_currently_following = msg.id;
+                    // If not, follow this one... unless it's encrypted
+                    if (!msg.hasOwnProperty('encrypted') || msg.encrypted === false){
+                        sonde_currently_following = msg.id;
+                    }
                 }
 
                 // Is sonde following enabled?
@@ -1511,6 +1538,7 @@
                     <option value="8">Eight</option>
                     <option value="9">Nine</option>
                     <option value="10">Ten</option>
+                    <option value="999">All</option>
                 </select>
                   </div>
                   <br>
@@ -1620,7 +1648,7 @@
         <div class="modal-body">
           <div id="password-field">
             <span id="password-header"><h2>No Password Entered</h2></span>
-            <input style="display:inline;vertical-align:middle;" type="text" id="password-input" placeholder="Password" >
+            <input style="display:inline;vertical-align:middle;" type="password" id="password-input" placeholder="Password" >
             <div style="display:inline;vertical-align:middle;">
               <button id="verify-password" onclick="verify_password();$('#password-input').val('');">Submit</button>
             </div>
@@ -1638,12 +1666,14 @@
                 <option value="LMS6">LMS6 (400 MHz)</option>
                 <option value="MK2LMS">LMS6 (1680 MHz)</option>
                 <option value="IMET">iMet-4</option>
+                <option value="IMETWIDE">iMet-1/4 Wideband</option>
                 <option value="IMET5">iMet-50/54</option>
                 <option value="MEISEI">iMS-100</option>
                 <option value="MRZ">MRZ-H1</option>
                 <option value="MTS01">MTS01</option>
                 <option value="WXR301">WXR301</option>
                 <option value="WXRPN9">WXR301 (PN9 variant)</option>
+                <option value="RD94RD41">RD94/RD41 Dropsonde</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="start-decoder" onclick="start_decoder();">Start</button>

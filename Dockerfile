@@ -49,7 +49,7 @@ RUN pip3 install \
 RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
   mkdir -p /root/librtlsdr/build && \
   cd /root/librtlsdr/build && \
-  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -Wno-dev ../ && \
+  cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -DDETACH_KERNEL_DRIVER=ON -Wno-dev ../ && \
   make && \
   make install && \
   rm -rf /root/librtlsdr
@@ -62,9 +62,8 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
 # Compile ka9q-radio from source
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
-  git checkout d0febaa033e1d53b9b53078cfe17457ac3676d20 && \
+  git checkout e1224dcd1991637ba8e1caa68cd802e1b22933de && cd src && \
   make \
-    -f Makefile.linux \
     ARCHOPTS= \
     tune powers pcmrecord
 
@@ -117,9 +116,9 @@ RUN ln -s ss_client /opt/auto_rx/ss_iq && \
   ln -s ss_client /opt/auto_rx/ss_power
 
 # Copy ka9q-radio utilities 
-COPY --from=build /root/ka9q-radio/tune /usr/local/bin/
-COPY --from=build /root/ka9q-radio/powers /usr/local/bin/
-COPY --from=build /root/ka9q-radio/pcmrecord /usr/local/bin/
+COPY --from=build /root/ka9q-radio/src/tune /usr/local/bin/
+COPY --from=build /root/ka9q-radio/src/powers /usr/local/bin/
+COPY --from=build /root/ka9q-radio/src/pcmrecord /usr/local/bin/
 
 # Allow mDNS resolution for ka9q-radio utilities
 RUN sed -i -e 's/files dns/files mdns4_minimal [NOTFOUND=return] dns/g' /etc/nsswitch.conf

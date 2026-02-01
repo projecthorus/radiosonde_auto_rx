@@ -20,6 +20,7 @@ import time
 import numpy as np
 import semver
 import shutil
+import sys
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from math import radians, degrees, sin, cos, atan2, sqrt, pi
@@ -216,6 +217,10 @@ def short_type_lookup(type_name):
         return "Weathex WxR-301D"
     elif type_name == "WXRPN9":
         return "Weathex WxR-301D (PN9 Variant)"
+    elif type_name == "RD41":
+        return "Vaisala RD41 Dropsonde"
+    elif type_name == "RD94":
+        return "Vaisala RD94 Dropsonde"
     else:
         return "Unknown"
 
@@ -264,6 +269,10 @@ def short_short_type_lookup(type_name):
         return "WXR301(PN9)"
     elif type_name == "PS15":
         return "PS15"
+    elif type_name == "RD41":
+        return "RD41"
+    elif type_name == "RD94":
+        return "RD94"
     else:
         return "Unknown"
 
@@ -956,6 +965,7 @@ def rtlsdr_test(device_idx="0", rtl_sdr_path="rtl_sdr", retries=5):
     while _rtlsdr_retries > 0:
         try:
             FNULL = open(os.devnull, "w")  # Inhibit stderr output
+            logging.debug(f"Testing RTLSDR with command: {_rtl_cmd}")
             _ret_code = subprocess.check_call(_rtl_cmd, shell=True, stderr=FNULL)
             FNULL.close()
         except subprocess.CalledProcessError as e:

@@ -96,6 +96,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "min_radius_km": 0,
         "radius_temporary_block": False,
         # "sonde_time_threshold": 3, # Commented out to ensure warning message is shown.
+        "enable_realtime_filter": True,
+        "max_velocity": 300,
         # Habitat Settings
         "habitat_uploader_callsign": "SONDE_AUTO_RX",
         "habitat_uploader_antenna": "1/4-wave",
@@ -137,6 +139,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "temporary_block_time": 60,
         "rs41_drift_tweak": False,
         "decoder_stats": False,
+        "max_async_scan_workers": 4,
         "ngp_tweak": False,
         # Rotator Settings
         "enable_rotator": False,
@@ -170,6 +173,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "sondehub_upload_rate": 30,
         # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
         "wideband_sondes": False, # Wideband sonde detection / decoding
+        "close_on_encrypted": True,
     }
 
     try:
@@ -368,6 +372,16 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "advanced", "synchronous_upload"
         )
 
+        # Max async scan workers - validate and cap to reasonable limits
+        _max_workers = config.getint("advanced", "max_async_scan_workers")
+        if _max_workers < 1:
+            logging.warning(f"Config - max_async_scan_workers must be at least 1, setting to 1")
+            _max_workers = 1
+        elif _max_workers > 32:
+            logging.warning(f"Config - max_async_scan_workers capped at 32 (was {_max_workers})")
+            _max_workers = 32
+        auto_rx_config["max_async_scan_workers"] = _max_workers
+
         # Rotator Settings
         auto_rx_config["rotator_enabled"] = config.getboolean(
             "rotator", "rotator_enabled"
@@ -433,6 +447,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "MRZ": False,  # .... except for the MRZ, until we know it works.
             "WXR301": True,
             "WXRPN9": True,
+            "IMETWIDE": False,
+            "RD94RD41": True,
             "UDP": False,
         }
 
@@ -781,7 +797,29 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["ozi_host"] = "<broadcast>"
             auto_rx_config["payload_summary_host"] = "<broadcast>"
+
+        # 1.8.2 - Real time filtering
+        try:
+            auto_rx_config["enable_realtime_filter"] = config.getboolean("filtering", "enable_realtime_filter")
+            auto_rx_config["max_velocity"] = config.getint("filtering", "max_velocity")
+        except:
+            logging.warning(
+                "Config - Missing enable_realtime_filter or max_velocity option, using default (enabled, 300m/s)"
+            )
+            auto_rx_config["enable_realtime_filter"] = True
+            auto_rx_config["max_velocity"] = 300
             
+        # 1.8.2 - Alternate behaviour for encrypted RS41-SGM sondes
+        try:
+            auto_rx_config["close_on_encrypted"] = config.getboolean(
+                "advanced", "close_on_encrypted"
+            )
+        except:
+            logging.warning(
+                "Config - Missing close_on_encrypted option (new in v1.8.2), using default (True)"
+            )
+            auto_rx_config["close_on_encrypted"] = True
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config

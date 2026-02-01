@@ -246,6 +246,11 @@ class OziUploader(object):
                 self.log_error("JSON object missing required field %s" % _field)
                 return
 
+        # Discard encrypted sonde data silently
+        if 'encrypted' in telemetry:
+            if telemetry['encrypted']:
+                return None
+
         # Add it to the queue if we are running.
         if self.input_processing_running:
             self.input_queue.put(telemetry)
