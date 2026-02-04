@@ -60,6 +60,7 @@
 .icon-cog:before { content: '\e802'; } /* '' */
 .icon-angle-down:before { content: '\f107'; } /* '' */
 .icon-history:before { content: '\f1da'; } /* '' */
+.icon-mountain:before { content: '\1f3d4'; }
 
 .sdrinfo-element {
 	display: inline-block;

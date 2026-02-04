@@ -40,6 +40,8 @@
 
         var sonde_currently_following = "none";
 
+        var _hwt_profile_url = "";
+
         // Function to change CSS options when changing dark mode.
         function changeTheme(dark) {
             if (dark == false) {
@@ -157,6 +159,9 @@
                     }
                   }
             });
+
+            _hwt_profile_url = autorx_config.hwt_terrain_url;
+            _hwt_profile_url += "&width=900&height=500";
 
             socket.on('log_event', function(msg) {
                 // New log entry received.
@@ -519,9 +524,14 @@
                     {title:"Age", field:"age", headerSort:true},
                     {title:"Type", field:"type", headerSort:true},
                     {title:'Freq (MHz)', field:"freq", headerSort:true},
-                    {title:"ID", field:"id", width:125, headerSort:true, formatter:function(cell, formatterParams, onRendered){
+                    {title:"ID", field:"id", width:90, headerSort:true, formatter:function(cell, formatterParams, onRendered){
                         _cell_data = cell.getData();
                         _id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
+                        return _id;
+                    }},
+                    {title:"Links", field:"hwt", width:64, headerSort:false, formatter:function(cell, formatterParams, onRendered){
+                        _cell_data = cell.getData();
+                        _id = "";
                         _sondehub_id = _cell_data.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
 
                         // Add Sondehub Link
@@ -534,6 +544,13 @@
 
                         } else {
                             _aprs_id = null;
+                        }
+
+                        // Add HeyWhatsThat profile Link
+                        if(_cell_data.hwt != null){
+                            _id += "&nbsp;<a href='" + _hwt_profile_url;
+                            _id += "&" +_cell_data.hwt;
+                            _id += "' title='View HWT Profile' target='_blank'>" + "<img src='{{ url_for('static', filename='img/heywhatsthat.png')}}' width='16' height='16'/>" + "</a>";
                         }
 
                         return _id;
@@ -729,6 +746,9 @@
 
                         // Modify some of the fields to fixed point values.
 
+                        raw_lat = sonde_id_data.lat.toFixed(5);
+                        raw_lon = sonde_id_data.lon.toFixed(5);
+
                         // Add Geo ref links to lat/lon fields.
                         temp_lat = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lat.toFixed(5) + "</a>";
                         temp_lon = "<a href='geo:" + sonde_id_data.lat.toFixed(5) + "," + sonde_id_data.lon.toFixed(5) + "'>" + sonde_id_data.lon.toFixed(5) + "</a>";
@@ -777,6 +797,24 @@
                             sonde_id_data.type += "-XDATA";
                         }
 
+                        sonde_id_data.hwt = "";
+                        if (autorx_config.station_lat != 0.0){
+                            sonde_id_data.hwt += "pt0=";
+                            sonde_id_data.hwt += autorx_config.hwt_lat + ","
+                            sonde_id_data.hwt += autorx_config.hwt_lon + ","
+                            sonde_id_data.hwt += "8b6914,"
+                            sonde_id_data.hwt += autorx_config.hwt_alt + ","
+                            sonde_id_data.hwt += ",9906ff"
+
+                            sonde_id_data.hwt += "&pt1=";
+                            sonde_id_data.hwt += raw_lat + ","
+                            sonde_id_data.hwt += raw_lon + ","
+                            sonde_id_data.hwt += ","
+                            sonde_id_data.hwt += sonde_id_data.alt;
+
+                            sonde_id_data.hwt += "&freq=";
+                            sonde_id_data.hwt += sonde_id_data.freq_float;
+                        }
 
                         telem_data.push(sonde_id_data);
                     });
@@ -1085,6 +1123,9 @@
                         case "18":
                             table.showColumn("other");
                             break;
+                        case "19":
+                            table.showColumn("hwt");
+                            break;
                     }
                     table.redraw();
                 } else {
@@ -1146,6 +1187,9 @@
                         case "18":
                             table.hideColumn("other");
                             break;
+                        case "19":
+                            table.hideColumn("hwt");
+                            break;
                 }
                 table.redraw();
               }
@@ -1153,7 +1197,7 @@
 
             table.on("tableBuilt", function() {
                 // Runs once at page load to set which Tabulator columns to show/hide per set cookies
-                for (i = 0; i < 19; i++) {
+                for (i = 0; i < 20; i++) {
                     var show = getCookie("col"+i);
                     if (show == 'false') {
                         document.getElementById("checkbox" + i).checked = false;
@@ -1215,6 +1259,9 @@
                             case 18:
                                 table.hideColumn("other");
                                 break;
+                            case 19:
+                                table.hideColumn("hwt");
+                                break;
                         }
                     } else if (show == 'true') {
                         document.getElementById("checkbox" + i).checked = true;
@@ -1226,7 +1273,7 @@
                                 setCookie("col" + i, 'true', 365);
                                 document.getElementById("checkbox" + i).checked = true;
                             }
-                            if ([0,2,3,5,6,7,8,10,11,12,13,14,15,17,18].includes(i)) {
+                            if ([0,2,3,5,6,7,8,10,11,12,13,14,15,17,18,19].includes(i)) {
                                 setCookie("col" + i, 'false', 365);
                                 document.getElementById("checkbox" + i).checked = false;
                                 switch(i) {
@@ -1286,6 +1333,9 @@
                                         break;
                                     case 18:
                                         table.hideColumn("other");
+                                        break;
+                                    case 19:
+                                        table.hideColumn("hwt");
                                         break;
                                 }
                             }
@@ -1501,7 +1551,9 @@
                   <input type="checkbox" class="17" id="checkbox17" checked>
                   <label> SNR</label><br>
                   <input type="checkbox" class="18" id="checkbox18" checked>
-                  <label> Other</label><br><br>
+                  <label> Other</label><br>
+                  <input type="checkbox" class="19" id="checkbox19" checked>
+                  <label> Links</label><br><br>
               </form>
               <div style="margin-left:40px;">
                   <h2 style="display:inline;vertical-align:middle;">Dark Mode</h2>
@@ -1515,6 +1567,16 @@
                   <br>
                   <br>
                   <h2 style="display:inline;vertical-align:middle;">Show UTC Time</h2>
+                  &nbsp;
+                  <div style="display:inline;vertical-align:middle;">
+                  <label class="switch">
+                    <input type="checkbox" id="showHWTbutton">
+                    <span class="slider round"></span>
+                  </label>
+                  </div>
+                  <br>
+                  <br>
+                  <h2 style="display:inline;vertical-align:middle;">Show HWT Horizon</h2>
                   &nbsp;
                   <div style="display:inline;vertical-align:middle;">
                   <label class="switch">
