@@ -2,18 +2,18 @@
 
 All of the performance testing scripts in use rely on samples with 'calibrated' Signal-to-noise ratio (SNR) - we add noise to a 'golden' sample to produce a sample with a known SNR.
 
-However, instead of using SNR in the signal bandwidth, we use [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit). This normalises the SNR, and allows comparison between modems operating at different baud rates. Eventually, this will also allow comparison of the modems with the theoretical acheivable performance of a FSK modem. 
+However, instead of using SNR in the signal bandwidth, we use [Eb/N0](https://en.wikipedia.org/wiki/Eb/N0) (SNR-per-bit). This normalises the SNR, and allows comparison between modems operating at different baud rates. Eventually, this will also allow comparison of the modems with the theoretical achievable performance of a FSK modem. 
 
 The calibrated SNR samples are generated using [generate_lowsnr.py](../generate_lowsnr.py). A set of [golden samples](http://rfhead.net/sondes/sonde_samples.tar.gz) (one per radiosonde type) have very high SNRs, usually about 40dB or so - enough such that all packets are easily decoded. For each sample, we measure the signal power in the sample. Then, using a calculation based on the baud rate, the sample rate, the number of bits-per-symbol, and the desired SNR, we can generate white noise with a given noise power. This is added to the sample, which is then normalised (to +/-1.0) and saved. These samples can then be run through the various demodulation chains to measure their performance.
 
-To be sure these measurements are meainingful, we need some confidence that the right amount of noise is being applied. We can do this by generating a FSK signal with known bits, and running it through the `generate_lowsnr.py` script. The 'noisy' signals can then be passed back into a FSK demodulator, and the Bit-Error-Eate (BER) measured. [David Rowe's FSK modem](http://svn.code.sf.net/p/freetel/code/codec2-dev/README_fsk.txt) has previously been demonstrated to have performance essentially equal to that of a theoretical non-coherent FSK modem, and so is ideal for this purpose.
+To be sure these measurements are meaningful, we need some confidence that the right amount of noise is being applied. We can do this by generating a FSK signal with known bits, and running it through the `generate_lowsnr.py` script. The 'noisy' signals can then be passed back into a FSK demodulator, and the Bit-Error-Rate (BER) measured. [David Rowe's FSK modem](http://svn.code.sf.net/p/freetel/code/codec2-dev/README_fsk.txt) has previously been demonstrated to have performance essentially equal to that of a theoretical non-coherent FSK modem, and so is ideal for this purpose.
 
 ## Generation of FSK
 The codec2-dev repository (which contains the fsk modem mentioned above) has a suite of utilities for testing modem performance. For our testing we will use the following utilities:
 
 * **fsk_get_test_bits**: Generate a sequence of test bits, based off a known pseudorandom seed.
-* **fsk_mod**: Generate a FSK signal with provided baud rate, sample rate, centre frequency, and shift. Samples are accepted as one-byte-per-bit via stdin. fsk_mod usually generated real-valued outputs, but with a small modification can produce a complex output.
-* **fsk_demod**: Demodulate a FSK signal, with provided sample rate and baud rate. fsk_demod can accept real and complex-valued samples - we are using compex-valued samples.
+* **fsk_mod**: Generate a FSK signal with provided baud rate, sample rate, centre frequency, and shift. Samples are accepted as one-byte-per-bit via stdin. fsk_mod usually generates real-valued outputs, but with a small modification can produce a complex output.
+* **fsk_demod**: Demodulate a FSK signal, with provided sample rate and baud rate. fsk_demod can accept real and complex-valued samples - we are using complex-valued samples.
 * **fsk_put_test_bits**: Receive the sequence of test bits, and provide BER statistics.
 
 These utilities can be chained together using bash pipes, with a basic example being:

@@ -3,7 +3,7 @@
 
 **Please refer to the [auto_rx wiki](https://github.com/projecthorus/radiosonde_auto_rx/wiki) for the latest information.**
 
-This project is built around [rs1279's RS](https://github.com/rs1729/RS) demodulators, and provides a set of utilities ('auto_rx') to allow automatic reception and uploading of [Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to multiple services, including:
+This project is built around [rs1729's RS](https://github.com/rs1729/RS) demodulators, and provides a set of utilities ('auto_rx') to allow automatic reception and uploading of [Radiosonde](https://en.wikipedia.org/wiki/Radiosonde) positions to multiple services, including:
 
 * The [SondeHub Radiosonde Tracker](https://tracker.sondehub.org) - a tracking website specifically designed for tracking radiosondes!
 * APRS-IS, for display on sites such as [radiosondy.info](https://radiosondy.info). (Note that aprs.fi now blocks radiosonde traffic.)
@@ -51,7 +51,7 @@ We also have a channel in the SondeHub Discord server: https://sondehub.org/go/d
 * [Michaela Wheeler](https://github.com/TheSkorm) - radiosonde@michaela.lgbt
 
 ## Licensing Information
-All software within this repository is licensed under the GNU General Public License v3. Refer this repositories LICENSE file for the full license text.
+All software within this repository is licensed under the GNU General Public License v3. Refer to this repository's LICENSE file for the full license text.
 
 Radiosonde telemetry data captured via this software and uploaded into the [Sondehub](https://sondehub.org/) Database system is licensed under [Creative Commons BY-SA v2.0](https://creativecommons.org/licenses/by-sa/2.0/). 
 Telemetry data uploaded into the APRS-IS network is generally considered to be released into the public domain. 

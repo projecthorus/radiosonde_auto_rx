@@ -26,7 +26,7 @@ This script generates a set of low-SNR samples based on the base high-SNR sample
 Calibrated-level noise is added to the sample to produce a file with a user-defined Eb/No ('SNR per-bit').
 If everything works 'perfectly', we should expect all the different modems to have similar PER vs Eb/No performance.
 However, real-world factors such as packet length, transmitter deviation, filter widths, etc will mess this up.
-I wouldn't try and make too many comparions of the performance between different sonde demodulators. Better to strike
+I wouldn't try and make too many comparisons of the performance between different sonde demodulators. Better to strike
 a baseline of current performance, and then try and improve on it.
 
 The level of noise to add is determined based on the variance of the sample. Some checking of Eb/No of generated
@@ -43,13 +43,13 @@ $ python generate_lowsnr.py
 
 
 Notes:
- * I suspect the variance measurement for the m10 sample is off. Its performing suspiciously better than the other sondes.
+ * I suspect the variance measurement for the m10 sample is off. It's performing suspiciously better than the other sondes.
 
 
 ## test_demod.py
-This script run the generated samples above through different demodulation chains. 
+This script runs the generated samples above through different demodulation chains. 
 
-Check the processing_type dict in the script for the differnet demodulation options.
+Check the processing_type dict in the script for the different demodulation options.
 
 Example:
 ```

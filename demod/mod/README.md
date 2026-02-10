@@ -49,7 +49,7 @@ alternative decoders using cross-correlation for better header-synchronization
   The high modulation index has advantages in IQ-decoding. <br />
   `--ecc2` uses soft decision for 2-error words. If weak signals frequently produce errors, it is likely that
   more than 2 errors occur in a received word. Since there is no additional frame protection (e.g. CRC), the
-  frames will not be decoded reliably in weak conditions. The `--dist` option has a thredshold for the number
+  frames will not be decoded reliably in weak conditions. The `--dist` option has a threshold for the number
   of errors per packet.
   <br />
 

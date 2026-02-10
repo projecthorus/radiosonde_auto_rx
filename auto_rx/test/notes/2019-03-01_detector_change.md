@@ -81,7 +81,7 @@ We can see that while M10 detection performance suffered no degradation, the det
 
 My apologies to those users that may have been affected by this performance degradation! This really shows the value of having a repeatable performance testing system.
 
-## dfm_detect Performance
+## dft_detect Performance
 The following shows the detection performance when rs_detect is replaced with dft_detect. dft_detect has a set of internal thresholds, which are intended to prevent false-positives and mis-identification of radiosonde types. A discussion on how these thresholds have been optimized is available in [this report](./2019-03-01_dft_detect_optimization.md).
 
 **dft_detect + rtl_fm 22 kHz sample rate**
@@ -119,7 +119,7 @@ SNR | RS41 | RS92 | DFM | M10
 19 | RS41 | RS92 | DFM | M10
 19.5 | RS41 | RS92 | DFM | M10
 
-We can clearly see an improvement in detection performance on all radiosonde types. The M10 results are still questionable, though as mentioned previously the very good detection performanance is likely due to the shorter header size.
+We can clearly see an improvement in detection performance on all radiosonde types. The M10 results are still questionable, though as mentioned previously the very good detection performance is likely due to the shorter header size.
 
 ## Caveats and Other Issues
 

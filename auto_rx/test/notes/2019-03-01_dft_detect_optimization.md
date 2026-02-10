@@ -1,4 +1,4 @@
-# dft_detect Threshold Optimzation
+# dft_detect Threshold Optimization
 
 Mark Jessop - 2019-03-02
 
@@ -23,7 +23,7 @@ dft_detect was run over a set of noise samples (noise1_96k_float.bin, noise2_96k
 
 The worst-case (highest) correlation scores out of the three samples are shown for each radiosonde type:
 
-Sonde Type | Worse-Case Correlation Score
+Sonde Type | Worst-Case Correlation Score
 -----------|-----------------------------
 DFM | 0.3050
 RS41 | 0.3261
