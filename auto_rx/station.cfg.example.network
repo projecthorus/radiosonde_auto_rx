@@ -120,7 +120,8 @@ rx_timeout = 180
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
 # only_scan - Add values to this list to *only* scan on these frequencies.
-# This is for when you only want to monitor a small set of launch frequencies.
+# This is for when you only want to monitor a small set of known launch frequencies.
+# If you specify entries in this list, spectrum scanning will be disabled.
 only_scan = []
 
 # never_scan - Any values added to this list will be removed from the list of detected peaks.
@@ -133,7 +134,7 @@ always_scan = []
 
 # always_decode - Always-running decoders. Only possible in a multi-SDR (or network-based SDR) system.
 # List must be in the form: [[401.5,"RS41"], [402.5,"DFM"], [400.5,"M10"], [400.5,"IMET"]]
-# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01
+# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01, WXR301
 always_decode = []
 
 ####################
@@ -171,7 +172,7 @@ gpsd_port = 2947
 # SONDEHUB / HABITAT (deprecated) UPLOAD SETTINGS #
 ###################################################
 #
-# Settings relating to uploads to the SondeHub v2 Database and tracker,
+# Settings relating to uploads to the SondeHub Database and tracker,
 # available at https://tracker.sondehub.org/
 #
 # Note that uploads to the Habitat (amateur HAB) database are now disabled,
@@ -194,7 +195,7 @@ upload_listener_position = True
 uploader_antenna = 1/4 wave monopole
 
 [sondehub]
-# Enable uploading to Sondehub v2 - please leave this enabled!
+# Enable uploading to Sondehub - please leave this enabled!
 sondehub_enabled = True
 
 # How often to push data to the SondeHub Database. (seconds)
@@ -615,10 +616,10 @@ ngp_tweak = False
 
 # Wideband Radiosonde Detection:
 # Enables some tweaks to better handle detection and decoding of the following radiosonde types:
-# - Intermet iMet-1/4 (Wideband versions)
+# - Intermet iMet-1/4 (WIDEBAND VERSIONS ONLY - do NOT enable for regular iMets!)
 # - Weathex WxR-301d
-# If this is enabled in areas with 'narrowband' sondes as well (RS41, DFM, narrowband iMet, etc...) there will likely
-# be degradation in detection and decode performance. 
+# If this is enabled in areas with 'narrowband' sondes as well (RS41, DFM, 'regular' iMet, etc...) there WILL be
+# degradation in detection and decode performance. 
 wideband_sondes = False
 
 # Encrypted RS41-SGM handling:
