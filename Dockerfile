@@ -50,20 +50,20 @@ RUN git clone https://github.com/steve-m/librtlsdr.git /root/librtlsdr && \
   mkdir -p /root/librtlsdr/build && \
   cd /root/librtlsdr/build && \
   cmake -DCMAKE_INSTALL_PREFIX=/root/target/usr/local -DDETACH_KERNEL_DRIVER=ON -Wno-dev ../ && \
-  make && \
+  make -j$(nproc) && \
   make install && \
   rm -rf /root/librtlsdr
 
 # Compile spyserver_client from source.
 RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_client && \
   cd /root/spyserver_client && \
-  make
+  make -j$(nproc) 
 
 # Compile ka9q-radio from source
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
-  git checkout e1224dcd1991637ba8e1caa68cd802e1b22933de && cd src && \
-  make \
+  git checkout 707fd7cc6bedd2d98f6ac9390e267288365ff6c6 && \
+  make -j$(nproc) -C src \
     ARCHOPTS= \
     tune powers pcmrecord
 

@@ -508,61 +508,60 @@ def read_rtl_power_log(log_filename, sdr_name):
 
     return (freq, power, freq_step)
 
-def read_ka9q_power_log(log_filename, sdr_name):
+def read_ka9q_power_output(output, sdr_name):
     """
-    Read in a ka9q log output file.
+    Parse ka9q 'powers' output and average all polls into a single spectrum.
+
+    Each line is one spectrum poll (csv: time, start_freq, stop_freq, step,
+    n_samples, then the power samples in dB). powers integrates only briefly per
+    poll, so we average every poll together (in linear power) to integrate over
+    the dwell.
 
     Arguments:
-    log_filename (str): Filename to read
+    output (str): Captured stdout from the powers utility.
     sdr_name (str): SDR name used for logging errors.
     """
 
-    # OK, now try to read in the saved data.
-    # Output buffers.
-    freq = np.array([])
-    power = np.array([])
-
+    freq = None
+    power_sum = None  # accumulated linear power
+    n_polls = 0
     freq_step = 0
 
-    # Open file.
-    f = open(log_filename, "r")
-
-    # ka9q powers log files are csv's, with the first 5 fields in each line describing the time and frequency scan parameters
-    # for the remaining fields, which contain the power samples.
-
-    burn_line = True
-
-    for line in f:
-        if burn_line:
-            burn_line = False
-            continue
-
-        # Split line into fields.
+    for line in output.splitlines():
         fields = line.rstrip().split(",", 5)
 
-        if len(fields) < 5:
-            logging.error(
-                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
-            )
-            raise Exception(
-                f"Scanner ({sdr_name}) - Invalid number of samples in input file - corrupt?"
-            )
+        if len(fields) < 6:
+            continue
 
-        start_datetime = fields[0]
         start_freq = float(fields[1])
         stop_freq = float(fields[2])
         freq_step = float(fields[3])
-        n_samples = int(fields[4])
-        # freq_range = np.arange(start_freq,stop_freq,freq_step)
         samples = np.fromstring(fields[5], sep=",")
-        freq_range = np.linspace(start_freq, stop_freq, len(samples))
 
-        # Add frequency range and samples to output buffers.
-        freq = np.append(freq, freq_range)
-        power = np.append(power, samples)
+        if len(samples) == 0:
+            continue
 
-    f.close()
+        if freq is None:
+            freq = np.linspace(start_freq, stop_freq, len(samples))
+            power_sum = np.zeros(len(samples))
 
+        if len(samples) != len(power_sum):
+            # Frequency grid changed mid-capture - skip inconsistent poll.
+            continue
+
+        # powers emits dB; average in linear power, not dB.
+        power_sum += np.power(10.0, samples / 10.0)
+        n_polls += 1
+
+    if n_polls == 0:
+        logging.error(
+            f"Scanner ({sdr_name}) - No valid samples returned by powers - corrupt?"
+        )
+        raise Exception(
+            f"Scanner ({sdr_name}) - No valid samples returned by powers - corrupt?"
+        )
+
+    power = 10.0 * np.log10(power_sum / n_polls)
     power = np.nan_to_num(power)
 
     return (freq, power, freq_step)
@@ -768,17 +767,16 @@ def get_power_spectrum(
     elif sdr_type == "KA9Q":
         # Use powers to obtain power spectral density data
 
-        # Create filename to output to.
-        _log_filename = os.path.join(autorx.logging_path, f"log_power_{rtl_device_idx}.csv")
-        
-        # If the output log file exists, remove it.
-        if os.path.exists(_log_filename):
-            os.remove(_log_filename)
-
         _timeout_cmd = f"{timeout_cmd()} {integration_time+10} "
         _center_freq = (frequency_start + frequency_stop) / 2
         _bins = int((frequency_stop - frequency_start) / step) + 1 # 3001 for 2.4MHz @ 800Hz bins/steps
         _ssrc = f"{round(_center_freq / 1000)}03"
+
+        # powers integrates only ~10-20ms per poll, so poll repeatedly at a short
+        # interval and average the polls together (in read_ka9q_power_output) to
+        # integrate over the dwell. Raise _poll_interval to reduce poll count.
+        _poll_interval = 0.05  # seconds between polls
+        _n_polls = max(1, round(integration_time / _poll_interval))
 
         _powers_cmd = (
             f"{_timeout_cmd} {ka9q_powers_path} "
@@ -786,10 +784,12 @@ def get_power_spectrum(
             f"-f {_center_freq} "
             f"-w {step} "
             f"-b {_bins} "
-            f"-i {integration_time} "
+            f"-i {_poll_interval} "  # interval between polls, not integration time
+            f"-c {_n_polls} "        # poll count to average over the dwell
             f"-s {_ssrc} "
-            f"-c 2 " # burn the first scan result due to no dwelling
-            f"> {_log_filename}"
+            # Crossover = full span forces the two-sided spectrum path; otherwise
+            # powers only fills the upper half of the scan (lower half = flat floor).
+            f"-C {int(step * _bins)} "
         )
 
         _sdr_name = get_sdr_name(
@@ -804,25 +804,26 @@ def get_power_spectrum(
             f"Scanner ({_sdr_name}) - Running command: {_powers_cmd}"
         )
 
+        # Read powers' stdout straight into memory and average the polls, rather
+        # than staging a (potentially large) csv on disk.
         try:
             _output = subprocess.check_output(
-                _powers_cmd, shell=True, stderr=subprocess.STDOUT
-            )
+                _powers_cmd, shell=True, stderr=subprocess.PIPE
+            ).decode("ascii")
         except subprocess.CalledProcessError as e:
             # Something went wrong...
             logging.critical(
                 f"Scanner ({_sdr_name}) - ka9q powers call failed with return code {e.returncode}."
             )
-            # Look at the error output in a bit more details.
-            _output = e.output.decode("ascii")
-            # Something else odd happened, dump the entire error output to the log for further analysis.
+            # Dump the error output to the log for further analysis.
+            _err = e.stderr.decode("ascii") if e.stderr else ""
             logging.critical(
-                f"Scanner ({_sdr_name}) - ka9q powers reported error: {_output}"
+                f"Scanner ({_sdr_name}) - ka9q powers reported error: {_err}"
             )
 
             return (None, None, None)
 
-        return read_ka9q_power_log(_log_filename, _sdr_name)
+        return read_ka9q_power_output(_output, _sdr_name)
 
     else:
         # Unsupported SDR Type
