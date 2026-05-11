@@ -159,6 +159,7 @@ def start_scanner():
             only_scan=config["only_scan"],
             always_scan=config["always_scan"],
             never_scan=config["never_scan"],
+            only_scan_sonde_types=config.get("only_scan_sonde_types", []),
             snr_threshold=config["snr_threshold"],
             min_distance=config["min_distance"],
             quantization=config["quantization"],

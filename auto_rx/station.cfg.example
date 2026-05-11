@@ -129,6 +129,14 @@ never_scan = []
 # This is useful when you know the regular frequency of a local sonde, but still want to allow detections on other frequencies.
 always_scan = []
 
+# only_scan_sonde_types - Restrict the dft_detect scanner to only test for these sonde types.
+# Each scan cycle currently tests the signal against ~14 sonde-type templates; if your region
+# only ever sees a couple of types you can save CPU by listing just those. Empty list (default)
+# means scan for every supported type. Names are case-insensitive.
+# Valid names: RS41, RS92, DFM, M10, M20, IMET, IMET5, LMS6, MK2LMS, MEISEI, MRZ, C34C50, RD94RD41
+# Example for a DFM-and-RS41-only region: only_scan_sonde_types = ["DFM", "RS41"]
+only_scan_sonde_types = []
+
 # always_decode - Always-running decoders. Only possible in a multi-SDR (or network-based SDR) system.
 # List must be in the form: [[401.5,"RS41"], [402.5,"DFM"], [400.5,"M10"], [400.5,"IMET"]]
 # Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01

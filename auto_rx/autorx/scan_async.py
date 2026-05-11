@@ -53,6 +53,7 @@ async def detect_sonde_async(
     save_detection_audio: bool = False,
     ngp_tweak: bool = False,
     wideband_sondes: bool = False,
+    only_scan_sonde_types: Optional[list] = None,
 ) -> Tuple[Optional[str], float]:
     """
     Async version of detect_sonde that uses asyncio subprocess for non-blocking execution.
@@ -102,6 +103,12 @@ async def detect_sonde_async(
     except RuntimeError:
         loop = asyncio.get_event_loop()  # Fallback
 
+    # Build --types flag once for both _mode branches. Empty list / None means
+    # omit the flag entirely so dft_detect scans all types (existing behavior).
+    from .scan import build_dft_detect_types_arg
+    _types_arg = build_dft_detect_types_arg(only_scan_sonde_types)
+    _types_flag = (" --types %s" % _types_arg) if _types_arg else ""
+
     if _mode == "IQ":
         # IQ decoding
         # Note: We rely on asyncio.wait_for for timeout, not external timeout_cmd
@@ -143,8 +150,8 @@ async def detect_sonde_async(
         dft_detect_path = os.path.join(rs_path, "dft_detect")
         rx_test_command += (
             shlex.quote(dft_detect_path)
-            + " -t %d --iq --bw %d --dc - %d 16 2>/dev/null"
-            % (dwell_time, _if_bw, _iq_bw)
+            + " -t %d --iq --bw %d --dc%s - %d 16 2>/dev/null"
+            % (dwell_time, _if_bw, _types_flag, _iq_bw)
         )
 
     elif _mode == "FM":
@@ -184,7 +191,7 @@ async def detect_sonde_async(
 
         dft_detect_path = os.path.join(rs_path, "dft_detect")
         rx_test_command += (
-            shlex.quote(dft_detect_path) + " -t %d 2>/dev/null" % dwell_time
+            shlex.quote(dft_detect_path) + " -t %d%s 2>/dev/null" % (dwell_time, _types_flag)
         )
 
     _sdr_name = get_sdr_name(

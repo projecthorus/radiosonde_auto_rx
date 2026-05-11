@@ -80,6 +80,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "only_scan": [],
         "never_scan": [],
         "always_scan": [],
+        "only_scan_sonde_types": [],
         "always_decode": [],
         # Location Settings
         "station_lat": 0.0,
@@ -275,6 +276,18 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["always_scan"] = json.loads(
                 config.get("search_params", "greylist")
+            )
+
+        # only_scan_sonde_types: optional allowlist of sonde types passed to
+        # dft_detect via --types. Empty list (or missing key) means scan all.
+        # User-facing names ("DFM", "RS41", ...) get translated to internal
+        # rs_hdr type names in scan.py / scan_async.py before invocation.
+        if (
+            config.has_option("search_params", "only_scan_sonde_types")
+            and config.get("search_params", "only_scan_sonde_types") != ""
+        ):
+            auto_rx_config["only_scan_sonde_types"] = json.loads(
+                config.get("search_params", "only_scan_sonde_types")
             )
 
         # Location Settings

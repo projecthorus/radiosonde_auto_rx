@@ -224,6 +224,63 @@ def read_rtl_power(filename):
     return (freq, power, freq_step)
 
 
+# User-facing sonde type names → dft_detect rs_hdr type names.
+# Several user-facing names map to the same internal entry (e.g. "M10" and "M20"
+# share a single rs_hdr slot that classifies at runtime). "IMET", "IMET1", and
+# "IMET4" all require IMETafsk's detection to fire; the post-classification
+# inside dft_detect redirects to the right output type, so enabling IMETafsk
+# is sufficient.
+SONDE_TYPE_MAP = {
+    "RS41":     ["RS41"],
+    "RS92":     ["RS92"],
+    "DFM":      ["DFM9"],
+    "M10":      ["M10"],
+    "M20":      ["M10"],
+    "IMET":     ["IMETafsk"],
+    "IMET1":    ["IMETafsk"],
+    "IMET4":    ["IMETafsk"],
+    "IMET5":    ["IMET5"],
+    "LMS6":     ["LMS6"],
+    "MK2LMS":   ["MK2LMS"],
+    "MEISEI":   ["MEISEI"],
+    "MRZ":      ["MRZ"],
+    "C34C50":   ["C34C50"],
+    "RD94RD41": ["RD94RD41"],
+}
+
+
+def build_dft_detect_types_arg(only_scan_sonde_types):
+    """Translate a user-facing sonde type allowlist into the comma-separated
+    string passed to dft_detect's --types flag.
+
+    Returns "" if the input list is empty or None (caller should then omit
+    the --types flag entirely so dft_detect scans all types).
+    Unknown user-facing names log a warning and are skipped.
+    """
+    if not only_scan_sonde_types:
+        return ""
+    internal = []
+    seen = set()
+    for name in only_scan_sonde_types:
+        key = str(name).strip().upper()
+        # Match map keys case-insensitively.
+        mapped = None
+        for k, v in SONDE_TYPE_MAP.items():
+            if k.upper() == key:
+                mapped = v
+                break
+        if mapped is None:
+            logging.warning(
+                "Scanner - only_scan_sonde_types: unknown sonde type '%s' (ignored)" % name
+            )
+            continue
+        for t in mapped:
+            if t not in seen:
+                seen.add(t)
+                internal.append(t)
+    return ",".join(internal)
+
+
 def parse_dft_detect_output(ret_output, sdr_name):
     """
     Parse dft_detect output and return detected sonde type and offset.
@@ -425,7 +482,8 @@ def detect_sonde(
     bias=False,
     save_detection_audio=False,
     ngp_tweak=False,
-    wideband_sondes=False
+    wideband_sondes=False,
+    only_scan_sonde_types=None
 ):
     """Receive some FM and attempt to detect the presence of a radiosonde.
 
@@ -596,8 +654,10 @@ def detect_sonde(
 
         # Sample decoding / detection
         # Note that we detect for dwell_time seconds, and timeout after dwell_time*2, to catch if no samples are being passed through.
+        _types_arg = build_dft_detect_types_arg(only_scan_sonde_types)
+        _types_flag = (" --types %s" % _types_arg) if _types_arg else ""
         rx_test_command += (
-            os.path.join(rs_path, "dft_detect") + " -t %d 2>/dev/null" % dwell_time
+            os.path.join(rs_path, "dft_detect") + " -t %d%s 2>/dev/null" % (dwell_time, _types_flag)
         )
 
     _sdr_name = get_sdr_name(
@@ -677,6 +737,7 @@ class SondeScanner(object):
         only_scan=[],
         always_scan=[],
         never_scan=[],
+        only_scan_sonde_types=None,
         snr_threshold=10,
         min_distance=1000,
         quantization=10000,
@@ -769,6 +830,7 @@ class SondeScanner(object):
         self.only_scan = only_scan
         self.always_scan = always_scan
         self.never_scan = never_scan
+        self.only_scan_sonde_types = only_scan_sonde_types
         self.snr_threshold = snr_threshold
         self.min_distance = min_distance
         self.quantization = quantization
@@ -1178,7 +1240,8 @@ class SondeScanner(object):
                     gain=self.gain,
                     bias=self.bias,
                     save_detection_audio=self.save_detection_audio,
-                    wideband_sondes=self.wideband_sondes
+                    wideband_sondes=self.wideband_sondes,
+                    only_scan_sonde_types=self.only_scan_sonde_types
                 )
 
                 # Process results
@@ -1224,7 +1287,8 @@ class SondeScanner(object):
                     bias=self.bias,
                     dwell_time=self.detect_dwell_time,
                     save_detection_audio=self.save_detection_audio,
-                    wideband_sondes=self.wideband_sondes
+                    wideband_sondes=self.wideband_sondes,
+                    only_scan_sonde_types=self.only_scan_sonde_types
                 )
 
                 if detected != None:
