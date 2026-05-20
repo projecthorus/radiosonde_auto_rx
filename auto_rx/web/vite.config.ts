@@ -17,6 +17,17 @@ export default defineConfig({
     // (4096 byte) inline threshold.
     assetsInlineLimit: (filePath: string) =>
       filePath.endsWith(".js") ? false : undefined,
+    // Fixed output filenames (no content hash) so the built bundle has
+    // stable paths across rebuilds. Trade-off: end users may see stale
+    // assets from their browser cache after an update — tell them to
+    // hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) once after pulling.
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/index.js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name][extname]",
+      },
+    },
   },
   base: "/static/build/",
 });

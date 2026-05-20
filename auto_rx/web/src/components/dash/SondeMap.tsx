@@ -346,10 +346,13 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
           );
         }
         // Burst marker — only when the log has recorded a burst position
-        // (s.burst_pos, populated by hydratePath when the sonde's log file
-        // contains a confirmed apex). Authoritative coordinates + altitude
-        // straight from the log.
-        if (s.burst_pos) {
+        // AND the sonde has actually descended from it. Older backends report
+        // "burst" as argmax(altitude) unconditionally, so a still-climbing
+        // sonde would plant a burst star on top of the live marker. Require
+        // current alt to be meaningfully below recorded burst alt (200 m
+        // absorbs GPS jitter near apex while still catching real bursts within
+        // a few seconds of descent).
+        if (s.burst_pos && s.alt < s.burst_pos[2] - 200) {
           const burstLL: [number, number] = [s.burst_pos[0], s.burst_pos[1]];
           const burstAlt = s.burst_pos[2];
           if (!existing.burstMarker) {
@@ -361,6 +364,11 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
           existing.burstMarker.bindPopup(
             `<b>${escapeHtml(s.id)}</b><br>burst @ ${fmtAlt(burstAlt)}${s.burst_time ? `<br>${escapeHtml(fmtTime(s.burst_time))}` : ""}`
           );
+        } else if (existing.burstMarker) {
+          // Tear down a stale marker (e.g. from an older build that planted
+          // one prematurely) so a hard refresh isn't needed.
+          layer.removeLayer(existing.burstMarker);
+          existing.burstMarker = null;
         }
       } else {
         const marker = L.marker(ll, { icon: sondeIcon(id, color, descending, prefs.markerStyle), riseOnHover: true })

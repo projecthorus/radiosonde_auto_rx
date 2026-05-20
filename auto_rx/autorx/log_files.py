@@ -341,9 +341,17 @@ def read_log_file(filename, skewt_decimation=10, path_only=False):
     _output["first_time"] = _data[fields["datetime"]][0]
     _output["last"] = _output["path"][-1]
     _output["last_time"] = _data[fields["datetime"]][-1]
-    _burst_idx = np.argmax(_data[fields["altitude"]])
-    _output["burst"] = _output["path"][_burst_idx]
-    _output["burst_time"] = _data[fields["datetime"]][_burst_idx]
+    # Only report a "burst" position once the sonde has actually started
+    # descending. argmax-alone treats the most recent sample of a still-climbing
+    # sonde as the burst point, which plants the burst star on top of the live
+    # marker. Require both: the apex isn't the most recent sample, AND the
+    # current altitude has fallen meaningfully (200 m absorbs GPS jitter near
+    # apex while still catching real bursts within a few seconds of descent).
+    _alts = _data[fields["altitude"]]
+    _burst_idx = int(np.argmax(_alts))
+    if _burst_idx < len(_alts) - 1 and (float(_alts[_burst_idx]) - float(_alts[-1])) > 200:
+        _output["burst"] = _output["path"][_burst_idx]
+        _output["burst_time"] = _data[fields["datetime"]][_burst_idx]
 
     # Calculate first position info
     _pos_info = position_info(

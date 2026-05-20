@@ -13,6 +13,12 @@ Routes (`src/App.tsx`): `/` Dashboard, `/historical` History,
 
 ## Building
 
+The built bundle in `auto_rx/autorx/static/build/` is committed. End
+users / testers don't need Node — just `git pull` (or check out the
+branch) and restart auto_rx.
+
+For UI development:
+
 ```bash
 cd auto_rx/web
 npm install        # first time only
@@ -21,8 +27,9 @@ npm run build      # outputs to ../autorx/static/build/
 
 No dev server, no mock backend. auto_rx is the only source of telemetry
 and scan data, and it needs an SDR. To iterate: `npm run build`, then
-refresh the browser at `http://<host>:5000`. Flask re-reads `index.html`
-per request, so no auto_rx restart is needed for static-only changes.
+**hard-refresh** the browser (Ctrl+Shift+R / Cmd+Shift+R) at
+`http://<host>:5000`. Flask re-reads `index.html` per request, so no
+auto_rx restart is needed for static-only changes.
 
 If you don't have an SDR locally, build locally and deploy to a real
 station — see below.
@@ -94,5 +101,6 @@ ssh user@host '
   is idle vs running. See the guards in `ScanChart.tsx`.
 - Leaflet plugins must be loaded before the map mounts. Await
   `leafletPlugins.ts` in `useEffect` before instantiating.
-- `emptyOutDir` wipes the previous build on each `npm run build`. Stash a
-  copy of `static/build/` before a deploy if you need a rollback.
+- Output filenames are fixed (no content hash) so commits stay tidy.
+  Trade-off: browsers may serve a stale cached `index.js` after an
+  update. Tell users to hard-refresh once after pulling.
