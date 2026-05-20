@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- IBM Plex Sans/Mono with metric overrides ---------------------------
+ * Browsers center the *line-box* on `align-items: center`, not the visible
+ * glyph cluster. Most fonts ship with asymmetric leading metadata (more space
+ * above cap-height than below the baseline), which makes text look slightly
+ * high in flex layouts paired with icons/dots. The `*-override` descriptors
+ * below force a balanced line-box so cap-height visually centers.
+ * Values were tuned for IBM Plex's cap-height (~0.70em) and descender (~0.22em).
+ */
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
+}
+
+@layer base {
+  :root {
+    --background: 195 18% 6%;
+    --foreground: 180 8% 92%;
+
+    --card: 196 18% 9%;
+    --card-foreground: 180 8% 92%;
+
+    --popover: 196 18% 11%;
+    --popover-foreground: 180 8% 92%;
+
+    --primary: 152 70% 67%;
+    --primary-foreground: 152 90% 8%;
+
+    --secondary: 196 14% 13%;
+    --secondary-foreground: 180 8% 92%;
+
+    --muted: 196 12% 14%;
+    --muted-foreground: 195 8% 60%;
+
+    --accent: 196 14% 18%;
+    --accent-foreground: 180 8% 92%;
+
+    --destructive: 0 78% 70%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 196 20% 17%;
+    --input: 196 18% 14%;
+    --ring: 152 70% 50%;
+
+    --signal: 152 70% 67%;
+    --signal-dim: 152 35% 30%;
+
+    --scan: 210 90% 70%;
+    --scan-dim: 210 40% 30%;
+
+    --warn: 38 88% 62%;
+    --warn-dim: 38 50% 30%;
+
+    --alert: 0 100% 75%;
+    --alert-dim: 0 50% 30%;
+
+    --radius: 0.4rem;
+  }
+
+  .light {
+    /* Cool neutral light palette — gray with a slight blue tint, not the
+     * previous warm cream. Semantic colors (signal/scan/warn/alert) stay
+     * intentionally hue-anchored so the chart and badges read the same
+     * across themes. */
+    --background: 210 22% 96%;
+    --foreground: 215 18% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 18% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 18% 14%;
+    --primary: 152 55% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 18% 92%;
+    --secondary-foreground: 215 18% 14%;
+    --muted: 215 18% 91%;
+    --muted-foreground: 215 12% 38%;
+    --accent: 215 18% 88%;
+    --accent-foreground: 215 18% 14%;
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 16% 84%;
+    --input: 215 16% 90%;
+    --ring: 152 55% 30%;
+    --signal: 152 55% 30%;
+    --signal-dim: 152 25% 70%;
+    --scan: 210 70% 35%;
+    --scan-dim: 210 35% 75%;
+    --warn: 36 78% 38%;
+    --warn-dim: 36 45% 80%;
+    --alert: 0 65% 45%;
+    --alert-dim: 0 45% 80%;
+  }
+
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: theme("fontFamily.sans");
+    font-size: 13px;
+    line-height: 1.45;
+    background-image:
+      radial-gradient(1100px 600px at 88% -10%, hsl(var(--signal) / 0.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(var(--scan) / 0.05), transparent 60%);
+    background-attachment: fixed;
+  }
+  .light body {
+    background-image:
+      radial-gradient(1100px 600px at 88% -10%, hsl(var(--signal) / 0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(var(--scan) / 0.10), transparent 60%);
+  }
+  ::selection { background: hsl(var(--signal) / 0.30); color: hsl(var(--foreground)); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 999px; border: 2px solid hsl(var(--background)); }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--accent)); }
+}
+
+@layer components {
+  .mono { font-family: theme("fontFamily.mono"); font-variant-numeric: tabular-nums; }
+
+  .pip {
+    @apply inline-block w-2 h-2 rounded-full align-middle;
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+  .pip-signal { background: hsl(var(--signal)); box-shadow: 0 0 8px hsl(var(--signal) / 0.45); animation: pulse-soft 2s ease-in-out infinite; }
+  .pip-scan { background: hsl(var(--scan)); box-shadow: 0 0 8px hsl(var(--scan) / 0.45); animation: pulse-soft 1.6s ease-in-out infinite; }
+  .pip-warn { background: hsl(var(--warn)); box-shadow: 0 0 8px hsl(var(--warn) / 0.45); }
+  .pip-alert { background: hsl(var(--alert)); box-shadow: 0 0 8px hsl(var(--alert) / 0.45); animation: pulse-soft 1.4s ease-in-out infinite; }
+  .pip-idle { background: hsl(var(--muted-foreground) / 0.5); }
+
+  /* Leaflet override to fit the theme */
+  .leaflet-container { background: hsl(var(--card)); font-family: theme("fontFamily.sans"); isolation: isolate !important; z-index: 0 !important; position: relative !important; }
+  /* Leaflet control z-index handled outside this @layer (see bottom of
+     file) — @layer components rules lose the cascade fight to leaflet's
+     unlayered z:1000 declarations even with !important. */
+  .leaflet-control-attribution { background: hsl(var(--background) / 0.85) !important; color: hsl(var(--muted-foreground)) !important; font-size: 10px !important; }
+  .leaflet-control-attribution a { color: hsl(var(--foreground)) !important; }
+  .leaflet-bar a { background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; border-bottom-color: hsl(var(--border)) !important; }
+  .leaflet-bar a:hover { background: hsl(var(--accent)) !important; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: hsl(var(--card)) !important; color: hsl(var(--card-foreground)) !important; border: 1px solid hsl(var(--border)); }
+
+  /* uPlot */
+  .uplot, .u-wrap { font-family: theme("fontFamily.mono"); }
+  .u-legend { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* --- Leaflet z-index clamp ------------------------------------------------
+ * Placed OUTSIDE @layer components so it sits in the unlayered cascade, on
+ * equal footing with leaflet's own CSS (which declares .leaflet-top etc. at
+ * z-index: 1000). Inside @layer, important rules still lose to unlayered
+ * normal rules in some browsers — flatten here to be safe.
+ * Keeps every leaflet pane and control below the sticky header (z-[900])
+ * and the mobile drawer. */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control,
+.leaflet-control-zoom,
+.leaflet-bar {
+  z-index: 1 !important;
+}

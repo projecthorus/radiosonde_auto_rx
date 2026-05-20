@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" class="">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- Favicon: the OG v1 UI's blue parachute PNG sprite. Tall aspect
+         but Chrome/Firefox down-scale it cleanly to 16/32px. -->
+    <link rel="icon" type="image/png" href="/static/build/favicon.png" />
+    <title>radiosonde auto_rx</title>
+    <script>
+      // Prevent flash of wrong theme.
+      try {
+        const p = JSON.parse(localStorage.getItem("obs.prefs") || "{}");
+        if (p.theme === "light") document.documentElement.classList.add("light");
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

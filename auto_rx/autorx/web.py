@@ -82,29 +82,37 @@ def flask_emit_event(event_name="none", data={}):
 #
 
 
+# --- React SPA at the root ---------------------------------------------------
+# The build is at autorx/static/build/. Vite emits asset paths like
+# /static/build/assets/*.js — those are served by Flask's static handler
+# automatically (more-specific routes beat the catch-all below). We serve
+# index.html for / and for any unmatched path so the client-side router can
+# take over. API endpoints declared elsewhere in this file remain matched
+# first by Werkzeug's specificity rules (literal segments beat <path:...>).
+_SPA_INDEX = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "static", "build", "index.html"
+)
+
+
+def _serve_spa():
+    try:
+        with open(_SPA_INDEX, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        flask.abort(404)
+
+
 @app.route("/")
-def flask_index():
-    """ Render main index page """
-    return flask.render_template("index.html")
-
-
-@app.route("/historical.html")
-def flask_historical():
-    """ Render historical log page """
-    return flask.render_template("historical.html")
-
-
-@app.route("/skewt_test.html")
-def flask_skewt_test():
-    """ Render main index page """
-    return flask.render_template("skewt_test.html")
+@app.route("/<path:_subpath>")
+def flask_spa(_subpath=""):
+    return _serve_spa()
 
 
 @app.route("/get_version")
 def flask_get_version():
     """ Return current and latest auto_rx version to client """
     _newer = check_autorx_versions()
-    return json.dumps({"current": autorx.__version__, "latest": _newer})
+    return flask.jsonify({"current": autorx.__version__, "latest": _newer})
 
 
 @app.route("/get_task_list")
@@ -142,7 +150,7 @@ def flask_get_task_list():
                     pass
 
     # Convert the task list to a JSON blob, and return.
-    return json.dumps(_sdr_list)
+    return flask.jsonify(_sdr_list)
 
 
 @app.route("/rs.kml")
@@ -279,17 +287,205 @@ def flask_get_kml_feed():
 @app.route("/get_config")
 def flask_get_config():
     """ Return a copy of the current auto_rx configuration """
-    # Grab a copy of the config
-    _config = autorx.config.global_config
+    return flask.jsonify(autorx.config.global_config)
 
-    # TODO: Sanitise config output a bit?
-    return json.dumps(_config)
+
+@app.route("/sdr_status")
+def flask_sdr_status():
+    """ Return per-SDR runtime status (device_idx, gain, ppm, bias, in_use, task, freq).
+    Matches the shape consumed by the React Status page (SDRStatusItem).
+
+    Source of truth: autorx.sdr_list (populated by auto_rx.py at startup) holds
+    gain/ppm/bias/in_use/task directly per entry. autorx.task_list is keyed by
+    the active frequency (or the string "SCAN") with value {device_idx, task},
+    so we reverse it to look up by SDR.
+    """
+    out = []
+    by_dev = {}
+    for k, v in autorx.task_list.items():
+        by_dev[str(v.get("device_idx"))] = (k, v)
+
+    for sdr_id, sdr in autorx.sdr_list.items():
+        task_label = "Not Tasked"
+        freq = 0
+        entry = by_dev.get(str(sdr_id))
+        if entry is not None:
+            k, _v = entry
+            if k == "SCAN":
+                task_label = "Scanning"
+            else:
+                try:
+                    task_label = "Decoding (%.3f MHz)" % (float(k) / 1e6)
+                    freq = int(k)
+                except Exception:
+                    task_label = "Decoding"
+        out.append({
+            "device_idx": str(sdr_id),
+            "id": sdr_id if isinstance(sdr_id, int) else None,
+            # These come straight from sdr_list, which is mutated as decoders
+            # start/stop. Defaults match the original station.cfg defaults.
+            "gain": float(sdr.get("gain", -1)),
+            "ppm": float(sdr.get("ppm", 0)),
+            "bias": bool(sdr.get("bias", False)),
+            "in_use": bool(sdr.get("in_use", False)),
+            "task": task_label,
+            "freq": freq,
+        })
+    return flask.jsonify(out)
+
+
+@app.route("/rotator_status")
+def flask_rotator_status():
+    """ Live rotator state for the Status page.
+
+    The Rotator class doesn't cache "current" position — it queries rotctld
+    over TCP for every move decision. So we do the same here: a short-timeout
+    socket read against the configured rotctld endpoint. On failure we return
+    the last known target (derived from the latest sonde telemetry) so the UI
+    has something to show.
+    """
+    from autorx.rotator import read_rotator
+    from autorx.utils import position_info
+
+    enabled = bool(autorx.config.global_config.get("rotator_enabled", False))
+    rot = autorx.rotator_object
+    az = el = 0.0
+    target_az = target_el = None
+    target_id = None
+    mode = "disabled" if not enabled else "idle"
+
+    if rot is not None:
+        # 1. Current position from rotctld — short timeout so /rotator_status
+        # remains snappy even when the rotator is offline.
+        try:
+            pos = read_rotator(rot.rotctld_host, rot.rotctld_port, timeout=2)
+            if pos:
+                az = float(pos[0]) % 360.0
+                el = float(pos[1])
+        except Exception as e:
+            logging.debug("rotator_status: read_rotator failed: %s", e)
+
+        # 2. Derive target az/el from the latest sonde telemetry the rotator
+        # would track. The rotator thread does the same calculation (see
+        # rotator.py: position_info(station_position, [lat,lon,alt])).
+        try:
+            with rot.telem_lock:
+                latest = rot.latest_telemetry.copy() if rot.latest_telemetry else None
+            if latest:
+                info = position_info(
+                    rot.station_position,
+                    [latest["lat"], latest["lon"], latest["alt"]],
+                )
+                target_az = float(info["bearing"]) % 360.0
+                target_el = 0.0 if rot.azimuth_only else float(info["elevation"])
+                target_id = latest.get("id")
+                mode = "tracking"
+        except Exception as e:
+            logging.debug("rotator_status: target derivation failed: %s", e)
+
+        # 3. "Homed" state.
+        if getattr(rot, "rotator_homed", False) and target_id is None:
+            mode = "homed"
+
+    return flask.jsonify({
+        "enabled": enabled,
+        "az": az,
+        "el": el,
+        "target_az": target_az,
+        "target_el": target_el,
+        "mode": mode,
+        "target_id": target_id,
+        "last_move": None,  # not currently tracked on the Rotator object
+    })
+
+
+@app.route("/blocklist")
+def flask_blocklist():
+    """ Temporary + permanent block-list entries. """
+    out = []
+    # Permanent: never_scan list from config. Supports both formats users
+    # write into station.cfg's [search_params] never_scan: a flat list of
+    # MHz floats, or a list of {freq_start, freq_end} range dicts.
+    for entry in (autorx.config.global_config.get("never_scan") or []):
+        try:
+            if isinstance(entry, (int, float)):
+                out.append({
+                    "freq": int(float(entry) * 1e6),
+                    "reason": "Permanent",
+                })
+            elif isinstance(entry, dict):
+                start = float(entry.get("freq_start"))
+                end = float(entry.get("freq_end"))
+                span = end - start
+                out.append({
+                    "freq": int(start * 1e6),
+                    "reason": (
+                        "Permanent" if span <= 0
+                        else f"Permanent ({span:.3f} MHz range)"
+                    ),
+                })
+        except Exception:
+            pass
+    # Temporary: from the live scanner instance, if one exists.
+    try:
+        scan_task = autorx.task_list.get("SCAN")
+        scanner = scan_task["task"] if scan_task else None
+        if scanner is not None and hasattr(scanner, "temporary_block_list"):
+            with scanner.temporary_block_list_lock:
+                tb = dict(scanner.temporary_block_list)
+            now = time.time()
+            block_secs = float(getattr(scanner, "temporary_block_time", 60)) * 60.0
+            for freq_hz, blocked_at in tb.items():
+                try:
+                    out.append({
+                        "freq": int(freq_hz),
+                        "reason": "Temporary",
+                        "until": float(blocked_at) + block_secs,
+                    })
+                except Exception:
+                    pass
+    except Exception as e:
+        logging.debug("blocklist endpoint: %s", e)
+    return flask.jsonify(out)
+
+
+@app.route("/save_config", methods=["POST"])
+def flask_save_config():
+    """ Persist UI-edited settings back to station.cfg in place, preserving
+    comments and structure. Requires web_control + correct web_password.
+    The change does NOT take effect until auto_rx is restarted.
+    """
+    from autorx.config_writer import save_config_file
+
+    if not autorx.config.global_config.get("web_control"):
+        abort(403)
+
+    try:
+        body = request.get_json(force=True) or {}
+    except Exception as e:
+        return flask.jsonify({"ok": False, "errors": [f"Invalid JSON: {e}"]}), 400
+
+    password = body.pop("__password", None)
+    if autorx.config.web_password == "none" or password != autorx.config.web_password:
+        abort(403)
+
+    cfg_path = autorx.config.cfg_filename or "station.cfg"
+    try:
+        result = save_config_file(cfg_path, body)
+    except Exception as e:
+        return flask.jsonify({"ok": False, "errors": [str(e)]}), 500
+
+    if not result.get("ok"):
+        return flask.jsonify(result), 400
+    # Reflect into in-memory config so subsequent /get_config calls match the file
+    autorx.config.global_config.update({k: v for k, v in body.items() if k != "sdrs"})
+    return flask.jsonify(result)
 
 
 @app.route("/get_scan_data")
 def flask_get_scan_data():
     """ Return a copy of the latest scan results """
-    return json.dumps(autorx.scan.scan_result)
+    return flask.jsonify(autorx.scan.scan_result)
 
 
 @app.route("/get_telemetry_archive")
@@ -300,7 +496,7 @@ def flask_get_telemetry_archive():
     for _element in _temp_store:
         _temp_store[_element].pop("track")
 
-    return json.dumps(_temp_store)
+    return flask.jsonify(_temp_store)
 
 
 @app.route("/shutdown/<shutdown_key>")
@@ -321,16 +517,153 @@ def shutdown_flask(shutdown_key):
 @app.route("/get_log_list")
 def flask_get_log_list():
     """ Return a list of log files, as a list of objects """
-    return json.dumps(list_log_files(quicklook=True), separators=(',', ':'))
+    return flask.jsonify(list_log_files(quicklook=True))
 
 def flask_running():
     global flask_shutdown_key
     return flask_shutdown_key is not None
 
+# ---- log-file response cache ------------------------------------------------
+# read_log_by_serial parses the on-disk log every call (~500 ms per file on
+# a slow ARM/Atom box). A finished flight's log file is immutable, so we
+# cache parsed results in two layers:
+#
+#   1. In-memory LRU (this process) — ~instant repeat hits.
+#   2. On-disk JSON cache keyed by (serial, decim, path_only, source-log-mtime)
+#      — survives process restarts. Once a sonde has been viewed once, ever,
+#      it's fast every time after.
+#
+# Cache validity check: the source log file's mtime is encoded in the cache
+# filename. If the source log changes (still-live flight), mtime advances and
+# the old cache entry is bypassed. Stale entries are pruned on write.
+from collections import OrderedDict
+from threading import Lock as _CacheLock
+import json as _json
+import glob as _glob
+
+_LOG_CACHE: "OrderedDict[tuple, dict]" = OrderedDict()
+_LOG_CACHE_LOCK = _CacheLock()
+_LOG_CACHE_MAX = 64
+
+_LOG_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "log_cache"
+)
+
+
+def _ensure_cache_dir():
+    try:
+        os.makedirs(_LOG_CACHE_DIR, exist_ok=True)
+    except OSError as e:
+        logging.warning("log_cache: cannot create %s: %s", _LOG_CACHE_DIR, e)
+
+
+def _source_log_path(serial: str):
+    """Locate the on-disk log for `serial`, plus its mtime; (None, 0) if missing."""
+    mask = os.path.join(autorx.logging_path, f"*_*{serial}_*_sonde.log")
+    files = _glob.glob(mask)
+    if not files:
+        return None, 0.0
+    f = files[0]
+    try:
+        return f, os.path.getmtime(f)
+    except OSError:
+        return f, 0.0
+
+
+def _disk_cache_path(serial: str, decim: int, path_only: bool, mtime: float):
+    # mtime as integer microseconds keeps the filename short and stable.
+    return os.path.join(
+        _LOG_CACHE_DIR,
+        f"{serial}__d{decim}__p{int(path_only)}__{int(mtime * 1e6)}.json",
+    )
+
+
+def _disk_cache_load(serial: str, decim: int, path_only: bool, mtime: float):
+    if mtime <= 0:
+        return None
+    path = _disk_cache_path(serial, decim, path_only, mtime)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return _json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _disk_cache_save(serial: str, decim: int, path_only: bool, mtime: float, data: dict):
+    if mtime <= 0:
+        return
+    _ensure_cache_dir()
+    out = _disk_cache_path(serial, decim, path_only, mtime)
+    tmp = out + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            _json.dump(data, fh)
+        os.replace(tmp, out)
+    except OSError as e:
+        logging.warning("log_cache: write failed for %s: %s", out, e)
+        return
+    # Prune any older entries for the same (serial, decim, path_only). The log
+    # file's mtime should never go backwards, so anything older than what we
+    # just wrote is stale.
+    try:
+        prefix = os.path.join(_LOG_CACHE_DIR, f"{serial}__d{decim}__p{int(path_only)}__")
+        for old in _glob.glob(prefix + "*.json"):
+            if old != out:
+                try: os.remove(old)
+                except OSError: pass
+    except OSError:
+        pass
+
+
+def _cached_log_by_serial(serial: str, decim: int, path_only: bool):
+    # Layer 1: in-memory LRU. Keyed on (serial, decim, path_only); the source
+    # log's mtime is checked below so the in-mem entry is still valid only
+    # while the file hasn't been rewritten.
+    _src, mtime = _source_log_path(serial)
+    mem_key = (serial, decim, path_only, mtime)
+    with _LOG_CACHE_LOCK:
+        if mem_key in _LOG_CACHE:
+            _LOG_CACHE.move_to_end(mem_key)
+            return _LOG_CACHE[mem_key]
+
+    # Layer 2: disk cache. Survives restarts.
+    data = _disk_cache_load(serial, decim, path_only, mtime)
+    if data is None:
+        # True miss — parse the log.
+        data = read_log_by_serial(serial, path_only=path_only)
+        if decim and decim > 1 and isinstance(data, dict) and isinstance(data.get("path"), list):
+            p = data["path"]
+            if len(p) > decim * 2:
+                keep = [p[0]] + p[decim::decim]
+                if keep[-1] is not p[-1]:
+                    keep.append(p[-1])
+                data = dict(data, path=keep)
+        _disk_cache_save(serial, decim, path_only, mtime, data)
+
+    # Promote into in-memory LRU.
+    with _LOG_CACHE_LOCK:
+        _LOG_CACHE[mem_key] = data
+        _LOG_CACHE.move_to_end(mem_key)
+        while len(_LOG_CACHE) > _LOG_CACHE_MAX:
+            _LOG_CACHE.popitem(last=False)
+    return data
+
+
 @app.route("/get_log_by_serial/<serial>")
 def flask_get_log_by_serial(serial):
-    """ Request a log file be read, by serial number """
-    return json.dumps(read_log_by_serial(serial))
+    """ Request a log file be read, by serial number.
+
+    Query params:
+      ?decim=N      server-side stride decimation of the path (default 1)
+      ?path_only=1  skip the Skew-T computation — ~5-10x faster on slow CPUs
+                    when the caller only needs path/first/last/burst
+    """
+    try:
+        decim = int(request.args.get("decim", "1"))
+    except (TypeError, ValueError):
+        decim = 1
+    path_only = request.args.get("path_only", "").lower() in ("1", "true", "yes")
+    return flask.jsonify(_cached_log_by_serial(serial, decim, path_only))
 
 
 @app.route("/get_log_detail", methods=["POST"])
@@ -351,7 +684,7 @@ def flask_get_log_by_serial_detail():
         else:
             _decim = 25
 
-        return json.dumps(read_log_by_serial(_serial, skewt_decimation=_decim))
+        return flask.jsonify(read_log_by_serial(_serial, skewt_decimation=_decim))
 
 
 @app.route("/export_all_log_files")
@@ -599,6 +932,31 @@ def flask_enable_scanner():
         abort(403)
 
 
+@app.route("/rescan_now", methods=["POST"])
+def flask_rescan_now():
+    """ Force an immediate rescan. If a SCAN task is currently running, stop it
+    so clean_task_list spawns a fresh scanner on its next tick (~2 s).
+    Also clears any scan_inhibit flag that was set.
+    """
+    if not autorx.config.global_config.get("web_control"):
+        abort(403)
+    if "password" not in request.form:
+        abort(403)
+    if request.form["password"] != autorx.config.web_password or autorx.config.web_password == "none":
+        abort(403)
+
+    autorx.scan_inhibit = False
+    try:
+        scan_task = autorx.task_list.get("SCAN")
+        scanner = scan_task["task"] if scan_task else None
+        if scanner is not None and hasattr(scanner, "stop"):
+            logging.info("Web - Operator requested forced rescan; stopping current scanner.")
+            scanner.stop(nowait=True)
+    except Exception as e:
+        logging.warning("Web - rescan_now: %s", e)
+    return "OK"
+
+
 @app.route("/move_rotator", methods=["POST"])
 def flask_move_rotator():
     """ Move rotator to target az/el position by injecting telem packet in rotator queue
@@ -716,7 +1074,16 @@ def stop_flask(host="0.0.0.0", port=5000):
 
 
 class WebHandler(logging.Handler):
-    """ Logging Handler for sending log messages via Socket.IO to a Web Client """
+    """ Logging Handler for sending log messages via Socket.IO to a Web Client.
+    Also retains the most recent N entries in a ring buffer so newly connecting
+    clients can backfill via /recent_logs instead of starting from a blank tray. """
+
+    # Ring buffer for newly-connecting clients to backfill. Lives on the class
+    # so /recent_logs can read it without holding a handler reference.
+    from collections import deque as _deque
+    from threading import Lock as _Lock
+    _recent: "_deque" = _deque(maxlen=200)
+    _recent_lock = _Lock()
 
     def emit(self, record):
         """ Emit a log message via SocketIO """
@@ -732,8 +1099,27 @@ class WebHandler(logging.Handler):
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "msg": record.msg,
             }
+            # Stash for /recent_logs before broadcasting.
+            with WebHandler._recent_lock:
+                WebHandler._recent.append(log_data)
             # Emit to all socket.io clients
             socketio.emit("log_event", log_data, namespace="/update_status")
+
+
+@app.route("/recent_logs")
+def flask_recent_logs():
+    """ Return the most recent log entries from the in-memory ring buffer.
+    Used by the dashboard on mount to backfill the Event Log tray so the
+    user sees recent history instead of an empty tray. Caps at the buffer's
+    maxlen; client passes ?n=N to request fewer. """
+    try:
+        n = int(request.args.get("n", "50"))
+    except (TypeError, ValueError):
+        n = 50
+    n = max(1, min(n, 200))
+    with WebHandler._recent_lock:
+        buf = list(WebHandler._recent)
+    return flask.jsonify(buf[-n:])
 
 
 class WebExporter(object):

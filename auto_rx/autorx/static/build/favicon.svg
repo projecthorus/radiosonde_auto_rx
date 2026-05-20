@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- radiosonde_auto_rx favicon: stylized balloon + payload in signal green.
+       Reads cleanly down to 16x16. Dark border so it pops on either theme. -->
+  <ellipse cx="16" cy="11" rx="9" ry="9.5" fill="#6ee7a4" stroke="#0c1416" stroke-width="1.5"/>
+  <path d="M 16 20 L 16 24 L 13.5 24 L 16 27 L 18.5 24 L 16 24" fill="#0c1416"/>
+  <rect x="13" y="26.5" width="6" height="3.5" rx="0.5" fill="#0c1416"/>
+</svg>

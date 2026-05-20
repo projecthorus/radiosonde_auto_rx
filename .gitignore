@@ -1,12 +1,12 @@
+# Hidden files and folders — never tracked
+.*
+!.gitignore
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 venv
-
-# IDE
-.vscode
-.idea
 
 # Log
 *.log

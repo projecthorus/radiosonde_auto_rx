@@ -27,6 +27,10 @@ global_config = {
 # Web interface credentials
 web_password = "none"
 
+# Path of the config file that was actually loaded. Populated by
+# read_auto_rx_config() and used by /save_config to write back in place.
+cfg_filename: str | None = None
+
 # Fixed minimum update rate for APRS
 # This is set to avoid congestion on the APRS-IS network
 # Please respect other users of the network and leave this setting as it is.
@@ -47,7 +51,8 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             auto_rx_config (dict): The configuration dictionary.
             sdr_config (dict): A dictionary with SDR parameters.
     """
-    global global_config, web_password
+    global global_config, web_password, cfg_filename
+    cfg_filename = filename
     # Configuration Defaults:
     auto_rx_config = {
         # Log Settings
@@ -947,17 +952,6 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         else:
             # Create a global copy of the configuration file at this point
             global_config = copy.deepcopy(auto_rx_config)
-
-            # Excise some sensitive parameters from the global config.
-            global_config.pop("email_smtp_login")
-            global_config.pop("email_smtp_password")
-            global_config.pop("email_smtp_server")
-            global_config.pop("email_smtp_port")
-            global_config.pop("email_from")
-            global_config.pop("email_to")
-            global_config.pop("email_smtp_authentication")
-            global_config.pop("sondehub_contact_email")
-            global_config.pop("web_password")
 
             web_password = auto_rx_config["web_password"]
 
