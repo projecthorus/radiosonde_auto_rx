@@ -29,7 +29,9 @@ web_password = "none"
 
 # Path of the config file that was actually loaded. Populated by
 # read_auto_rx_config() and used by /save_config to write back in place.
-cfg_filename: str | None = None
+# Typed as Optional[str] (not "str | None") to keep Python 3.9 compat.
+from typing import Optional
+cfg_filename: Optional[str] = None
 
 # Fixed minimum update rate for APRS
 # This is set to avoid congestion on the APRS-IS network
@@ -127,6 +129,11 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "web_archive_age": 120,
         "web_control": False,
         # "web_password": "none",  # Commented out to ensure warning message is shown
+        # Off by default: gates the React UI's Settings page. Setting it to
+        # True opts in to editing non-credential station.cfg fields from the
+        # web (writes still also require web_control + web_password).
+        # Credentials and command paths are always station.cfg-only.
+        "web_config_enabled": False,
         #'kml_refresh_rate': 10,
         # Advanced Parameters
         "search_step": 800,
@@ -636,7 +643,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["web_control"] = False
             auto_rx_config["web_password"] = "none"
-        
+
+        # Opt-in flag for editing config from the web UI. Defaults off so
+        # the Settings page stays hidden on default deployments.
+        try:
+            auto_rx_config["web_config_enabled"] = config.getboolean(
+                "web", "web_config_enabled"
+            )
+        except:
+            auto_rx_config["web_config_enabled"] = False
+
+
         try:
             auto_rx_config["save_raw_hex"] = config.getboolean(
                 "debugging", "save_raw_hex"
@@ -952,6 +969,19 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         else:
             # Create a global copy of the configuration file at this point
             global_config = copy.deepcopy(auto_rx_config)
+
+            # Excise sensitive parameters from the global config — /get_config
+            # returns this dict, and many auto_rx instances are exposed to the
+            # public web. Credentials and PII never leave the box over HTTP.
+            global_config.pop("email_smtp_login")
+            global_config.pop("email_smtp_password")
+            global_config.pop("email_smtp_server")
+            global_config.pop("email_smtp_port")
+            global_config.pop("email_from")
+            global_config.pop("email_to")
+            global_config.pop("email_smtp_authentication")
+            global_config.pop("sondehub_contact_email")
+            global_config.pop("web_password")
 
             web_password = auto_rx_config["web_password"]
 

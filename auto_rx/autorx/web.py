@@ -459,6 +459,10 @@ def flask_save_config():
 
     if not autorx.config.global_config.get("web_control"):
         abort(403)
+    # Opt-in: editing config from the web is off by default. Operators who
+    # want it set web_config_enabled = True in station.cfg [web].
+    if not autorx.config.global_config.get("web_config_enabled"):
+        abort(403)
 
     try:
         body = request.get_json(force=True) or {}

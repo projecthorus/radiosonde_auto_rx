@@ -28,7 +28,7 @@ const DEFAULTS: Cfg = {
   station_lat: 0, station_lon: 0, station_alt: 0,
   gpsd_enabled: false, gpsd_host: "localhost", gpsd_port: 2947,
   habitat_uploader_callsign: "CHANGEME", habitat_uploader_antenna: "1/4 wave monopole", habitat_upload_listener_position: true,
-  sondehub_enabled: true, sondehub_upload_rate: 15, sondehub_contact_email: "none@none.com",
+  sondehub_enabled: true, sondehub_upload_rate: 15,
   aprs_enabled: false, aprs_upload_rate: 30, aprs_user: "N0CALL", aprs_pass: "00000",
   aprs_server: "radiosondy.info", aprs_port: 14580, aprs_object_id: "<id>",
   aprs_use_custom_object_id: false,
@@ -38,9 +38,7 @@ const DEFAULTS: Cfg = {
   station_beacon_comment: "radiosonde_auto_rx SondeGate v<version>", station_beacon_icon: "/`",
   payload_summary_enabled: true, payload_summary_host: "<broadcast>", payload_summary_port: 55673,
   ozi_enabled: false, ozi_update_rate: 5, ozi_host: "<broadcast>", ozi_port: 8942,
-  email_enabled: false, email_smtp_server: "localhost", email_smtp_port: 25,
-  email_smtp_authentication: "None", email_smtp_login: "", email_smtp_password: "",
-  email_from: "sonde@localhost", email_to: "",
+  email_enabled: false,
   email_subject: "<type> Sonde launch detected on <freq>: <id>",
   email_nearby_landing_subject: "Nearby Radiosonde Landing Detected - <id>",
   email_launch_notifications: true, email_landing_notifications: true,
@@ -51,7 +49,7 @@ const DEFAULTS: Cfg = {
   rotator_homing_enabled: false, rotator_homing_delay: 10,
   rotator_home_azimuth: 0, rotator_home_elevation: 0, rotator_azimuth_only: false,
   per_sonde_log: true, save_system_log: false, enable_debug_logging: false, save_cal_data: false,
-  web_host: "0.0.0.0", web_port: 5000, web_control: false, web_password: "none",
+  web_host: "0.0.0.0", web_port: 5000, web_control: false,
   web_archive_age: 120, kml_refresh_rate: 10,
   save_detection_audio: false, save_decode_audio: false, save_decode_iq: false, save_raw_hex: false,
   max_altitude: 50000, max_radius_km: 1000, min_radius_km: 0, radius_temporary_block: false,
@@ -66,19 +64,17 @@ const DEFAULTS: Cfg = {
   imet54_experimental: true, meisei_experimental: true, mrz_experimental: false,
   lms6_1680_experimental: false,
   ngp_tweak: false, wideband_sondes: false, close_on_encrypted: true,
-  sdr_fm_path: "rtl_fm", sdr_power_path: "rtl_power",
-  ss_iq_path: "./ss_iq", ss_power_path: "./ss_power",
 };
 
 const TAB_KEYS: Record<string, string[]> = {
   station: ["habitat_uploader_callsign", "habitat_uploader_antenna", "habitat_upload_listener_position", "station_lat", "station_lon", "station_alt", "gpsd_enabled", "gpsd_host", "gpsd_port"],
-  sdr: ["sdr_type", "sdr_quantity", "sdr_hostname", "sdr_port", "sdr_fm_path", "sdr_power_path", "ss_iq_path", "ss_power_path"],
+  sdr: ["sdr_type", "sdr_quantity", "sdr_hostname", "sdr_port"],
   freq: ["min_freq", "max_freq", "rx_timeout", "only_scan", "never_scan", "always_scan", "always_decode"],
-  uploaders: ["sondehub_enabled", "sondehub_upload_rate", "sondehub_contact_email", "aprs_enabled", "aprs_upload_rate", "aprs_user", "aprs_pass", "aprs_server", "aprs_port", "aprs_object_id", "aprs_use_custom_object_id", "aprs_custom_comment", "aprs_position_report", "station_beacon_enabled", "station_beacon_rate", "station_beacon_comment", "station_beacon_icon", "payload_summary_enabled", "payload_summary_host", "payload_summary_port", "ozi_enabled", "ozi_update_rate", "ozi_host", "ozi_port"],
-  notify: ["email_enabled", "email_smtp_server", "email_smtp_port", "email_smtp_authentication", "email_smtp_login", "email_smtp_password", "email_from", "email_to", "email_subject", "email_nearby_landing_subject", "email_launch_notifications", "email_landing_notifications", "email_encrypted_sonde_notifications", "email_error_notifications", "email_landing_range_threshold", "email_landing_altitude_threshold"],
+  uploaders: ["sondehub_enabled", "sondehub_upload_rate", "aprs_enabled", "aprs_upload_rate", "aprs_user", "aprs_pass", "aprs_server", "aprs_port", "aprs_object_id", "aprs_use_custom_object_id", "aprs_custom_comment", "aprs_position_report", "station_beacon_enabled", "station_beacon_rate", "station_beacon_comment", "station_beacon_icon", "payload_summary_enabled", "payload_summary_host", "payload_summary_port", "ozi_enabled", "ozi_update_rate", "ozi_host", "ozi_port"],
+  notify: ["email_enabled", "email_subject", "email_nearby_landing_subject", "email_launch_notifications", "email_landing_notifications", "email_encrypted_sonde_notifications", "email_error_notifications", "email_landing_range_threshold", "email_landing_altitude_threshold"],
   rotator: ["rotator_enabled", "rotator_hostname", "rotator_port", "rotator_update_rate", "rotation_threshold", "rotator_homing_enabled", "rotator_homing_delay", "rotator_home_azimuth", "rotator_home_elevation", "rotator_azimuth_only"],
   filter: ["max_altitude", "max_radius_km", "min_radius_km", "radius_temporary_block", "enable_realtime_filter", "max_velocity", "sonde_time_threshold"],
-  advanced: ["search_step", "snr_threshold", "min_distance", "max_peaks", "scan_dwell_time", "detect_dwell_time", "scan_delay", "quantization", "decoder_spacing_limit", "synchronous_upload", "payload_id_valid", "temporary_block_time", "max_async_scan_workers", "imet54_experimental", "meisei_experimental", "mrz_experimental", "lms6_1680_experimental", "ngp_tweak", "wideband_sondes", "close_on_encrypted", "save_detection_audio", "save_decode_audio", "save_decode_iq", "save_raw_hex", "per_sonde_log", "save_system_log", "enable_debug_logging", "save_cal_data", "web_host", "web_port", "web_control", "web_password", "web_archive_age", "kml_refresh_rate"],
+  advanced: ["search_step", "snr_threshold", "min_distance", "max_peaks", "scan_dwell_time", "detect_dwell_time", "scan_delay", "quantization", "decoder_spacing_limit", "synchronous_upload", "payload_id_valid", "temporary_block_time", "max_async_scan_workers", "imet54_experimental", "meisei_experimental", "mrz_experimental", "lms6_1680_experimental", "ngp_tweak", "wideband_sondes", "close_on_encrypted", "save_detection_audio", "save_decode_audio", "save_decode_iq", "save_raw_hex", "per_sonde_log", "save_system_log", "enable_debug_logging", "save_cal_data", "web_host", "web_port", "web_control", "web_archive_age", "kml_refresh_rate"],
 };
 
 /** Strip CR/LF/other control chars from every string value in the cfg payload.
@@ -204,12 +200,8 @@ export function Config() {
     if (cfg.payload_summary_enabled && !port(cfg.payload_summary_port)) e.payload_summary_port = "1 to 65535";
 
     // --- Notifications ---------------------------------------------------------
-    if (cfg.email_enabled) {
-      if (!cfg.email_to) e.email_to = "Recipient required";
-      // SMTP port is stored as a string in station.cfg historically; accept numeric coerce.
-      const smtpPort = parseInt(String(cfg.email_smtp_port), 10);
-      if (!port(smtpPort)) e.email_smtp_port = "1 to 65535";
-    }
+    // SMTP server / port / from / to / login / password live in station.cfg
+    // only — no validation here.
 
     // --- Rotator ---------------------------------------------------------------
     if (cfg.rotator_enabled) {
@@ -236,7 +228,7 @@ export function Config() {
     if (cfg.gpsd_enabled && !port(cfg.gpsd_port)) e.gpsd_port = "1 to 65535";
 
     // --- Web -------------------------------------------------------------------
-    if (cfg.web_control && (!cfg.web_password || cfg.web_password === "none")) e.web_password = "Set a password";
+    // web_password lives in station.cfg only — not editable from this UI.
     if (!port(cfg.web_port)) e.web_port = "1 to 65535";
     if (!nonNeg(cfg.web_archive_age)) e.web_archive_age = "Must be ≥ 0";
     if (!nonNeg(cfg.kml_refresh_rate) || cfg.kml_refresh_rate < 1) e.kml_refresh_rate = "≥ 1s";
@@ -296,6 +288,20 @@ export function Config() {
   const rmFreq = (k: string, i: number) => { setCfg(c => { const arr = [...(c[k] || [])]; arr.splice(i, 1); return { ...c, [k]: arr }; }); };
 
   if (loading) return <div className="text-xs text-muted-foreground p-8 text-center">Loading configuration…</div>;
+
+  // Settings is opt-in. If the operator hasn't set web_config_enabled = True
+  // in station.cfg, the page refuses to render even if the URL is typed
+  // directly. (The nav link is already hidden by AppShell in that case.)
+  if (!original.web_config_enabled) {
+    return (
+      <div className="text-xs text-muted-foreground p-8 text-center max-w-md mx-auto leading-relaxed">
+        Web-based configuration is disabled on this station.<br />
+        To enable, add <code className="mono">web_config_enabled = True</code>{" "}
+        under <code className="mono">[web]</code> in{" "}
+        <code className="mono">station.cfg</code> and restart auto_rx.
+      </div>
+    );
+  }
 
   return (
     // Gate on the *original* (server-side) value, not the in-progress edit.
@@ -476,14 +482,15 @@ export function Config() {
             </SubPanel>
 
             <SubPanel title="Decoder binary paths">
-              <FieldGrid cols={2}>
-                <Field label="rtl_fm path" htmlFor="rfm" tip="Path to the rtl_fm binary (default 'rtl_fm' assumes $PATH).">
-                  <Input id="rfm" className="mono" value={cfg.sdr_fm_path} onChange={e => set("sdr_fm_path", e.target.value)} />
-                </Field>
-                <Field label="rtl_power path" htmlFor="rpw" tip="Path to the rtl_power binary used for spectrum scanning."><Input id="rpw" className="mono" value={cfg.sdr_power_path} onChange={e => set("sdr_power_path", e.target.value)} /></Field>
-                <Field label="SpyServer iq path" tip="Path to ss_iq (SpyServer client for IQ streaming). Only used when SDR backend = SpyServer."><Input className="mono" value={cfg.ss_iq_path} onChange={e => set("ss_iq_path", e.target.value)} /></Field>
-                <Field label="SpyServer power path" tip="Path to ss_power (SpyServer client for power scans)."><Input className="mono" value={cfg.ss_power_path} onChange={e => set("ss_power_path", e.target.value)} /></Field>
-              </FieldGrid>
+              <p className="text-[11px] text-muted-foreground">
+                <code className="mono">sdr_fm_path</code>,{" "}
+                <code className="mono">sdr_power_path</code>,{" "}
+                <code className="mono">ss_iq_path</code>, and{" "}
+                <code className="mono">ss_power_path</code> live in
+                <code className="mono">station.cfg</code> under
+                <code className="mono">[advanced]</code> — they're not editable
+                from this UI for security (these are exec'd on every scan).
+              </p>
             </SubPanel>
           </Section>
         </TabsContent>
@@ -546,9 +553,6 @@ export function Config() {
                 <Field label="Enable" tip="Upload decoded telemetry to tracker.sondehub.org. Strongly recommended — it's free and how everyone tracks sondes."><span className="flex items-center gap-2 h-7"><Switch checked={cfg.sondehub_enabled} onCheckedChange={v => set("sondehub_enabled", v)} /><span className="text-xs">{cfg.sondehub_enabled ? "On" : "Off"}</span></span></Field>
                 <Field label="Upload rate (s)" error={errors.sondehub_upload_rate} tip="Batch upload interval. Minimum 10 seconds.">
                   <Input type="number" min={10} className="mono" value={cfg.sondehub_upload_rate} onChange={e => set("sondehub_upload_rate", parseInt(e.target.value) || 0)} disabled={!cfg.sondehub_enabled} />
-                </Field>
-                <Field label="Contact e-mail" tip="Only visible to SondeHub admins. Used if there's an issue with your station.">
-                  <Input type="email" className="mono" value={cfg.sondehub_contact_email} onChange={e => set("sondehub_contact_email", e.target.value)} disabled={!cfg.sondehub_enabled} />
                 </Field>
               </FieldGrid>
             </SubPanel>
@@ -620,24 +624,14 @@ export function Config() {
         <TabsContent value="notify">
           <Section title="E-mail notifications" description="Alerts for launches, landings, and errors.">
             <SubPanel title="E-mail" badge={<Badge variant={cfg.email_enabled ? "signal" : "ghost"} className="ml-auto">{cfg.email_enabled ? "Enabled" : "Off"}</Badge>}>
-              <FieldGrid cols={2}>
+              <FieldGrid cols={1}>
                 <Field label="Enable" tip="Send e-mail alerts for events like new sonde detected or nearby landing."><span className="flex items-center gap-2 h-7"><Switch checked={cfg.email_enabled} onCheckedChange={v => set("email_enabled", v)} /><span className="text-xs">{cfg.email_enabled ? "On" : "Off"}</span></span></Field>
-                <Field label="Recipients" span="full" error={errors.email_to} tip="Semicolon-separated list of e-mail addresses."><Input className="mono" placeholder="alice@example.com; bob@example.com" value={cfg.email_to} onChange={e => set("email_to", e.target.value)} disabled={!cfg.email_enabled} /></Field>
-                <Field label="From address" tip="The 'From:' header on outgoing alerts. Some SMTP servers require this match the login user."><Input className="mono" value={cfg.email_from} onChange={e => set("email_from", e.target.value)} disabled={!cfg.email_enabled} /></Field>
-                <Field label="SMTP server" tip="Outgoing mail server hostname, e.g. smtp.gmail.com or your ISP's relay."><Input className="mono" value={cfg.email_smtp_server} onChange={e => set("email_smtp_server", e.target.value)} disabled={!cfg.email_enabled} /></Field>
-                <Field label="SMTP port" tip="25 (plain), 465 (SSL), or 587 (STARTTLS). Most modern providers use 587."><Input type="number" className="mono" value={cfg.email_smtp_port} onChange={e => set("email_smtp_port", parseInt(e.target.value) || 0)} disabled={!cfg.email_enabled} /></Field>
-                <Field label="SMTP auth" tip="None for open relays; TLS for STARTTLS (port 587); SSL for implicit SSL (port 465).">
-                  <Select value={cfg.email_smtp_authentication} onValueChange={v => set("email_smtp_authentication", v)} disabled={!cfg.email_enabled}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{["None", "TLS", "SSL"].map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-                  </Select>
-                </Field>
-                {cfg.email_smtp_authentication !== "None" && (
-                  <>
-                    <Field label="SMTP login" tip="Username for SMTP auth. Typically your full email address."><Input className="mono" value={cfg.email_smtp_login} onChange={e => set("email_smtp_login", e.target.value)} disabled={!cfg.email_enabled} /></Field>
-                    <Field label="SMTP password" tip="Password or app-password for SMTP. For Gmail / similar use an app password, not your account password."><Input type="password" className="mono" value={cfg.email_smtp_password} onChange={e => set("email_smtp_password", e.target.value)} disabled={!cfg.email_enabled} /></Field>
-                  </>
-                )}
+                <p className="text-[11px] text-muted-foreground">
+                  SMTP server, port, authentication, login, password, from, and
+                  recipients live in <code className="mono">station.cfg</code>
+                  under <code className="mono">[email]</code> — they're not
+                  editable from this UI for security.
+                </p>
               </FieldGrid>
             </SubPanel>
 
@@ -758,7 +752,12 @@ export function Config() {
                   </span>
                 </Field>
                 {cfg.web_control && (
-                  <Field label="Password" error={errors.web_password} tip="Required for any privileged action (save config, start/stop decoders, rescan, rotator). Use anything except the literal 'none'."><Input type="password" className="mono" value={cfg.web_password} onChange={e => set("web_password", e.target.value)} /></Field>
+                  <p className="text-[11px] text-muted-foreground col-span-full">
+                    Set <code className="mono">web_password</code> in
+                    <code className="mono">station.cfg</code> under
+                    <code className="mono">[web]</code> — not editable from
+                    this UI for security.
+                  </p>
                 )}
               </FieldGrid>
             </SubPanel>

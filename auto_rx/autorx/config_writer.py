@@ -41,10 +41,10 @@ KEYS: KeyMap = {
     "sdr_quantity":               ("sdr", "sdr_quantity", "int", True),
     "sdr_hostname":               ("sdr", "sdr_hostname", "str", True),
     "sdr_port":                   ("sdr", "sdr_port", "int", True),
-    "sdr_fm_path":                ("advanced", "sdr_fm_path", "str", True),
-    "sdr_power_path":             ("advanced", "sdr_power_path", "str", True),
-    "ss_iq_path":                 ("advanced", "ss_iq_path", "str", True),
-    "ss_power_path":              ("advanced", "ss_power_path", "str", True),
+    # Command paths (sdr_fm_path / sdr_power_path / ss_iq_path / ss_power_path)
+    # are intentionally not writable from the web — they're exec'd on every
+    # scan, so a web-editable path is a direct remote command injection vector
+    # if the operator's web_password is weak. Edit station.cfg directly.
 
     # Search parameters / frequencies
     "min_freq":                   ("search_params", "min_freq", "float", True),
@@ -63,7 +63,8 @@ KEYS: KeyMap = {
     # Sondehub
     "sondehub_enabled":           ("sondehub", "sondehub_enabled", "bool", True),
     "sondehub_upload_rate":       ("sondehub", "sondehub_upload_rate", "int", True),
-    "sondehub_contact_email":     ("sondehub", "sondehub_contact_email", "str", True),
+    # sondehub_contact_email is intentionally not writable from the web —
+    # PII; edit station.cfg directly.
 
     # APRS
     "aprs_enabled":               ("aprs", "aprs_enabled", "bool", True),
@@ -92,13 +93,8 @@ KEYS: KeyMap = {
 
     # Email
     "email_enabled":              ("email", "email_enabled", "bool", True),
-    "email_smtp_server":          ("email", "smtp_server", "str", True),
-    "email_smtp_port":            ("email", "smtp_port", "str", True),
-    "email_smtp_authentication":  ("email", "smtp_authentication", "str", True),
-    "email_smtp_login":           ("email", "smtp_login", "str", True),
-    "email_smtp_password":        ("email", "smtp_password", "str", True),
-    "email_from":                 ("email", "from", "str", True),
-    "email_to":                   ("email", "to", "str", True),
+    # SMTP server/port/auth/login/password and from/to are intentionally
+    # not writable from the web — credentials + PII; edit station.cfg.
     "email_subject":              ("email", "subject", "str", True),
     "email_nearby_landing_subject": ("email", "nearby_landing_subject", "str", True),
     "email_error_notifications":  ("email", "error_notifications", "bool", True),
@@ -133,7 +129,9 @@ KEYS: KeyMap = {
     "web_port":                   ("web", "web_port", "int", True),
     "web_archive_age":            ("web", "archive_age", "int", True),
     "web_control":                ("web", "web_control", "bool", True),
-    "web_password":               ("web", "web_password", "str", True),
+    # web_password is intentionally not writable from the web — credential;
+    # edit station.cfg directly. (A weak password + writable rtl_fm path
+    # would otherwise be a remote command injection vector.)
     "kml_refresh_rate":           ("web", "kml_refresh_rate", "int", True),
 
     # Debugging / logging

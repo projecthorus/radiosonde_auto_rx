@@ -154,17 +154,23 @@ function ThemeToggle() {
 export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Fetch the station callsign from auto_rx config. Falls back to "STATION"
-  // when unset or still at the default "CHANGEME" placeholder.
+  // when unset or still at the default "CHANGEME" placeholder. Also reads
+  // web_config_enabled — the Settings page only renders when the operator
+  // has opted in via station.cfg.
   const [callsign, setCallsign] = useState<string>(stationCallsign || "STATION");
+  const [configEnabled, setConfigEnabled] = useState(false);
   useEffect(() => {
-    if (stationCallsign) return; // honor explicit prop
     apiGet<any>("/get_config")
       .then(cfg => {
-        const c = (cfg?.habitat_uploader_callsign || "").trim();
-        if (c && c !== "CHANGEME") setCallsign(c);
+        if (!stationCallsign) {
+          const c = (cfg?.habitat_uploader_callsign || "").trim();
+          if (c && c !== "CHANGEME") setCallsign(c);
+        }
+        setConfigEnabled(!!cfg?.web_config_enabled);
       })
       .catch(() => {});
   }, [stationCallsign]);
+  const visibleNav = NAV.filter(n => n.to !== "/config" || configEnabled);
 
   return (
     <div className="min-h-full flex flex-col">
@@ -188,7 +194,7 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
 
           {/* Primary nav */}
           <nav className="hidden md:flex items-center gap-px ml-3" aria-label="Primary">
-            {NAV.map(({ to, label, icon: Icon, exact }) => (
+            {visibleNav.map(({ to, label, icon: Icon, exact }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -228,7 +234,7 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
         {drawerOpen && (
           <nav className="md:hidden border-t border-border bg-background relative z-[900]">
             <div className="flex flex-col p-2 gap-px">
-              {NAV.map(({ to, label, icon: Icon, exact }) => (
+              {visibleNav.map(({ to, label, icon: Icon, exact }) => (
                 <NavLink
                   key={to}
                   to={to}
