@@ -166,34 +166,29 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
   // when unset or still at the default "CHANGEME" placeholder. Also reads
   // web_config_enabled — the Settings page only renders when the operator
   // has opted in via station.cfg.
-  // Seed callsign + config-enabled from localStorage so the nav and the
-  // station chip render with their real values immediately on navigation,
-  // instead of flickering "STATION" / hidden-then-shown while /get_config
-  // is in flight.
+  // Seed callsign from localStorage so the station chip renders with the
+  // real value immediately on navigation, instead of flickering "STATION"
+  // while /get_config is in flight.
   const [callsign, setCallsign] = useState<string>(() => {
     if (stationCallsign) return stationCallsign;
     try { return localStorage.getItem("obs.callsign") || "STATION"; } catch { return "STATION"; }
   });
-  const [configEnabled, setConfigEnabled] = useState<boolean>(() => {
-    try { return localStorage.getItem("obs.configEnabled") === "1"; } catch { return false; }
-  });
   useEffect(() => {
+    if (stationCallsign) return;
     apiGet<any>("/get_config")
       .then(cfg => {
-        if (!stationCallsign) {
-          const c = (cfg?.habitat_uploader_callsign || "").trim();
-          if (c && c !== "CHANGEME") {
-            setCallsign(c);
-            try { localStorage.setItem("obs.callsign", c); } catch {}
-          }
+        const c = (cfg?.habitat_uploader_callsign || "").trim();
+        if (c && c !== "CHANGEME") {
+          setCallsign(c);
+          try { localStorage.setItem("obs.callsign", c); } catch {}
         }
-        const ce = !!cfg?.web_config_enabled;
-        setConfigEnabled(ce);
-        try { localStorage.setItem("obs.configEnabled", ce ? "1" : "0"); } catch {}
       })
       .catch(() => {});
   }, [stationCallsign]);
-  const visibleNav = NAV.filter(n => n.to !== "/config" || configEnabled);
+  // Settings link is always visible — when web_config_enabled is off, the
+  // /config page still renders the "View" tab (browser-side prefs like theme,
+  // units, marker style). Editing station.cfg is what's gated.
+  const visibleNav = NAV;
 
   // Clicking the nav item for the page you're already on does nothing by
   // default (react-router sees no path change). Treat a same-page click as

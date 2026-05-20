@@ -3,7 +3,7 @@ import L, { type LayerGroup, type Map as LMap, type Marker, type Polyline, type 
 import type { SondeTelemetry } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { LocateFixed, MapPin, Maximize2, Minimize2, ChevronDown, ChevronRight } from "lucide-react";
+import { LocateFixed, MapPin, Maximize2, Minimize2, ChevronDown, ChevronRight, Frame } from "lucide-react";
 import { fmtAlt, fmtFreq, fmtTime, usePrefs, setPrefs, effectiveTheme } from "@/lib/units";
 import { enableTwoFingerPan } from "@/lib/mapGestures";
 import { toast } from "sonner";
@@ -142,9 +142,13 @@ interface Props {
   className?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** Called when the user explicitly wants to stop following a sonde (e.g.
+   *  the "Fit all" button needs to release the live-follow lock so the map
+   *  doesn't immediately recenter on the followed sonde's next telemetry). */
+  onClearFollow?: () => void;
 }
 
-export function SondeMap({ sondes, station, follow, highlight, className, collapsed, onToggleCollapse }: Props) {
+export function SondeMap({ sondes, station, follow, highlight, className, collapsed, onToggleCollapse, onClearFollow }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LMap | null>(null);
   const tileRef = useRef<TileLayer | null>(null);
@@ -427,6 +431,27 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
     m.setView([station.lat, station.lon], 7, { animate: true });
   };
 
+  const fitAll = () => {
+    const m = mapRef.current;
+    if (!m) return;
+    // Drop any active follow first — otherwise the next telemetry tick would
+    // immediately recenter on the followed sonde and undo the fit.
+    onClearFollow?.();
+    const pts: [number, number][] = [];
+    for (const s of Object.values(sondes)) {
+      if (typeof s.lat === "number" && typeof s.lon === "number") pts.push([s.lat, s.lon]);
+      const path = (s as any).path as [number, number][] | undefined;
+      if (Array.isArray(path)) {
+        for (const p of path) {
+          if (Array.isArray(p) && p[0] != null && p[1] != null) pts.push([p[0], p[1]]);
+        }
+      }
+    }
+    if (station) pts.push([station.lat, station.lon]);
+    if (pts.length === 0) { toast.info("No sondes to fit yet."); return; }
+    m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 12, animate: true });
+  };
+
   // List of choosable tile names — "Auto" leads, then the explicit providers.
   const tileNames = useMemo(() => [AUTO_TILE, ...Object.keys(TILES)], []);
 
@@ -457,6 +482,7 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
             </Select>
           </div>
           <Button size="icon-sm" variant="ghost" onClick={recenterStation} title="Center on station"><LocateFixed className="w-3.5 h-3.5" /></Button>
+          <Button size="icon-sm" variant="ghost" onClick={fitAll} title="Fit all sondes and tracks (stops following)"><Frame className="w-3.5 h-3.5" /></Button>
           <Button size="icon-sm" variant="ghost" onClick={toggleFullscreen} title={fullscreen ? "Exit fullscreen (M)" : "Fullscreen (M)"}>
             {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </Button>

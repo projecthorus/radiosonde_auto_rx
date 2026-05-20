@@ -289,16 +289,31 @@ export function Config() {
 
   if (loading) return <div className="text-xs text-muted-foreground p-8 text-center">Loading configuration…</div>;
 
-  // Settings is opt-in. If the operator hasn't set web_config_enabled = True
-  // in station.cfg, the page refuses to render even if the URL is typed
-  // directly. (The nav link is already hidden by AppShell in that case.)
+  // When the operator hasn't opted in to web config editing, only the "View"
+  // tab is rendered. View prefs (theme, units, marker style, etc.) are
+  // browser-side localStorage and have no security implications, so they
+  // remain accessible regardless of the station-side flag.
   if (!original.web_config_enabled) {
     return (
-      <div className="text-xs text-muted-foreground p-8 text-center max-w-md mx-auto leading-relaxed">
-        Web-based configuration is disabled on this station.<br />
-        To enable, add <code className="mono">web_config_enabled = True</code>{" "}
-        under <code className="mono">[web]</code> in{" "}
-        <code className="mono">station.cfg</code> and restart auto_rx.
+      <div className="space-y-3">
+        <Tabs value="view" onValueChange={() => {}}>
+          <TabsList className="flex-wrap h-auto overflow-x-auto whitespace-nowrap w-full sm:w-auto">
+            <TabsTrigger value="view" className="gap-1.5">
+              <Eye className="w-3.5 h-3.5" strokeWidth={1.75} /> View
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="view">
+            <ViewPrefsPanel />
+            <p className="text-[11px] text-muted-foreground mt-4 max-w-md leading-relaxed">
+              Other configuration tabs are hidden because web-based editing of{" "}
+              <code className="mono">station.cfg</code> is disabled on this
+              station. To enable, add{" "}
+              <code className="mono">web_config_enabled = True</code> under{" "}
+              <code className="mono">[web]</code> in{" "}
+              <code className="mono">station.cfg</code> and restart auto_rx.
+            </p>
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }

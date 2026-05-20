@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Joystick, Lock, Power, Compass, Home as HomeIcon, Trash2, Ban } from "lucide-react";
+import { Joystick, Lock, Power, Compass, Home as HomeIcon, Trash2, Ban, Loader2 } from "lucide-react";
 import { apiPostForm } from "@/lib/api";
 import { auth, useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -34,6 +34,25 @@ export function ControlsDialog({ rotatorEnabled, scannerActive, tasks, onAfter }
   const decoders = Object.entries(tasks || {})
     .filter(([, t]) => t.task && t.task.indexOf("Decoding") === 0)
     .map(([sdrId, t]) => ({ sdrId, freq: t.freq, type: t.type }));
+
+  // /start_decoder returns success the moment the request is accepted, but
+  // auto_rx needs a few seconds to allocate an SDR and bring up the rtl_fm
+  // chain. Without local state for that window, the "Running decoders" list
+  // sits empty and the user has no idea anything is happening. We track each
+  // start as a "pending" row, show it with a spinner, and clear it when the
+  // real task shows up (or after 30s in case start_decoder silently no-op'd).
+  const [pending, setPending] = useState<Array<{ freq: number; type: string; at: number }>>([]);
+  useEffect(() => {
+    if (pending.length === 0) return;
+    const now = Date.now();
+    setPending(p => p.filter(item => {
+      const isLive = decoders.some(d => d.freq === item.freq);
+      const tooOld = now - item.at > 30_000;
+      return !isLive && !tooOld;
+    }));
+    // Only depend on the task list — re-running the effect every time
+    // `pending` changes would loop.
+  }, [tasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const verify = async () => {
     const ok = await auth.verify(pw);
@@ -94,20 +113,35 @@ export function ControlsDialog({ rotatorEnabled, scannerActive, tasks, onAfter }
                     <SelectContent>{SONDE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <Button variant="primary" disabled={busy || !startFreq} onClick={() => run(
-                  `Started ${startFreq} MHz ${startType}`,
-                  () => apiPostForm("/start_decoder", { freq: Math.round(parseFloat(startFreq) * 1e6), type: startType, password: pwCurrent() })
-                )}><Power className="w-3 h-3" /> Start</Button>
+                <Button variant="primary" disabled={busy || !startFreq} onClick={() => {
+                  const freqHz = Math.round(parseFloat(startFreq) * 1e6);
+                  run(
+                    `Started ${startFreq} MHz ${startType}`,
+                    async () => {
+                      await apiPostForm("/start_decoder", { freq: freqHz, type: startType, password: pwCurrent() });
+                      // Add a pending row so the user sees immediate feedback.
+                      setPending(p => [...p.filter(x => x.freq !== freqHz), { freq: freqHz, type: startType, at: Date.now() }]);
+                    }
+                  );
+                }}><Power className="w-3 h-3" /> Start</Button>
               </div>
             </section>
 
             {/* Running decoders */}
             <section className="rounded-md border border-border p-3 bg-background/30">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Running decoders</div>
-              {decoders.length === 0 ? (
+              {decoders.length === 0 && pending.length === 0 ? (
                 <div className="text-xs text-muted-foreground italic py-1">No active decoders.</div>
               ) : (
                 <ul className="space-y-1.5">
+                  {pending.map(p => (
+                    <li key={`pending-${p.freq}`} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                      <span className="mono tabular-nums">{fmtFreq(p.freq)} MHz</span>
+                      <span className="mono text-[11px]">{p.type}</span>
+                      <span className="text-[11px] italic">starting…</span>
+                    </li>
+                  ))}
                   {decoders.map(d => (
                     <li key={d.sdrId} className="flex items-center gap-2 text-sm">
                       <span className="mono text-[11px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground">SDR {d.sdrId}</span>

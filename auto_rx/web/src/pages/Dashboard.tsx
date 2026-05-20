@@ -411,6 +411,7 @@ export function Dashboard() {
             follow={follow}
             highlight={highlight}
             className="flex-1"
+            onClearFollow={() => setFollow(null)}
           />
         </div>
         <div className={
