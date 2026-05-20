@@ -1024,8 +1024,10 @@ def flask_home_rotator():
 
 
 @socketio.on("client_connected", namespace="/update_status")
-def refresh_client(arg1):
-    """ A client has connected, let them know to grab data."""
+def refresh_client(*_args):
+    """ A client has connected, let them know to grab data.
+    Accepts and ignores any payload the client sends with the event
+    (some clients emit it bare, others pass a sid/ack)."""
     logging.info("Flask - New Web Client connected!")
     # Tell them to get a copy of the latest scan results.
     flask_emit_event("scan_event")
