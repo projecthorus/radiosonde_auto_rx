@@ -270,7 +270,7 @@ function renderCell(
       const la = lookAngles(station, { lat: s.lat, lon: s.lon, alt: s.alt });
       return la ? fmtDist(la.range_km) : "—";
     }
-    case "other": return <span className="text-muted-foreground/80 truncate inline-block max-w-[14rem]" title={buildOther(s)}>{buildOther(s) || "—"}</span>;
+    case "other": return <span className="text-muted-foreground/80 truncate inline-block align-middle max-w-[14rem]" title={buildOther(s)}>{buildOther(s) || "—"}</span>;
     case "time":  return <span className="text-muted-foreground/80">{fmtTime(s.datetime)}</span>;
     case "realid": return <span className="text-muted-foreground/80">{s.id}</span>;
   }
