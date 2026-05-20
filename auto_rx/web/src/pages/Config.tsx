@@ -296,24 +296,14 @@ export function Config() {
   if (!original.web_config_enabled) {
     return (
       <div className="space-y-3">
-        <Tabs value="view" onValueChange={() => {}}>
-          <TabsList className="flex-wrap h-auto overflow-x-auto whitespace-nowrap w-full sm:w-auto">
-            <TabsTrigger value="view" className="gap-1.5">
-              <Eye className="w-3.5 h-3.5" strokeWidth={1.75} /> View
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="view">
-            <ViewPrefsPanel />
-            <p className="text-[11px] text-muted-foreground mt-4 max-w-md leading-relaxed">
-              Other configuration tabs are hidden because web-based editing of{" "}
-              <code className="mono">station.cfg</code> is disabled on this
-              station. To enable, add{" "}
-              <code className="mono">web_config_enabled = True</code> under{" "}
-              <code className="mono">[web]</code> in{" "}
-              <code className="mono">station.cfg</code> and restart auto_rx.
-            </p>
-          </TabsContent>
-        </Tabs>
+        <ViewPrefsPanel />
+        <p className="text-[11px] text-muted-foreground mt-4 max-w-md leading-relaxed">
+          Editing <code className="mono">station.cfg</code> from the web is
+          disabled on this station. To enable, add{" "}
+          <code className="mono">web_config_enabled = True</code> under{" "}
+          <code className="mono">[web]</code> in{" "}
+          <code className="mono">station.cfg</code> and restart auto_rx.
+        </p>
       </div>
     );
   }
