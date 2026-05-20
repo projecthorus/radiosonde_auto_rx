@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Activity, History, BarChart3, Sliders, Sun, Moon, Menu, X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,11 @@ function UpdateBanner() {
 
 function VersionChip() {
   const prefs = usePrefs();
-  const [ver, setVer] = useState<string | null>(null);
+  // Seed from localStorage so the chip paints with the right value on the
+  // first render after navigation — avoids the "appears late" flicker.
+  const [ver, setVer] = useState<string | null>(() => {
+    try { return localStorage.getItem("obs.version"); } catch { return null; }
+  });
   useEffect(() => {
     if (!prefs.showVersion) return;
     apiGet<any>("/get_version")
@@ -114,7 +118,12 @@ function VersionChip() {
         if (r && typeof r === "object" && typeof r.current === "string") v = r.current;
         else if (typeof r === "string") v = r;
         if (!v || /[<>]/.test(v)) v = null; // guard against HTML fall-through
-        setVer(v ? v.trim() : null);
+        const next = v ? v.trim() : null;
+        setVer(next);
+        try {
+          if (next) localStorage.setItem("obs.version", next);
+          else localStorage.removeItem("obs.version");
+        } catch {}
       })
       .catch(() => {});
   }, [prefs.showVersion]);
@@ -157,20 +166,44 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
   // when unset or still at the default "CHANGEME" placeholder. Also reads
   // web_config_enabled — the Settings page only renders when the operator
   // has opted in via station.cfg.
-  const [callsign, setCallsign] = useState<string>(stationCallsign || "STATION");
-  const [configEnabled, setConfigEnabled] = useState(false);
+  // Seed callsign + config-enabled from localStorage so the nav and the
+  // station chip render with their real values immediately on navigation,
+  // instead of flickering "STATION" / hidden-then-shown while /get_config
+  // is in flight.
+  const [callsign, setCallsign] = useState<string>(() => {
+    if (stationCallsign) return stationCallsign;
+    try { return localStorage.getItem("obs.callsign") || "STATION"; } catch { return "STATION"; }
+  });
+  const [configEnabled, setConfigEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem("obs.configEnabled") === "1"; } catch { return false; }
+  });
   useEffect(() => {
     apiGet<any>("/get_config")
       .then(cfg => {
         if (!stationCallsign) {
           const c = (cfg?.habitat_uploader_callsign || "").trim();
-          if (c && c !== "CHANGEME") setCallsign(c);
+          if (c && c !== "CHANGEME") {
+            setCallsign(c);
+            try { localStorage.setItem("obs.callsign", c); } catch {}
+          }
         }
-        setConfigEnabled(!!cfg?.web_config_enabled);
+        const ce = !!cfg?.web_config_enabled;
+        setConfigEnabled(ce);
+        try { localStorage.setItem("obs.configEnabled", ce ? "1" : "0"); } catch {}
       })
       .catch(() => {});
   }, [stationCallsign]);
   const visibleNav = NAV.filter(n => n.to !== "/config" || configEnabled);
+
+  // Clicking the nav item for the page you're already on does nothing by
+  // default (react-router sees no path change). Treat a same-page click as
+  // "refresh" and force a full reload — matches what users expect when they
+  // re-click a tab.
+  const location = useLocation();
+  const reloadIfSame = (to: string, exact?: boolean) => (e: React.MouseEvent) => {
+    const same = exact ? location.pathname === to : location.pathname.startsWith(to);
+    if (same) { e.preventDefault(); window.location.reload(); }
+  };
 
   return (
     <div className="min-h-full flex flex-col">
@@ -199,6 +232,7 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
                 key={to}
                 to={to}
                 end={exact}
+                onClick={reloadIfSame(to, exact)}
                 className={({ isActive }) =>
                   cn(
                     "relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
@@ -239,7 +273,7 @@ export function AppShell({ stationCallsign }: { stationCallsign?: string }) {
                   key={to}
                   to={to}
                   end={exact}
-                  onClick={() => setDrawerOpen(false)}
+                  onClick={(e) => { setDrawerOpen(false); reloadIfSame(to, exact)(e); }}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent",
