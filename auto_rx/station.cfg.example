@@ -492,6 +492,13 @@ web_control = False
 # so don't re-use passwords!
 web_password = none
 
+# Allow editing station.cfg from the web interface's Settings tab.
+# When False (default), the Settings tab is hidden and the /save_config endpoint returns 403.
+# Even when True, sensitive fields (web_password, email credentials, sondehub contact email,
+# and SDR command paths) are never editable from the browser.
+# USERS ENABLE THIS AT THEIR OWN RISK!!
+web_config_enabled = False
+
 # KML refresh rate
 kml_refresh_rate = 10
 
