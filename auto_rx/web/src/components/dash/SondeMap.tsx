@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LocateFixed, MapPin, Maximize2, Minimize2, ChevronDown, ChevronRight, Frame } from "lucide-react";
 import { fmtAlt, fmtFreq, fmtTime, usePrefs, setPrefs, effectiveTheme } from "@/lib/units";
 import { enableTwoFingerPan } from "@/lib/mapGestures";
+import { escapeHtml } from "@/lib/utils";
 import { toast } from "sonner";
 
 import { TILES, AUTO_TILE, resolveTile } from "@/lib/tiles";
@@ -45,12 +46,6 @@ function balloonColorFor(id: string): BalloonColor {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   return BALLOON_COLORS[Math.abs(h) % BALLOON_COLORS.length];
-}
-
-function escapeHtml(s: string): string {
-  return String(s).replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
 }
 
 // Popup body for a sonde marker. Extracted so we can refresh the content
@@ -146,9 +141,12 @@ interface Props {
    *  the "Fit all" button needs to release the live-follow lock so the map
    *  doesn't immediately recenter on the followed sonde's next telemetry). */
   onClearFollow?: () => void;
+  /** Called when the user clicks a sonde marker on the map — parent
+   *  typically toggles follow on that id. */
+  onSelect?: (id: string) => void;
 }
 
-export function SondeMap({ sondes, station, follow, highlight, className, collapsed, onToggleCollapse, onClearFollow }: Props) {
+export function SondeMap({ sondes, station, follow, highlight, className, collapsed, onToggleCollapse, onClearFollow, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LMap | null>(null);
   const tileRef = useRef<TileLayer | null>(null);
@@ -164,10 +162,13 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
     firstMarker: Marker | null;
     /** Marker at the apex of the path, only placed once descent is confirmed. */
     burstMarker: Marker | null;
-    /** Index into path[] where the apex sits. Only meaningful after burst. */
-    burstIdx: number;
   }>>({});
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Marker click handlers capture onSelect at creation time; route through a
+  // ref so we always call the latest callback even though Dashboard passes a
+  // fresh arrow on every render.
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => { onSelectRef.current = onSelect; });
   const [fullscreen, setFullscreen] = useState(false);
   // Flips true once the async leaflet-plugin loader has finished and the
   // map is wired up. Effects that need the map (station centering, follow
@@ -196,7 +197,6 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Leaflet needs to recompute its tile grid whenever its container resizes.
@@ -280,7 +280,6 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
       didInitialCenter.current = true;
       m.setView([station.lat, station.lon], 7, { animate: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station, mapReady]);
 
   // Sonde markers
@@ -377,6 +376,7 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
       } else {
         const marker = L.marker(ll, { icon: sondeIcon(id, color, descending, prefs.markerStyle), riseOnHover: true })
           .bindPopup(buildPopupHtml(s, color));
+        marker.on("click", () => onSelectRef.current?.(id));
         marker.addTo(layer);
         const poly = L.polyline(path.map(p => [p[0], p[1]]) as any, { color, weight: 2, opacity: 0.85 }).addTo(layer);
         let los: Polyline | null = null;
@@ -387,7 +387,7 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
         // log positions, not at path[0] which may be mid-flight.
         markersRef.current[id] = {
           marker, path: poly, los, descending, style: prefs.markerStyle,
-          firstMarker: null, burstMarker: null, burstIdx: -1,
+          firstMarker: null, burstMarker: null,
         };
       }
     }
@@ -409,20 +409,6 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
       if (el) el.style.opacity = dim ? "0.3" : "1";
     }
   }, [highlight, sondes]);
-
-  // Follow
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m || !mapReady) return;
-    const target = follow ? sondes[follow] : null;
-    if (target && target.lat != null) {
-      // If the map is still at world view (because no station was set on
-      // mount), zoom in instead of just panning — otherwise the user sees
-      // a microscopic pin on a global map.
-      if (m.getZoom() <= 3) m.setView([target.lat, target.lon], 10, { animate: true });
-      else m.panTo([target.lat, target.lon], { animate: true });
-    }
-  }, [follow, sondes, mapReady]);
 
   const recenterStation = () => {
     const m = mapRef.current;
@@ -447,10 +433,37 @@ export function SondeMap({ sondes, station, follow, highlight, className, collap
         }
       }
     }
-    if (station) pts.push([station.lat, station.lon]);
+    // Intentionally NOT including the station — sondes are typically tens of
+    // km from the station and dragging the bounds out to include it pushes
+    // the zoom way back. "Center on station" is its own button.
     if (pts.length === 0) { toast.info("No sondes to fit yet."); return; }
-    m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 12, animate: true });
+    m.fitBounds(L.latLngBounds(pts), { padding: [16, 16], maxZoom: 13, animate: true });
   };
+
+  // Follow
+  const firstFollowRef = useRef(true);
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !mapReady) return;
+    const target = follow ? sondes[follow] : null;
+    if (target && target.lat != null) {
+      // First time we lock onto a target after mount, defer to fit-all so
+      // the user sees every active sonde at once — same behaviour as the
+      // toolbar button, no separate zoom logic to reason about. fitAll
+      // releases the follow lock, so subsequent telemetry (or a click on a
+      // sonde) will set a fresh follow target that just pans.
+      if (firstFollowRef.current) {
+        firstFollowRef.current = false;
+        fitAll();
+      } else {
+        m.panTo([target.lat, target.lon], { animate: true });
+      }
+    }
+    // `fitAll` closes over latest sondes/station via the render; including it
+    // in deps would re-run this effect every telemetry tick without behavioural
+    // change. fitAll is only called on the first follow-lock anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow, sondes, mapReady]);
 
   // List of choosable tile names — "Auto" leads, then the explicit providers.
   const tileNames = useMemo(() => [AUTO_TILE, ...Object.keys(TILES)], []);

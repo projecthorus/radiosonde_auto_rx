@@ -26,6 +26,28 @@ export function SkewTPanel({ open, serial, onOpenChange }: Props) {
   const [decim, setDecim] = useState(25);
   const [launchInfo, setLaunchInfo] = useState<string>("");
 
+  const fetchAndPlot = async () => {
+    if (!serial || !chartRef.current) return;
+    setLoading(true);
+    try {
+      // /get_log_detail returns JSON-as-text; apiPostForm gives us the body as a
+      // string and we parse it here (keeps the same wire format as the OG UI).
+      const raw = await apiPostForm("/get_log_detail", { serial, decimation: String(decim) });
+      const data = JSON.parse(raw);
+      chartRef.current.clear();
+      chartRef.current.plot(data.skewt || []);
+      const first = (data.skewt || [])[0];
+      if (first) {
+        setLaunchInfo(`${(data.skewt || []).length} pts · surface ${first.press?.toFixed?.(0) ?? "—"} hPa, ${fmtTemp(first.temp)}`);
+      } else {
+        setLaunchInfo("No atmospheric data");
+      }
+    } catch (e: any) {
+      toast.error("Skew-T fetch failed: " + (e.message || ""));
+    }
+    setLoading(false);
+  };
+
   // Build / rebuild the chart when the dialog opens.
   useEffect(() => {
     if (!open || !serial) return;
@@ -84,28 +106,6 @@ export function SkewTPanel({ open, serial, onOpenChange }: Props) {
     return () => { aborted = true; chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, serial]);
-
-  const fetchAndPlot = async () => {
-    if (!serial || !chartRef.current) return;
-    setLoading(true);
-    try {
-      // /get_log_detail returns JSON-as-text; apiPostForm gives us the body as a
-      // string and we parse it here (keeps the same wire format as the OG UI).
-      const raw = await apiPostForm("/get_log_detail", { serial, decimation: String(decim) });
-      const data = JSON.parse(raw);
-      chartRef.current.clear();
-      chartRef.current.plot(data.skewt || []);
-      const first = (data.skewt || [])[0];
-      if (first) {
-        setLaunchInfo(`${(data.skewt || []).length} pts · surface ${first.press?.toFixed?.(0) ?? "—"} hPa, ${fmtTemp(first.temp)}`);
-      } else {
-        setLaunchInfo("No atmospheric data");
-      }
-    } catch (e: any) {
-      toast.error("Skew-T fetch failed: " + (e.message || ""));
-    }
-    setLoading(false);
-  };
 
   const title = useMemo(() => serial ? `Skew-T · ${serial}` : "Skew-T", [serial]);
 

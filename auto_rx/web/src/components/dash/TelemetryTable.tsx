@@ -210,9 +210,9 @@ function renderCell(
           if (Math.abs(d.mhz - s.freq) <= 0.01) { sid = d.sdr; break; }
         }
       }
-      return sid ? <span className="text-muted-foreground/80">{sid}</span> : "—";
+      return sid ?? "—";
     }
-    case "age":   return <span className="text-muted-foreground/80">{fmtAge(s.ts)}</span>;
+    case "age":   return fmtAge(s.ts);
     case "id":    {
       // Strip the prefix (DFM/M10/etc.) for display, like the OG does
       const displayId = s.id.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/, "");
@@ -253,25 +253,25 @@ function renderCell(
     case "alt":   return fmtAlt(s.alt);
     case "vel_h": return fmtSpeed(s.vel_h);
     case "vel_v": return fmtSpeed(s.vel_v);
-    case "heading": return <span className="text-muted-foreground/80">{fmtBearing(s.heading)}</span>;
+    case "heading": return fmtBearing(s.heading);
     case "temp":  return fmtTemp(s.temp);
     case "humidity": return s.humidity != null ? `${Math.round(s.humidity)}%` : "—";
     case "pressure": return s.pressure != null ? s.pressure.toFixed(0) : "—";
     case "snr":   return s.snr != null ? s.snr.toFixed(1) : "—";
     case "az":    {
       const la = lookAngles(station, { lat: s.lat, lon: s.lon, alt: s.alt });
-      return la ? <span className="text-muted-foreground/80">{la.az.toFixed(0)}°</span> : "—";
+      return la ? `${la.az.toFixed(0)}°` : "—";
     }
     case "el":    {
       const la = lookAngles(station, { lat: s.lat, lon: s.lon, alt: s.alt });
-      return la ? <span className="text-muted-foreground/80">{la.el.toFixed(1)}°</span> : "—";
+      return la ? `${la.el.toFixed(1)}°` : "—";
     }
     case "range": {
       const la = lookAngles(station, { lat: s.lat, lon: s.lon, alt: s.alt });
       return la ? fmtDist(la.range_km) : "—";
     }
-    case "other": return <span className="text-muted-foreground/80 truncate inline-block align-middle max-w-[14rem]" title={buildOther(s)}>{buildOther(s) || "—"}</span>;
-    case "time":  return <span className="text-muted-foreground/80">{fmtTime(s.datetime)}</span>;
-    case "realid": return <span className="text-muted-foreground/80">{s.id}</span>;
+    case "other": return <span className="truncate inline-block align-middle max-w-[14rem]" title={buildOther(s)}>{buildOther(s) || "—"}</span>;
+    case "time":  return fmtTime(s.datetime);
+    case "realid": return s.id;
   }
 }

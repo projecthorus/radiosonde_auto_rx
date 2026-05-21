@@ -51,7 +51,6 @@ export function loadLeafletPlugins(): Promise<void> {
       await loadScript(edgeBufferUrl);
     } catch (e) {
       // Non-fatal: tiles still render, just with potential seams on pan.
-      // eslint-disable-next-line no-console
       console.warn("[leafletPlugins]", e);
     }
   })();

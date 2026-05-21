@@ -368,6 +368,9 @@ export function ScanChart({ data, onRefresh, collapsed, onToggleCollapse, scanLi
     });
     ro.observe(el);
     return () => { ro.disconnect(); plotRef.current?.destroy(); plotRef.current = null; };
+    // `classify` is intentionally a stable helper closure; including it would
+    // make the effect re-run on every render with no behavioural change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, scanList, decodingList, snrThreshold, themeKey]);
 
   // When un-collapsed, the chart was hidden so its width is back to whatever

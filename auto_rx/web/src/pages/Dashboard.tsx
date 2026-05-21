@@ -7,6 +7,7 @@ import { TelemetryTable } from "@/components/dash/TelemetryTable";
 import { ControlsDialog } from "@/components/dash/ControlsDialog";
 import { usePasswordPrompt } from "@/components/PasswordPrompt";
 import { apiGet, apiPostForm } from "@/lib/api";
+import { parseFreqMhz } from "@/lib/utils";
 import { useSocketConnected, useSocketEvent } from "@/lib/socket";
 import { useCollapse } from "@/lib/collapse";
 import type { LogEvent, ScanData, SondeTelemetry, TaskList } from "@/lib/types";
@@ -16,6 +17,11 @@ import { toast } from "sonner";
 const SONDE_COLORS = ["#6ee7a4", "#6ec1ff", "#f5b955", "#ff7e7e", "#c084fc", "#34d399", "#fbbf24", "#fb7185"];
 const EMPTY_SCAN: ScanData = { freq: [], power: [], peak_freq: [], peak_lvl: [], threshold: 10 };
 
+// Per-sonde path cap. A typical RS41 flight is ~1 Hz × 2-3 h ≈ 7-11k frames;
+// older 4000 cap was eating the historical backfill. 15000 covers a 4-hour
+// flight comfortably and costs ~240KB per sonde.
+const PATH_MAX = 15000;
+
 export function Dashboard() {
   const connected = useSocketConnected();
   const [tasks, setTasks] = useState<TaskList>({});
@@ -24,7 +30,7 @@ export function Dashboard() {
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
-  pausedRef.current = paused;
+  useEffect(() => { pausedRef.current = paused; });
   const colorIdx = useRef(0);
   // Tracks which sonde ids we've already tried to hydrate the historical
   // path for from the on-disk log file. Each id is attempted at most once
@@ -84,9 +90,10 @@ export function Dashboard() {
           // any pre-live history — just keep live but still attach metadata.
           if (bestIdx >= histPath.length - 1) return { ...prev, [id]: { ...cur, ...metadata } };
           const merged = [...histPath.slice(0, bestIdx), ...live];
-          const PATH_MAX = 4000;
-          const capped = merged.length > PATH_MAX ? merged.slice(merged.length - PATH_MAX) : merged;
-          return { ...prev, [id]: { ...cur, ...metadata, path: capped } };
+          // No truncation needed here — hist is decimated server-side and
+          // live is bounded by telemetry_event's PATH_MAX. The previous
+          // truncate-from-the-end logic was the bug that ate the backfill.
+          return { ...prev, [id]: { ...cur, ...metadata, path: merged } };
         });
       })
       .catch(() => { /* no log file yet — fine, live path stands alone */ });
@@ -94,10 +101,6 @@ export function Dashboard() {
   const [follow, setFollow] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   // Map, Spectrum, and SDR Tasks are always-open now (no minimize button).
-  // The toggleMap/toggleScan/toggleTasks setters are kept so the components
-  // still have signatures that compile, but we always pass `collapsed={false}`
-  // and don't wire a toggle.
-  const mapOpen = true;
   const [tableOpen, toggleTable] = useCollapse("table", true);
   const [logOpen, toggleLog] = useCollapse("log", true);
   const [config, setConfig] = useState<any>({});
@@ -126,17 +129,14 @@ export function Dashboard() {
           const a = arch[id];
           if (!a?.latest_telem) continue;
           const lt = a.latest_telem;
-          const fMhz =
-            typeof lt.freq === "string" ? parseFloat(lt.freq)
-            : typeof lt.freq_float === "number" && isFinite(lt.freq_float) ? lt.freq_float
-            : typeof lt.freq === "number" && isFinite(lt.freq) ? lt.freq
-            : NaN;
+          const fMhz = parseFreqMhz(lt);
           const ex = prev[id];
           const archivePath: [number, number][] = (a.path || []).map((p: any) => [p[0], p[1]]);
-          // Keep the existing path if it's already longer than archive (it
-          // probably has the log-hydrated early flight prepended). Otherwise
-          // adopt the archive — the very first pullSnapshots of a session.
-          const path = (ex?.path && ex.path.length > archivePath.length) ? ex.path : archivePath;
+          // Pick the longer of the two. With PATH_MAX raised to 15k, hydrated
+          // paths (hist + live) are never truncated, so length is a reliable
+          // signal that the existing path contains everything the archive
+          // does plus a backfilled prefix.
+          const path = (ex?.path && ex.path.length >= archivePath.length) ? ex.path : archivePath;
           const t: SondeTelemetry = {
             ...(ex || {}),
             ...lt,
@@ -164,22 +164,7 @@ export function Dashboard() {
   useSocketEvent<any>("telemetry_event", t => {
     if (!t || !t.id) return;
     let isFirst = false;
-    // Cap per-sonde path history. A flight at ~1 frame/s for 3 hours is ~11k
-    // points; keeping that fully resident plus re-rendering the polyline per
-    // event blows the heap in a multi-day session. 4000 covers the full ascent
-    // and descent of any sonde with detail to spare.
-    const PATH_MAX = 4000;
-    // Normalise frequency. Production live telemetry sends `freq` as a
-    // formatted string ("404.011 MHz") and a numeric `freq_float` (MHz).
-    // `freq_float` is rounded to 2 decimals server-side, so the *string*
-    // actually carries the full 3-decimal measured frequency. Parse the
-    // string first to keep that precision (matches the OG v1 UI behaviour);
-    // fall back to freq_float / numeric freq if no string is present.
-    const freqMhz =
-      typeof t.freq === "string" ? parseFloat(t.freq)
-      : typeof t.freq_float === "number" && isFinite(t.freq_float) ? t.freq_float
-      : typeof t.freq === "number" && isFinite(t.freq) ? t.freq
-      : NaN;
+    const freqMhz = parseFreqMhz(t);
     setSondes(prev => {
       const ex = prev[t.id];
       if (!ex && Object.keys(prev).length === 0) isFirst = true;
@@ -202,7 +187,7 @@ export function Dashboard() {
     // pre-existing path from the on-disk log so a session restart (or this
     // tab opening mid-flight) doesn't truncate the visible track. Runs at
     // most once per id per page load.
-    if (t.id) hydratePath(t.id);
+    hydratePath(t.id);
     // Auto-pan to the first sonde of the session.
     if (isFirst) setFollow(t.id);
   });
@@ -232,7 +217,7 @@ export function Dashboard() {
   // Read `sondes` through a ref so the interval isn't torn down/re-armed on
   // every telemetry event (which would prevent it from ever reaching 120s).
   const sondesRef = useRef(sondes);
-  sondesRef.current = sondes;
+  useEffect(() => { sondesRef.current = sondes; });
   useEffect(() => {
     if (!follow) return;
     const FOLLOW_TIMEOUT_S = 120;
@@ -391,20 +376,8 @@ export function Dashboard() {
         onToggleCollapse={toggleTable}
       />
 
-      {/* When the map is collapsed we drop the two-column grid entirely so
-          the (now header-height) map panel stacks above the side rail rather
-          than leaving an empty void next to it. */}
-      <div className={
-        mapOpen
-          ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)] gap-3 md:gap-4"
-          : "flex flex-col gap-3 md:gap-4"
-      }>
-        <div
-          className={
-            "rounded-md border border-border bg-card overflow-hidden flex flex-col" +
-            (mapOpen ? " h-[min(60vh,640px)] lg:h-[min(65vh,680px)]" : "")
-          }
-        >
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)] gap-3 md:gap-4">
+        <div className="rounded-md border border-border bg-card overflow-hidden flex flex-col h-[min(60vh,640px)] lg:h-[min(65vh,680px)]">
           <SondeMap
             sondes={sondes}
             station={station}
@@ -412,16 +385,13 @@ export function Dashboard() {
             highlight={highlight}
             className="flex-1"
             onClearFollow={() => setFollow(null)}
+            onSelect={(id) => setFollow(prev => prev === id ? null : id)}
           />
         </div>
-        <div className={
-          mapOpen
-            // Right column matches the map's height on lg+ so the two columns
-            // line up visually. The empty space lives inside the TaskStrip
-            // (its wrapper is flex-1) — the Spectrum keeps its natural height.
-            ? "flex flex-col gap-3 md:gap-4 min-h-0 lg:h-[min(65vh,680px)]"
-            : "flex flex-col gap-3 md:gap-4 min-h-0"
-        }>
+        {/* Right column matches the map's height on lg+ so the two columns
+            line up visually. The empty space lives inside the TaskStrip
+            (its wrapper is flex-1) — the Spectrum keeps its natural height. */}
+        <div className="flex flex-col gap-3 md:gap-4 min-h-0 lg:h-[min(65vh,680px)]">
           {/* TaskStrip lives in the side column at every breakpoint. On
               mobile (single-column grid) it appears under the map; on lg+ it
               stacks above the spectrum in the side column. TaskStrip itself

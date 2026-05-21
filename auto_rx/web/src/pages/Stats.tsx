@@ -468,6 +468,13 @@ export function Stats() {
   const [blocklist, setBlocklist] = useState<BlockEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  // Tick refresh so anything time-dependent (e.g. active-block count) updates
+  // predictably and doesn't read Date.now() during render.
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now() / 1000), 30_000);
+    return () => clearInterval(t);
+  }, []);
   const busyRef = useRef(false);
 
   const refresh = useCallback(async (silent = false) => {
@@ -488,7 +495,6 @@ export function Stats() {
     } catch (e: any) { if (!silent) toast.error(e.message || "Failed"); }
     busyRef.current = false;
     setBusy(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -516,7 +522,10 @@ export function Stats() {
     const da = prefs.utc ? date.getUTCDate() : date.getDate();
     return `${y}-${String(mo + 1).padStart(2, "0")}-${String(da).padStart(2, "0")}`;
   };
-  const blocksTemp = blocklist.filter(b => b.until && b.until > Date.now() / 1000).length;
+  const blocksTemp = useMemo(
+    () => blocklist.filter(b => b.until && b.until > now).length,
+    [blocklist, now]
+  );
   const blocksPerm = blocklist.filter(b => !b.until).length;
 
   return (

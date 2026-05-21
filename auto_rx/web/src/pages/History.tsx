@@ -14,7 +14,7 @@ import type { HistoricalSonde } from "@/lib/types";
 import { fmtAlt, fmtDateTime, fmtDist, lookAngles, usePrefs, setPrefs, effectiveTheme } from "@/lib/units";
 import { enableTwoFingerPan } from "@/lib/mapGestures";
 import { loadLeafletPlugins } from "@/lib/leafletPlugins";
-import { cn } from "@/lib/utils";
+import { cn, escapeHtml } from "@/lib/utils";
 import { toast } from "sonner";
 
 const PATH_COLORS = ["#6ee7a4", "#6ec1ff", "#f5b955", "#ff7e7e", "#c084fc", "#34d399", "#fbbf24", "#fb7185"];
@@ -124,6 +124,13 @@ export function History() {
   const didInitialCenter = useRef(false);
   const [station, setStation] = useState<{ lat: number; lon: number } | null>(null);
 
+  const refresh = async () => {
+    setBusy(true);
+    try { setSondes(await apiGet<HistoricalSonde[]>("/get_log_list")); }
+    catch (e: any) { toast.error("Failed to load history: " + (e.message || "")); }
+    setBusy(false);
+  };
+
   // Initial load
   useEffect(() => {
     refresh();
@@ -134,7 +141,6 @@ export function History() {
         if (lat != null && lon != null && !(lat === 0 && lon === 0)) setStation({ lat, lon });
       } catch {}
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Station marker + initial center. Re-runs when `mapReady` flips true so
@@ -153,7 +159,6 @@ export function History() {
       didInitialCenter.current = true;
       m.setView([station.lat, station.lon], 7, { animate: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station, mapReady]);
 
   // Map init — wait for the no-gap/edge-buffer Leaflet plugins so tile seams
@@ -192,13 +197,6 @@ export function History() {
     const t = resolveTile(prefs.tile, effTheme).tile;
     tileRef.current = L.tileLayer(t.url, t.opts).addTo(m);
   }, [prefs.tile, effTheme]);
-
-  const refresh = async () => {
-    setBusy(true);
-    try { setSondes(await apiGet<HistoricalSonde[]>("/get_log_list")); }
-    catch (e: any) { toast.error("Failed to load history: " + (e.message || "")); }
-    setBusy(false);
-  };
 
   const types = useMemo(() => Array.from(new Set(sondes.map(s => s.type).filter(Boolean))).sort(), [sondes]);
 
@@ -302,11 +300,12 @@ export function History() {
       const firstTs = firstIso ? `<br>${fmtDateTime(firstIso)}` : "";
       const lastTs  = lastIso  ? `<br>${fmtDateTime(lastIso)}`  : "";
       const burstTs = burstTime ? `<br>${fmtDateTime(burstTime)}` : "";
-      L.marker([pts[0][0], pts[0][1]], { icon: launchIcon(color) }).bindPopup(`<b>${serial}</b><br>first heard${firstTs}`).addTo(layerRef.current!);
-      L.marker([pts[pts.length - 1][0], pts[pts.length - 1][1]], { icon: landingIcon(color) }).bindPopup(`<b>${serial}</b><br>last heard${lastTs}`).addTo(layerRef.current!);
+      const safeSerial = escapeHtml(serial);
+      L.marker([pts[0][0], pts[0][1]], { icon: launchIcon(color) }).bindPopup(`<b>${safeSerial}</b><br>first heard${firstTs}`).addTo(layerRef.current!);
+      L.marker([pts[pts.length - 1][0], pts[pts.length - 1][1]], { icon: landingIcon(color) }).bindPopup(`<b>${safeSerial}</b><br>last heard${lastTs}`).addTo(layerRef.current!);
       if (apex > 0 && apex < pts.length - 1) {
         L.marker([pts[apex][0], pts[apex][1]], { icon: burstIcon() })
-          .bindPopup(`<b>${serial}</b><br>burst @ ${fmtAlt(pts[apex][2])}${burstTs}`)
+          .bindPopup(`<b>${safeSerial}</b><br>burst @ ${fmtAlt(pts[apex][2])}${burstTs}`)
           .addTo(layerRef.current!);
       }
       ll.forEach(p => bounds.push(p));
@@ -363,7 +362,7 @@ export function History() {
       const ll: [number, number] = [p.lat, p.lon];
       const icon = which === "first" ? launchIcon(color) : landingIcon(color);
       const ts = p.datetime ? `<br>${fmtDateTime(p.datetime)}` : "";
-      L.marker(ll, { icon }).bindPopup(`<b>${s.serial}</b><br>${label}${ts}`).addTo(layerRef.current!);
+      L.marker(ll, { icon }).bindPopup(`<b>${escapeHtml(s.serial)}</b><br>${label}${ts}`).addTo(layerRef.current!);
       bounds.push(ll);
     }
     if (bounds.length) mapRef.current.fitBounds(bounds as any, { padding: [40, 40] });

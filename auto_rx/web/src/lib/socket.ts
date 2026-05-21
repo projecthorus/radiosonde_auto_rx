@@ -33,7 +33,7 @@ export function useSocketConnected() {
  */
 export function useSocketEvent<T = any>(event: string, handler: (data: T) => void) {
   const ref = useRef(handler);
-  ref.current = handler;
+  useEffect(() => { ref.current = handler; });
   useEffect(() => {
     const s = getSocket();
     const fn = (data: T) => ref.current(data);

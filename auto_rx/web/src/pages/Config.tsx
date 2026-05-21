@@ -142,6 +142,9 @@ export function Config() {
       arr.length = want;
       return { ...c, sdrs: arr };
     });
+    // Intentionally NOT depending on `cfg.sdrs` — this effect mutates sdrs
+    // in response to sdr_quantity, so including sdrs would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg.sdr_quantity]);
 
   const setSdr = (i: number, k: string, v: any) => {

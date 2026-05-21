@@ -12,6 +12,7 @@ import os
 import traceback
 import json
 from configparser import RawConfigParser
+from typing import Optional
 from .sdr_wrappers import test_sdr
 
 # Dummy initial config with some parameters we need to make the web interface happy.
@@ -29,8 +30,7 @@ web_password = "none"
 
 # Path of the config file that was actually loaded. Populated by
 # read_auto_rx_config() and used by /save_config to write back in place.
-# Typed as Optional[str] (not "str | None") to keep Python 3.9 compat.
-from typing import Optional
+# Optional[str] (not "str | None") for Python 3.9 compat.
 cfg_filename: Optional[str] = None
 
 # Fixed minimum update rate for APRS

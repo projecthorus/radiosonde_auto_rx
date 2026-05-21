@@ -137,8 +137,14 @@ ssh user@host '
 
 ## Gotchas
 
-- Telemetry frequencies arrive as Hz on the socket but MHz from REST.
-  Normalise in the component.
+- Frequency format differs across endpoints. Telemetry events and
+  `/get_telemetry_archive` send `freq` as a string like `"404.011 MHz"`
+  (sometimes with a numeric `freq_float` alongside) — parse those with
+  `parseFreqMhz()` from `lib/utils.ts`. `/get_task_list` is different:
+  it sends `freq` as a raw number *in Hz* — divide by 1e6.
+- Anything interpolated into a Leaflet `bindPopup` template literal must
+  go through `escapeHtml()` from `lib/utils.ts`. Sonde serials are
+  derived from on-disk log filenames and aren't inherently safe.
 - `/get_scan_data` returns slightly different shapes when the scanner
   is idle vs running. See the guards in `ScanChart.tsx`.
 - Leaflet plugins must be loaded before the map mounts. Await
@@ -146,3 +152,6 @@ ssh user@host '
 - Output filenames are fixed (no content hash) so commits stay tidy.
   Trade-off: browsers may serve a stale cached `index.js` after an
   update. Tell users to hard-refresh once after pulling.
+- A few ESLint rules are deliberately off in `eslint.config.js`
+  (`no-explicit-any`, `set-state-in-effect`, etc.) with comments
+  explaining why. Don't re-enable without reading those.
