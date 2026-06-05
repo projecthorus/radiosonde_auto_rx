@@ -76,6 +76,9 @@ class SondehubUploader(object):
         # Input Queue.
         self.input_queue = Queue()
 
+        # Reuse HTTP connections to SondeHub when the server keeps them open.
+        self.http_session = requests.Session()
+
         # Record of when we last uploaded a user station position to Sondehub.
         self.last_user_position_upload = 0
 
@@ -396,6 +399,7 @@ class SondehubUploader(object):
                 if self.input_processing_running == False:
                     break
 
+        self.http_session.close()
         self.log_info("Stopped Sondehub Uploader Thread.")
 
     def upload_telemetry(self, telem_list):
@@ -439,7 +443,7 @@ class SondehubUploader(object):
                     "Content-Type": "application/json",
                     "Date": formatdate(timeval=None, localtime=False, usegmt=True),
                 }
-                _req = requests.put(
+                _req = self.http_session.put(
                     self.SONDEHUB_URL,
                     _compressed_payload,
                     # TODO: Revisit this second timeout value.
@@ -448,7 +452,8 @@ class SondehubUploader(object):
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                return
+                _retries += 1
+                continue
 
             if _req.status_code == 200:
                 # 200 is the only status code that we accept.
@@ -460,7 +465,7 @@ class SondehubUploader(object):
                 _upload_success = True
                 break
 
-            elif _req.status_code == 500:
+            elif _req.status_code in (500, 502, 503, 504):
                 # Server Error, Retry.
                 _retries += 1
                 continue
@@ -538,7 +543,7 @@ class SondehubUploader(object):
                     "Content-Type": "application/json",
                     "Date": formatdate(timeval=None, localtime=False, usegmt=True),
                 }
-                _req = requests.put(
+                _req = self.http_session.put(
                     self.SONDEHUB_STATION_POSITION_URL,
                     json=_position,
                     # TODO: Revisit this second timeout value.
@@ -547,7 +552,8 @@ class SondehubUploader(object):
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                return
+                _retries += 1
+                continue
 
             if _req.status_code == 200:
                 # 200 is the only status code that we accept.
@@ -556,7 +562,7 @@ class SondehubUploader(object):
                 _upload_success = True
                 break
 
-            elif _req.status_code == 500:
+            elif _req.status_code in (500, 502, 503, 504):
                 # Server Error, Retry.
                 _retries += 1
                 continue
