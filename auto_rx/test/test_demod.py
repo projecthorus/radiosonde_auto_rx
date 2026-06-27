@@ -220,7 +220,7 @@ processing_type = {
     'rs41_fsk_demod_soft_centre_optimised': {
         # Tweaking some of the modem parameters for a little bit more performance
         # Keep signal centred.
-        'demod' : "| csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b -10000 -u 10000 -s --nsym=300 -p 5 --mask 4800 --stats=5 2 48000 4800 - - 2>stats.txt |",
+        'demod' : "| csdr convert_f_s16 | ./tsrc - - 0.500 |  ../fsk_demod --cs16 -b -10000 -u 10000 -s --nsym=300 -p 5 --mask 5000 --stats=5 2 48000 4800 - - 2>stats.txt |",
 
         # Decode using rs41ecc
         'decode': "../rs41mod --ecc --ptu --crc --softin -i --json 2>/dev/null",

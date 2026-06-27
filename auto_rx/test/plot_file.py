@@ -26,9 +26,12 @@ args = parser.parse_args()
 
 
 if args.type == 'c8':
-	data = np.fromfile(args.file, dtype='c8')
+	data = np.fromfile(args.file, dtype=np.complex64)
+elif args.type == 'c128':
+	data = np.fromfile(args.file, dtype=np.complex128)
 elif args.type == 'u8':
 	_data = np.fromfile(args.file, dtype=np.uint8).astype(np.float32) - 128
+	print(f"Maximum value: {np.max(np.abs(_data))}")
 	data = _data.view(np.complex64)
 elif args.type == 'c16':
 	_data = np.fromfile(args.file, dtype=np.int16).astype(np.float32)
