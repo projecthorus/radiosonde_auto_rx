@@ -1,4 +1,4 @@
-CFLAGS = -O3 -w -Wno-unused-variable -DNOC34C50 -DNOIMET1AB
+CFLAGS = -O3 -w -Wno-unused-variable
 LDLIBS = -lm
 
 PROGRAMS := dft_detect

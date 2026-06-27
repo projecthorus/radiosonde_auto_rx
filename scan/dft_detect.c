@@ -1627,7 +1627,8 @@ int main(int argc, char **argv) {
 
         if (tl > 0 && sample_in > (tl+1)*sample_rate) break;  // (int)sample_out < 0
 
-        xn[nD % D] = buf_fm[rs_hdr[j].lpIQ][sample_out % M];
+        // idxIMETafsk was j, and resulted in a segfault using clang.
+        xn[nD % D] = buf_fm[rs_hdr[idxIMETafsk].lpIQ][sample_out % M];
         nD++;
 
         if (nD % D == 0) {
