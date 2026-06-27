@@ -270,6 +270,16 @@ class SondehubUploader(object):
             _output["type"] = "WxR-301D-5k"
             _output["serial"] = telemetry["id"].split("-")[1]
 
+        elif telemetry["type"] == "CF6":
+            _output["manufacturer"] = "Changfeng"
+            _output["type"] = "CF-06"
+            _output["serial"] = telemetry["id"]
+
+        elif telemetry["type"] == "GTH":
+            _output["manufacturer"] = "Changwang"
+            _output["type"] = "GTH6"
+            _output["serial"] = telemetry["id"]
+
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
             return None

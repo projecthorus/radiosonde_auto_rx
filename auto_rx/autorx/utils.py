@@ -221,6 +221,10 @@ def short_type_lookup(type_name):
         return "Vaisala RD41 Dropsonde"
     elif type_name == "RD94":
         return "Vaisala RD94 Dropsonde"
+    elif type_name == "CF6":
+        return "Changfeng CF-06"
+    elif type_name == "GTH":
+        return "Changwang GTH6"
     else:
         return "Unknown"
 
@@ -273,6 +277,10 @@ def short_short_type_lookup(type_name):
         return "RD41"
     elif type_name == "RD94":
         return "RD94"
+    elif type_name == "CF6":
+        return "CF-06"
+    elif type_name == "GTH":
+        return "GTH6"
     else:
         return "Unknown"
 
