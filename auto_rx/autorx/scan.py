@@ -547,7 +547,7 @@ def detect_sonde(
 
         rx_test_command += os.path.join(
             rs_path, "dft_detect"
-        ) + " -t %d --iq --bw %d --dc --types DFM9,RS41,RS92,LMS6,IMET5,MK2LMS,M10,MEISEI,RD94RD41,MRZ,MTS01,WXR301,WXRPN9,IMETafsk,IMET1RS,IMET4 - %d 16 2>/dev/null" % (
+        ) + " -t %d --iq --bw %d --dc --types DFM9,RS41,RS92,LMS6,IMET5,MK2LMS,M10,MEISEI,RD94RD41,MRZ,MTS01,WXR301,WXRPN9,IMETafsk,IMET1RS,IMET4,CF6GTH - %d 16 2>/dev/null" % (
             dwell_time,
             _if_bw,
             _iq_bw,
