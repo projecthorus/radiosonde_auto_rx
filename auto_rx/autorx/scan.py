@@ -290,13 +290,13 @@ def parse_dft_detect_output(ret_output, sdr_name):
         _sonde_type = "DFM"
     elif "M10" in _type:
         logging.debug(
-            "Scanner (%s) - Detected a M10 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            "Scanner (%s) - Detected a M10 or M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
             % (sdr_name, _score, _offset_est)
         )
         _sonde_type = "M10"
     elif "M20" in _type:
         logging.debug(
-            "Scanner (%s) - Detected a M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
+            "Scanner (%s) - Detected a M10 or M20 Sonde! (Score: %.2f, Offset: %.1f Hz)"
             % (sdr_name, _score, _offset_est)
         )
         _sonde_type = "M20"
@@ -403,6 +403,13 @@ def parse_dft_detect_output(ret_output, sdr_name):
             % (sdr_name, _score, _offset_est)
         )
         _sonde_type = "RD94RD41"
+
+    elif "CF6GTH" in _type:
+        logging.debug(
+            "Scanner (%s) - Detected a HT-03/CF-06/GTH6! (Score: %.2f, Offset: %.1f Hz)"
+            % (sdr_name, _score, _offset_est)
+        )
+        _sonde_type = "CF6GTH"
 
     else:
         _sonde_type = None
@@ -540,7 +547,7 @@ def detect_sonde(
 
         rx_test_command += os.path.join(
             rs_path, "dft_detect"
-        ) + " -t %d --iq --bw %d --dc - %d 16 2>/dev/null" % (
+        ) + " -t %d --iq --bw %d --dc --types DFM9,RS41,RS92,LMS6,IMET5,MK2LMS,M10,MEISEI,RD94RD41,MRZ,MTS01,WXR301,WXRPN9,IMETafsk,IMET1RS,IMET4 - %d 16 2>/dev/null" % (
             dwell_time,
             _if_bw,
             _iq_bw,

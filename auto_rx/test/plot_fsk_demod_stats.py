@@ -32,6 +32,7 @@ _time = []
 
 _f = open(_filename,'r')
 
+i = 0
 for _line in _f:
 
 	if _line[0] != '{':
@@ -48,7 +49,11 @@ for _line in _f:
 	_fest2.append(_data['f2_est'])
 	_ppm.append(_data['ppm'])
 
-	_time.append(_data['samples'])
+	try:
+		_time.append(_data['samples'])
+	except:
+		_time.append(i)
+		i += 1
 
 
 _ebno_max = pd.Series(_ebno).rolling(10).max().dropna().tolist()

@@ -707,6 +707,8 @@ def telemetry_filter(telemetry):
         or ("IMET" in telemetry["type"])
         or ("MTS01" in telemetry["type"])
         or ("WXR" in telemetry["type"])
+        or ("CF6" in telemetry["type"])
+        or ("GTH" in telemetry["type"])
     ):
         return "OK"
     else:

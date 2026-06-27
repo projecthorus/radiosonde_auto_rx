@@ -96,6 +96,7 @@ RUN apt-get update && \
   avahi-utils \
   libnss-mdns \
   avahi-utils \
+  libfftw3-dev \
   usbutils && \
   rm -rf /var/lib/apt/lists/*
 

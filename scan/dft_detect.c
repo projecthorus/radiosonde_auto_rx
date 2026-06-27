@@ -4,6 +4,8 @@
  *      gcc dft_detect.c -lm -o dft_detect
  *  speedup:
  *      gcc -Ofast dft_detect.c -lm -o dft_detect
+ *  with FFTW (faster correlation):
+ *      gcc -DHAVE_FFTW3 -Ofast dft_detect.c -lm -lfftw3f -o dft_detect
  *
  *  author: zilog80
  */
@@ -13,6 +15,23 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
+
+#ifdef HAVE_FFTW3
+#include <fftw3.h>
+// Forward DFT plan; built once N_DFT is known.
+static fftwf_plan dft_fwd_plan = NULL;
+// Buffers passed to fftwf_execute_dft() must be at least as aligned as the
+// buffers used at plan time. Plain calloc() only guarantees 8 bytes on some
+// 32-bit platforms, below FFTW's 16-byte SIMD requirement, so we route the
+// complex buffers used by dft_raw() through fftwf_alloc_complex/fftwf_free.
+// FFTW_UNALIGNED would also work but disables SIMD and roughly halves the
+// speedup.
+#define ALLOC_DFT_COMPLEX(n) ((float complex *)fftwf_alloc_complex(n))
+#define FREE_DFT_COMPLEX(p)  fftwf_free(p)
+#else
+#define ALLOC_DFT_COMPLEX(n) ((float complex *)calloc((n), sizeof(float complex)))
+#define FREE_DFT_COMPLEX(p)  free(p)
+#endif
 
 #ifndef M_PI
     #define M_PI  (3.1415926535897932384626433832795)
@@ -78,6 +97,10 @@ static char meisei_header[] = "110011001101001101001101010100101010110010101010"
 
 //int  mrz_sps = 2400;
 static char mrz_header[] = "1001100110011001""1001101010101010"; // 0xAA 0xBF
+
+//int  cf06ht03_sps = 2400;
+static char cf06ht03_header[] = "01010101" //"01010101""01010101"  // preamble (AA AA) AA  // imet_preamble takes over ...
+                                "10110100""00101011""11000110"; // 2D D4 63
 
 //int  imet54_sps = 4800;
 static char imet54_header[] = "0000000001""0101010101""0001001001""0001001001"; // 0x00 0xAA 0x24 0x24
@@ -159,6 +182,7 @@ static float set_lpIQ = 0.0;
 #define tn_RD94RD41  10
 #define tn_MRZ       12
 #define tn_MTS01     13
+#define tn_CF6GTH    14
 #define tn_C34C50    15
 #define tn_WXR301    16
 #define tn_WXRpn9    17
@@ -169,10 +193,10 @@ static float set_lpIQ = 0.0;
 #define tn_IMET1rs   28
 #define tn_IMET1ab   29
 
-#define idxIMETafsk  15
-#define idxRS        16
-#define idxI4        17
-#define Nrs          18
+static int idxIMETafsk = 16;
+#define idxRS        17
+#define idxI4        18
+#define Nrs          19
 static rsheader_t rs_hdr[Nrs] = {
     { 2500, 0, 0, dfm_header,      1.0, 0.0, 0.65, 2, NULL, "DFM9",     tn_DFM,      0, 1, 0.0, 0.0}, // DFM6: -2 ?
     { 4800, 0, 0, rs41_header,     0.5, 0.0, 0.70, 2, NULL, "RS41",     tn_RS41,     0, 1, 0.0, 0.0},
@@ -185,20 +209,21 @@ static rsheader_t rs_hdr[Nrs] = {
     { 4800, 0, 0, rd94rd41_header, 1.0, 0.0, 0.70, 2, NULL, "RD94RD41", tn_RD94RD41, 0, 1, 0.0, 0.0}, // Dropsonde RD94/RD41
     { 2400, 0, 0, mrz_header,      1.5, 0.0, 0.80, 2, NULL, "MRZ",      tn_MRZ,      0, 1, 0.0, 0.0},
     { 1200, 0, 0, mts01_header,    1.0, 0.0, 0.65, 2, NULL, "MTS01",    tn_MTS01,    0, 0, 0.0, 0.0},
+    { 2400, 0, 0, cf06ht03_header, 0.7, 0.0, 0.80, 2, NULL, "CF6GTH",   tn_CF6GTH,   0, 1, 0.0, 0.0},
     { 5800, 0, 0, c34_preheader,   1.5, 0.0, 0.80, 2, NULL, "C34C50",   tn_C34C50,   0, 2, 0.0, 0.0}, // C34/C50 2900 Hz tone
     { 4800, 0, 0, weathex_header,  1.0, 0.0, 0.65, 2, NULL, "WXR301",   tn_WXR301,   0, 3, 0.0, 0.0},
     { 5000, 0, 0, wxr2pn9_header,  1.0, 0.0, 0.65, 2, NULL, "WXRPN9",   tn_WXRpn9,   0, 3, 0.0, 0.0},
     { 9600, 0, 0, imet1ab_header,  1.0, 0.0, 0.80, 2, NULL, "IMET1AB",  tn_IMET1ab,  1, 3, 0.0, 0.0}, // (rs_hdr[idxAB])
+    //idxIMETafsk:
     { 9600, 0, 0, imet_preamble,   0.5, 0.0, 0.80, 4, NULL, "IMETafsk", tn_IMETa  ,  1, 1, 0.0, 0.0}, // IMET1AB, IMET1RS (IQ)IMET4
     { 9600, 0, 0, imet1rs_header,  0.5, 0.0, 0.80, 2, NULL, "IMET1RS",  tn_IMET1rs,  0, 3, 0.0, 0.0}, // (rs_hdr[idxRS]) IMET4: lpIQ=0 ...
     { 9600, 0, 0, imet1rs_header,  0.5, 0.0, 0.80, 2, NULL, "IMET4",    tn_IMET4,    1, 1, 0.0, 0.0}, // (rs_hdr[idxI4])
 };
 
-static int idx_MTS01 = -1,
-           idx_C34C50 = -1,
-           idx_WXR301 = -1,
-           idx_WXRPN9 = -1,
-           idx_IMET1AB = -1;
+
+// --types filter: 1 = scan, 0 = skip. default all-on.
+static int type_enabled[Nrs];
+static int user_set_types = 0;
 
 
 static int rs_detect2[Nrs];
@@ -292,6 +317,13 @@ static int dsp__lpIQtaps; // ui32_t
 static float complex *lpIQ_buf;
 
 
+#ifdef HAVE_FFTW3
+// In-place forward DFT via FFTW. float complex and fftwf_complex share
+// the same memory layout (float[2]) so the cast is safe.
+static void dft_raw(float complex *Z) {
+    fftwf_execute_dft(dft_fwd_plan, (fftwf_complex *)Z, (fftwf_complex *)Z);
+}
+#else
 static void dft_raw(float complex *Z) {
     int s, l, l2, i, j, k;
     float complex  w1, w2, T;
@@ -327,6 +359,7 @@ static void dft_raw(float complex *Z) {
         }
     }
 }
+#endif
 
 static void dft(float *x, float complex *Z) {
     int i;
@@ -1155,31 +1188,13 @@ static int init_buffers() {
     IQdc.maxcnt = sample_rate/32;
     if (dsp__decM > 1) IQdc.maxcnt *= dsp__decM;
 
-
-    for (j = 0; j < Nrs; j++) {
-        #ifdef NOMTS01
-        if ( strncmp(rs_hdr[j].type, "MTS01", 5) == 0 ) idx_MTS01 = j;
-        #endif
-        #ifdef NOC34C50
-        if ( strncmp(rs_hdr[j].type, "C34C50", 6) == 0 ) idx_C34C50 = j;
-        #endif
-        #ifdef NOWXR301
-        if ( strncmp(rs_hdr[j].type, "WXR301", 5) == 0 ) idx_WXR301 = j;
-        if ( strncmp(rs_hdr[j].type, "WXRPN9", 5) == 0 ) idx_WXRPN9 = j;
-        #endif
-        #ifdef NOIMET1AB
-        if ( strncmp(rs_hdr[j].type, "IMET1AB", 7) == 0 ) idx_IMET1AB = j;
-        #endif
-    }
-
     for (j = 0; j < Nrs; j++) {
         rs_hdr[j].spb = sample_rate/(float)rs_hdr[j].sps;
         rs_hdr[j].hLen = strlen(rs_hdr[j].header);
         rs_hdr[j].L = rs_hdr[j].hLen * rs_hdr[j].spb + 0.5;
-        if (j != idx_MTS01 && j != idx_C34C50 && j != idx_WXR301 && j != idx_WXRPN9 && j != idx_IMET1AB) {
-            if (rs_hdr[j].hLen > hLen) hLen = rs_hdr[j].hLen;
-            if (rs_hdr[j].L > Lmax) Lmax = rs_hdr[j].L;
-        }
+
+        if (rs_hdr[j].hLen > hLen) hLen = rs_hdr[j].hLen;
+        if (rs_hdr[j].L > Lmax) Lmax = rs_hdr[j].L;
     }
 
     // L = hLen * sample_rate/2500.0 + 0.5; // max(hLen*spb)
@@ -1213,14 +1228,29 @@ static int init_buffers() {
     db = calloc(N_DFT+1, sizeof(float));  if (db == NULL) return -1;
 
     ew = calloc(LOG2N+1, sizeof(float complex));  if (ew == NULL) return -1;
-    X  = calloc(N_DFT+1, sizeof(float complex));  if (X  == NULL) return -1;
-    Z  = calloc(N_DFT+1, sizeof(float complex));  if (Z  == NULL) return -1;
-    cx = calloc(N_DFT+1, sizeof(float complex));  if (cx == NULL) return -1;
+    X  = ALLOC_DFT_COMPLEX(N_DFT+1);  if (X  == NULL) return -1;
+    Z  = ALLOC_DFT_COMPLEX(N_DFT+1);  if (Z  == NULL) return -1;
+    cx = ALLOC_DFT_COMPLEX(N_DFT+1);  if (cx == NULL) return -1;
 
     for (n = 0; n < LOG2N; n++) {
         k = 1 << n;
         ew[n] = cexp(-I*M_PI/(float)k);
     }
+
+#ifdef HAVE_FFTW3
+    // Build the forward plan with FFTW_ESTIMATE so plan creation stays cheap;
+    // dft_detect is typically a short-lived invocation. The plan is created
+    // against a throwaway aligned scratch buffer; fftwf_execute_dft() will
+    // later run it against the caller's actual buffers.
+    {
+        fftwf_complex *scratch = fftwf_alloc_complex(N_DFT);
+        if (scratch == NULL) return -1;
+        dft_fwd_plan = fftwf_plan_dft_1d(N_DFT, scratch, scratch,
+                                         FFTW_FORWARD, FFTW_ESTIMATE);
+        fftwf_free(scratch);
+        if (dft_fwd_plan == NULL) return -1;
+    }
+#endif
 
     match = (float *)calloc( L+1, sizeof(float)); if (match == NULL) return -1;
     m = (float *)calloc(N_DFT+1, sizeof(float));  if (m  == NULL) return -1;
@@ -1228,7 +1258,7 @@ static int init_buffers() {
 
     for (j = 0; j < idxRS; j++)
     {
-        rs_hdr[j].Fm = (float complex *)calloc(N_DFT+1, sizeof(float complex));  if (rs_hdr[j].Fm == NULL) return -1;
+        rs_hdr[j].Fm = ALLOC_DFT_COMPLEX(N_DFT+1);  if (rs_hdr[j].Fm == NULL) return -1;
         bits = rs_hdr[j].header;
         spb = rs_hdr[j].spb;
         sigma = sqrt(log(2)) / (2*M_PI*rs_hdr[j].BT);
@@ -1269,7 +1299,7 @@ static int init_buffers() {
     if (option_iq)
     {
         for (j = 0; j < 2; j++) {
-            WS[j] = (float complex *)calloc(N_DFT+1, sizeof(float complex));  if (WS[j] == NULL) return -1;
+            WS[j] = ALLOC_DFT_COMPLEX(N_DFT+1);  if (WS[j] == NULL) return -1;
             for (i = 0; i < dsp__lpFMtaps; i++) m[i] = ws_lpFM[j][i];
             while (i < N_DFT) m[i++] = 0.0;
             dft(m, WS[j]);
@@ -1296,12 +1326,16 @@ static int free_buffers() {
     if (xn) { free(xn); xn = NULL; }
     if (db) { free(xn); xn = NULL; }
     if (ew) { free(ew); ew = NULL; }
-    if (X)  { free(X);  X  = NULL; }
-    if (Z)  { free(Z);  Z  = NULL; }
-    if (cx) { free(cx); cx = NULL; }
+    if (X)  { FREE_DFT_COMPLEX(X);  X  = NULL; }
+    if (Z)  { FREE_DFT_COMPLEX(Z);  Z  = NULL; }
+    if (cx) { FREE_DFT_COMPLEX(cx); cx = NULL; }
+
+#ifdef HAVE_FFTW3
+    if (dft_fwd_plan) { fftwf_destroy_plan(dft_fwd_plan); dft_fwd_plan = NULL; }
+#endif
 
     for (j = 0; j < idxRS; j++) {
-        if (rs_hdr[j].Fm) { free(rs_hdr[j].Fm); rs_hdr[j].Fm = NULL; }
+        if (rs_hdr[j].Fm) { FREE_DFT_COMPLEX(rs_hdr[j].Fm); rs_hdr[j].Fm = NULL; }
     }
 
 
@@ -1318,7 +1352,7 @@ static int free_buffers() {
     if (option_iq) {
         for (j = 0; j < 2; j++) {
             if (ws_lpFM[j]) { free(ws_lpFM[j]); ws_lpFM[j] = NULL; }
-            if (WS[j]) { free(WS[j]); WS[j] = NULL; }
+            if (WS[j]) { FREE_DFT_COMPLEX(WS[j]); WS[j] = NULL; }
         }
         if (Y) { free(Y); Y = NULL; }
 
@@ -1358,10 +1392,24 @@ int main(int argc, char **argv) {
 
     ui32_t frm2_M10M20 = 0;
 
+    int n, m, mf;
+    int D = 0; //N_DFT/2 - 3;
+    int nD, nT, T;
+    float df;
+    float pow800, pow2200, pow2400, pow1200;
+    int bin800, bin2200, bin2400, bin1200;
+
+
 #ifdef CYGWIN
     _setmode(fileno(stdin), _O_BINARY);  // _setmode(_fileno(stdin), _O_BINARY);
 #endif
     setbuf(stdout, NULL);
+
+    // Default: scan for every sonde type. --types may narrow this.
+    for (j = 0; j < Nrs; j++) {
+        type_enabled[j] = 1;
+        if ( strncmp(rs_hdr[j].type, "IMETafsk", 8) == 0 ) idxIMETafsk = j;
+    }
 
     fpname = argv[0];
     ++argv;
@@ -1374,6 +1422,17 @@ int main(int argc, char **argv) {
             fprintf(stderr, "       --iq        (IF iq-data)\n");
             fprintf(stderr, "       --IQ <fq>   (baseband IQ at fq)\n");
             fprintf(stderr, "       --bw <kHz>  (set IQ filter bw/kHz)\n");
+            fprintf(stderr, "       --types <list>  (comma-separated rs_hdr type names to scan,\n");
+            fprintf(stderr, "                        e.g. DFM9,RS41,RS92; default: scan all)\n");
+            fprintf(stderr, "  types:");
+            for (j = 0; j < Nrs; j++) {
+                if (j == idxIMETafsk) continue; // == IMET1RS, IMET4
+                fprintf(stderr, "%s", j % 8 ? " " : "\n       ");
+                fprintf(stderr, "%s", rs_hdr[j].type);
+                if (strncmp(rs_hdr[j].type, "DFM9", 4) == 0) fprintf(stderr, " (== DFM6, DFM17)");
+                if (strncmp(rs_hdr[j].type, "M10", 4) == 0) fprintf(stderr, " (== M20)");
+                fprintf(stderr, "%s", j < Nrs-1 ? "," : "\n");
+            }
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -1396,6 +1455,62 @@ int main(int argc, char **argv) {
             if (*argv) bw_kHz = atof(*argv); else return -1;
             if (bw_kHz < 1.0) bw_kHz = 0.0; // min. 1kHz
             set_lpIQ = bw_kHz * 1e3;
+        }
+        else if   (strcmp(*argv, "--types") == 0) {
+            // --types T1,T2,... : case-sensitive, whitespace trimmed
+            ++argv;
+            if (*argv == NULL || (*argv)[0] == '\0') {
+                fprintf(stderr, "error: --types requires a non-empty comma-separated list\n");
+                return -1;
+            }
+            user_set_types = 1;
+            int n;
+            for (n = 0; n < Nrs; n++) type_enabled[n] = 0;
+            const char *p = *argv;
+            const char *start = p;
+            while (1) {
+                if (*p == ',' || *p == '\0') {
+                    char token[64];
+                    size_t len = (size_t)(p - start);
+                    if (len >= sizeof(token)) {
+                        // bad token, skip it but keep going
+                        fprintf(stderr, "warning: --types: token too long, ignored\n");
+                    }
+                    else {
+                        memcpy(token, start, len);
+                        token[len] = '\0';
+                        char *t = token;
+                        while (*t == ' ' || *t == '\t') t++;
+                        char *e = token + strlen(token);
+                        while (e > t && (*(e-1) == ' ' || *(e-1) == '\t')) { e--; *e = '\0'; }
+                        if (*t != '\0') {
+                            int matched = 0;
+                            for (n = 0; n < Nrs; n++) {
+                                if (strcmp(rs_hdr[n].type, t) == 0) {
+                                    type_enabled[n] = 1;
+                                    matched = 1;
+                                    if (n > idxIMETafsk) type_enabled[idxIMETafsk] = 1; // IMET1RS/IMET4 need AFSK preamble
+                                    break;
+                                }
+                            }
+                            if (!matched) {
+                                fprintf(stderr, "warning: --types: unknown sonde type '%s', ignored\n", t);
+                            }
+                        }
+                    }
+                    if (*p == '\0') break;
+                    start = p + 1;
+                }
+                p++;
+            }
+            // nothing valid in the list? fall back to scanning everything
+            // so the run keeps going (warning above tells the user why).
+            int any = 0;
+            for (n = 0; n < Nrs; n++) if (type_enabled[n]) { any = 1; break; }
+            if (!any) {
+                fprintf(stderr, "warning: --types: no valid types given, scanning all\n");
+                for (n = 0; n < Nrs; n++) type_enabled[n] = 1;
+            }
         }
         else if ( (strcmp(*argv, "--dc") == 0) ) { option_dc = 1; }
         else if   (strcmp(*argv, "--min") == 0) {
@@ -1479,6 +1594,25 @@ int main(int argc, char **argv) {
         return -50;
     };
 
+    D = N_DFT/2 - 3;
+    df = bin2freq(1);
+    mf = 50.0/df;
+    if (mf < 1) mf = 1;
+    //if (freq2bin(2500) > N_DFT/2) goto ende;
+
+    bin2200 = freq2bin(2200);
+    bin2400 = freq2bin(2400);
+    bin800 = freq2bin(800);
+    bin1200 = freq2bin(1200);
+
+    for (n = 0; n < N_DFT; n++) {
+        xn[n] = 0.0;
+        db[n] = 0.0;
+    }
+    nD = 0;
+    nT = 0;
+    T = sample_rate / D;
+
     for (j = 0; j < Nrs; j++) {
         mv[j] = 0.0;
         mv_pos[j] = 0;
@@ -1493,16 +1627,41 @@ int main(int argc, char **argv) {
 
         if (tl > 0 && sample_in > (tl+1)*sample_rate) break;  // (int)sample_out < 0
 
+        // idxIMETafsk was j, and resulted in a segfault using clang.
+        xn[nD % D] = buf_fm[rs_hdr[idxIMETafsk].lpIQ][sample_out % M];
+        nD++;
+
+        if (nD % D == 0) {
+            dft(xn, X);
+            for (m = 0; m < N_DFT; m++) db[m] += cabs(X[m]);
+            nT += 1;
+        }
+
+        if (nT >= T) {  // every sample_rate time
+
+            pow2200 = 0.0;
+            for (n = 0; n < mf; n++) pow2200 += db[ bin2200 - mf/4 + n ];
+
+            pow2400 = 0.0;
+            for (n = 0; n < mf; n++) pow2400 += db[ bin2400 - mf/4 + n ];
+
+            pow800 = 0.0;
+            for (n = 0; n < mf; n++) pow800 += db[ bin800 - mf/4 + n ];
+
+            pow1200 = 0.0;
+            for (n = 0; n < mf; n++) pow1200 += db[ bin1200 - mf/4 + n ];
+
+            nT = 0;
+            for (m = 0; m < N_DFT; m++) db[m] = 0;
+
+        }
+
         k += 1;
 
         if (k >= K-4) {
             for (j = 0; j <= idxIMETafsk; j++) { // incl. IMET-preamble
 
-                if ( j == idx_MTS01 ) continue;   // only ifdef NOMTS01
-                if ( j == idx_C34C50 ) continue;  // only ifdef NOC34C50
-                if ( j == idx_WXR301 ) continue;  // only ifdef NOWXR301
-                if ( j == idx_WXRPN9 ) continue;  // only ifdef NOWXR301
-                if ( j == idx_IMET1AB ) continue; // only ifdef NOIMET1AB
+                if ( !type_enabled[j] ) continue; // --types
 
                 mv0_pos[j] = mv_pos[j];
                 mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
@@ -1517,6 +1676,7 @@ int main(int argc, char **argv) {
         header_found = 0;
         for (j = 0; j <= idxIMETafsk; j++) // incl. IMET-preamble
         {
+            if ( !type_enabled[j] ) continue; // --types
             if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
                 if (mv_pos[j] > mv0_pos[j]) {
 
@@ -1541,52 +1701,11 @@ int main(int argc, char **argv) {
 
                         if ( strncmp(rs_hdr[j].type, "IMETafsk", 8) == 0 ) // ? j == idxIMETafsk
                         {
-                            int n, m;
-                            int D = N_DFT/2 - 3;
-                            float df;
-                            float pow2200, pow2400;
-                            int bin2200, bin2400;
-
-                            for (n = 0; n < N_DFT; n++) {
-                                xn[n] = 0.0;
-                                db[n] = 0.0;
-                            }
-
-                            n = 0;
-                            while (n < sample_rate) { // 1 sec
-
-                                if (f32buf_sample(fp, option_inv) == EOF) break;//goto ende;
-
-                                xn[n % D] = buf_fm[rs_hdr[j].lpIQ][sample_out % M];
-                                n++;
-
-                                if (n % D == 0) {
-                                    dft(xn, X);
-                                    for (m = 0; m < N_DFT; m++) db[m] += cabs(X[m]);
-                                }
-                            }
-
-                            df = bin2freq(1);
-                            m = 50.0/df;
-                            if (m < 1) m = 1;
-                            if (freq2bin(2500) > N_DFT/2) goto ende;
-
-                            bin2200 = freq2bin(2200);
-                            pow2200 = 0.0;
-                            for (n = 0; n < m; n++) pow2200 += db[ bin2200 - m/4 + n ];
-
-                            bin2400 = freq2bin(2400);
-                            pow2400 = 0.0;
-                            for (n = 0; n < m; n++) pow2400 += db[ bin2400 - m/4 + n ];
-
 
                             mv[j] = fabs(mv[j]);
 
-                            if (pow2200 > pow2400) {  // IMET1RS: peak1: 1200Hz > peak2: 2200Hz > pow(800Hz)
-                                int bin800 = freq2bin(800);
-                                float pow800 = 0.0;
-                                for (n = 0; n < m; n++) pow800 += db[ bin800 - m/4 + n ];
-                                if (pow2200 > pow800) { // IMET -> IMET1RS/IMET4
+                            if (pow2200 > pow2400 && pow2400 > 0.0) {   // IMET1RS: peak1: 1200Hz > peak2: 2200Hz > pow(800Hz)
+                                if (pow2200 > pow800 && pow800 > 0.0) { // IMET -> IMET1RS/IMET4
                                     int _j0 = j;
                                     if (option_iq && set_lpIQ > 50e3) j = idxRS; else j = idxI4;
                                     mv[j] = mv[_j0];

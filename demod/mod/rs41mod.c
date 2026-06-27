@@ -1631,10 +1631,10 @@ static int get_Calconf(gpx_t *gpx, int out, int ofs) {
 
             if (out && gpx->option.vbs == 3) { // Stationsdruck QFE
                 float qfe1 = 0.0, qfe2 = 0.0;
-                memcpy(&qfe1, gpx->frame+pos_CalData+1, 4);
-                memcpy(&qfe2, gpx->frame+pos_CalData+5, 4);
+                memcpy(&qfe1, gpx->frame+pos_CalData+ofs+1, 4);
+                memcpy(&qfe2, gpx->frame+pos_CalData+ofs+5, 4);
                 if (qfe1 > 0.0 || qfe2 > 0.0) {
-                    fprintf(stdout, " ");
+                    fprintf(stdout, ": ");
                     if (qfe1 > 0.0) fprintf(stdout, "QFE1:%.1fhPa ", qfe1);
                     if (qfe2 > 0.0) fprintf(stdout, "QFE2:%.1fhPa ", qfe2);
                 }

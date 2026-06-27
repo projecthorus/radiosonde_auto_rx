@@ -449,6 +449,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "WXRPN9": True,
             "IMETWIDE": False,
             "RD94RD41": True,
+            "CF6GTH": False,
             "UDP": False,
         }
 

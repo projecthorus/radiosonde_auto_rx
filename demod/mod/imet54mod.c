@@ -285,8 +285,8 @@ static int crc32ok(ui8_t *bytes, int len) {
 
 static ui32_t crc32_802(ui8_t *msg, int len) {
     ui32_t poly32 = 0x04C11DB7;  // CRC32 802-3 (Ethernet) normal
-    ui32_t rem = 0x0;
-    ui32_t out = 0x63D60875;
+    ui32_t rem = 0x0;            // xin: 0x77cde91a xout: 0x0
+    ui32_t out = 0x63D60875;     // xin: 0x0 xout: 0x63d60875
     ui32_t crc = 0;
     int i, j;
     for (i = 0; i < len; i++) {

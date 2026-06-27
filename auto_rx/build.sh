@@ -33,12 +33,14 @@ mv ../demod/mod/rs41mod .
 mv ../demod/mod/dfm09mod .
 mv ../demod/mod/m10mod .
 mv ../demod/mod/m20mod .
+mv ../demod/mod/m10m20mod .
 mv ../demod/mod/rs92mod .
 mv ../demod/mod/lms6Xmod .
 mv ../demod/mod/meisei100mod .
 mv ../demod/mod/imet54mod .
 mv ../demod/mod/mp3h1mod .
 mv ../demod/mod/mts01mod .
+mv ../demod/mod/cf06ht03mod .
 mv ../demod/mod/iq_dec .
 mv ../weathex/weathex301d .
 mv ../dropsonde/rd94rd41drop .
