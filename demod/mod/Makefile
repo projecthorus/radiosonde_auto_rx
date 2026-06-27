@@ -1,6 +1,6 @@
 LDLIBS = -lm
 
-PROGRAMS := rs41mod dfm09mod rs92mod lms6Xmod meisei100mod m10mod m20mod imet54mod mp3h1mod mts01mod iq_dec
+PROGRAMS := rs41mod dfm09mod rs92mod lms6Xmod meisei100mod m10mod m20mod m10m20mod imet54mod mp3h1mod mts01mod cf06ht03mod iq_dec
 
 all: $(PROGRAMS)
 
@@ -18,11 +18,15 @@ m10mod: m10mod.o demod_mod.o
 
 m20mod: m20mod.o demod_mod.o
 
+m10m20mod: m10m20mod.o demod_mod.o
+
 imet54mod: imet54mod.o demod_mod.o
 
 mp3h1mod: mp3h1mod.o demod_mod.o
 
 mts01mod: mts01mod.o demod_mod.o
+
+cf06ht03mod: cf06ht03mod.c demod_mod.o bch_ecc_mod.o
 
 bch_ecc_mod.o: bch_ecc_mod.h
 

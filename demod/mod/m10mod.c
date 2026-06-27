@@ -283,20 +283,12 @@ $ for code in  {0..255}
 */
 
 static int get_GPSweek(gpx_t *gpx) {
-    int i;
-    unsigned byte;
-    ui8_t gpsweek_bytes[2];
     int gpsweek;
 
     gpx->numSV   = gpx->frame_bytes[pos_GPSsats];
     gpx->utc_ofs = gpx->frame_bytes[pos_GPSutc];
 
-    for (i = 0; i < 2; i++) {
-        byte = gpx->frame_bytes[pos_GPSweek + i];
-        gpsweek_bytes[i] = byte;
-    }
-
-    gpsweek = (gpsweek_bytes[0] << 8) + gpsweek_bytes[1];
+    gpsweek = (gpx->frame_bytes[pos_GPSweek] << 8) + gpx->frame_bytes[pos_GPSweek+1];
 
     if (gpsweek > 4000) return -1;
 
@@ -313,19 +305,12 @@ static char weekday[7][4] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
 static int get_GPStime(gpx_t *gpx) {
     int i;
-    unsigned byte;
-    ui8_t gpstime_bytes[4];
     int gpstime, day;
     int ms;
 
-    for (i = 0; i < 4; i++) {
-        byte = gpx->frame_bytes[pos_GPSTOW + i];
-        gpstime_bytes[i] = byte;
-    }
-
     gpstime = 0;
     for (i = 0; i < 4; i++) {
-        gpstime |= gpstime_bytes[i] << (8*(3-i));
+        gpstime |= gpx->frame_bytes[pos_GPSTOW + i] << (8*(3-i));
     }
 
     gpx->tow_ms = gpstime;
@@ -350,90 +335,53 @@ static double B60B60 = (1<<30)/90.0; // 2^32/360 = 2^30/90 = 0xB60B60.711x
 
 static int get_GPSlat(gpx_t *gpx) {
     int i;
-    unsigned byte;
-    ui8_t gpslat_bytes[4];
     int gpslat;
-    double lat;
-
-    for (i = 0; i < 4; i++) {
-        byte = gpx->frame_bytes[pos_GPSlat + i];
-        gpslat_bytes[i] = byte;
-    }
 
     gpslat = 0;
     for (i = 0; i < 4; i++) {
-        gpslat |= gpslat_bytes[i] << (8*(3-i));
+        gpslat |= gpx->frame_bytes[pos_GPSlat + i] << (8*(3-i));
     }
-    lat = gpslat / B60B60;
-    gpx->lat = lat;
+    gpx->lat = gpslat / B60B60;
 
     return 0;
 }
 
 static int get_GPSlon(gpx_t *gpx) {
     int i;
-    unsigned byte;
-    ui8_t gpslon_bytes[4];
     int gpslon;
-    double lon;
-
-    for (i = 0; i < 4; i++) {
-        byte = gpx->frame_bytes[pos_GPSlon + i];
-        gpslon_bytes[i] = byte;
-    }
 
     gpslon = 0;
     for (i = 0; i < 4; i++) {
-        gpslon |= gpslon_bytes[i] << (8*(3-i));
+        gpslon |= gpx->frame_bytes[pos_GPSlon + i] << (8*(3-i));
     }
-    lon = gpslon / B60B60;
-    gpx->lon = lon;
+    gpx->lon = gpslon / B60B60;
 
     return 0;
 }
 
 static int get_GPSalt(gpx_t *gpx) {
     int i;
-    unsigned byte;
-    ui8_t gpsalt_bytes[4];
     int gpsalt;
-    double alt;
-
-    for (i = 0; i < 4; i++) {
-        byte = gpx->frame_bytes[pos_GPSalt + i];
-        gpsalt_bytes[i] = byte;
-    }
 
     gpsalt = 0;
     for (i = 0; i < 4; i++) {
-        gpsalt |= gpsalt_bytes[i] << (8*(3-i));
+        gpsalt |= gpx->frame_bytes[pos_GPSalt + i] << (8*(3-i));
     }
-    alt = gpsalt / 1000.0;
-    gpx->alt = alt;
+    gpx->alt = gpsalt / 1000.0;
 
     return 0;
 }
 
 static int get_GPSvel(gpx_t *gpx) {
     int i;
-    unsigned byte;
-    ui8_t gpsVel_bytes[2];
     short vel16;
     double vx, vy, dir, alpha;
     const double ms2kn100 = 2e2;  // m/s -> knots: 1 m/s = 3.6/1.852 kn = 1.94 kn
 
-    for (i = 0; i < 2; i++) {
-        byte = gpx->frame_bytes[pos_GPSvE + i];
-        gpsVel_bytes[i] = byte;
-    }
-    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vel16 = gpx->frame_bytes[pos_GPSvE] << 8 | gpx->frame_bytes[pos_GPSvE + 1];
     vx = vel16 / ms2kn100; // ost
 
-    for (i = 0; i < 2; i++) {
-        byte = gpx->frame_bytes[pos_GPSvN + i];
-        gpsVel_bytes[i] = byte;
-    }
-    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vel16 = gpx->frame_bytes[pos_GPSvN] << 8 | gpx->frame_bytes[pos_GPSvN + 1];
     vy= vel16 / ms2kn100; // nord
 
     gpx->vx = vx;
@@ -449,11 +397,7 @@ static int get_GPSvel(gpx_t *gpx) {
     if (dir < 0) dir += 360;
     gpx->vD = dir;
 
-    for (i = 0; i < 2; i++) {
-        byte = gpx->frame_bytes[pos_GPSvU + i];
-        gpsVel_bytes[i] = byte;
-    }
-    vel16 = gpsVel_bytes[0] << 8 | gpsVel_bytes[1];
+    vel16 = gpx->frame_bytes[pos_GPSvU] << 8 | gpx->frame_bytes[pos_GPSvU + 1];
     gpx->vV = vel16 / ms2kn100;
 
     return 0;
@@ -483,22 +427,18 @@ static int get_SN(gpx_t *gpx) {
 
 static int get_gtopGPSpos(gpx_t *gpx) {
     int i;
-    ui8_t bytes[4];
     int val;
 
-    for (i = 0; i < 4; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSlat + i];
     val = 0;
-    for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
+    for (i = 0; i < 4; i++)  val |= gpx->frame_bytes[pos_gtopGPSlat + i] << (8*(3-i));
     gpx->lat = val/1e6;
 
-    for (i = 0; i < 4; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSlon + i];
     val = 0;
-    for (i = 0; i < 4; i++)  val |= bytes[i] << (8*(3-i));
+    for (i = 0; i < 4; i++)  val |= gpx->frame_bytes[pos_gtopGPSlon + i] << (8*(3-i));
     gpx->lon = val/1e6;
 
-    for (i = 0; i < 3; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSalt + i];
     val = 0;
-    for (i = 0; i < 3; i++)  val |= bytes[i] << (8*(2-i));
+    for (i = 0; i < 3; i++)  val |= gpx->frame_bytes[pos_gtopGPSalt + i] << (8*(2-i));
     if (val & 0x800000) val -= 0x1000000; // alt: signed 24bit?
     gpx->alt = val/1e2;
 
@@ -506,21 +446,16 @@ static int get_gtopGPSpos(gpx_t *gpx) {
 }
 
 static int get_gtopGPSvel(gpx_t *gpx) {
-    int i;
-    ui8_t bytes[2];
     short vel16;
     double vx, vy, vz, dir;
 
-    for (i = 0; i < 2; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSvE + i];
-    vel16 = bytes[0] << 8 | bytes[1];
+    vel16 = gpx->frame_bytes[pos_gtopGPSvE] << 8 | gpx->frame_bytes[pos_gtopGPSvE + 1];
     vx = vel16 / 1e2; // east
 
-    for (i = 0; i < 2; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSvN + i];
-    vel16 = bytes[0] << 8 | bytes[1];
+    vel16 = gpx->frame_bytes[pos_gtopGPSvN] << 8 | gpx->frame_bytes[pos_gtopGPSvN + 1];
     vy= vel16 / 1e2; // north
 
-    for (i = 0; i < 2; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSvU + i];
-    vel16 = bytes[0] << 8 | bytes[1];
+    vel16 = gpx->frame_bytes[pos_gtopGPSvU] << 8 | gpx->frame_bytes[pos_gtopGPSvU + 1];
     vz = vel16 / 1e2; // up
 
     gpx->vx = vx;
@@ -536,12 +471,10 @@ static int get_gtopGPSvel(gpx_t *gpx) {
 
 static int get_gtopGPStime(gpx_t *gpx) {
     int i;
-    ui8_t bytes[4];
     int time;
 
-    for (i = 0; i < 3; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPStime + i];
     time = 0;
-    for (i = 0; i < 3; i++)  time |= bytes[i] << (8*(2-i));
+    for (i = 0; i < 3; i++)  time |= gpx->frame_bytes[pos_gtopGPStime + i] << (8*(2-i));
 
     gpx->std =  time/10000;
     gpx->min = (time%10000)/100;
@@ -552,12 +485,10 @@ static int get_gtopGPStime(gpx_t *gpx) {
 
 static int get_gtopGPSdate(gpx_t *gpx) {
     int i;
-    ui8_t bytes[4];
     int date;
 
-    for (i = 0; i < 3; i++)  bytes[i] = gpx->frame_bytes[pos_gtopGPSdate + i];
     date = 0;
-    for (i = 0; i < 3; i++)  date |= bytes[i] << (8*(2-i));
+    for (i = 0; i < 3; i++)  date |= gpx->frame_bytes[pos_gtopGPSdate + i] << (8*(2-i));
 
     gpx->jahr  = 2000 + date%100;
     gpx->monat = (date%10000)/100;
@@ -696,9 +627,9 @@ static float get_intTemp(gpx_t *gpx) {
     ui16_t ADC_Ti_raw = (gpx->frame_bytes[0x49] << 8) | gpx->frame_bytes[0x48]; // int.temp.diode, ref: 4095->1.5V
     float vti, ti;
     // INCH1A (temp.diode), slau144
-    vti = ADC_Ti_raw/4095.0 * 1.5; // V_REF+ = 1.5V, no calibration
-    ti = (vti-0.986)/0.00355;      // 0.986/0.00355=277.75, 1.5/4095/0.00355=0.1032
-    gpx->Ti = ti;
+    vti = ADC_Ti_raw/4095.0f * 1.5f; // V_REF+ = 1.5V, no calibration
+    ti = (vti-0.986f)/0.00355f;      // 0.986/0.00355=277.75, 1.5/4095/0.00355=0.1032
+    return ti;
     // SegmentA-Calibration:
     //ui16_t T30 = adr_10e2h; // CAL_ADC_15T30
     //ui16_t T85 = adr_10e4h; // CAL_ADC_15T85
@@ -1160,6 +1091,8 @@ int main(int argc, char **argv) {
     int rawhex = 0;
     int cfreq = -1;
 
+    float baudrate = -1;
+
     FILE *fp = NULL;
     char *fpname = NULL;
 
@@ -1222,6 +1155,14 @@ int main(int argc, char **argv) {
         }
         else if ( (strcmp(*argv, "-c") == 0) || (strcmp(*argv, "--color") == 0) ) {
             gpx.option.col = 1;
+        }
+        else if ( (strcmp(*argv, "--br") == 0) ) {
+            ++argv;
+            if (*argv) {
+                baudrate = atof(*argv);
+                if (baudrate < 9000 || baudrate > 10000) baudrate = BAUD_RATE; // default: M20:9600, M10:9615
+            }
+            else return -1;
         }
         //else if   (strcmp(*argv, "--res") == 0) { option_res = 1; }
         else if ( (strcmp(*argv, "--ptu") == 0) ) {
@@ -1391,6 +1332,12 @@ int main(int argc, char **argv) {
 
             if ( dsp.sps < 8 ) {
                 fprintf(stderr, "note: sample rate low (%.1f sps)\n", dsp.sps);
+            }
+
+            if (baudrate > 0) {
+                dsp.br = (float)baudrate;
+                dsp.sps = (float)dsp.sr/dsp.br;
+                fprintf(stderr, "sps corr: %.4f\n", dsp.sps);
             }
 
             //headerlen = dsp.hdrlen;

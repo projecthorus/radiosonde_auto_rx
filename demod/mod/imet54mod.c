@@ -285,8 +285,8 @@ static int crc32ok(ui8_t *bytes, int len) {
 
 static ui32_t crc32_802(ui8_t *msg, int len) {
     ui32_t poly32 = 0x04C11DB7;  // CRC32 802-3 (Ethernet) normal
-    ui32_t rem = 0x0;
-    ui32_t out = 0x63D60875;
+    ui32_t rem = 0x0;            // xin: 0x77cde91a xout: 0x0
+    ui32_t out = 0x63D60875;     // xin: 0x0 xout: 0x63d60875
     ui32_t crc = 0;
     int i, j;
     for (i = 0; i < len; i++) {
@@ -581,7 +581,7 @@ static int print_position(gpx_t *gpx, int len, int ecc_frm, int ecc_tlm, int ecc
     // prnGPS,prnTPU
     if (gpx->option.jsn && frm_ok && (crc_ok || std_ok) && (gpx->status&0x30)==0x30) {
         char *ver_jsn = NULL;
-        char *subtype = (rs_type == 54) ? "iMet-54" : "iMet-50";
+        char *subtype = (rs_type == 54) ? "IMET54" : "IMET50";
         unsigned long count_day = (unsigned long)(gpx->std*3600 + gpx->min*60 + gpx->sek+0.5);  // (gpx->timems/1e3+0.5) has gaps
         fprintf(stdout, "{ \"type\": \"%s\"", "IMET5");
         fprintf(stdout, ", \"frame\": %lu", count_day);
