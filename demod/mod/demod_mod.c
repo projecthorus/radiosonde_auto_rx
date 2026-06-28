@@ -206,8 +206,9 @@ static int getCorrDFT(dsp_t *dsp, float thres) {
             mp = i;
         }
     }
-    if (mp == dsp->L-1 || mp == dsp->K + dsp->L-1) return -4; // Randwert
-    //  mp == t           mp == K+t
+    // mp = -1 <=> Re(cx[L-1..K+L-1])=0
+    if (mp < 0 || mp == dsp->L-1 || mp == dsp->K + dsp->L-1) return -4; // Randwert
+    //            mp == t            mp == K+t
 
     mpos = pos - (dsp->K + dsp->L-1) + mp; // t = L-1
 

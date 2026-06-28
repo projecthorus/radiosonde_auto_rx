@@ -304,7 +304,9 @@ static float complex  *ew;
 
 static float complex  *X, *Z, *cx;
 static float *xn;
-static float *db;
+
+static float *xn_afsk;
+static float *db_afsk;
 
 // FM: lowpass
 static float *ws_lpFM[2];
@@ -452,8 +454,9 @@ static int getCorrDFT(int K, unsigned int pos, float *maxv, unsigned int *maxvpo
             mp = i;
         }
     }
-    if (mp == rshd->L-1 || mp == K+rshd->L-1) return -4; // Randwert
-    //  mp == t            mp == K+t
+    // mp = -1 <=> Re(cx[L-1..K+L-1])=0
+    if (mp < 0 || mp == rshd->L-1 || mp == K+rshd->L-1) return -4; // Randwert
+    //            mp == t            mp == K+t
 
     mpos = pos - (K + rshd->L-1) + mp; // t = L-1
 
@@ -1225,7 +1228,9 @@ static int init_buffers() {
 
 
     xn = calloc(N_DFT+1, sizeof(float));  if (xn == NULL) return -1;
-    db = calloc(N_DFT+1, sizeof(float));  if (db == NULL) return -1;
+
+    db_afsk = calloc(N_DFT+1, sizeof(float));  if (db_afsk == NULL) return -1;
+    xn_afsk = calloc(N_DFT+1, sizeof(float));  if (xn_afsk == NULL) return -1;
 
     ew = calloc(LOG2N+1, sizeof(float complex));  if (ew == NULL) return -1;
     X  = ALLOC_DFT_COMPLEX(N_DFT+1);  if (X  == NULL) return -1;
@@ -1324,7 +1329,8 @@ static int free_buffers() {
     if (rawbits) { free(rawbits); rawbits = NULL; }
 
     if (xn) { free(xn); xn = NULL; }
-    if (db) { free(xn); xn = NULL; }
+    if (xn_afsk) { free(xn_afsk); xn_afsk = NULL; }
+    if (db_afsk) { free(db_afsk); db_afsk = NULL; }
     if (ew) { free(ew); ew = NULL; }
     if (X)  { FREE_DFT_COMPLEX(X);  X  = NULL; }
     if (Z)  { FREE_DFT_COMPLEX(Z);  Z  = NULL; }
@@ -1424,6 +1430,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "       --bw <kHz>  (set IQ filter bw/kHz)\n");
             fprintf(stderr, "       --types <list>  (comma-separated rs_hdr type names to scan,\n");
             fprintf(stderr, "                        e.g. DFM9,RS41,RS92; default: scan all)\n");
+            fprintf(stderr, "       --exclude-types <list>  (comma-separated list)\n");
             fprintf(stderr, "  types:");
             for (j = 0; j < Nrs; j++) {
                 if (j == idxIMETafsk) continue; // == IMET1RS, IMET4
@@ -1433,6 +1440,7 @@ int main(int argc, char **argv) {
                 if (strncmp(rs_hdr[j].type, "M10", 4) == 0) fprintf(stderr, " (== M20)");
                 fprintf(stderr, "%s", j < Nrs-1 ? "," : "\n");
             }
+            fprintf(stderr, "       (IMET1RS=IMET4)\n");
             return 0;
         }
         else if ( (strcmp(*argv, "-v") == 0) || (strcmp(*argv, "--verbose") == 0) ) {
@@ -1456,16 +1464,21 @@ int main(int argc, char **argv) {
             if (bw_kHz < 1.0) bw_kHz = 0.0; // min. 1kHz
             set_lpIQ = bw_kHz * 1e3;
         }
-        else if   (strcmp(*argv, "--types") == 0) {
-            // --types T1,T2,... : case-sensitive, whitespace trimmed
+        else if ( (strcmp(*argv, "--types") == 0) || (strcmp(*argv, "--exclude-types") == 0) ) {
+            // --[exclude-]types T1,T2,... : case-sensitive, whitespace trimmed
+            int types_exclude = (strcmp(*argv, "--exclude-types") == 0) ? 1 : 0;
             ++argv;
             if (*argv == NULL || (*argv)[0] == '\0') {
-                fprintf(stderr, "error: --types requires a non-empty comma-separated list\n");
+                fprintf(stderr, "error: --types/--exclude-types require a non-empty comma-separated list\n");
                 return -1;
             }
-            user_set_types = 1;
+            user_set_types += 1;
+            if (user_set_types > 1) {
+                fprintf(stderr, "error: too many --types/--exclude-types\n");
+                return -1;
+            }
             int n;
-            for (n = 0; n < Nrs; n++) type_enabled[n] = 0;
+            for (n = 0; n < Nrs; n++) type_enabled[n] = types_exclude ? 1 : 0; // default init: 1
             const char *p = *argv;
             const char *start = p;
             while (1) {
@@ -1474,7 +1487,7 @@ int main(int argc, char **argv) {
                     size_t len = (size_t)(p - start);
                     if (len >= sizeof(token)) {
                         // bad token, skip it but keep going
-                        fprintf(stderr, "warning: --types: token too long, ignored\n");
+                        fprintf(stderr, "warning: --[exclude-]types: token too long, ignored\n");
                     }
                     else {
                         memcpy(token, start, len);
@@ -1487,14 +1500,14 @@ int main(int argc, char **argv) {
                             int matched = 0;
                             for (n = 0; n < Nrs; n++) {
                                 if (strcmp(rs_hdr[n].type, t) == 0) {
-                                    type_enabled[n] = 1;
+                                    type_enabled[n] = types_exclude ? 0 : 1;
                                     matched = 1;
-                                    if (n > idxIMETafsk) type_enabled[idxIMETafsk] = 1; // IMET1RS/IMET4 need AFSK preamble
+                                    if (n > idxIMETafsk) type_enabled[idxIMETafsk] = types_exclude ? 0 : 1; // IMET1RS/IMET4 need AFSK preamble
                                     break;
                                 }
                             }
                             if (!matched) {
-                                fprintf(stderr, "warning: --types: unknown sonde type '%s', ignored\n", t);
+                                fprintf(stderr, "warning: --[exclude-]types: unknown sonde type '%s', ignored\n", t);
                             }
                         }
                     }
@@ -1506,9 +1519,11 @@ int main(int argc, char **argv) {
             // nothing valid in the list? fall back to scanning everything
             // so the run keeps going (warning above tells the user why).
             int any = 0;
-            for (n = 0; n < Nrs; n++) if (type_enabled[n]) { any = 1; break; }
+            for (n = 0; n < Nrs; n++) {
+                if (type_enabled[n]) { any = 1; break; }
+            }
             if (!any) {
-                fprintf(stderr, "warning: --types: no valid types given, scanning all\n");
+                fprintf(stderr, "warning: --[exclude-]types: no valid types, scanning all\n");
                 for (n = 0; n < Nrs; n++) type_enabled[n] = 1;
             }
         }
@@ -1605,10 +1620,6 @@ int main(int argc, char **argv) {
     bin800 = freq2bin(800);
     bin1200 = freq2bin(1200);
 
-    for (n = 0; n < N_DFT; n++) {
-        xn[n] = 0.0;
-        db[n] = 0.0;
-    }
     nD = 0;
     nT = 0;
     T = sample_rate / D;
@@ -1627,41 +1638,40 @@ int main(int argc, char **argv) {
 
         if (tl > 0 && sample_in > (tl+1)*sample_rate) break;  // (int)sample_out < 0
 
-        // idxIMETafsk was j, and resulted in a segfault using clang.
-        xn[nD % D] = buf_fm[rs_hdr[idxIMETafsk].lpIQ][sample_out % M];
+        //
+        // iMet AFSK
+        xn_afsk[nD % D] = buf_fm[rs_hdr[idxIMETafsk].lpIQ][sample_out % M];
         nD++;
-
         if (nD % D == 0) {
-            dft(xn, X);
-            for (m = 0; m < N_DFT; m++) db[m] += cabs(X[m]);
+            dft(xn_afsk, X);
+            for (m = 0; m < N_DFT; m++) db_afsk[m] += cabs(X[m]);
             nT += 1;
         }
-
         if (nT >= T) {  // every sample_rate time
 
             pow2200 = 0.0;
-            for (n = 0; n < mf; n++) pow2200 += db[ bin2200 - mf/4 + n ];
+            for (n = 0; n < mf; n++) pow2200 += db_afsk[ bin2200 - mf/4 + n ];
 
             pow2400 = 0.0;
-            for (n = 0; n < mf; n++) pow2400 += db[ bin2400 - mf/4 + n ];
+            for (n = 0; n < mf; n++) pow2400 += db_afsk[ bin2400 - mf/4 + n ];
 
             pow800 = 0.0;
-            for (n = 0; n < mf; n++) pow800 += db[ bin800 - mf/4 + n ];
+            for (n = 0; n < mf; n++) pow800 += db_afsk[ bin800 - mf/4 + n ];
 
             pow1200 = 0.0;
-            for (n = 0; n < mf; n++) pow1200 += db[ bin1200 - mf/4 + n ];
+            for (n = 0; n < mf; n++) pow1200 += db_afsk[ bin1200 - mf/4 + n ];
 
             nT = 0;
-            for (m = 0; m < N_DFT; m++) db[m] = 0;
-
+            for (m = 0; m < N_DFT; m++) db_afsk[m] = 0;
         }
+
 
         k += 1;
 
         if (k >= K-4) {
             for (j = 0; j <= idxIMETafsk; j++) { // incl. IMET-preamble
 
-                if ( !type_enabled[j] ) continue; // --types
+                if ( !type_enabled[j] ) continue; // --[exclude-]types
 
                 mv0_pos[j] = mv_pos[j];
                 mp[j] = getCorrDFT(K, 0, mv+j, mv_pos+j, rs_hdr+j);
@@ -1676,7 +1686,7 @@ int main(int argc, char **argv) {
         header_found = 0;
         for (j = 0; j <= idxIMETafsk; j++) // incl. IMET-preamble
         {
-            if ( !type_enabled[j] ) continue; // --types
+            if ( !type_enabled[j] ) continue; // --[exclude-]types
             if (mp[j] > 0 && (mv[j] > rs_hdr[j].thres || mv[j] < -rs_hdr[j].thres)) {
                 if (mv_pos[j] > mv0_pos[j]) {
 
