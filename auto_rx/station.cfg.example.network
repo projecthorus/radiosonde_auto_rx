@@ -629,6 +629,15 @@ wideband_sondes = False
 # The default for this is True, as it can tie up SDRs un-necessarily. Not as big of an issue for a KA9Q-radio station.
 close_on_encrypted = True
 
+# Exclude Specific Radiosonde types from detection:
+# Allows excluding particular radiosonde types from the detection stage.
+# Only modify this if you know what you're doing!
+# Valid type names that can be used in this list are:
+# DFM9,'RS41','RS92','LMS6','IMET5','MK2LMS','M10','MEISEI','RD94RD41','MRZ','MTS01','CF6GTH','C34C50','WXR301','WXRPN9','IMET1AB','IMETafsk','IMET1RS','IMET4'
+# Note that 'DFM9' covers all DFM sondes, and 'M10' covers M10 and M20 sondes.
+# Each entry must be wrapped in double-quotes (e.g. "C34C50")
+exclude_types = ["IMET1AB","C34C50"]
+
 ######################
 # POSITION FILTERING #
 ######################

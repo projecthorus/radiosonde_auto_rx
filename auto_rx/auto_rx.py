@@ -181,6 +181,7 @@ def start_scanner():
             bias=autorx.sdr_list[_device_idx]["bias"],
             save_detection_audio=config["save_detection_audio"],
             wideband_sondes=config["wideband_sondes"],
+            exclude_types=config["exclude_types"],
             temporary_block_list=temporary_block_list,
             temporary_block_time=config["temporary_block_time"],
             max_async_scan_workers=config["max_async_scan_workers"],

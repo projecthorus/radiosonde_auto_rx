@@ -174,6 +174,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         # "sondehub_contact_email": "none@none.com" # Commented out to ensure a warning message is shown on startup
         "wideband_sondes": False, # Wideband sonde detection / decoding
         "close_on_encrypted": True,
+        "exclude_types": ["IMET1AB","C34C50"] # Sonde types to exclude from detections
     }
 
     try:
@@ -820,6 +821,17 @@ def read_auto_rx_config(filename, no_sdr_test=False):
                 "Config - Missing close_on_encrypted option (new in v1.8.2), using default (True)"
             )
             auto_rx_config["close_on_encrypted"] = True
+
+        # 1.9.0 - Allow excluding of specific radiosonde types
+        try:
+            auto_rx_config["exclude_types"] = json.loads(
+                config.get("advanced", "exclude_types")
+            )
+        except Exception as e:
+            logging.debug(
+                "Config - No or invalid exclude_types settings, defaulting to [\"IMET1AB\",\"C34C50\"]"
+            )
+            auto_rx_config["exclude_types"] = ['IMET1AB','C34C50']
 
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
