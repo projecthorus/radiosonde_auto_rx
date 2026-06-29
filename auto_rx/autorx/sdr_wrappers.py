@@ -774,9 +774,11 @@ def get_power_spectrum(
 
         # powers integrates only ~10-20ms per poll, so poll repeatedly at a short
         # interval and average the polls together (in read_ka9q_power_output) to
-        # integrate over the dwell. Raise _poll_interval to reduce poll count.
+        # integrate over the dwell. 
+        # Raise _poll_interval for fewer polls.
         _poll_interval = 0.05  # seconds between polls
-        _n_polls = max(1, round(integration_time / _poll_interval))
+        _poll_latency = 0.05   # approx radiod response latency per poll
+        _n_polls = max(1, round(integration_time / (_poll_interval + _poll_latency)))
 
         _powers_cmd = (
             f"{_timeout_cmd} {ka9q_powers_path} "
