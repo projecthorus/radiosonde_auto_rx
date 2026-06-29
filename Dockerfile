@@ -60,11 +60,15 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
   make -j$(nproc) 
 
 # Compile ka9q-radio from source
+# i386 needs SSE enabled explicitly for the MXCSR intrinsics in misc.c; other
+# arches build with no arch flags (SSE2 is baseline on x86_64, N/A on ARM).
+ARG TARGETARCH
 RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
   cd /root/ka9q-radio && \
   git checkout 707fd7cc6bedd2d98f6ac9390e267288365ff6c6 && \
+  if [ "$TARGETARCH" = "386" ]; then ARCHOPTS="-msse2 -mfpmath=sse"; else ARCHOPTS=""; fi && \
   make -j$(nproc) -C src \
-    ARCHOPTS= \
+    ARCHOPTS="$ARCHOPTS" \
     tune powers pcmrecord
 
 # Copy in radiosonde_auto_rx.
