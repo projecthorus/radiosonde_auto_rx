@@ -25,7 +25,9 @@ rm meisei100mod
 rm mp3h1mod
 rm imet54mod
 rm mts01mod
+rm rd94rd41drop
 rm cf06ht03mod
+rm c50iq
 rm iq_dec
 
 

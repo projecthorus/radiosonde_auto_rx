@@ -28,11 +28,10 @@ cd ../auto_rx/
 mv ../scan/dft_detect .
 mv ../utils/fsk_demod .
 mv ../imet/imet4iq .
+mv ../c50/c50iq .
 mv ../mk2a/mk2a1680mod .
 mv ../demod/mod/rs41mod .
 mv ../demod/mod/dfm09mod .
-mv ../demod/mod/m10mod .
-mv ../demod/mod/m20mod .
 mv ../demod/mod/m10m20mod .
 mv ../demod/mod/rs92mod .
 mv ../demod/mod/lms6Xmod .
