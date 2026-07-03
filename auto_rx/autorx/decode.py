@@ -44,7 +44,8 @@ VALID_SONDE_TYPES = [
     "WXRPN9",
     "IMETWIDE",
     "RD94RD41",
-    "CF6GTH"
+    "CF6GTH",
+    "C50"
 ]
 
 # Known 'Drifty' Radiosonde types
@@ -128,7 +129,8 @@ class SondeDecoder(object):
         "WXRPN9",
         "IMETWIDE",
         "RD94RD41",
-        "CF6GTH"
+        "CF6GTH",
+        "C50"
     ]
 
     def __init__(
@@ -859,6 +861,33 @@ class SondeDecoder(object):
 
             # CF-06 Decoder, in IQ input mode
             decode_cmd += f"./cf06ht03mod --json --IQ 0.0 --lpbw 12 --dc  - {_sample_rate} 16 2>/dev/null"
+
+
+        elif self.sonde_type == "C50":
+            # Meteolabor C50
+
+            _sample_rate = 48000
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
+
+            # C50 Decoder, in IQ input mode
+            # ./c50iq --json --ptu -v --xor-auto --iq 0.0 --lpIQ - 48000 16
+            decode_cmd += f"./c50iq --json --ptu --xor-auto --iq 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
 
 
         elif self.sonde_type == "UDP":
