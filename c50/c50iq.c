@@ -581,6 +581,27 @@ int f32_sample(dsp_t *dsp, float *out) {
 
 
 /* -------------------------------------------------------------------------- */
+static int datetime2GPSweek(int yyyy, int mm, int dd,
+                            int hr, int min, int sec,
+                            int *week, int *tow) {
+    int ww = 0;
+    int tt = 0;
+    int gpsDays = 0;
+
+    if ( mm < 3 ) { yyyy -= 1; mm += 12; }
+
+    gpsDays = (int)(365.25*yyyy) + (int)(30.6001*(mm+1.0)) + dd - 723263; // 1980-01-06
+
+    ww = gpsDays / 7;
+    tt = gpsDays % 7;
+    tt = tt*86400 + hr*3600 + min*60 + sec;
+
+    *week = ww;
+    *tow  = tt;
+
+    return 0;
+}
+/* ------------------------------------------------------------------------------------ */
 
 
 #define IF_SAMPLE_RATE      48000
@@ -878,10 +899,19 @@ static void printJSON() {
     // UTC or GPS time ?
     char *ver_jsn = NULL;
     char json_sonde_id[] = "C50-xxxx\0\0\0\0\0\0\0";
+    int gps_week = 0,
+        gps_tow = 0;
+    ui32_t datetime_cnt = 0;
+
+    // seconds since GPS (ignoring leap seconds, C50=UTC)
+    datetime2GPSweek(gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, &gps_week, &gps_tow);
+    datetime_cnt = gps_week*604800 + gps_tow; // SECONDS_IN_WEEK=7*86400=604800  ( unsigned roll-over: 2116-02-11 )
+
     if (gpx.sn) {
         sprintf(json_sonde_id, "C50-%u", gpx.sn);
     }
     printf("{ \"type\": \"%s\"", "C50");
+    printf(", \"frame\": %u", datetime_cnt); // frame number based on date/time
     printf(", \"id\": \"%s\", ", json_sonde_id);
     printf("\"datetime\": \"%04d-%02d-%02dT%02d:%02d:%02dZ\", \"lat\": %.5f, \"lon\": %.5f, \"alt\": %.1f",
            gpx.jahr, gpx.monat, gpx.tag, gpx.std, gpx.min, gpx.sek, gpx.lat, gpx.lon, gpx.alt);
