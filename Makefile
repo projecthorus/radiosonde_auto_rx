@@ -10,6 +10,7 @@ export CFLAGS
 SUBDIRS := \
 	demod/mod \
 	imet \
+	c50 \
 	mk2a \
 	scan \
 	dropsonde \

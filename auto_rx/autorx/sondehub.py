@@ -283,6 +283,11 @@ class SondehubUploader(object):
             _output["type"] = "GTH6"
             _output["serial"] = telemetry["id"]
 
+        elif telemetry["type"] == "C50":
+            _output["manufacturer"] = "Meteolabor"
+            _output["type"] = "C50"
+            _output["serial"] = telemetry["id"]
+
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
             return None
