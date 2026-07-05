@@ -285,7 +285,7 @@ class SondehubUploader(object):
 
         elif telemetry["type"] == "C50":
             _output["manufacturer"] = "Meteolabor"
-            _output["type"] = "C50"
+            _output["type"] = "SRS-C50"
             _output["serial"] = telemetry["id"]
 
         else:
