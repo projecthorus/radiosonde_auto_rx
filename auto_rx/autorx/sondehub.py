@@ -236,15 +236,27 @@ class SondehubUploader(object):
             _output["type"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"] == "IMS100":
             _output["manufacturer"] = "Meisei"
             _output["type"] = "iMS-100"
             _output["serial"] = telemetry["id"].split("-")[1]
 
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"] == "RS11G":
             _output["manufacturer"] = "Meisei"
             _output["type"] = "RS-11G"
             _output["serial"] = telemetry["id"].split("-")[1]
+
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
 
         elif telemetry["type"] == "MRZ":
             _output["manufacturer"] = "Meteo-Radiy"
