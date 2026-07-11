@@ -451,7 +451,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             "IMETWIDE": False,
             "RD94RD41": True,
             "CF6GTH": False,
-            "C50": False,
+            "SRSC50": False,
             "UDP": False,
         }
 
