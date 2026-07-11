@@ -45,7 +45,7 @@ VALID_SONDE_TYPES = [
     "IMETWIDE",
     "RD94RD41",
     "CF6GTH",
-    "C50"
+    "SRSC50"
 ]
 
 # Known 'Drifty' Radiosonde types
@@ -130,7 +130,7 @@ class SondeDecoder(object):
         "IMETWIDE",
         "RD94RD41",
         "CF6GTH",
-        "C50"
+        "SRSC50"
     ]
 
     def __init__(
@@ -863,8 +863,8 @@ class SondeDecoder(object):
             decode_cmd += f"./cf06ht03mod --json --IQ 0.0 --lpbw 12 --dc  - {_sample_rate} 16 2>/dev/null"
 
 
-        elif self.sonde_type == "C50":
-            # Meteolabor C50
+        elif self.sonde_type == "SRSC50":
+            # Meteolabor SRS-C50
 
             _sample_rate = 48000
 

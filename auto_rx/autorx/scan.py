@@ -334,10 +334,10 @@ def parse_dft_detect_output(ret_output, sdr_name):
         _sonde_type = "LMS6"
     elif "C34C50" in _type:
         logging.debug(
-            "Scanner (%s) - Detected a Meteolabor C34/C50 Sonde! (C34 not supported) (Score: %.2f)"
+            "Scanner (%s) - Detected a Meteolabor SRS-C34/C50 Sonde! (C34 not supported) (Score: %.2f)"
             % (sdr_name, _score)
         )
-        _sonde_type = "C50"
+        _sonde_type = "SRSC50"
     elif "MRZ" in _type:
         logging.debug(
             "Scanner (%s) - Detected a Meteo-Radiy MRZ Sonde! (Score: %.2f)"

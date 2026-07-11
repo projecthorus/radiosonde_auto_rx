@@ -227,8 +227,8 @@ def short_type_lookup(type_name):
         return "Changfeng CF-06"
     elif type_name == "GTH":
         return "Changwang GTH6"
-    elif type_name == "C50":
-        return "Meteolabor C50"
+    elif type_name == "SRSC50":
+        return "Meteolabor SRS-C50"
     else:
         return "Unknown"
 
@@ -285,8 +285,8 @@ def short_short_type_lookup(type_name):
         return "CF-06"
     elif type_name == "GTH":
         return "GTH6"
-    elif type_name == "C50":
-        return "C50"
+    elif type_name == "SRSC50":
+        return "SRSC50"
     else:
         return "Unknown"
 
@@ -376,7 +376,7 @@ def generate_aprs_id(sonde_data):
             # Create the object name
             _object_name = "MTS" + _id_suffix
 
-        elif "C50" in sonde_data["type"]:
+        elif "SRSC50" in sonde_data["type"]:
             # Use C50 + the last 4 hex digits of the sonde ID.
             _id_suffix = int(sonde_data["id"].split("-")[1])
             _id_hex = ("%04x" % _id_suffix).upper()
