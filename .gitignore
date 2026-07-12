@@ -56,6 +56,7 @@ auto_rx/weathex301d
 auto_rx/m10m20mod
 auto_rx/cf06ht03mod
 auto_rx/c50iq
+auto_rx/rd94rd41drop
 
 m10
 meisei100mod
@@ -85,3 +86,4 @@ rs_module/rs92mod
 scan/reset_usb
 scan/rs_detect
 weathex/weathex301d
+dropsonde/rd94rd41drop
