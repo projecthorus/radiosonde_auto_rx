@@ -18,12 +18,17 @@ def ka9q_setup_channel(
     frequency,
     sample_rate,
     scan,
-    channel_filter = None
+    channel_filter = None,
+    startup_timeout = 10
 ):
     if scan:
-        ssrc="04"
+        ssrc = "04"
+        # For scan channels, set the lifetime to 60 seconds (50 Hz * 60)
+        # To ensure they get closed out even if the close call fails
+        lifetime = "--lifetime 3000"
     else:
-        ssrc="01"
+        ssrc = "01"
+        lifetime = ""
 
     # tune --samprate 48000 --frequency 404m09 --mode iq --ssrc 404090000 --radio sonde.local
 
@@ -35,7 +40,7 @@ def ka9q_setup_channel(
         _high = int(int(sample_rate) / 2.4)
 
     _cmd = (
-        f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+        f"{timeout_cmd()} {startup_timeout} " # Add a timeout, because connections to non-existing servers block for ages
         f"tune "
         f"--samprate {int(sample_rate)} "
         f"--mode iq "
@@ -43,6 +48,7 @@ def ka9q_setup_channel(
         f"--frequency {int(frequency)} "
         f"--ssrc {round(frequency / 1000)}{ssrc} "
         f"--radio {sdr_hostname}"
+        f"{lifetime}"
     )
 
     logging.debug(f"KA9Q - Starting channel at {frequency} Hz, with command: {_cmd}")
@@ -62,7 +68,7 @@ def ka9q_setup_channel(
 
         if e.returncode == 124:
             logging.critical(
-                f"KA9Q ({sdr_hostname}) - tune call failed while opening channel with a timeout. Is the server running?"
+                f"KA9Q ({sdr_hostname}) - tune call failed while opening channel (ssrc {round(frequency / 1000)}{ssrc}) with a timeout. Is the server running?"
             )
         elif e.returncode == 127:
             logging.critical(
@@ -70,7 +76,7 @@ def ka9q_setup_channel(
             )
         else:
             logging.critical(
-                f"KA9Q ({sdr_hostname}) - tune call failed while opening channel with return code {e.returncode}."
+                f"KA9Q ({sdr_hostname}) - tune call failed while opening channel (ssrc {round(frequency / 1000)}{ssrc}) with return code {e.returncode}."
             )
             # Look at the error output in a bit more details.
             #_output = e.output.decode("ascii")
@@ -84,7 +90,8 @@ def ka9q_setup_channel(
 def ka9q_close_channel(
     sdr_hostname,
     frequency,
-    scan
+    scan,
+    startup_timeout = 10
 ):
     if scan:
         ssrc="04"
@@ -92,7 +99,7 @@ def ka9q_close_channel(
         ssrc="01"
 
     _cmd = (
-        f"{timeout_cmd()} 5 " # Add a timeout, because connections to non-existing servers block for ages
+        f"{timeout_cmd()} {startup_timeout} " # Add a timeout, because connections to non-existing servers block for ages
         f"tune "
         f"--samprate 48000 "
         f"--mode iq "
@@ -119,7 +126,7 @@ def ka9q_close_channel(
 
         if e.returncode == 124:
             logging.critical(
-                f"KA9Q ({sdr_hostname}) - tune call failed while closing channel with a timeout. Is the server running?"
+                f"KA9Q ({sdr_hostname}) - tune call failed while closing channel (ssrc {round(frequency / 1000)}{ssrc} ) with a timeout. Is the server running?"
             )
         elif e.returncode == 127:
             logging.critical(
@@ -127,7 +134,7 @@ def ka9q_close_channel(
             )
         else:
             logging.critical(
-                f"KA9Q ({sdr_hostname}) - tune call failed while closing chanel with return code {e.returncode}."
+                f"KA9Q ({sdr_hostname}) - tune call failed while closing chanel (ssrc {round(frequency / 1000)}{ssrc} ) with return code {e.returncode}."
             )
             # Look at the error output in a bit more details.
             #_output = e.output.decode("ascii")

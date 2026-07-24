@@ -77,7 +77,8 @@ def test_sdr(
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
             f"--ssrc {round(check_freq / 1000)}02 "
-            f"--radio {sdr_hostname}"
+            f"--radio {sdr_hostname} "
+            f"--lifetime 3000" # Ensure the channel closes out after 60 seconds max
         )
 
         logging.debug(f"KA9Q - Testing using command: {_cmd}")
@@ -91,7 +92,7 @@ def test_sdr(
 
             if e.returncode == 124:
                 logging.critical(
-                    f"KA9Q ({sdr_hostname}) - tune call failed with a timeout. Is the server running?"
+                    f"KA9Q ({sdr_hostname}) - tune call failed (ssrc {round(check_freq / 1000)}02 ) with a timeout. Is the server running?"
                 )
             elif e.returncode == 127:
                 logging.critical(
@@ -99,7 +100,7 @@ def test_sdr(
                 )
             else:
                 logging.critical(
-                    f"KA9Q ({sdr_hostname}) - tune call failed with return code {e.returncode}."
+                    f"KA9Q ({sdr_hostname}) - tune call faile (ssrc {round(check_freq / 1000)}02 ) with return code {e.returncode}."
                 )
                 # Look at the error output in a bit more details.
                 #_output = e.output.decode("ascii")
