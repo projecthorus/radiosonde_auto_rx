@@ -59,13 +59,18 @@ RUN git clone https://github.com/miweber67/spyserver_client.git /root/spyserver_
   cd /root/spyserver_client && \
   make
 
-# Compile ka9q-radio from source
-RUN git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
-  cd /root/ka9q-radio && \
-  git checkout e0b5ee818ce87f7041d80f6838dca1c8f140cf97 && cd src && \
-  make \
-    ARCHOPTS= \
-    tune powers pcmrecord
+# Compile ka9q-radio from source on 64-bit architectures.
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+    amd64|arm64) \
+      git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
+      cd /root/ka9q-radio && \
+      git checkout e1224dcd1991637ba8e1caa68cd802e1b22933de && \
+      cd src && \
+      make ARCHOPTS= tune powers pcmrecord && \
+      install -m 0755 tune powers pcmrecord /root/target/usr/local/bin/ \
+      ;; \
+  esac
 
 # Copy in radiosonde_auto_rx.
 COPY . /root/radiosonde_auto_rx
@@ -100,7 +105,7 @@ RUN apt-get update && \
   usbutils && \
   rm -rf /var/lib/apt/lists/*
 
-# Copy rtl-sdr from the build container.
+# Copy locally compiled utilities from the build container.
 COPY --from=build /root/target /
 RUN ldconfig
 
@@ -115,11 +120,6 @@ COPY --from=build /root/radiosonde_auto_rx/auto_rx/ /opt/auto_rx/
 COPY --from=build /root/spyserver_client/ss_client /opt/auto_rx/
 RUN ln -s ss_client /opt/auto_rx/ss_iq && \
   ln -s ss_client /opt/auto_rx/ss_power
-
-# Copy ka9q-radio utilities 
-COPY --from=build /root/ka9q-radio/src/tune /usr/local/bin/
-COPY --from=build /root/ka9q-radio/src/powers /usr/local/bin/
-COPY --from=build /root/ka9q-radio/src/pcmrecord /usr/local/bin/
 
 # Allow mDNS resolution for ka9q-radio utilities
 RUN sed -i -e 's/files dns/files mdns4_minimal [NOTFOUND=return] dns/g' /etc/nsswitch.conf
