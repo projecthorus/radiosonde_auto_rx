@@ -47,7 +47,7 @@ def ka9q_setup_channel(
         f"--low {_low} --high {_high} "
         f"--frequency {int(frequency)} "
         f"--ssrc {round(frequency / 1000)}{ssrc} "
-        f"--radio {sdr_hostname}"
+        f"--radio {sdr_hostname} "
         f"{lifetime}"
     )
 
