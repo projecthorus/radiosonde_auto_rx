@@ -860,7 +860,7 @@ class SondeDecoder(object):
                 decode_cmd += f" tee {self.save_decode_iq_path} |"
 
             # CF-06 Decoder, in IQ input mode
-            decode_cmd += f"./cf06ht03mod --json --IQ 0.0 --lpbw 12 --dc  - {_sample_rate} 16 2>/dev/null"
+            decode_cmd += f"./cf06ht03mod --json {self.raw_file_option} --IQ 0.0 --lpbw 12 --dc  - {_sample_rate} 16 2>/dev/null"
 
 
         elif self.sonde_type == "SRSC50":
