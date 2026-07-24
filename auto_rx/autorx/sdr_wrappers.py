@@ -797,7 +797,7 @@ def get_power_spectrum(
             f"-s {_ssrc} "
             #f"-c 1 " # burn the first scan result due to no dwelling
             # Some hardcoded values for ka9q-radio to check behaviour
-            f"-a {step} -i 2 -c 1"
+            f"-a {step} -i 2 -c 1 "
             f"> {_log_filename}"
         )
 
