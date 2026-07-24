@@ -96,9 +96,10 @@ def ka9q_close_channel(
         f"tune "
         f"--samprate 48000 "
         f"--mode iq "
-        f"--frequency 0 "
+        f"--frequency {int(frequency)} "
         f"--ssrc {round(frequency / 1000)}{ssrc} "
-        f"--radio {sdr_hostname}"
+        f"--radio {sdr_hostname} "
+        f"--lifetime 50" # Use the lifetime argument to cause this channel to shutdown after 50 frames (1 second)
     )
 
     logging.debug(f"KA9Q - Closing channel at {frequency} Hz, with command: {_cmd}")
