@@ -112,9 +112,10 @@ def test_sdr(
             f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
-            f"--frequency 0 "
+            f"--frequency {int(check_freq)} "
             f"--ssrc {round(check_freq / 1000)}02 "
-            f"--radio {sdr_hostname}"
+            f"--radio {sdr_hostname} "
+            f"--lifetime 50"
         )
 
         logging.debug(f"KA9Q - Closing testing channel using command: {_cmd}")
