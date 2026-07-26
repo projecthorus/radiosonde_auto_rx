@@ -28,8 +28,8 @@ Meisei | iMS-100 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: 
 Meisei | RS11G | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
 Meteo-Radiy | MRZ-H1 (400 MHz) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: | Not Sent
 Meteosis | MTS01 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | Not Sent
-Changfeng | CF-06 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | Not Sent
-Changwang | GTH-6 | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: | Not Sent
+Changfeng | CF-06 | :heavy_check_mark: | :x: | :x: | :x: | Not Sent
+Changwang | GTH-6 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Not Sent
 Meteolabor | SRS-C50 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:
 
 Support for other radiosondes may be added as required - please send us sondes to test with! If you have any information about telemetry formats, we'd love to hear from you (see our contact details below).
