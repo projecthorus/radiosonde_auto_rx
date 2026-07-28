@@ -532,14 +532,7 @@ def read_ka9q_power_log(log_filename, sdr_name):
     # ka9q powers log files are csv's, with the first 5 fields in each line describing the time and frequency scan parameters
     # for the remaining fields, which contain the power samples.
 
-    #burn_line = True
-    # 1.9.0-beta10, using newer ka9q-radio where we just request one line
-    burn_line = False
-
     for line in f:
-        if burn_line:
-            burn_line = False
-            continue
 
         # Split line into fields.
         fields = line.rstrip().split(",", 5)
@@ -793,11 +786,9 @@ def get_power_spectrum(
             f"-f {_center_freq} "
             f"-w {step} "
             f"-b {_bins} "
-            #f"-i {integration_time} "
             f"-s {_ssrc} "
-            #f"-c 1 " # burn the first scan result due to no dwelling
-            # Some hardcoded values for ka9q-radio to check behaviour
-            f"-a {step} -i 2 -c 1 "
+            # Average for the user-defined integration time.
+            f"-a {int(step*integration_time)} -c 1 "
             f"> {_log_filename}"
         )
 
