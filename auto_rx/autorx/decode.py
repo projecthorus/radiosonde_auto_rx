@@ -48,10 +48,6 @@ VALID_SONDE_TYPES = [
     "SRSC50"
 ]
 
-# Known 'Drifty' Radiosonde types
-# NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
-# is now applied to all radiosonde types. This may need to be re-evaluated in the future.
-DRIFTY_SONDE_TYPES = VALID_SONDE_TYPES  # ['RS92', 'DFM', 'LMS6']
 
 
 class SondeDecoder(object):
