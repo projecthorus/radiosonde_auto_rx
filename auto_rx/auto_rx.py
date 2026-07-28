@@ -35,7 +35,7 @@ if sys.version_info < (3, 6):
 
 import autorx
 from autorx.scan import SondeScanner
-from autorx.decode import SondeDecoder, VALID_SONDE_TYPES, DRIFTY_SONDE_TYPES
+from autorx.decode import SondeDecoder, VALID_SONDE_TYPES
 from autorx.logger import TelemetryLogger
 from autorx.email_notification import EmailNotification
 from autorx.aprs import APRSUploader
@@ -360,9 +360,12 @@ def handle_scan_results():
                         if _decoding_sonde_type.startswith("-"):
                             _decoding_sonde_type = _decoding_sonde_type[1:]
 
-                        # Only check the frequency spacing if we have a known 'drifty' sonde type, *and* the new sonde type is of the same type.
-                        if (_decoding_sonde_type in DRIFTY_SONDE_TYPES) and (
-                            _decoding_sonde_type == _check_type
+                        # Check if the adjacent sonde is the same type
+                        #.. or possible a M10/M20 misdetection
+                        if (
+                            (_decoding_sonde_type == _check_type) or 
+                            (_decoding_sonde_type == 'M20' and _check_type == 'M10') or
+                            (_decoding_sonde_type == 'M10' and _check_type == 'M20')
                         ):
                             if abs(_key - _freq) < config["decoder_spacing_limit"]:
                                 # At this point, we can be pretty sure that there is another decoder already decoding this particular sonde ID.
