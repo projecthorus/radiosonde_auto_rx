@@ -65,7 +65,7 @@ RUN case "$TARGETARCH" in \
     amd64|arm64) \
       git clone https://github.com/ka9q/ka9q-radio.git /root/ka9q-radio && \
       cd /root/ka9q-radio && \
-      git checkout 1a974c18abb75480fa4c7eda6a62009beda28044 && \
+      git checkout bde125a7a16265ea42848b5c551fcbda6555daa9 && \
       cd src && \
       make ARCHOPTS= tune powers pcmrecord && \
       install -m 0755 tune powers pcmrecord /root/target/usr/local/bin/ \
