@@ -26,8 +26,6 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-          - platform: linux/arm/v6
-            runner: ubuntu-24.04-arm
           - platform: linux/arm/v7
             runner: ubuntu-24.04-arm
     steps:
