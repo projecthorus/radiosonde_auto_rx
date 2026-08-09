@@ -1962,10 +1962,10 @@ class SondeDecoder(object):
                     except:
                         continue
 
-                    if (self.current_id == _decoder_id) and (_decoder_start_time < self.decoder_start_time):
+                    if (self.current_id == _decoder_id) and (_decoder_start_time < self.decoder_start_time) and (_telem_ok == "OK"):
                         # Already another decoder decoding this sonde!
                         self.log_info(
-                            f"This sonde already being decoded on {_key/1e6} MHz! Closing decoder."
+                            f"This sonde ({self.current_id}) already being decoded on {_key/1e6} MHz! Closing decoder."
                         )
                         self.exit_state = "Duplicate"
                         self.decoder_running = False
