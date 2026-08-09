@@ -202,7 +202,7 @@ class SondeDecoder(object):
         self.decoder_running = True
         # Flags that might eventually get checked from other threads, to avoid duplicate decoders running.
         self.current_id = None
-        self.decoder_start_time = time.time()
+        self.decoder_start_time = time.monotonic()
 
         # Local copy of init arguments
         self.sonde_type = sonde_type
