@@ -200,6 +200,9 @@ class SondeDecoder(object):
         """
         # Thread running flag
         self.decoder_running = True
+        # Flags that might eventually get checked from other threads, to avoid duplicate decoders running.
+        self.current_id = None
+        self.decoder_start_time = time.time()
 
         # Local copy of init arguments
         self.sonde_type = sonde_type
@@ -1918,6 +1921,9 @@ class SondeDecoder(object):
                 )
                 _telemetry["aprsid"] = None
 
+            # Update our 'currently decoding' ID
+            self.current_id = _telemetry['id']
+
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
             # By default, we will assume the telemetry is OK.
@@ -1938,6 +1944,28 @@ class SondeDecoder(object):
                 self.exit_state = "TempBlock"
                 self.decoder_running = False
                 return False
+
+            # Check for other decoders already decoding this sonde.
+            for _key in autorx.task_list.keys():
+                # Iterate through the task list, and only attempt to compare with those that are a decoder task.
+                # This is indicated by the task key being an integer (the sonde frequency).
+                if (type(_key) == int) or (type(_key) == float):
+                    # Skip this Decoder!
+                    if self.sonde_freq == _key:
+                        continue
+
+                    # Extract the currently decoded sonde type and start time from the currently running decoder.
+                    _decoder_id = autorx.task_list[_key]["task"].current_id
+                    _decoder_start_time = autorx.task_list[_key]["task"].decoder_start_time
+
+                    if (self.current_id == _decoder_id) and (_decoder_start_time < self.decoder_start_time):
+                        # Already another decoder decoding this sonde!
+                        self.log_error(
+                            f"This sonde already being decoded on {_key/1e6} MHz! Closing decoder."
+                        )
+                        self.exit_state = "Duplicate"
+                        self.decoder_running = False
+                        return False
 
             # Run telemetry from DFM sondes through real-time filter
             if self.enable_realtime_filter and (_telemetry["type"].startswith("DFM")):

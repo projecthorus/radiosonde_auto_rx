@@ -441,7 +441,7 @@ def clean_task_list():
         if _running == False:
             # This task has stopped.
             # Check the exit state of the task for any abnormalities:
-            if (_exit_state == "Encrypted") or (_exit_state == "TempBlock"):
+            if (_exit_state == "Encrypted") or (_exit_state == "TempBlock") or (_exit_state == "Duplicate"):
                 # This task was a decoder, and it has encountered an encrypted sonde, or one too far away.
                 logging.info(
                     "Task Manager - Adding temporary block for frequency %.3f MHz"
