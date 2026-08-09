@@ -1955,8 +1955,12 @@ class SondeDecoder(object):
                         continue
 
                     # Extract the currently decoded sonde type and start time from the currently running decoder.
-                    _decoder_id = autorx.task_list[_key]["task"].current_id
-                    _decoder_start_time = autorx.task_list[_key]["task"].decoder_start_time
+                    # Wrap this in a try/except as the task list might get modified while we are reading it.
+                    try:
+                        _decoder_id = autorx.task_list[_key]["task"].current_id
+                        _decoder_start_time = autorx.task_list[_key]["task"].decoder_start_time
+                    except:
+                        continue
 
                     if (self.current_id == _decoder_id) and (_decoder_start_time < self.decoder_start_time):
                         # Already another decoder decoding this sonde!
