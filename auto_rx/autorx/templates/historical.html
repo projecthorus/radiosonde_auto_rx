@@ -39,6 +39,8 @@
 
         var sonde_list_width = 1;
             
+        var _hwt_profile_url = "";
+
         $( document ).ready(function() {
 
             shown = [];
@@ -62,6 +64,9 @@
                     $('#station_callsign').text(_station_call);
                   }
             });  
+
+            _hwt_profile_url = autorx_config.hwt_terrain_url;
+            _hwt_profile_url += "&width=550&height=400";
 
             $.ajax({
                   // Get list of sonde.
@@ -174,6 +179,7 @@
                 $("#hidesonde-map").prop('disabled', true);
                 $("#showsonde-skew").prop('disabled', true);
                 $("#hidesonde-skew").prop('disabled', true);
+                $("#showsonde-profile").prop('disabled', true);
                 $("#download-logs").prop('disabled', true);
                 $("#generate-kml").prop('disabled', true);
             }
@@ -188,6 +194,7 @@
                 $("#hidesonde-map").prop('disabled', false);
                 $("#showsonde-skew").prop('disabled', false);
                 $("#hidesonde-skew").prop('disabled', false);
+                $("#showsonde-profile").prop('disabled', false);
                 $("#download-logs").prop('disabled', false);
                 $("#generate-kml").prop('disabled', false);
             }
@@ -936,6 +943,67 @@
                 showSkewT();
             });
 
+            function showProfile (firstlast) {
+                selectedrows = table.getSelectedData();
+                if (selectedrows.length > 0) {
+                    document.getElementById("profile_img").src="";
+                    $("#profile-buttons").css('visibility', 'visible');
+                    this_row = selectedrows[selectedrows.length-1];
+
+                    _heading =  "Terrain Profile Plot<br>" + this_row['serial'];
+                    _heading += " " + this_row[firstlast]['datetime'];
+                    if (firstlast == "last") {
+                        _heading += "<br>Last seen";
+                    } else {
+                        _heading += "<br>First seen";
+                    }
+                    _heading += " Bearing: " + this_row[firstlast]['bearing'];
+                    _heading += "&deg;";
+                    $('#profile-header').html(_heading);
+
+                    _hwt =  _hwt_profile_url;
+                    _hwt += "&pt0=";
+                    _hwt += autorx_config.hwt_lat + ",";
+                    _hwt += autorx_config.hwt_lon + ",";
+                    _hwt += "8b6914,";
+                    _hwt += autorx_config.hwt_alt;
+                    _hwt += ",9906ff";
+
+                    _hwt += "&pt1=";
+                    _hwt += this_row[firstlast]['lat'] + ",";
+                    _hwt += this_row[firstlast]['lon'] + ",";
+                    _hwt += ",";
+                    _hwt += this_row[firstlast]['alt'] + ",";
+                    _hwt += "&freq=";
+                    _hwt += this_row['freq'];
+                    document.getElementById("profile_img").src=_hwt;
+
+                    if (document.getElementById("myProfile").style.width == "0px" || document.getElementById("myProfile").style.width == 0) {
+                        if ((window.innerWidth/window.innerHeight) > 1) {
+                            document.getElementById("myProfile").style.width = "100vh";
+                        } else {
+                            document.getElementById("myProfile").style.width = "100%";
+                        }
+                    }
+                } else {
+                    enableMenu();
+                }
+                enableMenu();
+            }
+
+            $("#showsonde-profile").click(function(){
+                disableMenu();
+                showProfile('last');
+            });
+            $("#first-profile").click(function(){
+                disableMenu();
+                showProfile('first');
+            });
+            $("#last-profile").click(function(){
+                disableMenu();
+                showProfile('last');
+            });
+
             function downloadLogs() {
                 // Download a set of log files.
                 selectedrows = table.getSelectedData();
@@ -1114,6 +1182,7 @@
                     $('#myBtn1').css('color', 'black')
                     $('#myBtn2').css('color', 'black')
                     $('#myBtn3').css('color', 'black')
+                    $('#myBtn4').css('color', 'black')
                     $('#scanid').css('color', 'black')
                     $('.c3-axis-y').css('fill', 'black')
                     $('.c3-axis-x').css('fill', 'black')
@@ -1146,6 +1215,7 @@
                     $('#myBtn1').css('color', 'white')
                     $('#myBtn2').css('color', 'white')
                     $('#myBtn3').css('color', 'white')
+                    $('#myBtn4').css('color', 'white')
                     $('#scanid').css('color', 'white')
                     $('.c3-axis-y').css('fill', 'white')
                     $('.c3-axis-x').css('fill', 'white')
@@ -1434,6 +1504,30 @@
             }
         }
 
+        // Function to open/close right HeyWhatsThat profile along with adjusting other elements so they render correctly.
+        function changeProfile() {
+            var y = document.getElementById('mapid');
+            if (document.getElementById("myProfile").style.width == "0px" || document.getElementById("myProfile").style.width == 0) {
+                if ((window.innerWidth/window.innerHeight) > 1) { // 350px wide on desktop.
+                    y.style.display = "block";
+                    document.getElementById("myProfile").style.width = "100vh";
+                    document.getElementById("main").style.marginRight = "100vh";
+                    document.getElementById("myProfile").style.borderRadius = "25px 0px 0px 25px";
+                    mymap.invalidateSize();
+                } else { // Fullsize on mobile.
+                    y.style.display = "none";
+                    document.getElementById("myProfile").style.width = "100%";
+                    document.getElementById("main").style.marginRight = "0";
+                    document.getElementById("myProfile").style.borderRadius = "0px";
+                }
+            } else {
+                y.style.display = "block";
+                document.getElementById("myProfile").style.width = 0;
+                document.getElementById("main").style.marginRight = 0;
+                mymap.invalidateSize();
+            }
+        }
+
         // Function to open/close right settings menu along with adjusting other elements so they render correctly.
         function changeSettings() {            
             var y = document.getElementById('mapid');
@@ -1503,6 +1597,7 @@
                 <button id="showsonde-launches" style="margin:3px auto">Plot First RX</button>
                 <button id="showsonde-coverage" style="margin:3px auto">Plot Coverage</button>
                 <button id="showsonde-skew" style="margin:3px auto">Plot Skew-T</button>
+                <button id="showsonde-profile" style="margin:3px auto">Plot Terrain</button>
                 <button id="download-logs" style="margin:3px auto">Download Logs</button>
                 <button id="generate-kml" style="margin:3px auto">Generate KML</button>
             </div>
@@ -1511,7 +1606,7 @@
             <div id="sonde-list-table" style="height:100%"></div>       
         </div>
 
-    <!-- Wrapper for settings sidebar -->   
+    <!-- Wrapper for SkewT sidebar -->
     <div id="mySkewT" class="skewt">
         <a href="javascript:void(0)" class="closebtn3" id="closebtn3" onclick="changeSkewT()">&#10006;</a>
         <h2 id="skewt-header" style="width:100%;text-align:center;">Skew-T Plot</h2>
@@ -1529,6 +1624,20 @@
             <button id="regenerate-skewt" style="margin:3px auto;vertical-align:middle;">Regenerate</button>
         </span>
         <div id="skewt-footer"></div>
+    </div>
+
+    <!-- Wrapper for HeyWhatsThat Profile sidebar -->
+    <div id="myProfile" class="skewt">
+        <a href="javascript:void(0)" class="closebtn3" id="closebtn4" onclick="changeProfile()">&#10006;</a>
+        <h2 id="profile-header" style="width:100%;text-align:center;">Terrain Profile Plot</h2>
+        <div id="profile_div" style="width:90%;margin:3px auto">
+            <img id="profile_img" />
+        </div>
+        <span id="profile-buttons", style="width:100%;text-align:center;visibility:hidden;vertical-align:middle;">
+            <button id="first-profile" style="margin:3px auto;vertical-align:middle;">First RX</button>
+            <button id="last-profile" style="margin:3px auto;vertical-align:middle;">Last RX</button>
+        </span>
+        <div id="profile-footer" style="text-align:center;">Profile image is Copyright 2025 Michael Kosowsky. All rights reserved.<br>Used with permission. For more information <a href="http://www.heywhatsthat.com/">Click Here</a></div>
     </div>
 
     <!-- Wrapper for settings sidebar -->
@@ -1572,6 +1681,7 @@
         <i id="myBtn1" onclick="changeSettings()" class="icon-cog" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
         <a href="." id="myBtn2"><i class="icon-home" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i></a>
         <i id="myBtn3" onclick="changeSkewT()" class="icon-chart-line" style="font-size:4vh;font-size:calc(var(--vh, 1vh) * 4);"></i>
+        <i id="myBtn4" onclick="changeProfile()" class="icon-mountain" style="font-size:3.5vh;font-size:calc(var(--vh, 1vh) * 3.5);"></i>
     </div>
 </div>
 </body>
