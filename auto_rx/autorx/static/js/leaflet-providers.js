@@ -742,12 +742,13 @@
 			}
 		},
 		CartoDB: {
-			url: 'https://{s}.basemaps.cartocdn.com/{variant}/{z}/{x}/{y}{r}.png',
+			url: 'https://{s}.basemaps.cartocdn.com/{variant}/{z}/{x}/{y}{r}.png?key={key}',
 			options: {
 				attribution: '{attribution.OpenStreetMap} &copy; <a href="https://carto.com/attributions">CARTO</a>',
 				subdomains: 'abcd',
-				maxZoom: 19,
-				variant: 'light_all'
+				maxZoom: 20,
+				variant: 'light_all',
+				key: '<insert your API key here>',
 			},
 			variants: {
 				Positron: 'light_all',

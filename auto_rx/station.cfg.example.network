@@ -496,6 +496,12 @@ web_password = none
 # KML refresh rate
 kml_refresh_rate = 10
 
+# CARTO Maps API Key
+# To use the DarkMatter and Voyager map files, you need an API key from CARTO
+# You can request one here: https://carto.com/basemaps/apikey/
+# Where it asks for what domains you are using this on, just enter 'localhost'
+carto_api_key = none
+
 
 ##################
 # DEBUG SETTINGS #
