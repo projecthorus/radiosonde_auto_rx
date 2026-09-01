@@ -125,7 +125,7 @@ def telemetry_to_aprs_position(
     _aprs_timestamp = sonde_data["datetime_dt"].strftime("%H%M%S")
 
     # Generate course/speed data, if provided in the telemetry dictionary
-    if ("heading" in sonde_data.keys()) and ("vel_h" in sonde_data.keys()):
+    if (("heading" in sonde_data.keys()) and (sonde_data["heading"]>-1)) and (("vel_h" in sonde_data.keys()) and (sonde_data["vel_h"]>-1)):
         course_speed = "%03d/%03d" % (
             int(sonde_data["heading"]),
             int(sonde_data["vel_h"] * 1.944),
