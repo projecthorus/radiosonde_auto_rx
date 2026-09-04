@@ -730,7 +730,7 @@ class WebHandler(logging.Handler):
             log_data = {
                 "level": record.levelname,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "msg": record.msg,
+                "msg": self.format(record),
             }
             # Emit to all socket.io clients
             socketio.emit("log_event", log_data, namespace="/update_status")
