@@ -77,7 +77,8 @@ def test_sdr(
             f"--samprate 48000 --mode iq "
             f"--frequency {int(check_freq)} "
             f"--ssrc {round(check_freq / 1000)}02 "
-            f"--radio {sdr_hostname}"
+            f"--radio {sdr_hostname} "
+            f"--lifetime 3000" # Ensure the channel closes out after 60 seconds max
         )
 
         logging.debug(f"KA9Q - Testing using command: {_cmd}")
@@ -91,7 +92,7 @@ def test_sdr(
 
             if e.returncode == 124:
                 logging.critical(
-                    f"KA9Q ({sdr_hostname}) - tune call failed with a timeout. Is the server running?"
+                    f"KA9Q ({sdr_hostname}) - tune call failed (ssrc {round(check_freq / 1000)}02 ) with a timeout. Is the server running?"
                 )
             elif e.returncode == 127:
                 logging.critical(
@@ -99,7 +100,7 @@ def test_sdr(
                 )
             else:
                 logging.critical(
-                    f"KA9Q ({sdr_hostname}) - tune call failed with return code {e.returncode}."
+                    f"KA9Q ({sdr_hostname}) - tune call faile (ssrc {round(check_freq / 1000)}02 ) with return code {e.returncode}."
                 )
                 # Look at the error output in a bit more details.
                 #_output = e.output.decode("ascii")
@@ -112,9 +113,10 @@ def test_sdr(
             f"{timeout_cmd()} {timeout} " # Add a timeout, because connections to non-existing servers block for ages
             f"tune "
             f"--samprate 48000 --mode iq "
-            f"--frequency 0 "
+            f"--frequency {int(check_freq)} "
             f"--ssrc {round(check_freq / 1000)}02 "
-            f"--radio {sdr_hostname}"
+            f"--radio {sdr_hostname} "
+            f"--lifetime 50"
         )
 
         logging.debug(f"KA9Q - Closing testing channel using command: {_cmd}")
@@ -530,12 +532,7 @@ def read_ka9q_power_log(log_filename, sdr_name):
     # ka9q powers log files are csv's, with the first 5 fields in each line describing the time and frequency scan parameters
     # for the remaining fields, which contain the power samples.
 
-    burn_line = True
-
     for line in f:
-        if burn_line:
-            burn_line = False
-            continue
 
         # Split line into fields.
         fields = line.rstrip().split(",", 5)
@@ -560,6 +557,9 @@ def read_ka9q_power_log(log_filename, sdr_name):
         # Add frequency range and samples to output buffers.
         freq = np.append(freq, freq_range)
         power = np.append(power, samples)
+
+        # Break after reading one line
+        break
 
     f.close()
 
@@ -786,9 +786,9 @@ def get_power_spectrum(
             f"-f {_center_freq} "
             f"-w {step} "
             f"-b {_bins} "
-            f"-i {integration_time} "
             f"-s {_ssrc} "
-            f"-c 2 " # burn the first scan result due to no dwelling
+            # Average for the user-defined integration time.
+            f"-a {int(step*integration_time)} -c 1 "
             f"> {_log_filename}"
         )
 

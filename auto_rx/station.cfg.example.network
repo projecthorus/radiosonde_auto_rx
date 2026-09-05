@@ -120,7 +120,8 @@ rx_timeout = 180
 # Frequency Lists - These must be provided as JSON-compatible lists of floats (in MHz), i.e. [400.50, 401.520, 403.200]
 
 # only_scan - Add values to this list to *only* scan on these frequencies.
-# This is for when you only want to monitor a small set of launch frequencies.
+# This is for when you only want to monitor a small set of known launch frequencies.
+# If you specify entries in this list, spectrum scanning will be disabled.
 only_scan = []
 
 # never_scan - Any values added to this list will be removed from the list of detected peaks.
@@ -133,7 +134,7 @@ always_scan = []
 
 # always_decode - Always-running decoders. Only possible in a multi-SDR (or network-based SDR) system.
 # List must be in the form: [[401.5,"RS41"], [402.5,"DFM"], [400.5,"M10"], [400.5,"IMET"]]
-# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01
+# Valid sonde types: RS41, RS92, DFM, M10, M20, IMET, IMETWIDE, IMET5, MK2LMS, LMS6, MEISEI, MRZ, MTS01, WXR301
 always_decode = []
 
 ####################
@@ -171,7 +172,7 @@ gpsd_port = 2947
 # SONDEHUB / HABITAT (deprecated) UPLOAD SETTINGS #
 ###################################################
 #
-# Settings relating to uploads to the SondeHub v2 Database and tracker,
+# Settings relating to uploads to the SondeHub Database and tracker,
 # available at https://tracker.sondehub.org/
 #
 # Note that uploads to the Habitat (amateur HAB) database are now disabled,
@@ -194,7 +195,7 @@ upload_listener_position = True
 uploader_antenna = 1/4 wave monopole
 
 [sondehub]
-# Enable uploading to Sondehub v2 - please leave this enabled!
+# Enable uploading to Sondehub - please leave this enabled!
 sondehub_enabled = True
 
 # How often to push data to the SondeHub Database. (seconds)
@@ -495,6 +496,13 @@ web_password = none
 # KML refresh rate
 kml_refresh_rate = 10
 
+# CARTO Maps API Key
+# To use the DarkMatter and Voyager map files, you need an API key from CARTO
+# You can request one here: https://carto.com/basemaps/apikey/
+# Where it asks for what domains you are using this on, just enter 'localhost'.
+# If you are accessing your auto_rx web interface from an external domain, add that too.
+carto_api_key = none
+
 
 ##################
 # DEBUG SETTINGS #
@@ -550,7 +558,8 @@ quantization = 10000
 # Decoder Spacing Limit - Only start a new decoder if it is separated from an existing decoder by at least
 # this value (Hz). This helps avoid issues where a drifting radiosonde is detected on two adjacent channels.
 # For Network SDR systems, we set this to a lower value than the usual default of 15 kHz, as we have better channel filtering.
-decoder_spacing_limit = 5000
+# 2026-07 Update - Increased this from 5000 to 7500 Hz due to issues with dual M20 decoders starting up on the same sonde.
+decoder_spacing_limit = 7500
 # Temporary Block Time (minutes) - How long to block encrypted or otherwise non-decodable sondes for.
 temporary_block_time = 120
 # Maximum Async Scan Workers - How many concurrent peak detection tasks to run during scanning.
@@ -615,10 +624,10 @@ ngp_tweak = False
 
 # Wideband Radiosonde Detection:
 # Enables some tweaks to better handle detection and decoding of the following radiosonde types:
-# - Intermet iMet-1/4 (Wideband versions)
+# - Intermet iMet-1/4 (WIDEBAND VERSIONS ONLY - do NOT enable for regular iMets!)
 # - Weathex WxR-301d
-# If this is enabled in areas with 'narrowband' sondes as well (RS41, DFM, narrowband iMet, etc...) there will likely
-# be degradation in detection and decode performance. 
+# If this is enabled in areas with 'narrowband' sondes as well (RS41, DFM, 'regular' iMet, etc...) there WILL be
+# degradation in detection and decode performance. 
 wideband_sondes = False
 
 # Encrypted RS41-SGM handling:
@@ -627,6 +636,15 @@ wideband_sondes = False
 # False - auto_rx will continue decoding this sonde, including writing a log file, but will not upload telemetry anywhere.
 # The default for this is True, as it can tie up SDRs un-necessarily. Not as big of an issue for a KA9Q-radio station.
 close_on_encrypted = True
+
+# Exclude Specific Radiosonde types from detection:
+# Allows excluding particular radiosonde types from the detection stage.
+# Only modify this if you know what you're doing!
+# Valid type names that can be used in this list are:
+# DFM9,RS41,RS92,LMS6,IMET5,MK2LMS,M10,MEISEI,RD94RD41,MRZ,MTS01,CF6GTH,C34C50,WXR301,WXRPN9,IMET1AB,IMETafsk,IMET1RS,IMET4
+# Note that 'DFM9' covers all DFM sondes, and 'M10' covers M10 and M20 sondes.
+# Each entry must be wrapped in double-quotes (e.g. "C34C50")
+exclude_types = ["IMET1AB","C34C50"]
 
 ######################
 # POSITION FILTERING #

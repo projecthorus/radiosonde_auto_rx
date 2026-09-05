@@ -76,6 +76,9 @@ class SondehubUploader(object):
         # Input Queue.
         self.input_queue = Queue()
 
+        # Reuse HTTP connections to SondeHub when the server keeps them open.
+        self.http_session = requests.Session()
+
         # Record of when we last uploaded a user station position to Sondehub.
         self.last_user_position_upload = 0
 
@@ -233,15 +236,27 @@ class SondehubUploader(object):
             _output["type"] = telemetry["subtype"]
             _output["serial"] = telemetry["id"].split("-")[1]
 
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"] == "IMS100":
             _output["manufacturer"] = "Meisei"
             _output["type"] = "iMS-100"
             _output["serial"] = telemetry["id"].split("-")[1]
 
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
+
         elif telemetry["type"] == "RS11G":
             _output["manufacturer"] = "Meisei"
             _output["type"] = "RS-11G"
             _output["serial"] = telemetry["id"].split("-")[1]
+
+            # We are handling Meisei packets. We need a few more of these in an upload
+            # for our packets to pass the Sondehub z-check.
+            self.slower_uploads = True
 
         elif telemetry["type"] == "MRZ":
             _output["manufacturer"] = "Meteo-Radiy"
@@ -269,6 +284,21 @@ class SondehubUploader(object):
             _output["manufacturer"] = "Weathex"
             _output["type"] = "WxR-301D-5k"
             _output["serial"] = telemetry["id"].split("-")[1]
+
+        elif telemetry["type"] == "CF6":
+            _output["manufacturer"] = "Changfeng"
+            _output["type"] = "CF-06"
+            _output["serial"] = telemetry["id"]
+
+        elif telemetry["type"] == "GTH":
+            _output["manufacturer"] = "Changwang"
+            _output["type"] = "GTH6"
+            _output["serial"] = telemetry["id"]
+
+        elif telemetry["type"] == "SRSC50":
+            _output["manufacturer"] = "Meteolabor"
+            _output["type"] = "SRS-C50"
+            _output["serial"] = telemetry["id"]
 
         else:
             self.log_error("Unknown Radiosonde Type %s" % telemetry["type"])
@@ -396,6 +426,7 @@ class SondehubUploader(object):
                 if self.input_processing_running == False:
                     break
 
+        self.http_session.close()
         self.log_info("Stopped Sondehub Uploader Thread.")
 
     def upload_telemetry(self, telem_list):
@@ -439,7 +470,7 @@ class SondehubUploader(object):
                     "Content-Type": "application/json",
                     "Date": formatdate(timeval=None, localtime=False, usegmt=True),
                 }
-                _req = requests.put(
+                _req = self.http_session.put(
                     self.SONDEHUB_URL,
                     _compressed_payload,
                     # TODO: Revisit this second timeout value.
@@ -448,7 +479,8 @@ class SondehubUploader(object):
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                return
+                _retries += 1
+                continue
 
             if _req.status_code == 200:
                 # 200 is the only status code that we accept.
@@ -460,7 +492,7 @@ class SondehubUploader(object):
                 _upload_success = True
                 break
 
-            elif _req.status_code == 500:
+            elif _req.status_code in (500, 502, 503, 504):
                 # Server Error, Retry.
                 _retries += 1
                 continue
@@ -538,7 +570,7 @@ class SondehubUploader(object):
                     "Content-Type": "application/json",
                     "Date": formatdate(timeval=None, localtime=False, usegmt=True),
                 }
-                _req = requests.put(
+                _req = self.http_session.put(
                     self.SONDEHUB_STATION_POSITION_URL,
                     json=_position,
                     # TODO: Revisit this second timeout value.
@@ -547,7 +579,8 @@ class SondehubUploader(object):
                 )
             except Exception as e:
                 self.log_error("Upload Failed: %s" % str(e))
-                return
+                _retries += 1
+                continue
 
             if _req.status_code == 200:
                 # 200 is the only status code that we accept.
@@ -556,7 +589,7 @@ class SondehubUploader(object):
                 _upload_success = True
                 break
 
-            elif _req.status_code == 500:
+            elif _req.status_code in (500, 502, 503, 504):
                 # Server Error, Retry.
                 _retries += 1
                 continue

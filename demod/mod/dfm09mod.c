@@ -1,6 +1,6 @@
 
 /*
- *  dfm09 (dfm06)
+ *  dfm09 (dfm06, dfm17)
  *  sync header: correlation/matched filter
  *  files: dfm09mod.c demod_mod.h demod_mod.c
  *  compile:
@@ -556,16 +556,16 @@ static float fl24(int d) {  // float24
 }
 
 // temperature approximation
-static float get_Temp(gpx_t *gpx) { // meas[0..4]
+static float get_Temp0(gpx_t *gpx) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // R/T No 8402, R25=Ro=5k
-// B0/100=3450
+// B0/100=3450  // 0C..100C, poor thermistor fit low temps
 // 1/T = 1/To + 1/B log(r) , r=R/Ro
 // GRAW calibration data -80C..+40C on EEPROM ?
 // meas0 = g*(R + Rs)
 // meas3 = g*Rs , Rs: dfm6:10k, dfm9:20k
 // meas4 = g*Rf , Rf=220k
-    float T = 0;                     // T/Kelvin
+    float T = 0;               // T/Kelvin
     float f  = gpx->meas24[0],
           f1 = gpx->meas24[3],
           f2 = gpx->meas24[4];
@@ -577,7 +577,7 @@ static float get_Temp(gpx_t *gpx) { // meas[0..4]
     }
     if (gpx->cfgchk) {
         //float *meas = gpx->meas24;
-        float B0 = 3260.0;       // B/Kelvin, fit -55C..+40C
+        float B0 = 3260.0;       // B/Kelvin, fit -55C..+40C // still not very accurate
         float T0 = 25 + 273.15;  // t0=25C
         float R0 = 5.0e3;        // R0=R25=5k
         float Rf = gpx->Rf;      // Rf = DFM09:220k , DFM17:332k
@@ -590,7 +590,7 @@ static float get_Temp(gpx_t *gpx) { // meas[0..4]
 //  DFM-06: meas20 * 16 = meas24
 //      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
 }
-static float get_Temp2(gpx_t *gpx) { // meas[0..4]
+static float _get_Temp2(gpx_t *gpx) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // R/T No 8402, R25=Ro=5k
 // B0/100=3450
@@ -610,7 +610,7 @@ static float get_Temp2(gpx_t *gpx) { // meas[0..4]
     float B0 = 3260.0;      // B/Kelvin, fit -55C..+40C
     float T0 = 25 + 273.15; // t0=25C
     float R0 = 5.0e3;       // R0=R25=5k
-    float Rf2 = 220e3;      // Rf2 = Rf = DFM09:220k , DFM17:332k
+    float Rf2 = gpx->Rf;    // Rf2 = Rf = DFM09:220k , DFM17:332k
     float g_o = f2/Rf2;     // approx gain
     float Rs_o = f1/g_o;    // = Rf2 * f1/f2;
     float Rf1 = Rs_o;       // Rf1 = Rs: dfm6:10k, dfm9:20k
@@ -635,7 +635,7 @@ static float get_Temp2(gpx_t *gpx) { // meas[0..4]
     return  T - 273.15;
 //  DFM-06: meas20 * 16 = meas24
 }
-static float get_Temp4(gpx_t *gpx) { // meas[0..4]
+static float get_Temp(gpx_t *gpx) { // meas[0..4]
 // NTC-Thermistor EPCOS B57540G0502
 // [  T/C  ,   R/R25   , alpha ] :
 // [ -55.0 ,  51.991   ,   6.4 ]
@@ -664,20 +664,24 @@ static float get_Temp4(gpx_t *gpx) { // meas[0..4]
           p2 = 2.48821437e-06,
           p3 = 5.84354921e-08;
 // T/K = 1/( p0 + p1*ln(R) + p2*ln(R)^2 + p3*ln(R)^3 )
+    float T = 0; // T/Kelvin
     float f  = gpx->meas24[0],
           f1 = gpx->meas24[3],
           f2 = gpx->meas24[4];
-    if (gpx->ptu_out >= 0xC && gpx->meas24[6] < 220e3  || gpx->sonde_id[3] == '8') {
+    if (gpx->sensortyp == 'P') // 0xC: "P+" DFM-09P , "T-" DFM-17TU ; 0xD: "P-" DFM-17P ?
+    {                          // 0x8: "P-" (gpx->sonde_id[3] == '8') DFM-6/9P ?
         f  = gpx->meas24[0+1];
         f1 = gpx->meas24[3+2];
         f2 = gpx->meas24[4+2];
     }
-    //float *meas = gpx->meas24;
-    float Rf = 220e3;    // Rf = DFM09:220k , DFM17:332k
-    float g = f2/Rf;
-    float R = (f-f1) / g; // f,f1,f2 > 0 ?
-    float T = 0; // T/Kelvin
-    if (R > 0)  T = 1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
+    if (gpx->cfgchk) {
+        //float *meas = gpx->meas24;
+        float Rf = gpx->Rf;      // Rf = DFM09:220k , DFM17:332k
+        float g = f2/Rf;
+        float R = (f-f1) / g; // f,f1,f2 > 0 ?
+        if (f*f1*f2 == 0) R = 0;
+        if (R > 0)  T = 1/( p0 + p1*log(R) + p2*log(R)*log(R) + p3*log(R)*log(R)*log(R) );
+    }
     return  T - 273.15; // Celsius
 //  DFM-06: meas20 * 16 = meas24
 //      -> (meas24[0]-meas24[3])/meas24[4]=(meas20[0]-meas20[3])/meas20[4]
@@ -1002,10 +1006,8 @@ static void print_gpx(gpx_t *gpx) {
                         if (gpx->option.vbs == 3) printf(" (0x%X:%c%c) ", gpx->sonde_typ & 0xF, gpx->sensortyp, gpx->option.inv?'-':'+');
                     }
                     if (gpx->option.dbg) {
-                        float t2 = get_Temp2(gpx);
-                        float t4 = get_Temp4(gpx);
-                        if (t2 > -270.0f) printf("  T2=%.1fC ", t2);
-                        if (t4 > -270.0f) printf(" T4=%.1fC  ", t4);
+                        float t0 = get_Temp0(gpx);
+                        if (t0 > -270.0f) printf(" T0=%.1fC  ", t0);
                     }
                 }
                 if (gpx->option.vbs == 3  &&  gpx->ptu_out >= 0xA) {
@@ -1014,7 +1016,7 @@ static void print_gpx(gpx_t *gpx) {
                     if (gpx->status[2]> 0.0) printf("  sec: %.0f ", gpx->status[2]);
                 }
             }
-            if (gpx->option.dbg) {
+            if (gpx->option.dbg && gpx->option.vbs == 3) {
                 printf(" f0:%.1f", gpx->meas24[0]);
                 printf(" f1:%.1f", gpx->meas24[1]);
                 printf(" f2:%.1f", gpx->meas24[2]);

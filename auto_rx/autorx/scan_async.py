@@ -53,6 +53,7 @@ async def detect_sonde_async(
     save_detection_audio: bool = False,
     ngp_tweak: bool = False,
     wideband_sondes: bool = False,
+    exclude_types = []
 ) -> Tuple[Optional[str], float]:
     """
     Async version of detect_sonde that uses asyncio subprocess for non-blocking execution.
@@ -71,6 +72,18 @@ async def detect_sonde_async(
         get_sdr_name,
         shutdown_sdr,
     )
+
+    # Generate command arguments to exclude radiosonde types
+    # Sanitize the incoming types against a known list of types
+    if len(exclude_types)>0:
+        exclude_types_sanitized = []
+        for _xtype in exclude_types:
+            if _xtype in ['DFM9','RS41','RS92','LMS6','IMET5','MK2LMS','M10','MEISEI','RD94RD41','MRZ','MTS01','CF6GTH','C34C50','WXR301','WXRPN9','IMET1AB','IMETafsk','IMET1RS','IMET4']:
+                exclude_types_sanitized.append(_xtype)
+
+        exclude_types_str = "--exclude-types " + ",".join(exclude_types_sanitized)
+    else:
+        exclude_types_str = ""
 
     # Determine detection mode based on frequency band
     if frequency < 1000e6:
@@ -143,8 +156,8 @@ async def detect_sonde_async(
         dft_detect_path = os.path.join(rs_path, "dft_detect")
         rx_test_command += (
             shlex.quote(dft_detect_path)
-            + " -t %d --iq --bw %d --dc - %d 16 2>/dev/null"
-            % (dwell_time, _if_bw, _iq_bw)
+            + " -t %d --iq --bw %d --dc %s - %d 16 2>/dev/null"
+            % (dwell_time, _if_bw, exclude_types_str, _iq_bw)
         )
 
     elif _mode == "FM":

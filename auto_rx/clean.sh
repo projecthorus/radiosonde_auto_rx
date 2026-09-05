@@ -19,11 +19,15 @@ rm rs92mod
 rm dfm09mod
 rm m10mod
 rm m20mod
+rm m10m20mod
 rm lms6Xmod
 rm meisei100mod
 rm mp3h1mod
 rm imet54mod
 rm mts01mod
+rm rd94rd41drop
+rm cf06ht03mod
+rm c50iq
 rm iq_dec
 
 

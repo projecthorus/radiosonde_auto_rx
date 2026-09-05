@@ -238,10 +238,10 @@
 
             // List of available map layers.
             var Mapnik = L.tileLayer.provider("OpenStreetMap.Mapnik", {edgeBufferTiles: 2});
-            var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2});
+            var DarkMatter = L.tileLayer.provider("CartoDB.DarkMatter", {edgeBufferTiles: 2, key: autorx_config["carto_api_key"]});
             var Terrain = L.tileLayer.provider("Stamen.Terrain", {edgeBufferTiles: 2});
             var WorldImagery = L.tileLayer.provider("Esri.WorldImagery", {edgeBufferTiles: 2});
-            var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2});
+            var Voyager = L.tileLayer.provider("CartoDB.Voyager", {edgeBufferTiles: 2, key: autorx_config["carto_api_key"]});
             var OpenTopoMap = L.tileLayer.provider("OpenTopoMap", {edgeBufferTiles: 2});
 
             // Add maps to baseMaps.
@@ -1674,6 +1674,8 @@
                 <option value="WXR301">WXR301</option>
                 <option value="WXRPN9">WXR301 (PN9 variant)</option>
                 <option value="RD94RD41">RD94/RD41 Dropsonde</option>
+                <option value="CF6GTH">Chinese CF-06 / GTH6 Sondes</option>
+                <option value="SRSC50">SRS-C50</option>
             </select>
             <div style="display:inline;vertical-align:middle;">
                 <button id="start-decoder" onclick="start_decoder();">Start</button>

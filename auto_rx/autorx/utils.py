@@ -32,7 +32,6 @@ from . import __version__ as auto_rx_version
 REQUIRED_RS_UTILS = [
     "dft_detect",
     "dfm09mod",
-    "m10mod",
     "rs41mod",
     "rs92mod",
     "fsk_demod",
@@ -41,11 +40,14 @@ REQUIRED_RS_UTILS = [
     "meisei100mod",
     "imet54mod",
     "mp3h1mod",
-    "m20mod",
+    "m10m20mod",
     "imet4iq",
     "mts01mod",
     "iq_dec",
-    "weathex301d"
+    "weathex301d",
+    "cf06ht03mod",
+    "rd94rd41drop",
+    "c50iq"
 ]
 
 _timeout_cmd = None
@@ -221,6 +223,12 @@ def short_type_lookup(type_name):
         return "Vaisala RD41 Dropsonde"
     elif type_name == "RD94":
         return "Vaisala RD94 Dropsonde"
+    elif type_name == "CF6":
+        return "Changfeng CF-06"
+    elif type_name == "GTH":
+        return "Changwang GTH6"
+    elif type_name == "SRSC50":
+        return "Meteolabor SRS-C50"
     else:
         return "Unknown"
 
@@ -273,6 +281,12 @@ def short_short_type_lookup(type_name):
         return "RD41"
     elif type_name == "RD94":
         return "RD94"
+    elif type_name == "CF6":
+        return "CF-06"
+    elif type_name == "GTH":
+        return "GTH6"
+    elif type_name == "SRSC50":
+        return "SRSC50"
     else:
         return "Unknown"
 
@@ -361,6 +375,14 @@ def generate_aprs_id(sonde_data):
 
             # Create the object name
             _object_name = "MTS" + _id_suffix
+
+        elif "SRSC50" in sonde_data["type"]:
+            # Use C50 + the last 4 hex digits of the sonde ID.
+            _id_suffix = int(sonde_data["id"].split("-")[1])
+            _id_hex = ("%04x" % _id_suffix).upper()
+            if len(_id_hex) > 4:
+                _id_hex = _id_hex[-4:]
+            _object_name = "C50" + _id_hex
 
 
         # New Sonde types will be added in here.

@@ -43,13 +43,11 @@ VALID_SONDE_TYPES = [
     "WXR301",
     "WXRPN9",
     "IMETWIDE",
-    "RD94RD41"
+    "RD94RD41",
+    "CF6GTH",
+    "SRSC50"
 ]
 
-# Known 'Drifty' Radiosonde types
-# NOTE: Due to observed adjacent channel detections of RS41s, the adjacent channel decoder restriction
-# is now applied to all radiosonde types. This may need to be re-evaluated in the future.
-DRIFTY_SONDE_TYPES = VALID_SONDE_TYPES  # ['RS92', 'DFM', 'LMS6']
 
 
 class SondeDecoder(object):
@@ -126,7 +124,9 @@ class SondeDecoder(object):
         "WXR301",
         "WXRPN9",
         "IMETWIDE",
-        "RD94RD41"
+        "RD94RD41",
+        "CF6GTH",
+        "SRSC50"
     ]
 
     def __init__(
@@ -200,6 +200,9 @@ class SondeDecoder(object):
         """
         # Thread running flag
         self.decoder_running = True
+        # Flags that might eventually get checked from other threads, to avoid duplicate decoders running.
+        self.current_id = None
+        self.decoder_start_time = time.monotonic()
 
         # Local copy of init arguments
         self.sonde_type = sonde_type
@@ -833,6 +836,59 @@ class SondeDecoder(object):
             # WXR301, via iq_dec as a FM Demod.
             decode_cmd += f"./iq_dec --FM --IFbw {_if_bw} --lpFM --wav --iq 0.0 - {_sample_rate} 16 2>/dev/null | ./weathex301d -b --json --pn9"
 
+        elif self.sonde_type == "CF6GTH":
+            # Changfeng CF-06 and similar formats (GTH6, HT-03))
+
+            _sample_rate = 48000
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
+
+            # CF-06 Decoder, in IQ input mode
+            decode_cmd += f"./cf06ht03mod --json {self.raw_file_option} --IQ 0.0 --lpbw 12 --dc  - {_sample_rate} 16 2>/dev/null"
+
+
+        elif self.sonde_type == "SRSC50":
+            # Meteolabor SRS-C50
+
+            _sample_rate = 48000
+
+            decode_cmd = get_sdr_iq_cmd(
+                sdr_type = self.sdr_type,
+                frequency = self.sonde_freq,
+                sample_rate = _sample_rate,
+                sdr_hostname = self.sdr_hostname,
+                sdr_port = self.sdr_port,
+                ss_iq_path = self.ss_iq_path,
+                rtl_device_idx = self.rtl_device_idx,
+                ppm = self.ppm,
+                gain = self.gain,
+                bias = self.bias
+            )
+
+            # Add in tee command to save IQ to disk if debugging is enabled.
+            if self.save_decode_iq:
+                decode_cmd += f" tee {self.save_decode_iq_path} |"
+
+            # C50 Decoder, in IQ input mode
+            # ./c50iq --json --ptu -v --xor-auto --iq 0.0 --lpIQ - 48000 16
+            decode_cmd += f"./c50iq --json --ptu --xor-auto --iq 0.0 --lpIQ --dc - {_sample_rate} 16 2>/dev/null"
+
+
         elif self.sonde_type == "UDP":
             # UDP Input Mode.
             # Used only for testing of new decoders, prior to them being integrated into auto_rx.
@@ -1085,52 +1141,9 @@ class SondeDecoder(object):
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
-        elif self.sonde_type == "M10":
-            # M10 Sondes
-            # These have a 'weird' baud rate, and as fsk_demod requires the input sample rate to be an integer multiple of the baud rate,
-            # our required sample rate is correspondingly weird!
-
-            _baud_rate = 9616
-            _sample_rate = 48080
-            _p = 5 # Override the oversampling rate
-
-            # Limit FSK estimator window to roughly +/- 10 kHz
-            _lower = -10000
-            _upper = 10000
-
-            demod_cmd = get_sdr_iq_cmd(
-                sdr_type = self.sdr_type,
-                frequency = self.sonde_freq,
-                sample_rate = _sample_rate,
-                sdr_hostname = self.sdr_hostname,
-                sdr_port = self.sdr_port,
-                ss_iq_path = self.ss_iq_path,
-                rtl_device_idx = self.rtl_device_idx,
-                ppm = self.ppm,
-                gain = self.gain,
-                bias = self.bias,
-                dc_block = True
-            )
-
-            # Add in tee command to save IQ to disk if debugging is enabled.
-            if self.save_decode_iq:
-                demod_cmd += f" tee {self.save_decode_iq_path} |"
-
-            demod_cmd += (
-                "./fsk_demod --cs16 -b %d -u %d -s -p %d --stats=%d 2 %d %d - -"
-                % (_lower, _upper, _p, _stats_rate, _sample_rate, _baud_rate)
-            )
-
-            # M10 decoder
-            decode_cmd = f"./m10mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
-
-            # M10 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
-            demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
-            self.rx_frequency = self.sonde_freq
-
-        elif self.sonde_type == "M20":
-            # M20 Sondes
-            # 9600 baud.
+        elif self.sonde_type == "M20" or self.sonde_type == "M10":
+            # Combined decoder for M10 and M20 sondes
+            # 9600 baud. (M10 is sometimes 9616 baud, but it's close enough to work)
 
             _baud_rate = 9600
             _sample_rate = 48000
@@ -1164,9 +1177,9 @@ class SondeDecoder(object):
             )
 
             # M20 decoder
-            decode_cmd = f"./m20mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
+            decode_cmd = f"./m10m20mod --json --ptu -vvv --softin -i {self.raw_file_option} 2>/dev/null"
 
-            # M20 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
+            # M10/M20 sondes transmit in short, irregular pulses - average over the last 2 frames, and use a peak hold
             demod_stats = FSKDemodStats(averaging_time=2.0, peak_hold=True)
             self.rx_frequency = self.sonde_freq
 
@@ -1710,10 +1723,12 @@ class SondeDecoder(object):
                 )
                 return False
 
-            if self.udp_mode or (self.sonde_type == "RD94RD41"):
+            if self.udp_mode or (self.sonde_type == "RD94RD41") or (self.sonde_type == "CF6GTH") or (self.sonde_type == "M10") or (self.sonde_type == "M20"):
                 # Cases where we need to accept a type field from the decoder
                 # - UDP mode, where we could be getting packets from multiple decoders.
                 # - Dropsonde decoder, which decodes both RD94 and RD41 dropsondes.
+                # M10/M20 decoder, which decodes M10 and M20 sondes
+                # CF06/GTH6 decoder which you can guess what it does
                 self.sonde_type = _telemetry["type"]
 
                 # If frequency has been provided, make used of it.
@@ -1845,8 +1860,15 @@ class SondeDecoder(object):
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
 
-            # iMet-5x Specific Actions
-            if self.sonde_type == "IMET5":
+            # A few sonde types only give us HH:MM:SSZ
+            # We need to be careful when parsing these, especially around day boundaries.
+            #
+            # Weathex WXR-301
+            # Lockheed Martin LMS6
+            # Intermet iMet-54/50
+            # Changfeng CF-06 / GTH3
+            # Dropsonde RD94 / RD41
+            if (self.sonde_type == "WXR301") or (self.sonde_type == "WXRPN9") or ("LMS" in self.sonde_type) or (self.sonde_type == "IMET5") or (self.sonde_type == "CF6") or (self.sonde_type == "GTH") or (self.sonde_type == "RD94") or (self.sonde_type == "RD41"):
                 # Fix up the time.
                 _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
                 # Re-generate the datetime string.
@@ -1854,34 +1876,6 @@ class SondeDecoder(object):
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
 
-            # LMS Specific Actions (LMS6, MK2LMS)
-            if "LMS" in self.sonde_type:
-                # We are only provided with HH:MM:SS, so the timestamp needs to be fixed, just like with the iMet sondes
-                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-                # Re-generate the datetime string.
-                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
-
-            # Weathex Specific Actions
-            # Same datetime issues as with iMets, and LMS6
-            if (self.sonde_type == "WXR301") or (self.sonde_type == "WXRPN9"):
-                # Fix up the time.
-                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-                # Re-generate the datetime string.
-                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
-
-            # Dropsonde actions
-            # Same datetime issues as other sondes (no date provided)
-            if (self.sonde_type == "RD94") or (self.sonde_type == "RD41"):
-                # Fix up the time.
-                _telemetry["datetime_dt"] = fix_datetime(_telemetry["datetime"])
-                # Re-generate the datetime string.
-                _telemetry["datetime"] = _telemetry["datetime_dt"].strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
 
 
             # RS41 Subframe Data Actions
@@ -1927,6 +1921,9 @@ class SondeDecoder(object):
                 )
                 _telemetry["aprsid"] = None
 
+            # Update our 'currently decoding' ID
+            self.current_id = _telemetry['id']
+
             # If we have been provided a telemetry filter function, pass the telemetry data
             # through the filter, and return the response
             # By default, we will assume the telemetry is OK.
@@ -1947,6 +1944,32 @@ class SondeDecoder(object):
                 self.exit_state = "TempBlock"
                 self.decoder_running = False
                 return False
+
+            # Check for other decoders already decoding this sonde.
+            for _key in autorx.task_list.keys():
+                # Iterate through the task list, and only attempt to compare with those that are a decoder task.
+                # This is indicated by the task key being an integer (the sonde frequency).
+                if (type(_key) == int) or (type(_key) == float):
+                    # Skip this Decoder!
+                    if self.sonde_freq == _key:
+                        continue
+
+                    # Extract the currently decoded sonde type and start time from the currently running decoder.
+                    # Wrap this in a try/except as the task list might get modified while we are reading it.
+                    try:
+                        _decoder_id = autorx.task_list[_key]["task"].current_id
+                        _decoder_start_time = autorx.task_list[_key]["task"].decoder_start_time
+                    except:
+                        continue
+
+                    if (self.current_id == _decoder_id) and (_decoder_start_time < self.decoder_start_time) and (_telem_ok == "OK"):
+                        # Already another decoder decoding this sonde!
+                        self.log_info(
+                            f"This sonde ({self.current_id}) already being decoded on {_key/1e6} MHz! Closing decoder."
+                        )
+                        self.exit_state = "Duplicate"
+                        self.decoder_running = False
+                        return False
 
             # Run telemetry from DFM sondes through real-time filter
             if self.enable_realtime_filter and (_telemetry["type"].startswith("DFM")):
