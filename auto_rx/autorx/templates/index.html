@@ -205,7 +205,7 @@
                     if (data.freq.length == 0) {
                         return;
                     }
-
+                    document.getElementById("scanid").style.display = "block";
                     // Load the data into our data stores.
                     scan_chart_spectra.columns[0] = ['x_spectra'].concat(data.freq);
                     scan_chart_spectra.columns[1] = ['Spectra'].concat(data.power);
@@ -383,6 +383,7 @@
                 document.getElementById("scanid").setAttribute("open", true) ;
             } else {
                 document.getElementById("scanid").removeAttribute("open") ;
+				document.getElementById("scanid").style.display = "none";
             }
 
             // Check if user has dark mode set.
@@ -1645,7 +1646,7 @@
             <summary id="summary_element_telem_table">Telemetry</summary>
             <div id="telem_table"></div>
         </details>
-        <details id="scanid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
+        <details id="scanid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2); display:none;">
             <summary id="summary_element_scan_plot">Scan Plot</summary>
             <div id='scan_results'>No scan data yet...</div>
             <div id="scan_chart" style="width:100%;"></div>
