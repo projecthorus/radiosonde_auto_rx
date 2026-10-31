@@ -813,12 +813,6 @@
                     $(".tabulator-footer").show();
                 }
                 mymap.invalidateSize();
-				var telem_el = document.getElementById("tableid");
-                var want_visible = table.getRows().length > 0 ? "block" : "none";
-                if (telem_el.style.display !== want_visible) {
-                    telem_el.style.display = want_visible;
-                    mymap.invalidateSize();
-                }
             }
 
             table.on("pageLoaded", function(pageno) {
@@ -1648,7 +1642,7 @@
             <summary id="summary_element">Tasking: <span id="task_summary"></span></summary>
             <span id="task_details"></span>
         </details>
-        <details id="tableid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2); display:none;">
+        <details id="tableid" style="font-size:2vh;font-size:calc(var(--vh, 1vh) * 2);">
             <summary id="summary_element_telem_table">Telemetry</summary>
             <div id="telem_table"></div>
         </details>
