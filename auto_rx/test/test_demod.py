@@ -9,6 +9,8 @@
 #
 import glob
 import argparse
+import json
+import math
 import os
 import sys
 import time
@@ -816,6 +818,27 @@ def run_analysis(mode, file_mask=None, shift=0.0, verbose=False, log_output = No
         _runtime = time.time() - _start
 
         _result = "%s, %s, %.3f" % (os.path.basename(_file), _output.strip(), _runtime)
+
+        if "2>stats.txt " in _mode['demod']:
+            _max_ebno = None
+            try:
+                with open('stats.txt') as _stats:
+                    for _line in _stats:
+                        try:
+                            _ebno = json.loads(_line)['EbNodB']
+                        except (ValueError, KeyError, TypeError):
+                            # Ignore debug output and records without EbNodB.
+                            continue
+                        if isinstance(_ebno, (int, float)) and math.isfinite(_ebno):
+                            if _max_ebno is None or _ebno > _max_ebno:
+                                _max_ebno = _ebno
+            except OSError:
+                pass
+
+            if _max_ebno is None:
+                _result += ", N/A"
+            else:
+                _result += ", %.1f" % _max_ebno
 
         print(_result)
         if log_output is not None:

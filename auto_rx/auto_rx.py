@@ -321,6 +321,7 @@ def handle_scan_results():
 
             if _freq in autorx.task_list:
                 # Already decoding this sonde, continue.
+                logging.warning(f"Task Manager - Already decoding a sonde on {_freq}. (Workaround: Try bumping the frequency by 1 kHz)")
                 continue
             else:
 
