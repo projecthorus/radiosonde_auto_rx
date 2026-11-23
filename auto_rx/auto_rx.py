@@ -1000,17 +1000,9 @@ def main():
     # APRS Uploader
     if config["aprs_enabled"]:
 
-        if (config["aprs_object_id"] == "<id>") or (
-            config["aprs_use_custom_object_id"] == False
-        ):
-            _aprs_object = None
-        else:
-            _aprs_object = config["aprs_object_id"]
-
         _aprs = APRSUploader(
             aprs_callsign=config["aprs_user"],
             aprs_passcode=config["aprs_pass"],
-            object_name_override=_aprs_object,
             object_comment=config["aprs_custom_comment"],
             position_report=config["aprs_position_report"],
             aprsis_host=config["aprs_server"],
