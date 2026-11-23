@@ -293,26 +293,6 @@ station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
 # Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
 station_beacon_icon = /`
 
-# Custom Object name / Callsign to be used when uploading telemetry to APRS-IS (Max 9 chars)
-# WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
-# TO CHANGE IT!
-#
-# Using <id> means the uploads from multiple stations remain consistent, and we don't end up with
-# lots of duplicate sondes on APRS-IS. If you enable the station location beaconing (below), maps
-# like aprs.fi and radiosondy.info will show your station as the receiver.
-#
-# If used, this field should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
-# or <id>, which will be replaced with the radiosondes serial number.
-#
-# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
-# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
-aprs_object_id = <id>
-
-# Confirmation of the above setting.
-# Set to True to confirm use of the custom object ID set above.
-# Please read the notes above before setting this to True.
-aprs_use_custom_object_id = False
-
 # The APRS-IS beacon comment. The following fields can be included:
 # <freq> - Sonde Frequency, e.g. 401.520 MHz
 # <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)

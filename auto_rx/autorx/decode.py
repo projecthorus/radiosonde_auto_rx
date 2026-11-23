@@ -1895,9 +1895,9 @@ class SondeDecoder(object):
             # Grab a snapshot of modem statistics, if we are using an experimental decoder.
             if self.demod_stats is not None:
                 if self.demod_stats.snr != -999.0:
-                    _telemetry["snr"] = self.demod_stats.snr
+                    _telemetry["snr"] = float(self.demod_stats.snr)
                     _telemetry["fest"] = self.demod_stats.fest
-                    _telemetry["ppm"] = self.demod_stats.ppm
+                    _telemetry["ppm"] = float(self.demod_stats.ppm)
 
                     # Calculate an estimate of the radiosonde's centre frequency, based on the SDR frequency
                     # and the modem's tone estimates.
