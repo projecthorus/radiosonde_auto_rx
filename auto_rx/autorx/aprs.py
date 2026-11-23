@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import datetime
 import logging
 import random
@@ -421,9 +422,10 @@ class APRSUploader(object):
             self.aprsis_socket.connect((self.aprsis_host, self.aprsis_port))
             # Send logon string
             # _logon = 'user %s pass %s vers VK5QI-AutoRX filter b/%s \r\n' % (self.aprs_callsign, self.aprs_passcode, self.aprs_callsign)
-            _logon = "user %s pass %s vers VK5QI-AutoRX\r\n" % (
+            _logon = "user %s pass %s vers radiosonde_auto_rx %s\r\n" % (
                 self.aprs_callsign,
                 self.aprs_passcode,
+                autorx.__version__
             )
             self.log_debug("Logging in: %s" % _logon)
             self.aprsis_socket.sendall(_logon.encode("ascii"))
