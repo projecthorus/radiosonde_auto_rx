@@ -171,6 +171,14 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "wideband_sondes": False, # Wideband sonde detection / decoding
         "close_on_encrypted": True,
         "exclude_types": ["IMET1AB","C34C50"], # Sonde types to exclude from detections
+        # MQTT Settings
+        "mqtt_enabled": False,
+        "mqtt_hostname": "localhost",
+        "mqtt_port": 1833,
+        "mqtt_use_ssl": False,
+        "mqtt_username": "autorx",
+        "mqtt_password": "autorx",
+        "mqtt_topic_prefix": "sonde/"
     }
 
     try:
@@ -824,6 +832,22 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["exclude_types"] = ['IMET1AB','C34C50']
 
+        # 1.9.1 - MQTT Client
+        try:
+            auto_rx_config["mqtt_enabled"] = config.getboolean("mqtt", "mqtt_enabled")
+            auto_rx_config["mqtt_hostname"] = config.get("mqtt", "mqtt_hostname")
+            auto_rx_config["mqtt_port"] = config.getint("mqtt", "mqtt_port")
+            auto_rx_config["mqtt_use_ssl"] = config.getboolean("mqtt", "mqtt_use_ssl")
+            auto_rx_config["mqtt_username"] = config.get("mqtt", "mqtt_username")
+            auto_rx_config["mqtt_password"] = config.get("mqtt", "mqtt_password")
+            auto_rx_config["mqtt_topic_prefix"] = config.get("mqtt", "mqtt_topic_prefix")
+
+        except Exception as e:
+            logging.warning(
+                "Config - Missing mqtt client settings (new in v1.9.1), defaulting to disabled."
+            )
+            auto_rx_config["mqtt_enabled"] = False
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
@@ -955,6 +979,13 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             global_config.pop("email_smtp_authentication")
             global_config.pop("sondehub_contact_email")
             global_config.pop("web_password")
+            # Remove all mqtt settings except for the enabled flag
+            global_config.pop("mqtt_hostname")
+            global_config.pop("mqtt_port")
+            global_config.pop("mqtt_use_ssl")
+            global_config.pop("mqtt_username")
+            global_config.pop("mqtt_password")
+            global_config.pop("mqtt_topic_prefix")
 
             web_password = auto_rx_config["web_password"]
 

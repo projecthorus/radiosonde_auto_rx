@@ -381,6 +381,30 @@ subject = <type> Sonde launch detected on <freq>: <id>
 # <id> - Sonde Serial Number (i.e. M1234567)
 nearby_landing_subject = Nearby Radiosonde Landing Detected - <id>
 
+###############
+# MQTT CLIENT #
+###############
+# Connect to a MQTT Broker and publish all received radiosonde telemetry
+[mqtt]
+mqtt_enabled = False
+
+# Broker Hostname / Port
+mqtt_hostname = localhost
+mqtt_port = 1883
+
+# Set to True to enable SSL
+mqtt_use_ssl = False
+
+# MQTT Login details
+mqtt_username = autorx
+mqtt_password = autorx
+
+# MQTT Topic Prefix
+# Radiosonde telemetry will be published to the topics sonde/<serial>
+# e.g. sonde/X1234567
+# The prefix can be changed below
+mqtt_topic_prefix = sonde/
+
 ###################
 # ROTATOR CONTROL #
 ###################

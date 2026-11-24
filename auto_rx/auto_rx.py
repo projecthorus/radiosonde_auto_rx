@@ -29,8 +29,8 @@ import os
 from dateutil.parser import parse
 from queue import Queue, Empty
 
-if sys.version_info < (3, 6):
-    print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
+if sys.version_info < (3, 8):
+    print("CRITICAL - radiosonde_auto_rx requires Python 3.8 or newer!")
     sys.exit(1)
 
 import autorx
@@ -59,6 +59,7 @@ from autorx.web import (
 )
 from autorx.gpsd import GPSDAdaptor
 from autorx.sdr_wrappers import shutdown_sdr
+from autorx.mqttclient import MQTTClient
 
 
 # Logging level
@@ -1069,6 +1070,27 @@ def main():
         exporter_functions.append(_rotator.add)
 
         autorx.rotator_object = _rotator
+
+    # MQTT Client
+    if config["mqtt_enabled"]:
+        _mqtt = MQTTClient(
+            mqtt_hostname=config["mqtt_hostname"],
+            mqtt_port=config["mqtt_port"],
+            mqtt_use_ssl=config["mqtt_use_ssl"],
+            mqtt_username=config["mqtt_username"],
+            mqtt_password=config["mqtt_password"],
+            mqtt_topic_prefix=config["mqtt_topic_prefix"],
+            user_callsign=config["habitat_uploader_callsign"],
+            user_antenna=config["habitat_uploader_antenna"],
+            user_position=(
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            )
+        )
+
+        exporter_objects.append(_mqtt)
+        exporter_functions.append(_mqtt.add)
 
     # Sondehub v2 Database
     if config["sondehub_enabled"]:
