@@ -290,6 +290,14 @@ table {
   color: white;
 }
 
+#myBtn4 {
+  cursor: pointer;
+  position: absolute;
+  right: 6vh;
+  right: calc(12vh + 48px);
+  color: white;
+}
+
 .switch {
   position: relative;
   display: inline-block;
