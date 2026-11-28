@@ -143,6 +143,18 @@
                                 return cell.getValue() + " km";
                             }
                         }},
+                    {title:"Link", field:"sondehub", width:40, resizable:false, headerSort:false, visible:false, headerTooltip:"View on Sondehub",
+                        formatter:function(cell, formatterParams, onRendered){
+                            _cell_data = cell.getData();
+                            _sondehub_id = _cell_data.serial.replace(/^(DFM|M10|M20|IMET|IMET5|IMET54|MRZ|IMS100|RS11G|MTS01|WXR)-/,"");
+
+                            // Add Sondehub Link
+                            _id = "&nbsp;<a href='http://sondehub.org/" + _sondehub_id + "' title='View on Sondehub' target='_blank'>" + "<img src='{{ url_for('static', filename='img/sondehub.png')}}' width='14' height='16'/>" + "</a>";
+
+                            // Note - we can't add a radiosondy link here, as the 'APRS' ID isn't stored in the log files.
+
+                            return _id;
+                    }}, 
                     {formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center",  width:40, headerSort:false, titleFormatter: function(cell, formatterParams, onRendered){}}
                 ],
                 rowSelected:function(row){
@@ -1245,6 +1257,9 @@
                         case "7":
                             table.showColumn("max_range");
                             break;
+                        case "8":
+                            table.showColumn("sondehub");
+                            break;
                     }
                 } else {
                     switch(index) {
@@ -1272,6 +1287,9 @@
                         case "7":
                             table.hideColumn("max_range");
                             break;
+                        case "8":
+                            table.hideColumn("sondehub");
+                            break;
 		            }
                 }
                 table.redraw();
@@ -1288,7 +1306,7 @@
 
             table.on("tableBuilt", function() {
                 // Runs once at page load to set which Tabulator columns to show/hide per set cookies
-                for (i = 0; i < 8; i++) {
+                for (i = 0; i < 9; i++) {
                     var show = getCookie("sonde_list_col"+i);
                     if (show == 'false') {
                         document.getElementById("checkbox" + i).checked = false;
@@ -1320,6 +1338,10 @@
                         }
                     } else if (show == 'true') {
                         document.getElementById("checkbox" + i).checked = true;
+                        if (i == 8) table.showColumn("sondehub");
+                    } else if (i == 8) {
+                        // Links column is hidden until enabled in settings.
+                        document.getElementById("checkbox" + i).checked = false;
                     } else {
                         if ($( window ).width() > 1200) {
                             document.getElementById("checkbox" + i).checked = true;
@@ -1575,6 +1597,8 @@
                   <label> Last Range</label><br>
                   <input type="checkbox" class="7" id="checkbox7" checked>
                   <label> Max Range</label><br>
+                  <input type="checkbox" class="8" id="checkbox8">
+                  <label> Sondehub Link</label><br>
               </form>
         </div>
         <div id="downdiv">

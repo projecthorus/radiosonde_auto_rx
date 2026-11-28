@@ -5,6 +5,7 @@
 #   Copyright (C) 2018  Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 #
+import autorx
 import datetime
 import logging
 import random
@@ -288,11 +289,10 @@ class APRSUploader(object):
         self,
         aprs_callsign="N0CALL",
         aprs_passcode="00000",
-        object_name_override=None,
         object_comment="RadioSonde",
         position_report=False,
-        aprsis_host="rotate.aprs2.net",
-        aprsis_port=14580,
+        aprsis_host="radiosondy.info",
+        aprsis_port=14590,
         aprsis_reconnect=300,
         station_beacon=False,
         station_beacon_rate=30,
@@ -313,9 +313,6 @@ class APRSUploader(object):
                 is used to plot the listener's position on the Habitat map, both when this class is initialised, and
                 when a new sonde ID is observed.
 
-            object_name_override (str): Override the object name in the uploaded sentence with this value.
-                WARNING: This will horribly break the aprs.fi map if multiple sondes are uploaded simultaneously under the same callsign.
-                USE WITH CAUTION!!!
             object_comment (str): A comment to go with the object. Various fields will be replaced with telmetry data.
 
             position_report (bool): If True, upload positions as APRS position reports, otherwise, upload as an Object.
@@ -363,14 +360,6 @@ class APRSUploader(object):
             "comment": station_beacon_comment,
             "icon": station_beacon_icon,
         }
-
-        if object_name_override is None:
-            self.object_name_override = "<id>"
-        else:
-            self.object_name_override = object_name_override
-            self.log_info(
-                "Using APRS Object Name Override: %s" % self.object_name_override
-            )
 
         # Our two Queues - one to hold sentences to be upload, the other to temporarily hold
         # input telemetry dictionaries before they are converted and processed.
@@ -420,10 +409,11 @@ class APRSUploader(object):
         try:
             self.aprsis_socket.connect((self.aprsis_host, self.aprsis_port))
             # Send logon string
-            # _logon = 'user %s pass %s vers VK5QI-AutoRX filter b/%s \r\n' % (self.aprs_callsign, self.aprs_passcode, self.aprs_callsign)
-            _logon = "user %s pass %s vers VK5QI-AutoRX\r\n" % (
+            # Updated to include version number, seems to be required by aprsc v3 servers now
+            _logon = "user %s pass %s vers radiosonde_auto_rx %s\r\n" % (
                 self.aprs_callsign,
                 self.aprs_passcode,
+                autorx.__version__
             )
             self.log_debug("Logging in: %s" % _logon)
             self.aprsis_socket.sendall(_logon.encode("ascii"))
@@ -612,7 +602,6 @@ class APRSUploader(object):
                 try:
                     (_packet, _call) = telemetry_to_aprs_position(
                         _telem,
-                        object_name=self.object_name_override,
                         aprs_comment=self.object_comment,
                         position_report=self.position_report,
                     )

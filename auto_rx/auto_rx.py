@@ -29,8 +29,8 @@ import os
 from dateutil.parser import parse
 from queue import Queue, Empty
 
-if sys.version_info < (3, 6):
-    print("CRITICAL - radiosonde_auto_rx requires Python 3.6 or newer!")
+if sys.version_info < (3, 8):
+    print("CRITICAL - radiosonde_auto_rx requires Python 3.8 or newer!")
     sys.exit(1)
 
 import autorx
@@ -59,6 +59,8 @@ from autorx.web import (
 )
 from autorx.gpsd import GPSDAdaptor
 from autorx.sdr_wrappers import shutdown_sdr
+from autorx.mqttclient import MQTTClient
+from autorx.apprise import AppriseNotification
 
 
 # Logging level
@@ -87,8 +89,9 @@ exporter_functions = (
     []
 )  # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
-# Separate reference to the e-mail exporter, as we may want to use this for error notifications.
+# Separate reference to the e-mail and apprise exporters, as we may want to use this for error notifications.
 email_exporter = None
+apprise_exporter = None
 
 # GPSDAdaptor Instance, if used.
 gpsd_adaptor = None
@@ -321,6 +324,7 @@ def handle_scan_results():
 
             if _freq in autorx.task_list:
                 # Already decoding this sonde, continue.
+                logging.warning(f"Task Manager - Already decoding a sonde on {_freq}. (Workaround: Try bumping the frequency by 1 kHz)")
                 continue
             else:
 
@@ -760,7 +764,7 @@ def station_position_update(position):
 
 def email_error(message="foo"):
     """Helper function to email an error message, if the email exporter is available"""
-    global email_exporter
+    global email_exporter, apprise_exporter
 
     if email_exporter and config["email_error_notifications"]:
         try:
@@ -769,6 +773,14 @@ def email_error(message="foo"):
             logging.error("Error attempting to send notification email: %s" % str(e))
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
+
+    if apprise_exporter and config["apprise_error_notifications"]:
+        try:
+            apprise_exporter.send_notifications(message=message)
+        except Exception as e:
+            logging.error("Error attempting to send apprise notification: %s" % str(e))
+    else:
+        logging.debug("Not sending Apprise notification, as Apprise not configured.")
 
 def main():
     """Main Loop"""
@@ -968,6 +980,7 @@ def main():
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
 
+    # Email
     if config["email_enabled"]:
 
         _email_notification = EmailNotification(
@@ -996,20 +1009,34 @@ def main():
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
 
+    # Apprise
+    if config["apprise_enabled"]:
+        _apprise_notification = AppriseNotification(
+            apprise_urls=config["apprise_urls"],
+            subject=config["apprise_subject"],
+            nearby_landing_subject=config["apprise_nearby_landing_subject"],
+            station_position=(
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            ),
+            launch_notifications=config["apprise_launch_notifications"],
+            landing_notifications=config["apprise_landing_notifications"],
+            encrypted_sonde_notifications=config["apprise_encrypted_sonde_notifications"],
+            landing_range_threshold=config["apprise_landing_range_threshold"],
+            landing_altitude_threshold=config["apprise_landing_altitude_threshold"],
+        )
+        apprise_exporter = _apprise_notification
+
+        exporter_objects.append(_apprise_notification)
+        exporter_functions.append(_apprise_notification.add)
+
     # APRS Uploader
     if config["aprs_enabled"]:
-
-        if (config["aprs_object_id"] == "<id>") or (
-            config["aprs_use_custom_object_id"] == False
-        ):
-            _aprs_object = None
-        else:
-            _aprs_object = config["aprs_object_id"]
 
         _aprs = APRSUploader(
             aprs_callsign=config["aprs_user"],
             aprs_passcode=config["aprs_pass"],
-            object_name_override=_aprs_object,
             object_comment=config["aprs_custom_comment"],
             position_report=config["aprs_position_report"],
             aprsis_host=config["aprs_server"],
@@ -1076,6 +1103,27 @@ def main():
         exporter_functions.append(_rotator.add)
 
         autorx.rotator_object = _rotator
+
+    # MQTT Client
+    if config["mqtt_enabled"]:
+        _mqtt = MQTTClient(
+            mqtt_hostname=config["mqtt_hostname"],
+            mqtt_port=config["mqtt_port"],
+            mqtt_use_ssl=config["mqtt_use_ssl"],
+            mqtt_username=config["mqtt_username"],
+            mqtt_password=config["mqtt_password"],
+            mqtt_topic_prefix=config["mqtt_topic_prefix"],
+            user_callsign=config["habitat_uploader_callsign"],
+            user_antenna=config["habitat_uploader_antenna"],
+            user_position=(
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            )
+        )
+
+        exporter_objects.append(_mqtt)
+        exporter_functions.append(_mqtt.add)
 
     # Sondehub v2 Database
     if config["sondehub_enabled"]:

@@ -5,3 +5,6 @@ numpy
 requests
 semver
 simple-websocket
+paho-mqtt==2.1.0; python_version == "3.8"
+paho-mqtt>=2.1.0,<3; python_version >= "3.9"
+apprise

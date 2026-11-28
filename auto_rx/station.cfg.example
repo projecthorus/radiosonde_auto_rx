@@ -293,26 +293,6 @@ station_beacon_comment = radiosonde_auto_rx SondeGate v<version>
 # Satellite Dish = /`    (This is required if you want to show up on radiosondy.info's station list.)
 station_beacon_icon = /`
 
-# Custom Object name / Callsign to be used when uploading telemetry to APRS-IS (Max 9 chars)
-# WARNING: THIS SHOULD BE LEFT AT THE DEFAULT OF <id> UNLESS YOU HAVE A VERY GOOD REASON
-# TO CHANGE IT!
-#
-# Using <id> means the uploads from multiple stations remain consistent, and we don't end up with
-# lots of duplicate sondes on APRS-IS. If you enable the station location beaconing (below), maps
-# like aprs.fi and radiosondy.info will show your station as the receiver.
-#
-# If used, this field should be either a callsign with a -11 or -12 suffix (i.e. N0CALL-12),
-# or <id>, which will be replaced with the radiosondes serial number.
-#
-# WARNING - If running multiple RTLSDRs, setting this to a fixed callsign will result in odd behaviour on the online tracker.
-# DO NOT SET THIS TO ANYTHING OTHER THAN <id> IF YOU ARE USING MORE THAN ONE SDR!
-aprs_object_id = <id>
-
-# Confirmation of the above setting.
-# Set to True to confirm use of the custom object ID set above.
-# Please read the notes above before setting this to True.
-aprs_use_custom_object_id = False
-
 # The APRS-IS beacon comment. The following fields can be included:
 # <freq> - Sonde Frequency, e.g. 401.520 MHz
 # <type> - Sonde Type (e.g. RS41-SG, DFM09, etc....)
@@ -400,6 +380,92 @@ subject = <type> Sonde launch detected on <freq>: <id>
 # <id> - Sonde Serial Number (i.e. M1234567)
 nearby_landing_subject = Nearby Radiosonde Landing Detected - <id>
 
+#########################
+# APPRISE NOTIFICATIONS #
+#########################
+# Send notifications to various services using the Apprise library
+# This is mostly a copy of the email notification functionality, and may
+# completely replace it in the future.
+[apprise]
+apprise_enabled = False
+
+# Apprise notification URLs
+# This is where you define the "Universal Notification URLs" to notify
+# URLs are provided as a list, and multiple URLs can be provided.
+# Each URL must be wrapped in double quotes (" ") , and all must be on the same line.
+# Refer to the apprise documentation for information on these URLs:
+# - https://appriseit.com/getting-started/universal-syntax/#the-blueprint
+# - https://appriseit.com/services/
+# The Apprise URL builder is very helpful at guiding you through generating a suitable URL.
+# - https://appriseit.com/url-builder/
+# Note that not all services have been tested to work with our notification format!
+
+apprise_urls = []
+
+# Some examples:
+# Single notification destination:
+#   apprise_urls = ["tgram://bot_token/chat_id"]
+# Multiple destinations
+#   apprise_urls = ["tgram://bot_token/chat_id","discord://your_bot_name@discord_webhook_id/discord_webhook_token/"]
+
+# Send a notification for each new radiosonde observed.
+launch_notifications = True
+
+# Send notifications when a radiosonde is detected descending near your station location
+landing_notifications = True
+
+# Send a notification when an encrypted radiosonde is detected.
+encrypted_sonde_notifications = True
+
+# Range threshold for Landing notifications (km from your station location)
+landing_range_threshold = 30
+
+# Altitude threshold for Landing Notifications (metres)
+# Notifications will only occur for sondes which have been observed descending (>2m/s descent rate) below this altitude
+# for at least 10 observations
+landing_altitude_threshold = 1000
+
+# Enable sending critical error notifications (one that cause auto_rx to completely crash out) via apprise.
+# WARNING: If an error is persistent and you are running as a systemd service, this could result
+# in many notifications being sent!
+error_notifications = False
+
+# Custom subject field. The following fields can be included:
+# <freq> - Sonde Frequency, i.e. 401.520 MHz
+# <type> - Sonde Type (RS94/RS41)
+# <id> - Sonde Serial Number (i.e. M1234567)
+subject = <type> Sonde launch detected on <freq>: <id>
+
+# Custom nearby landing subject field. The following fields can be included:
+# <freq> - Sonde Frequency, i.e. 401.520 MHz
+# <type> - Sonde Type (RS94/RS41)
+# <id> - Sonde Serial Number (i.e. M1234567)
+nearby_landing_subject = Nearby Radiosonde Landing Detected - <id>
+
+###############
+# MQTT CLIENT #
+###############
+# Connect to a MQTT Broker and publish all received radiosonde telemetry
+[mqtt]
+mqtt_enabled = False
+
+# Broker Hostname / Port
+mqtt_hostname = localhost
+mqtt_port = 1883
+
+# Set to True to enable SSL
+mqtt_use_ssl = False
+
+# MQTT Login details
+mqtt_username = autorx
+mqtt_password = autorx
+
+# MQTT Topic Prefix
+# Radiosonde telemetry will be published to the topics sonde/<serial>
+# e.g. sonde/X1234567
+# The prefix can be changed below
+mqtt_topic_prefix = sonde/
+
 
 ###################
 # ROTATOR CONTROL #
@@ -448,6 +514,9 @@ save_system_log = False
 # This is the equivalent of starting auto_rx with the -v option, but only takes effect after the config file is read.
 # This setting, in combination with save_system_log (above), can help provide detailed information when debugging
 # auto_rx operational issues.
+# WARNING WARNING
+# Enabling this may expose Apprise credentials in the debug log. Do not enable this if your auto_rx
+# Web interface is exposed to the internet!!!!
 enable_debug_logging = False
 
 # Enable logging of RS41 Calibration data ('subframe' data)

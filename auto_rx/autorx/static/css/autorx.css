@@ -68,3 +68,9 @@
 	border: 2px solid rgb(135, 135, 135);
 	border-radius: 4px;
 }
+
+#sonde-list-table img {
+  width: 14px;
+  height: 16px;
+  display: inline-block;
+}
