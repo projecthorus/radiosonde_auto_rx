@@ -2,7 +2,7 @@
 #
 #   radiosonde_auto_rx - Email Notification
 #
-#   Copyright (C) 2018 Philip Heron <phil@sanslogic.co.uk>
+#   Copyright (C) 2018 Philip Heron <phil@sanslogic.co.uk> & Mark Jessop <vk5qi@rfhead.net>
 #   Released under GNU GPL v3 or later
 
 import datetime
