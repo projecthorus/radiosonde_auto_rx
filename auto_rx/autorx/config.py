@@ -178,7 +178,18 @@ def read_auto_rx_config(filename, no_sdr_test=False):
         "mqtt_use_ssl": False,
         "mqtt_username": "autorx",
         "mqtt_password": "autorx",
-        "mqtt_topic_prefix": "sonde/"
+        "mqtt_topic_prefix": "sonde/",
+        # Apprise notifications
+        "apprise_enabled": False,
+        "apprise_urls": "",
+        "apprise_launch_notifications": True,
+        "apprise_landing_notifications": True,
+        "apprise_encrypted_sonde_notifications": True,
+        "apprise_landing_range_threshold": 30,
+        "apprise_landing_altitude_threshold": 1000,
+        "apprise_error_notifications": False,
+        "apprise_subject": "",
+        "apprise_nearby_landing_subject": ""
     }
 
     try:
@@ -848,6 +859,33 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             )
             auto_rx_config["mqtt_enabled"] = False
 
+        # 1.9.1 - Apprise Notifications
+        try:
+            auto_rx_config["apprise_enabled"] = config.getboolean("apprise", "apprise_enabled")
+            auto_rx_config["apprise_launch_notifications"] = config.getboolean("apprise", "launch_notifications")
+            auto_rx_config["apprise_landing_notifications"] = config.getboolean("apprise", "landing_notifications")
+            auto_rx_config["apprise_encrypted_sonde_notifications"] = config.getboolean("apprise", "encrypted_sonde_notifications")
+            auto_rx_config["apprise_error_notifications"] = config.getboolean("apprise", "error_notifications")
+            auto_rx_config["apprise_landing_range_threshold"] = config.getfloat("apprise", "landing_range_threshold")
+            auto_rx_config["apprise_landing_altitude_threshold"] = config.getfloat("apprise", "landing_altitude_threshold")
+            auto_rx_config["apprise_subject"] = config.get("apprise", "subject")
+            auto_rx_config["apprise_nearby_landing_subject"] = config.get("apprise", "nearby_landing_subject")
+
+            try:
+                auto_rx_config["apprise_urls"] = json.loads(config.get("apprise", "apprise_urls"))
+                if type(auto_rx_config["apprise_urls"]) is not list:
+                    raise TypeError("apprise_urls was not provided as a list!")
+            except Exception as e:
+                logging.warning(f"Config - Could not parse apprise_urls config entry. Disabling apprise notifications. (Error: {str(e)})")
+                auto_rx_config["apprise_enabled"] = False
+
+
+        except Exception as e:
+            logging.warning(
+                "Config - Missing Apprise notification settings (new in v1.9.1), defaulting to disabled."
+            )
+            auto_rx_config["apprise_enabled"] = False
+
         # If we are being called as part of a unit test, just return the config now.
         if no_sdr_test:
             return auto_rx_config
@@ -986,6 +1024,7 @@ def read_auto_rx_config(filename, no_sdr_test=False):
             global_config.pop("mqtt_username")
             global_config.pop("mqtt_password")
             global_config.pop("mqtt_topic_prefix")
+            global_config.pop("apprise_urls")
 
             web_password = auto_rx_config["web_password"]
 

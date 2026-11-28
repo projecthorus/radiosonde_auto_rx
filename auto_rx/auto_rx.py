@@ -60,6 +60,7 @@ from autorx.web import (
 from autorx.gpsd import GPSDAdaptor
 from autorx.sdr_wrappers import shutdown_sdr
 from autorx.mqttclient import MQTTClient
+from autorx.apprise import AppriseNotification
 
 
 # Logging level
@@ -88,8 +89,9 @@ exporter_functions = (
     []
 )  # This list will hold references to the exporter add functions, which will be passed onto the decoders.
 
-# Separate reference to the e-mail exporter, as we may want to use this for error notifications.
+# Separate reference to the e-mail and apprise exporters, as we may want to use this for error notifications.
 email_exporter = None
+apprise_exporter = None
 
 # GPSDAdaptor Instance, if used.
 gpsd_adaptor = None
@@ -762,7 +764,7 @@ def station_position_update(position):
 
 def email_error(message="foo"):
     """Helper function to email an error message, if the email exporter is available"""
-    global email_exporter
+    global email_exporter, apprise_exporter
 
     if email_exporter and config["email_error_notifications"]:
         try:
@@ -771,6 +773,14 @@ def email_error(message="foo"):
             logging.error("Error attempting to send notification email: %s" % str(e))
     else:
         logging.debug("Not sending Email notification, as Email not configured.")
+
+    if apprise_exporter and config["apprise_error_notifications"]:
+        try:
+            apprise_exporter.send_notifications(message=message)
+        except Exception as e:
+            logging.error("Error attempting to send apprise notification: %s" % str(e))
+    else:
+        logging.debug("Not sending Apprise notification, as Apprise not configured.")
 
 def main():
     """Main Loop"""
@@ -970,6 +980,7 @@ def main():
         exporter_objects.append(_logger)
         exporter_functions.append(_logger.add)
 
+    # Email
     if config["email_enabled"]:
 
         _email_notification = EmailNotification(
@@ -997,6 +1008,28 @@ def main():
 
         exporter_objects.append(_email_notification)
         exporter_functions.append(_email_notification.add)
+
+    # Apprise
+    if config["apprise_enabled"]:
+        _apprise_notification = AppriseNotification(
+            apprise_urls=config["apprise_urls"],
+            subject=config["apprise_subject"],
+            nearby_landing_subject=config["apprise_nearby_landing_subject"],
+            station_position=(
+                config["station_lat"],
+                config["station_lon"],
+                config["station_alt"],
+            ),
+            launch_notifications=config["apprise_launch_notifications"],
+            landing_notifications=config["apprise_landing_notifications"],
+            encrypted_sonde_notifications=config["apprise_encrypted_sonde_notifications"],
+            landing_range_threshold=config["apprise_landing_range_threshold"],
+            landing_altitude_threshold=config["apprise_landing_altitude_threshold"],
+        )
+        apprise_exporter = _apprise_notification
+
+        exporter_objects.append(_apprise_notification)
+        exporter_functions.append(_apprise_notification.add)
 
     # APRS Uploader
     if config["aprs_enabled"]:
